@@ -1,0 +1,68 @@
+view_id,type,title,abstract
+"MX-YLZJG-JAIID-V27X5","cc","Earthquakes Mag ≥ 5.5: Past 30 Days (USGS)","Real-time Feed, updated every 15 minutes. More information
+<a href=https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php target = ""_blank"">here</a>."
+"MX-ASEPD-BBG4F-JP2DI","cc","Global CH4 emissions in tonnes/px/year - EDGAR v6.0 (1970 - 2018, Animation)","EDGARv6.0 provides emissions of the three main greenhouse gases (CO2, CH4, N2O) and fluorinated gases (coming soon) per sector and country. 
+<br><br>
+An animation of the 1970-2018 period is shown for the CH4 emissions.
+<br><br>
+CO2 emissions are provided separately for CO2_excl_short-cycle_org_C and CO2_short-cycle_org_C. Emissions of CO2_excl_short-cycle_org_C include all fossil CO2 sources, such as fossil fuel combustion, non-metallic mineral processes (e.g. cement production), metal (ferrous "
+"MX-GQ07V-VN1L3-NFAL0","cc","Mass concentration of chlorophyll a in sea water","The mass concentration of chlorophyll (mg/m³) in sea water is available as daily average values from 01/11/2020 to present for 50 vertical levels ranging from 0 to -5700 meters with a resolution of 0.25°.
+<br><br>
+The parameter is derived from numerical modelling and is part of the <a href=""https://doi.org/10.48670/moi-00015""target=_blank>Global Ocean Biogeochemistry Analysis and Forecast</a> dataset which is originated by Mercator Océan International.
+<br><br>
+The Operational Mercator Ocean bio"
+"MX-SO5RK-54777-WO17K","cc","Sea ice thickness","The sea ice thickness (meters) is available as daily average values from 01/11/2020 to present with a resolution of 0.08333°.
+<br><br>
+The parameter is derived from numerical modelling and is part of the <a href=""https://doi.org/10.48670/moi-00016""target=_blank>Global Ocean Physics Analysis and Forecast</a> dataset which is originated by Mercator Océan International.
+<br><br>
+The Operational Mercator global ocean analysis and forecast system at 1/12 degree is providing 10 days of 3D global ocean"
+"MX-PUOVX-3KH8L-3LLX0","cc","Trinidad: Species status in sensitive wetland sites in the Gulf of Paria (IMA) ","The dataset shows the number of species analyzed and their status (""healthy"", ""impacted"", ""damaged"") in sensitive wetland site in the Gulf of Paria in Trinidad.
+<br>
+The layer is retrieved in real time from IMA using OGC compliant web services. The layer, however, shows a subset of the information that is contained in the original dataset ""Sensitive_Wetland_Sites_and_their_Description_along_the_Gulf_of_Paria_test01"" due to visualization constraints."
+"MX-KG1JB-OI13A-6RHKN","cc","WorldCover 10m (ESA, 2021)","WorldCover provides a new baseline global land cover product at 10 m resolution for 2021 based on Sentinel-1 and 2 data that was developed and validated in almost near-real time and at the same time maximizes the impact and uptake for the end users.
+<br>
+<br>
+© ESA WorldCover project / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium
+<br>
+<br>
+For a description of the ESA WorldCover product and details on how to use the data please see the <a href=""https:/"
+"MX-V07LO-829XA-4BIZ8","rt","Flood Hazard 25 Years - Existing climate","The hydrological model used is the Continuum model (Silvestro et al. 2013 and 2015). It is a continuous, distributed and physically based hydrological model able to reproduce the spatial-temporal evolution of soil moisture, energy fluxes, surface soil temperature, evapotranspiration and discharge. Climate dataset used for the simulation of basin response are the W5E5 Global Meteorological dataset for present climate, and the ISIMIP3b Global Meteorological reanalysis dataset for the futur climate"
+"MX-5D80D-26EC9-6D87B","rt","Forest protection opportunities to reduce landslide risk - 2022 - National","This dataset shows the areas where forest protection (open and closed forests, as well as woodlands) could be undertaken for reducing landslide physical exposure. Protection opportunities areas were considered for areas where the ecosystem coverage was above the median."
+"MX-YDEBA-4EJDH-AVY2Y","rt","GHS population grid (2020)","The GHS-POP depicts the distribution of residential population in 2020, expressed as the number of people per 3arcsec cell (~100m² at the equator).
+<br>
+Residential population estimates between 1975 and 2020 in 5 years intervals and projections to 2025 and 2030 derived from CIESIN GPWv4.11 were disaggregated from census or administrative units to grid cells, informed by the distribution, density, and classification of built-up as mapped in the Global Human Settlement Layer (GHSL) global layer pe"
+"MX-5VLH5-C2C13-MMWM8","rt","Global land Degradation (SDG 15.3.1)","This map shows the status of land (from degraded to improved) at pixel level over the period 2001 to 2015. 
+This dataset has been generated using the Trends.Earth model to asses Land Degradation according to the UN Metadata Guideline for SDG.
+<br><br>
+More information on Trends.Earth: <br>
+<a href=""https://docs.trends.earth/en/latest/for_users/features/landdegradation.html""target=_blank>https://docs.trends.earth/en/latest/for_users/features/landdegradation.html</a>
+<br>More information on Land D"
+"MX-E0C30-K480J-EIRZX","rt","Marine and Terrestrial Protected Areas","The World Database on Protected Areas (WDPA) and other effective area-based conservation measures (OECM) database are joint products of UNEP and IUCN, managed by UNEP-WCMC and the IUCN working with governments, communities and collaborating partners.
+The databases store information on the global distribution of terrestrial and marine protected areas and OECMs.
+<br><br>
+The databases contain protected areas and OECMs designated at the national level and under regional and international convention"
+"MX-8Z5YW-NUYY4-GQB5S","rt","Year of gross forest cover loss event (2000-2023)","Forest loss during the period 2000–2023, defined as a stand-replacement disturbance, or a change from a forest to non-forest state. Encoded as either 0 (no loss) or else a value in the range 1–23, representing loss detected primarily in the year 2001–2023, respectively. The data indicates the year where forest loss primarily occurred (based on year 2000 forest cover) for all global land areas (outside of the polar regions)  at 30 × 30 meter resolution. The data is derived from analysing over 600"
+"MX-5BWRN-RBB0W-ZAXRA","sm","General story map MapX presentation - January 2025","Story map presenting the MapX platform, its functionalities and applications."
+"MX-YF1T2-42JUK-5EXLM","sm","Protecting our Caribbean Sea and Sustaining our Future - December 2022","Story map co-developed by the Cartagena Convention Secretariat and UNEP/GRID-Geneva. This story map provides insights on key environmental issues in the Caribbean sea and wider Caribbean region, emerging threats on marine biodiversity, and possible solutions and actions to address them."
+"MX-UTX2R-XC260-WCB76","sm","WESR key geospatial features - February 2022","Key cartographic elements of the World Environment Situation Room (WESR) - February 2022"
+"MX-OU7NG-ZNZGA-ZX3K0","vt","Active Fires Assessment (Administrative Level 1)","This layer shows the trend of fires occurrence at province level (GADM version 3.6 level 1) from 2003 to present based on MODIS Collection 6 Active Fire Product MCD14ML.<br>
+The dashboard associated to the layer provides relevant information over 1) the density of fires by Km2 per each administrative unit, 2) the evolution of the monthly cumulated fires per each year, 3) the distribution of fires by land cover type (based on MODIS landcover data per each year) and 3) the number of fires occurrin"
+"MX-MN8RT-XIK0C-OFQ1Y","vt","Concentration of cobalt in soils (2016)","Persistent high contamination near abandoned mines and mining activities: an impact assessment of the Dilala, Luilu and Mpingiri rivers, district of Kolwezi. 
+
+Cobalt concentration (mg kg-1).
+2000 = sanitizing required.
+71 = non contaminated background."
+"MX-BDDVD-UDYMU-ZBBOC","vt","Dredging By Marine Protected Areas","This layer provides annual data on total volume dredged per marine protected areas. It also provides information on the flags of the vessels engaged in dredging activities and the acronyms of the dredging vessel types in a given zone.
+<br><br>
+The data processing and calculation of the zonal statistics was carried out by UNEP/GRID-Geneva in December 2023."
+"MX-VKW3P-AE6B0-0JY3H","vt","Global Ocean Biogeochemistry Analysis and Forecast","This layer shows the Exclusive Economic Zone (EEZ) of countries with a dashboard providing the monthly average values for several biogeochemical parameters since 2020.
+<br><br>
+The data processing and calculation of the zonal statistics was initially carried out by UNEP/GRID-Geneva in May 2022, followed by a monthly data update (20th day of month).
+<br><br>
+<i>Global Ocean Biogeochemistry Analysis and Forecast</i><br>
+Credits: E.U. Copernicus Marine Service Information (CMEMS)
+<br><br>
+<i>EEZ bo"
+"MX-4W6BQ-L2FVY-I24OR","vt","Marine Plastics: non-adjusted Plastic concentration (g per km2)","This dataset is a compiliation of the results from 10 research monitoring plastic concentration in the oceans through in situ sampling (Suaria et al. 2016; Goldstein et al. 2012; Doyle et al. 2011: Law et al. 2010; Law et al. 2014; Eriksen et al. 2014; Cozar et al. 2015; Cózar et al. 2014; Ruiz-Orejón et al 2016; Collignon et al. 2012). The column PC_number_km2  features a non-adjusted plastic concentration (items per km2); the column PC_g_km2 provides the weight of plastic: non-adjusted Plastic"
+"MX-NUMTV-X97MG-7POZ1","vt","Mercury Emissions Estimates 2018 (UN Environment - 2019)","Mercury emissions estimates from the <a href=""https://www.unenvironment.org/resources/publication/global-mercury-assessment-2018"" target=""_blank"">Global Mercury Assessment 2018</a> (UN Environment - 2019)"
+"MX-1L2TA-6FXPV-N3QMX","vt","Projected change in water stress (RCP8.5) 2030","With the goal of producing information for decadal-scale planning, adaptation, and investment, the Aqueduct Water Stress Projections model potential changes in future demand and supply of water over the next 3 decades. Global indicators were developed for water demand (withdrawal and consumptive use), water supply, water stress (the ratio of water withdrawal to supply), and intra-annual (seasonal) variability for the periods centered on 2020, 2030, and 2040 for each of 2 climate scenarios, RCP4."
