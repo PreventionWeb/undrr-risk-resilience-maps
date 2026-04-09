@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UNDRR Risk to Resilience Map</title>
+    <link
+      rel="stylesheet"
+      href="https://assets.undrr.org/testing/static/mangrove/1.4.1/css/style.css"
+    />
+  </head>
+  <body>
+    <!-- Preview PIN gate overlay -->
+    <div id="pin-gate" class="pin-gate" role="dialog" aria-modal="true" aria-labelledby="pin-gate-title">
+      <div class="pin-gate__card">
+        <img
+          src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
+          alt="UNDRR"
+          class="pin-gate__logo"
+          width="180"
+          height="26"
+          onerror="this.style.display='none'"
+        />
+        <h1 class="pin-gate__title" id="pin-gate-title">Risk to Resilience Map</h1>
+        <p class="pin-gate__desc">This is a prototype for interaction and review only. It does not reflect actual data or final look and feel. It is shared for early feedback purposes only.</p>
+        <div class="pin-gate__input-row">
+          <label class="pin-gate__label" for="pin-input">Enter the PIN for access.</label>
+          <div class="pin-gate__controls">
+            <input
+              id="pin-input"
+              class="pin-gate__input"
+              type="password"
+              inputmode="numeric"
+              maxlength="4"
+              placeholder="••••"
+              autocomplete="one-time-code"
+              aria-describedby="pin-error"
+            />
+          </div>
+        </div>
+        <p id="pin-error" class="pin-gate__error" aria-live="polite" hidden>Incorrect PIN. Please try again.</p>
+      </div>
+    </div>
+
+    <!-- UNDRR page header -->
+    <header class="mg-page-header mg-page-header--default">
+      <div class="mg-page-header__decoration">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <div class="mg-page-header__toolbar-wrapper">
+        <div class="mg-page-header__container mg-container">
+          <div
+            class="mg-page-header__region mg-page-header__region--toolbar"
+          >
+            <section
+              class="mg-page-header__block mg-page-header__block--logo"
+            >
+              <a href="https://www.undrr.org">
+                <img
+                  src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
+                  alt="UNDRR Logo"
+                  width="324"
+                  height="47"
+                  class="mg-page-header__logo-img"
+                />
+              </a>
+            </section>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Category navigation bar -->
+    <nav class="mg-mega-wrapper" aria-label="Map navigation">
+      <ul
+        class="mg-mega-topbar | mg-container-full-width"
+        role="menubar"
+        aria-label="Map category menu"
+      >
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
+            UNDRR Resilience Maps
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#hazard" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link is-active" data-tab="hazard">
+            Hazard
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#exposure" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="exposure">
+            Exposure
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#vulnerability" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="vulnerability">
+            Vulnerability
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#risk" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="risk">
+            Risk
+          </a>
+        </li>
+        <li class="nav-info-sep" role="separator" aria-hidden="true"></li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#guide" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="guide">
+            Guide
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#sources" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="sources">
+            Sources
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#downloads" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="downloads">
+            Downloads
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Info pages (home, guide, sources, downloads) — full-page, map hidden -->
+    <div id="info-page"><!-- populated by JS --></div>
+
+    <!-- App layout: full-width map with floating layer panel -->
+    <div class="app-map" id="app-map">
+      <div id="mapx" style="width: 100%; height: 100%"></div>
+
+      <!-- Floating layer panel -->
+      <div class="layer-panel" id="sidebar">
+        <div class="layer-panel-header">
+          <span class="layer-panel-title" id="panel-title">Layers</span>
+          <button class="layer-clear-btn" id="layer-clear-btn" aria-label="Turn off all layers" title="Turn off all layers" hidden>
+            Clear all
+          </button>
+          <button class="layer-panel-toggle" id="panel-toggle" aria-label="Collapse panel">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        </div>
+        <div class="layer-panel-body" id="panel-body"></div>
+      </div>
+
+      <!-- Feature infobox (hidden by default) -->
+      <div id="infobox" class="infobox">
+        <div class="infobox-header">
+          <h3 class="infobox-title">Feature</h3>
+          <button class="infobox-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="infobox-body"></div>
+      </div>
+    </div>
+
+    <!-- MapX SDK must load before module script -->
+    <script src="https://app.mapx.org/sdk/mxsdk.umd.js"></script>
+    <script type="module" src="/src/pin-gate.js"></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

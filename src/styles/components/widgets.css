@@ -1,0 +1,77 @@
+/**
+ * Compound layer widgets — sub-tabs and stepped slider.
+ */
+
+.widget-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+/* ── Sub-tabs ─────────────────────────────────────── */
+
+.widget-sub-tabs {
+  margin-bottom: 0.5rem;
+}
+
+.widget-sub-tabs-bar {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.widget-sub-tab {
+  flex: 1;
+  padding: 0.35rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-align: center;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  background: #fff;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background 0.1s, color 0.1s;
+}
+
+.widget-sub-tab:last-child {
+  border-right: none;
+}
+
+.widget-sub-tab:hover {
+  background: #f5f5f5;
+}
+
+.widget-sub-tab.is-active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.widget-sub-tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* ── Stepped slider ───────────────────────────────── */
+
+.widget-stepped-slider {
+  margin-bottom: 0.5rem;
+}
+
+.widget-slider-input {
+  width: 100%;
+  height: 3px;
+  accent-color: var(--color-primary);
+  margin: 0.25rem 0 0.15rem;
+}
+
+.widget-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  padding: 0 0.1rem;
+}

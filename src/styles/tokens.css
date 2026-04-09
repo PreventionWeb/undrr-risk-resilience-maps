@@ -1,0 +1,29 @@
+/**
+ * Design tokens and global defaults.
+ *
+ * CSS custom properties used across all component stylesheets.
+ * Colour values come from the UNDRR Mangrove palette where possible.
+ */
+
+:root {
+  --header-height: 3.5rem;
+  --nav-height: 2.75rem;
+  --color-primary: #004f91;
+  --color-primary-light: #f0f6fc;
+  --color-text: #333;
+  --color-text-muted: #666;
+  --color-border: #ddd;
+  --color-border-light: #eee;
+  --z-panel: 10;
+  --z-infobox: 20;
+  --z-pin-gate: 9999;
+}
+
+/* ── Reduced motion ───────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

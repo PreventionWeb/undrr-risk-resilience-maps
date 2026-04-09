@@ -1,0 +1,29 @@
+/**
+ * Opacity slider widget — per-layer transparency control.
+ */
+
+.opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  margin-bottom: 0.4rem;
+}
+
+.opacity-row label {
+  color: #666;
+  flex-shrink: 0;
+}
+
+.opacity-row input[type="range"] {
+  flex: 1;
+  height: 3px;
+  accent-color: #004f91;
+}
+
+.opacity-value {
+  width: 2.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #666;
+}

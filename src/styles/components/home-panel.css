@@ -1,0 +1,285 @@
+/**
+ * Info pages (Home, Guide, Sources, Downloads) — full-page layouts
+ * using UNDRR Mangrove design system conventions.
+ */
+
+/* ── Hero header band ── */
+
+.info-page-hero {
+  background-color: #004f91;
+  color: #fff;
+  padding: 3rem 1rem 2.5rem;
+}
+
+.info-page-hero--secondary {
+  background-color: #1a6faa;
+}
+
+.info-page-hero .mg-container {
+  max-width: 900px;
+}
+
+.info-page-hero__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+  margin: 0 0 0.5rem;
+}
+
+.info-page-hero__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+.info-page-hero__intro {
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 44rem;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Content sections ── */
+
+.info-page-section {
+  padding: 2.5rem 1rem;
+}
+
+.info-page-section--grey {
+  background-color: #f2f5f8;
+}
+
+.info-page-section--wide .mg-container {
+  max-width: 1100px;
+}
+
+.info-page-section .mg-container {
+  max-width: 900px;
+}
+
+.info-page-section__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #004f91;
+  margin: 0 0 1.5rem;
+  border-bottom: 2px solid #004f91;
+  padding-bottom: 0.4rem;
+}
+
+/* ── Category cards grid ── */
+
+.info-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.info-category-card {
+  max-width: none !important;
+  /* Reset <button> defaults so it renders as a card */
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.info-category-card:hover,
+.info-category-card:focus-visible {
+  outline: 2px solid var(--mg-card-border, #004f91);
+  outline-offset: 2px;
+}
+
+.info-category-card__num {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 72px;
+  display: block;
+}
+
+/* ── Guide steps ── */
+
+.info-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-step:last-child {
+  border-bottom: none;
+}
+
+.info-step__num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #004f91;
+  min-width: 2.5rem;
+  flex-shrink: 0;
+  line-height: 1;
+  padding-top: 0.1rem;
+}
+
+.info-step__title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.info-step__desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4d4d4d;
+  line-height: 1.5;
+}
+
+/* ── Sources ── */
+
+.info-source-category {
+  margin-bottom: 2rem;
+}
+
+.info-source-category__title {
+  margin: 0 0 0.75rem;
+}
+
+.info-source-entries {
+  border-left: 3px solid #b3cade;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-source-entry__label {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #004f91;
+}
+
+.info-source-entry__detail {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4d4d4d;
+  line-height: 1.5;
+}
+
+/* ── Data table (Sources page) ── */
+
+.data-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0.5rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.data-table th {
+  background-color: #004f91;
+  color: #fff;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.6rem 0.75rem;
+  vertical-align: top;
+  border-bottom: 1px solid #dde4ea;
+  color: #2d2d2d;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:nth-child(even) td {
+  background-color: #f7fafc;
+}
+
+.data-table a {
+  color: #004f91;
+  text-decoration: underline;
+}
+
+.data-table td:first-child {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.data-table .data-table__license {
+  white-space: nowrap;
+}
+
+.data-table__row--planned td {
+  color: #6b7a8d;
+  background-color: #f9fafb !important;
+}
+
+.data-table__row--planned td:first-child {
+  color: #4d5f75;
+}
+
+.data-table__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 0.1em 0.45em;
+  border-radius: 3px;
+  background-color: #e8f0f9;
+  color: #004f91;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* ── Downloads / plain lists ── */
+
+.info-plain-list {
+  padding-left: 1.25rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ── Credits ── */
+
+.info-page-credits {
+  font-size: 0.9rem;
+  color: #4d4d4d;
+}
+
+.info-page-credits a {
+  color: #004f91;
+}

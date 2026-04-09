@@ -1,0 +1,47 @@
+/**
+ * Legend display — HTML swatches and SDK legend images.
+ */
+
+.html-legend {
+  margin-top: 0.3rem;
+}
+
+.html-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0;
+}
+
+.html-legend-swatch {
+  width: 1rem;
+  height: 0.75rem;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.html-legend-label {
+  font-size: 0.7rem;
+  color: #444;
+}
+
+.legend-diagnostic {
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: #999;
+}
+
+.legend-diagnostic summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.legend-diagnostic summary:hover {
+  color: #666;
+}
+
+.layer-legend-img {
+  max-width: 100%;
+  margin-top: 0.3rem;
+}

@@ -1,0 +1,72 @@
+/**
+ * Feature infobox — floating popup for map click results.
+ */
+
+.infobox {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: var(--z-infobox);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  max-width: 22rem;
+  max-height: 50%;
+  overflow-y: auto;
+  display: none;
+}
+
+.infobox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+.infobox-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.infobox-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #999;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.infobox-close:hover {
+  color: var(--color-primary);
+  background: #f0f0f0;
+}
+
+.infobox-close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.infobox-body {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+}
+
+.infobox-body table {
+  width: 100%;
+}
+
+.infobox-body td {
+  padding: 0.2rem 0.3rem;
+  vertical-align: top;
+}
+
+.infobox-body td:first-child {
+  font-weight: 500;
+  white-space: nowrap;
+  color: #666;
+}

@@ -1,6 +1,6 @@
-# Implementation patterns from mapx-demo-embed
+# Implementation patterns
 
-> Reference for scaffolding the new project. All code examples and file paths refer to the [mapx-demo-embed](../../mapx-demo-embed/) sibling repo. See [ARCHITECTURE.md](../ARCHITECTURE.md) for how we plan to adapt these patterns and [PRD.md](../PRD.md) for what we're building.
+> Reference patterns for building MapX SDK embed apps. See [ARCHITECTURE.md](../ARCHITECTURE.md) for how these patterns are applied and [PRD.md](../PRD.md) for what we're building.
 
 ## 1. Project scaffolding
 
@@ -12,7 +12,7 @@ Vite handles multi-page apps by listing HTML entry points in `rollupOptions.inpu
 // vite.config.js
 export default defineConfig({
   root: ".",
-  base: "/mapx-demo-embed/",   // deploy path -- change for our project
+  base: "/your-project/",       // deploy path
   server: { port: 3001 },
   build: {
     outDir: "dist",
@@ -57,7 +57,7 @@ Every page follows this order:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Page Title</title>
   <!-- Mangrove CSS from CDN -->
-  <link rel="stylesheet" href="https://assets.undrr.org/testing/static/mangrove/1.4.0/css/style.css" />
+  <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.4.0/css/style.css" />
 </head>
 <body>
   <!-- UNDRR page header -->
@@ -79,7 +79,7 @@ The SDK UMD script sets `window.mxsdk` as a global. The module script runs secon
 Single CSS link from UNDRR assets CDN. No JS component library, no npm package -- just the stylesheet.
 
 ```html
-<link rel="stylesheet" href="https://assets.undrr.org/testing/static/mangrove/1.4.0/css/style.css" />
+<link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.4.0/css/style.css" />
 ```
 
 ### Font sizing

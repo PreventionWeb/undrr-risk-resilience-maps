@@ -59,7 +59,7 @@ curl 'https://search.mapx.org:443/indexes/views_en/search' \
   --data-raw '{"q":"flood hazard","limit":10}'
 ```
 
-Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key can be obtained from Pierre. Also documented in the [MapX SDK skill](../mapx-llm-skills/) limitations section.
+Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key can be obtained from the MapX platform contact at GRID-Geneva.
 
 ### SDK probe vs MeiliSearch
 
@@ -70,7 +70,7 @@ Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key 
 
 The probe script writes to `research/`:
 
-- `mapx-views-eco-drr.json` / `.csv` -- 85 views from Eco-DRR project
-- `mapx-views-home.json` / `.csv` -- 22 views from HOME project
+- `mapx-views-eco-drr.json` / `.csv` — 85 views from Eco-DRR project
+- `mapx-views-home.json` / `.csv` — 22 views from HOME project
 
 These are raw dumps used to build the [crosswalk](research/gri-mapx-crosswalk.csv).
