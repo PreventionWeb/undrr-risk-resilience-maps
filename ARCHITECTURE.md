@@ -23,7 +23,8 @@ undrr-risk-resilience-maps/
 │   │   │   ├── hazard.js       # Compound + simple hazard layers
 │   │   │   ├── exposure.js
 │   │   │   ├── vulnerability.js
-│   │   │   └── risk.js
+│   │   │   ├── risk.js
+│   │   │   └── resilience.js   # Planned resilience placeholders / cross-link stubs
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -93,13 +94,17 @@ Browser tab
 
 ### Navigation and layer panel
 
-Category tabs (Hazard, Exposure, Vulnerability, Risk) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
+Category tabs (Risk, Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
 
 **Two routing modes driven by `switchTab()`:**
 - **Info tabs** — hide the map (`#app-map`), show the full-page `#info-page` container, display the matching info panel.
 - **Data tabs** — show the map, show the floating layer panel with the matching tab's layers.
 
 The active tab and open layers are encoded in the URL hash (format: `#tab?layers=key:sourceIdx,...`) so links are shareable and browser back/forward works. On `hashchange`, both the active tab and the open layer set are reconciled against the new URL.
+
+The current repository owns the **map registry** only: tab structure, layer metadata, MapX view IDs, legends, and map interaction. Future resilience indicators or chart-based content are expected to live in a separate system and be cross-linked from this app when appropriate. To keep that future path open, placeholder resilience entries can exist here before their final delivery format is settled.
+
+Layer configs may also be retained in unpublished review states such as **disabled**, **disabled-awaiting-data**, or **disabled-pending-removal**. These layers are hidden from the sidebar by default, but can be revealed with a review toggle in the layer panel header. They still appear in the Sources page and layer inventory export so content decisions remain visible and reversible.
 
 ### Simple vs compound layers
 
@@ -157,6 +162,7 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 The floating layer panel includes:
 - **Per-layer accordions** — expand to reveal opacity slider, legend, and source-switching widget. Built by `buildLayerAccordion()` in `sidebar.js`; returns `{ wrapper, eyeBtn }` so the sidebar can maintain a `layerElementMap` (key → DOM references) without positional DOM queries.
 - **Eye toggle** — turns a layer on/off; aria-pressed reflects state
+- **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
 - **Clear all button** — appears in the panel header; iterates `layerElementMap` to turn off all active layers across all tabs at once
 - **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). If the layer config has a local `legend` array, HTML colour swatches are rendered; the SDK's server-rendered legend image is shown as a collapsed diagnostic when a local legend exists, or as the primary legend when no local override is present.
 

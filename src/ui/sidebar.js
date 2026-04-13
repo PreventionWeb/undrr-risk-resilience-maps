@@ -1,7 +1,7 @@
 /**
  * Floating layer panel + info page routing.
  *
- * - Data tabs (hazard / exposure / vulnerability / risk): show map + sidebar.
+ * - Data tabs (from layer config): show map + sidebar.
  * - Info tabs (home / guide / sources / downloads): show full-page view, hide map.
  *
  * Layer definitions come from config/layers.js; this module is purely UI.
@@ -15,6 +15,7 @@ import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel } from "./info-
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
+import { isLayerPublished } from "../config/layers/status.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -22,12 +23,14 @@ const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
 const INFO_TABS = ["home", "guide", "sources", "downloads"];
 
 // All valid tab IDs for hash routing
-const ALL_TABS = [...INFO_TABS, ...["hazard", "exposure", "vulnerability", "risk"]];
+const DATA_TABS = TABS.map((tab) => tab.id);
+const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
 
 // Built by buildSidebar(); maps layer.key → { layer, eyeBtn, wrapper }
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
 const layerElementMap = new Map();
+let showDisabledLayers = false;
 
 /**
  * Build the UI and wire up all nav links.
@@ -38,6 +41,7 @@ export function buildSidebar() {
   const toggle = document.getElementById("panel-toggle");
   const infoPage = document.getElementById("info-page");
   const clearBtn = document.getElementById("layer-clear-btn");
+  const disabledToggleBtn = document.getElementById("layer-disabled-toggle");
 
   // Collapse / expand sidebar
   toggle.addEventListener("click", () => {
@@ -50,6 +54,15 @@ export function buildSidebar() {
       for (const { eyeBtn } of layerElementMap.values()) {
         if (eyeBtn.classList.contains("is-active")) eyeBtn.click();
       }
+    });
+  }
+
+  if (disabledToggleBtn) {
+    disabledToggleBtn.addEventListener("click", () => {
+      showDisabledLayers = !showDisabledLayers;
+      disabledToggleBtn.setAttribute("aria-pressed", String(showDisabledLayers));
+      disabledToggleBtn.textContent = showDisabledLayers ? "Hide disabled" : "Show disabled";
+      updateDisabledLayerVisibility();
     });
   }
 
@@ -66,9 +79,19 @@ export function buildSidebar() {
     tabPanel.id = `tab-${tab.id}`;
     tabPanel.style.display = "none";
 
+    const publishedLayers = tab.layers.filter(isLayerPublished);
+    const empty = document.createElement("p");
+    empty.className = "tab-panel-empty mg-form-help";
+    empty.textContent = 'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
+    empty.hidden = publishedLayers.length > 0;
+    tabPanel.appendChild(empty);
+
     for (const layer of tab.layers) {
       const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-      if (layer.key && !layer.disabled) {
+      if (!isLayerPublished(layer)) {
+        wrapper.hidden = !showDisabledLayers;
+        wrapper.dataset.layerDisabled = "true";
+      } else if (layer.key) {
         layerElementMap.set(layer.key, { layer, eyeBtn, wrapper });
       }
       tabPanel.appendChild(wrapper);
@@ -76,6 +99,8 @@ export function buildSidebar() {
 
     sidebarBody.appendChild(tabPanel);
   }
+
+  updateDisabledLayerVisibility();
 
   // Wire nav home link
   const homeLink = document.querySelector(".nav-home-link");
@@ -161,6 +186,21 @@ function switchTab(tabId) {
     for (const panel of document.querySelectorAll(".tab-panel")) {
       panel.style.display = panel.id === `tab-${tabId}` ? "block" : "none";
     }
+  }
+}
+
+function updateDisabledLayerVisibility() {
+  for (const tab of TABS) {
+    const tabPanel = document.getElementById(`tab-${tab.id}`);
+    if (!tabPanel) continue;
+
+    for (const wrapper of tabPanel.querySelectorAll("[data-layer-disabled='true']")) {
+      wrapper.hidden = !showDisabledLayers;
+    }
+
+    const hasPublishedLayers = tab.layers.some(isLayerPublished);
+    const empty = tabPanel.querySelector(".tab-panel-empty");
+    if (empty) empty.hidden = hasPublishedLayers || showDisabledLayers;
   }
 }
 
@@ -271,7 +311,7 @@ async function reconcileLayersFromHash(hashLayers) {
 
 function buildLayerAccordion(layer) {
   const wrapper = document.createElement("div");
-  wrapper.className = "layer-item" + (layer.disabled ? " layer-disabled" : "");
+  wrapper.className = "layer-item";
 
   // Header row: expand arrow + label + type tag + eye toggle
   const header = document.createElement("div");
@@ -495,6 +535,3 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
   addLegend(legendLayer, legendSlot);
 }
-
-
-

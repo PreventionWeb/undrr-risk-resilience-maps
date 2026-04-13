@@ -44,3 +44,11 @@ Info pages (home, guide, sources, downloads) currently use the same hash routing
 ## Status
 
 **MVP scaffold** -- working app with MapX SDK integration, Mangrove nav bar with category tabs, floating layer panel with accordion controls, per-layer opacity sliders, legend rendering, and feature click popups. See [CHANGELOG.md](CHANGELOG.md) for details.
+
+## Roadmap note
+
+This repository currently focuses on the **map explorer**: category tabs, layer inventory, MapX integration, legends, and interaction patterns.
+
+A future **indicator / chart surface** is expected to complement the map experience, especially for resilience-oriented content. That work is expected to live outside this repository. Where useful, this map app may later link out to related country pages, indicator views, or embedded summaries, but this repo remains the source of truth for the map layer experience itself.
+
+During prototyping, some configured layers may carry unpublished states such as **Disabled**, **Awaiting data**, or **Pending removal**. These layers are not published in the map explorer, but they remain in the Sources page and CSV inventory so stakeholders can review, reinstate, or remove them later. A **Show disabled** control in the layer panel exposes those entries for review without turning them into active map layers.

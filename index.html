@@ -86,7 +86,17 @@
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#hazard" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link is-active" data-tab="hazard">
+          <a href="#risk" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link is-active" data-tab="risk">
+            Risk
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#resilience" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="resilience">
+            Resilience
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#hazard" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="hazard">
             Hazard
           </a>
         </li>
@@ -98,11 +108,6 @@
         <li class="mg-mega-topbar__item" role="none">
           <a href="#vulnerability" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="vulnerability">
             Vulnerability
-          </a>
-        </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a href="#risk" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="risk">
-            Risk
           </a>
         </li>
         <li class="nav-info-sep" role="separator" aria-hidden="true"></li>
@@ -135,12 +140,17 @@
       <div class="layer-panel" id="sidebar">
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
-          <button class="layer-clear-btn" id="layer-clear-btn" aria-label="Turn off all layers" title="Turn off all layers" hidden>
-            Clear all
-          </button>
-          <button class="layer-panel-toggle" id="panel-toggle" aria-label="Collapse panel">
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
+          <div class="layer-panel-actions">
+            <button class="layer-review-btn" id="layer-disabled-toggle" type="button" aria-pressed="false" title="Show disabled layers for review">
+              Show disabled
+            </button>
+            <button class="layer-clear-btn" id="layer-clear-btn" aria-label="Turn off all layers" title="Turn off all layers" hidden>
+              Clear all
+            </button>
+            <button class="layer-panel-toggle" id="panel-toggle" aria-label="Collapse panel">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+          </div>
         </div>
         <div class="layer-panel-body" id="panel-body"></div>
       </div>

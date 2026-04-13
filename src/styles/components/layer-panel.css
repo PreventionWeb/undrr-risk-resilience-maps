@@ -54,6 +54,39 @@
   flex: 1;
 }
 
+.layer-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.layer-review-btn {
+  font-size: 0.72rem;
+  color: #666;
+  background: transparent;
+  border: 1px solid #ccc;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.layer-review-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.layer-review-btn[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(0, 79, 145, 0.08);
+}
+
+.layer-review-btn:focus-visible {
+  outline: 2px solid var(--color-primary, #004f91);
+  outline-offset: 2px;
+}
+
 .layer-clear-btn {
   font-size: 0.75rem;
   color: var(--color-primary, #004f91);
@@ -76,6 +109,10 @@
 }
 
 .layer-panel.is-collapsed .layer-clear-btn {
+  display: none;
+}
+
+.layer-panel.is-collapsed .layer-review-btn {
   display: none;
 }
 
@@ -115,4 +152,11 @@
 
 .tab-panel {
   padding: 0;
+}
+
+.tab-panel-empty {
+  margin: 0;
+  padding: 0.85rem 0.75rem 1rem;
+  color: #666;
+  line-height: 1.5;
 }

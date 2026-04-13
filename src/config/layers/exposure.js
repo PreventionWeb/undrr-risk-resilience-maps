@@ -26,9 +26,9 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://esa-worldcover.org/",
     citation: "Zanaga, D. et al. (2022): ESA WorldCover 10 m 2021 v200. doi:10.5281/zenodo.7254221.",
     license: "CC BY 4.0",
-    note: "Disabled — view is in the MapX HOME project; cannot load until data is moved to the ECO-DRR project.",
+    note: "Awaiting data — view is in the MapX HOME project; cannot load until data is moved to the ECO-DRR project.",
     project: HOME,
-    disabled: true,
+    status: "disabled-awaiting-data",
   },
   {
     id: "MX-8F9EB-10D0B-93564",
@@ -65,6 +65,8 @@ export const EXPOSURE_LAYERS = [
     citation: "UNEP-WCMC, WorldFish Centre, WRI, TNC (2021): Global distribution of warm-water coral reefs. Ocean+ Library. doi:10.34892/t2wk-5t17.",
     license: "CC BY-NC-SA 3.0",
     project: ECO_DRR,
+    note: "Pending removal — retained in the prototype inventory while category scope is under review.",
+    status: "disabled-pending-removal",
   },
   {
     id: null,
@@ -76,8 +78,8 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://www.openstreetmap.org/",
     citation: "OpenStreetMap contributors (2024): OpenStreetMap Data. openstreetmap.org.",
     license: "ODbL 1.0",
-    note: "Disabled — MapX view ID not yet assigned.",
-    disabled: true,
+    note: "Awaiting data — MapX view ID not yet assigned.",
+    status: "disabled-awaiting-data",
   },
   {
     id: null,
@@ -89,7 +91,7 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://datasets.wri.org/dataset/globalpowerplantdatabase",
     citation: "Byers, L. et al. (2019): A Global Database of Power Plants. World Resources Institute, Washington D.C.",
     license: "CC BY 4.0",
-    note: "Disabled — MapX view ID not yet assigned.",
-    disabled: true,
+    note: "Awaiting data — MapX view ID not yet assigned.",
+    status: "disabled-awaiting-data",
   },
 ];

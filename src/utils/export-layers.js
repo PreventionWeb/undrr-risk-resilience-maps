@@ -11,6 +11,7 @@
 
 import { TABS } from "../config/layers/index.js";
 import { PROJECT_LABELS } from "../config/layers/projects.js";
+import { getLayerStatus, isLayerPublished } from "../config/layers/status.js";
 
 const TYPE_LABELS = {
   rt: "Raster",
@@ -36,9 +37,9 @@ export function generateLayerInventoryCSV() {
 
   const lines = [
     row(
-      "Category", "Layer key", "Layer name", "Sub-source",
+      "Category", "Notes", "Layer key", "Layer name", "Sub-source",
       "Type", "Description", "MapX view ID", "MapX project",
-      "Status", "Source attribution", "Source URL", "Citation", "License", "Notes"
+      "Status", "Source attribution", "Source URL", "Citation", "License"
     ),
   ];
 
@@ -49,16 +50,17 @@ export function generateLayerInventoryCSV() {
       const project = PROJECT_LABELS[layer.project] || layer.project || "";
 
       // Warn in dev if an active layer is missing citation or license
-      if (!layer.disabled && layer.id !== null && (!layer.citation || !layer.license)) {
+      if (isLayerPublished(layer) && layer.id !== null && (!layer.citation || !layer.license)) {
         console.warn(`[layer-inventory] Active layer "${layer.key}" is missing citation or license.`);
       }
 
       if (layer.sources && layer.sources.length > 0) {
         // Compound layer: one row per sub-source; citation/license from parent
         for (const src of layer.sources) {
-          const status = layer.disabled ? "Disabled" : (src.id ? "Active" : "Placeholder");
+          const status = getLayerStatus(layer, src);
           lines.push(row(
             category,
+            src.note || layer.note || "",
             layer.key,
             layer.label,
             src.label,
@@ -71,14 +73,14 @@ export function generateLayerInventoryCSV() {
             src.sourceUrl || layer.sourceUrl || "",
             layer.citation || "",
             layer.license || "",
-            src.note || layer.note || "",
           ));
         }
       } else {
         // Simple layer
-        const status = layer.disabled ? "Disabled" : (layer.id ? "Active" : "Placeholder");
+        const status = getLayerStatus(layer);
         lines.push(row(
           category,
+          layer.note || "",
           layer.key,
           layer.label,
           "",
@@ -91,7 +93,6 @@ export function generateLayerInventoryCSV() {
           layer.sourceUrl || "",
           layer.citation || "",
           layer.license || "",
-          layer.note || "",
         ));
       }
     }
@@ -100,17 +101,30 @@ export function generateLayerInventoryCSV() {
   return BOM + lines.join(CRLF);
 }
 
+export function buildLayerInventoryFilename(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, "0");
+  const timestamp = [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join("-");
+
+  return `undrr-layer-inventory-${timestamp}.csv`;
+}
+
 export function downloadLayerInventory() {
   const csv = generateLayerInventoryCSV();
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "undrr-layer-inventory.csv";
+  a.download = buildLayerInventoryFilename();
   a.style.display = "none";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-

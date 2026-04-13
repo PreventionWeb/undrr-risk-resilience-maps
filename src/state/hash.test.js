@@ -137,6 +137,10 @@ describe("getTabForLayerKey", () => {
     expect(getTabForLayerKey("intact-forests")).toBe("vulnerability");
   });
 
+  it("returns 'resilience' for a resilience layer key", () => {
+    expect(getTabForLayerKey("recovery-rates")).toBe("resilience");
+  });
+
   it("returns undefined for an unknown key", () => {
     expect(getTabForLayerKey("does-not-exist")).toBeUndefined();
   });

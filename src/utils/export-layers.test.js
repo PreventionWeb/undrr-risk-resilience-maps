@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { generateLayerInventoryCSV } from "./export-layers.js";
+import { buildLayerInventoryFilename, generateLayerInventoryCSV } from "./export-layers.js";
 
 describe("generateLayerInventoryCSV", () => {
   let csv;
@@ -26,6 +26,7 @@ describe("generateLayerInventoryCSV", () => {
   it("has the expected header columns", () => {
     const expectedColumns = [
       "Category",
+      "Notes",
       "Layer key",
       "Layer name",
       "Sub-source",
@@ -38,11 +39,16 @@ describe("generateLayerInventoryCSV", () => {
       "Source URL",
       "Citation",
       "License",
-      "Notes",
     ];
     for (const col of expectedColumns) {
       expect(header).toContain(col);
     }
+  });
+
+  it("puts Notes second in the header", () => {
+    const columns = header.split(",");
+    expect(columns[0].replace(/^\uFEFF/, "")).toBe("Category");
+    expect(columns[1]).toBe("Notes");
   });
 
   // --- content ---
@@ -64,11 +70,23 @@ describe("generateLayerInventoryCSV", () => {
     expect(csv).not.toContain("MX-2LD-FBB-58N-ROK-8RH");
   });
 
-  it("marks disabled layers as Disabled", () => {
-    // land-cover is disabled (in HOME project)
+  it("marks legacy/generic unpublished layers as Disabled", () => {
+    // land-cover keeps a generic unpublished status path for compatibility checks
     const landCoverLines = lines.filter((l) => l.includes("land-cover"));
     expect(landCoverLines.length).toBeGreaterThan(0);
-    expect(landCoverLines[0]).toContain("Disabled");
+    expect(landCoverLines[0]).toContain("Awaiting data");
+  });
+
+  it("marks coral reefs as Pending removal", () => {
+    const coralLines = lines.filter((l) => l.includes("coral-reefs"));
+    expect(coralLines.length).toBeGreaterThan(0);
+    expect(coralLines[0]).toContain("Pending removal");
+  });
+
+  it("includes CDRI placeholders as Awaiting data", () => {
+    const cdriLines = lines.filter((l) => l.includes("cdri-pml-flood-100yr"));
+    expect(cdriLines.length).toBeGreaterThan(0);
+    expect(cdriLines[0]).toContain("Awaiting data");
   });
 
   it("marks active layers as Active", () => {
@@ -113,5 +131,12 @@ describe("generateLayerInventoryCSV", () => {
         }
       }
     }
+  });
+});
+
+describe("buildLayerInventoryFilename", () => {
+  it("adds a YYYY-MM-DD-HH-MM-SS timestamp suffix", () => {
+    const date = new Date(2026, 3, 13, 14, 46, 5);
+    expect(buildLayerInventoryFilename(date)).toBe("undrr-layer-inventory-2026-04-13-14-46-05.csv");
   });
 });

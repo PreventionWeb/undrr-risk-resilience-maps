@@ -4,17 +4,22 @@
  */
 
 import { downloadLayerInventory } from "../utils/export-layers.js";
+import { getLayerStatus } from "../config/layers/status.js";
 
 // ── Guide ─────────────────────────────────────────────────────────────────────
 
 const GUIDE_STEPS = [
   {
     title: "Select a category",
-    desc: "Choose Hazard, Exposure, Vulnerability, or Risk from the navigation bar. The layer panel updates to show datasets for that category.",
+    desc: "Choose Risk, Resilience, Hazard, Exposure, or Vulnerability from the navigation bar. The layer panel updates to show published layers for that category.",
   },
   {
     title: "Enable a layer",
     desc: "Click the eye icon next to any layer name to toggle it on the map.",
+  },
+  {
+    title: "Review disabled entries",
+    desc: "Use <em>Show disabled</em> in the layer panel header to reveal unpublished review-only entries. Disabled entries stay visible for discussion, but they do not have eye toggles and cannot be turned on.",
   },
   {
     title: "Expand for details",
@@ -111,10 +116,11 @@ function sourceCell(source, url) {
 
 function buildSourcesTable(layers) {
   const rows = layers.map((layer) => {
-    const isDisabled = layer.disabled || (!layer.id && !(layer.sources && layer.sources.length));
-    const rowClass = isDisabled ? ' class="data-table__row--planned"' : "";
-    const statusBadge = isDisabled
-      ? `<span class="data-table__badge">Planned</span> `
+    const status = getLayerStatus(layer);
+    const isTrackedOnly = status !== "Active";
+    const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
+    const statusBadge = isTrackedOnly
+      ? `<span class="data-table__badge">${escHtml(status)}</span> `
       : "";
     return `
       <tr${rowClass}>
@@ -168,7 +174,7 @@ export function buildSourcesPanel() {
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
-        <p class="info-page-hero__intro">Full attribution, citation, and licensing information for all datasets used in this tool. Planned layers are shown for transparency.</p>
+        <p class="info-page-hero__intro">Full attribution, citation, and licensing information for all datasets configured in this tool. Disabled layers remain listed for transparency during prototype review.</p>
       </div>
     </div>
 
@@ -246,4 +252,3 @@ function buildPanel(id, innerHTML) {
   el.innerHTML = innerHTML;
   return el;
 }
-

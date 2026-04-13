@@ -8,6 +8,11 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- Resilience tab with planned placeholder entries for future resilience-linked content
+- Broader CDRI risk placeholders (AAL and 1:100 PML review entries) added to the Risk inventory
+- Public roadmap note clarifying that future indicator/chart content will live outside this repository and be cross-linked into the map experience later
+- Empty-state copy for categories that currently have no published layers
+- Layer-panel review toggle for showing disabled layers without publishing them
 - "Clear all" button in the layer panel header — hides when no layers are active
 - Compound layer system: one accordion item can switch between multiple MapX views
 - Sub-tabs widget for switching data metrics (depth / frequency / exposure)
@@ -47,3 +52,6 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Layout from fixed sidebar to floating panel over full-width map
 - Hazard layers reorganised into compound layers where data pairs exist
 - Layer toggles guarded by SDK readiness flag so they cannot fire before the map is connected
+- Unpublished prototype layers now support richer states such as Awaiting data and Pending removal while remaining hidden from the sidebar by default and retained in Sources/CSV
+- Primary category order now leads with Risk and Resilience
+- Coral Reefs moved to disabled/unpublished status while category scope is reviewed

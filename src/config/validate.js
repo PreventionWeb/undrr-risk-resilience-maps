@@ -6,6 +6,8 @@
  * errors so they show up immediately in the console.
  */
 
+import { isLayerPublished } from "./layers/status.js";
+
 const VALID_TYPES = ["rt", "vt", "cc"];
 
 export function validateLayers(tabs, primaryProject) {
@@ -31,8 +33,8 @@ export function validateLayers(tabs, primaryProject) {
       }
 
       // Enabled layers must belong to the primary project (SDK is single-project)
-      if (!layer.disabled && primaryProject && layer.project && layer.project !== primaryProject) {
-        errors.push(`${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set disabled: true until data is consolidated.`);
+      if (isLayerPublished(layer) && primaryProject && layer.project && layer.project !== primaryProject) {
+        errors.push(`${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`);
       }
 
       if (compound) {
@@ -55,7 +57,7 @@ export function validateLayers(tabs, primaryProject) {
         }
       } else {
         // Simple layer: must have a string ID (unless disabled)
-        if (!layer.disabled && (typeof layer.id !== "string" || !layer.id)) {
+        if (isLayerPublished(layer) && (typeof layer.id !== "string" || !layer.id)) {
           errors.push(`${ctx} -- enabled layer missing id`);
         }
       }

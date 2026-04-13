@@ -318,7 +318,7 @@ The patterns above map directly to what we need:
 
 | GRI feature | Demo pattern to reuse |
 |---|---|
-| Tabbed sidebar with layer toggles | `view-buttons.js` toggle pattern, but organized by tab (hazard/exposure/vulnerability/risk) instead of flat list |
+| Tabbed sidebar with layer toggles | `view-buttons.js` toggle pattern, but organized by tab (risk/resilience/hazard/exposure/vulnerability) instead of flat list |
 | Per-layer controls (sliders, dropdowns) | Extend the transparency slider pattern with additional control types per layer |
 | Show/hide eye toggle | Same as `toggleView()` with `is-active` class |
 | Legend panel | `legends.js` as-is |
@@ -334,4 +334,4 @@ The patterns above map directly to what we need:
 - **Per-layer control widgets** that vary by layer type (sliders, dropdowns, toggles) -- the demo only has transparency sliders
 - **URL state encoding** for deep-linkable layer configurations
 - **Metadata panels** per layer (source attribution, download links)
-- **Roadmap/coming-soon tab** with disabled layer entries
+- **Resilience review category** with disabled layer entries and eventual cross-links to external indicator content

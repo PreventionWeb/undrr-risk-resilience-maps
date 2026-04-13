@@ -43,7 +43,7 @@ The GRI Risk Viewer is the UX reference. We adopt its interaction patterns, resk
 
 What the user sees:
 
-- Hazard / Exposure / Vulnerability / Risk categories in a navigation bar
+- Risk / Resilience / Hazard / Exposure / Vulnerability categories in a navigation bar
 - Toggleable map layers in a floating panel with opacity and filter controls per layer
 - Click any feature on the map to see its data in a popup
 - Up to two map panels side by side
@@ -56,7 +56,7 @@ What the user sees:
 | GRI baseline layers | All current GRI layers: roads, rails, power, plus upgraded CRI layers (from programme team) |
 | Metrics project layers | Augmented layers where data is ready — crop layer confirmed; heat/drought in progress |
 | Per-layer metadata | Source attribution, download links or pointers to source sites |
-| Roadmap tab | "Coming soon" section signalling planned additions (e.g. subnational vulnerability indices, early warning layers) |
+| Resilience review category | Placeholder resilience entries and future cross-links to indicator content while delivery formats are still being defined |
 | Country links | Country-level click-through to Risk & Resilience country pages |
 | Feature data popups | Basic click-on-point data display (matching existing GRI behaviour) |
 | GRI/Oxford credits | Clear successor/credits note acknowledging GRI and Oxford |
@@ -74,7 +74,7 @@ No freeform data mixing by end-users.
 
 ## Data layers
 
-Layers are organised by tab (hazard / exposure / vulnerability / risk). The definitive inventory is pending from the programme team (see [open questions](#open-questions)). See [research/gri-layer-inventory.md](research/gri-layer-inventory.md) for the full GRI baseline and [research/gri-mapx-crosswalk.csv](research/gri-mapx-crosswalk.csv) for MapX availability and view IDs.
+Layers are organised by tab (hazard / exposure / vulnerability / risk, plus a planned resilience category). The definitive inventory is pending from the programme team (see [open questions](#open-questions)). See [research/gri-layer-inventory.md](research/gri-layer-inventory.md) for the full GRI baseline and [research/gri-mapx-crosswalk.csv](research/gri-mapx-crosswalk.csv) for MapX availability and view IDs.
 
 | Source | Status |
 |---|---|
@@ -82,8 +82,8 @@ Layers are organised by tab (hazard / exposure / vulnerability / risk). The defi
 | Upgraded CRI layers (programme team) | Signalled as ready |
 | Metrics: crop layer | Confirmed |
 | Metrics: heat/drought layers | In progress |
-| Subnational vulnerability indices | Future (Roadmap tab) |
-| Early warning layers | Future (Roadmap tab) |
+| Subnational vulnerability indices | Future (review backlog) |
+| Early warning layers | Future (review backlog) |
 
 ## Open questions
 

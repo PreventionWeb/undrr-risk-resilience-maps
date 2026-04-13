@@ -11,7 +11,12 @@
  *   type     - "rt" (raster), "vt" (vector), or "cc" (custom coded / live)
  *   desc     - Short description shown when the layer accordion is expanded
  *   project  - MapX project ID that owns the view
- *   disabled - true = greyed out, not toggleable
+ *   status   - optional unpublished state:
+ *              "disabled", "disabled-awaiting-data", or
+ *              "disabled-pending-removal"
+ *              Unpublished layers are not currently published in the map
+ *              explorer, but remain in Sources and CSV export for prototype
+ *              tracking. Legacy `disabled: true` is still supported.
  *   legend   - optional [{color, label}] array for local HTML legend override
  *
  * Compound layer fields (multiple switchable views under one accordion):
@@ -27,13 +32,15 @@ import { HAZARD_LAYERS } from "./hazard.js";
 import { EXPOSURE_LAYERS } from "./exposure.js";
 import { VULNERABILITY_LAYERS } from "./vulnerability.js";
 import { RISK_LAYERS } from "./risk.js";
+import { RESILIENCE_LAYERS } from "./resilience.js";
 export { ECO_DRR, HOME, CDC } from "./projects.js";
 
 export const TABS = [
+  { id: "risk", label: "Risk", layers: RISK_LAYERS },
+  { id: "resilience", label: "Resilience", layers: RESILIENCE_LAYERS },
   { id: "hazard", label: "Hazard", layers: HAZARD_LAYERS },
   { id: "exposure", label: "Exposure", layers: EXPOSURE_LAYERS },
   { id: "vulnerability", label: "Vulnerability", layers: VULNERABILITY_LAYERS },
-  { id: "risk", label: "Risk", layers: RISK_LAYERS },
 ];
 
 export const PRIMARY_PROJECT = "MX-2LD-FBB-58N-ROK-8RH";

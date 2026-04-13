@@ -13,6 +13,7 @@ const CARD_VISUAL = {
   exposure:      { icon: "02", color: "#ed833f", desc: "Infrastructure and population elements at risk: roads, railways, power networks, and cropland." },
   vulnerability: { icon: "03", color: "#f0b429", desc: "Socioeconomic and structural factors that amplify harm when hazards strike." },
   risk:          { icon: "04", color: "#004f91", desc: "Combined assessment showing where hazard, exposure, and vulnerability converge." },
+  resilience:    { icon: "05", color: "#0a7a5a", desc: "Planned resilience content, including linked indicators and future map layers as datasets are confirmed." },
 };
 
 // Derive categories from TABS so id and label are never duplicated
@@ -21,13 +22,6 @@ const CATEGORIES = TABS.map((tab) => ({
   label: tab.label,
   ...CARD_VISUAL[tab.id],
 })).filter((c) => c.icon); // skip any tabs that have no card visual defined
-
-const ROADMAP = [
-  "Subnational vulnerability indices",
-  "Early warning system layers",
-  "Country-level risk profiles",
-  "Side-by-side map comparison",
-];
 
 export function buildHomePanel() {
   const el = document.createElement("div");
@@ -39,7 +33,7 @@ export function buildHomePanel() {
       <div class="mg-container">
         <p class="info-page-hero__eyebrow">Prototype · Interaction review only</p>
         <h1 class="info-page-hero__title">UNDRR Risk to Resilience Maps</h1>
-        <p class="info-page-hero__intro">A geospatial explorer organised around the risk&#8209;to&#8209;resilience framework. Select a category below or in the navigation bar to explore datasets across Hazard, Exposure, Vulnerability, and Risk.</p>
+        <p class="info-page-hero__intro">A geospatial explorer organised around the risk&#8209;to&#8209;resilience framework. Select a category below or in the navigation bar to explore datasets across Hazard, Exposure, Vulnerability, Risk, and planned Resilience content.</p>
       </div>
     </div>
 
@@ -67,10 +61,9 @@ export function buildHomePanel() {
     <div class="info-page-section info-page-section--grey">
       <div class="mg-container">
         <div class="mg-highlight-box mg-highlight-box--secondary">
-          <h3>Coming soon</h3>
-          <ul>
-            ${ROADMAP.map((item) => `<li>${item}</li>`).join("")}
-          </ul>
+          <h3>In progress</h3>
+          <p>This prototype is currently focused on building out the interaction layer. Right now, the main goal is to support clear switching and comparison across multiple map layers while the source inventory is still being confirmed.</p>
+          <p>Next steps may include pulling related maps across category boundaries, such as showing a risk layer while reviewing vulnerability context, or introducing simple data visualisation patterns that help compare risk and vulnerability together. The exact mechanics are still to be determined, but first the priority is to lock down the map sources.</p>
         </div>
       </div>
     </div>
@@ -92,4 +85,3 @@ export function buildHomePanel() {
 
   return el;
 }
-
