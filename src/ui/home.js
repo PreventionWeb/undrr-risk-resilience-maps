@@ -9,10 +9,10 @@ import { TABS } from "../config/layers.js";
  * these never get out of sync with the navigation bar.
  */
 const CARD_VISUAL = {
-  hazard:        { icon: "01", color: "#c72236", desc: "Natural hazards including river and coastal floods, droughts, earthquakes, and tropical cyclones." },
-  exposure:      { icon: "02", color: "#ed833f", desc: "Infrastructure and population elements at risk: roads, railways, power networks, and cropland." },
-  vulnerability: { icon: "03", color: "#f0b429", desc: "Socioeconomic and structural factors that amplify harm when hazards strike." },
-  "risk-resilience": { icon: "04", color: "#004f91", desc: "Combined risk and resilience assessment showing where hazard, exposure, and vulnerability converge, alongside planned resilience indicators." },
+  "risk-resilience": { icon: "01", color: "#004f91", desc: "Combined risk and resilience assessment showing where hazard, exposure, and vulnerability converge, alongside planned resilience indicators." },
+  hazard:        { icon: "02", color: "#c72236", desc: "Natural hazards including river and coastal floods, droughts, earthquakes, and tropical cyclones." },
+  exposure:      { icon: "03", color: "#ed833f", desc: "Infrastructure and population elements at risk: roads, railways, power networks, and cropland." },
+  vulnerability: { icon: "04", color: "#f0b429", desc: "Socioeconomic and structural factors that amplify harm when hazards strike." },
 };
 
 // Derive categories from TABS so id and label are never duplicated
@@ -28,11 +28,23 @@ export function buildHomePanel() {
   el.id = "tab-home";
 
   el.innerHTML = `
+    <div class="info-page-breadcrumb">
+      <div class="mg-container">
+        <nav aria-label="breadcrumbs" class="mg-breadcrumb">
+          <ul>
+            <li><a href="https://www.undrr.org" target="_blank" rel="noopener">UNDRR.org</a></li>
+            <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience</a></li>
+            <li aria-current="page">Global Risk Analytics &amp; Resilience Map Viewer</li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+
     <div class="info-page-hero">
       <div class="mg-container">
         <p class="info-page-hero__eyebrow">Prototype · Interaction review only</p>
         <h1 class="info-page-hero__title">GRAR Metrics Facility</h1>
-        <p class="info-page-hero__intro">A geospatial explorer for risk and resilience metrics. Select a category below or in the navigation bar to explore datasets across Risk &amp; Resilience, Hazard, Exposure, and Vulnerability.</p>
+        <p class="info-page-hero__intro">Explore interactive global risk and resilience data layers — hazard exposure, economic impacts, and resilience benchmarks — all in one visualization platform. Part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">Risk &amp; Resilience Metrics</a> initiative.</p>
       </div>
     </div>
 
