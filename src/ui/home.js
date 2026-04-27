@@ -12,8 +12,7 @@ const CARD_VISUAL = {
   hazard:        { icon: "01", color: "#c72236", desc: "Natural hazards including river and coastal floods, droughts, earthquakes, and tropical cyclones." },
   exposure:      { icon: "02", color: "#ed833f", desc: "Infrastructure and population elements at risk: roads, railways, power networks, and cropland." },
   vulnerability: { icon: "03", color: "#f0b429", desc: "Socioeconomic and structural factors that amplify harm when hazards strike." },
-  risk:          { icon: "04", color: "#004f91", desc: "Combined assessment showing where hazard, exposure, and vulnerability converge." },
-  resilience:    { icon: "05", color: "#0a7a5a", desc: "Planned resilience content, including linked indicators and future map layers as datasets are confirmed." },
+  "risk-resilience": { icon: "04", color: "#004f91", desc: "Combined risk and resilience assessment showing where hazard, exposure, and vulnerability converge, alongside planned resilience indicators." },
 };
 
 // Derive categories from TABS so id and label are never duplicated
@@ -32,8 +31,8 @@ export function buildHomePanel() {
     <div class="info-page-hero">
       <div class="mg-container">
         <p class="info-page-hero__eyebrow">Prototype · Interaction review only</p>
-        <h1 class="info-page-hero__title">UNDRR Risk to Resilience Maps</h1>
-        <p class="info-page-hero__intro">A geospatial explorer organised around the risk&#8209;to&#8209;resilience framework. Select a category below or in the navigation bar to explore datasets across Hazard, Exposure, Vulnerability, Risk, and planned Resilience content.</p>
+        <h1 class="info-page-hero__title">GRAR Metrics Facility</h1>
+        <p class="info-page-hero__intro">A geospatial explorer for risk and resilience metrics. Select a category below or in the navigation bar to explore datasets across Risk &amp; Resilience, Hazard, Exposure, and Vulnerability.</p>
       </div>
     </div>
 
