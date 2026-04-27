@@ -1,7 +1,16 @@
 /**
- * Info pages (Home, Guide, Sources, Downloads) — full-page layouts
+ * Info pages (Home, Guide, Sources, Downloads, About) — full-page layouts
  * using UNDRR Mangrove design system conventions.
  */
+
+/* ── Breadcrumb — uses mg-breadcrumb from Mangrove ── */
+
+.info-page-breadcrumb {
+  background: #f5f7fa;
+  border-bottom: 1px solid #dde2ea;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+}
 
 /* ── Hero header band ── */
 
@@ -43,6 +52,11 @@
   line-height: 1.6;
 }
 
+.info-page-hero a {
+  color: #fff;
+  text-decoration: underline;
+}
+
 /* ── Content sections ── */
 
 .info-page-section {
@@ -74,7 +88,7 @@
 
 .info-category-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
 }
 

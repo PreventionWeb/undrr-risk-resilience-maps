@@ -11,7 +11,7 @@ import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
-import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel } from "./info-panels.js";
+import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel, buildAboutPanel } from "./info-panels.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
@@ -20,7 +20,7 @@ import { isLayerPublished } from "../config/layers/status.js";
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
 
-const INFO_TABS = ["home", "guide", "sources", "downloads"];
+const INFO_TABS = ["home", "guide", "sources", "downloads", "about"];
 
 // All valid tab IDs for hash routing
 const DATA_TABS = TABS.map((tab) => tab.id);
@@ -71,6 +71,7 @@ export function buildSidebar() {
   infoPage.appendChild(buildGuidePanel());
   infoPage.appendChild(buildSourcesPanel());
   infoPage.appendChild(buildDownloadsPanel());
+  infoPage.appendChild(buildAboutPanel());
 
   // Populate sidebar with layer panels (data tabs only)
   for (const tab of TABS) {

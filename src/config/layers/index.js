@@ -36,8 +36,7 @@ import { RESILIENCE_LAYERS } from "./resilience.js";
 export { ECO_DRR, HOME, CDC } from "./projects.js";
 
 export const TABS = [
-  { id: "risk", label: "Risk", layers: RISK_LAYERS },
-  { id: "resilience", label: "Resilience", layers: RESILIENCE_LAYERS },
+  { id: "risk-resilience", label: "Risk & Resilience", layers: [...RISK_LAYERS, ...RESILIENCE_LAYERS] },
   { id: "hazard", label: "Hazard", layers: HAZARD_LAYERS },
   { id: "exposure", label: "Exposure", layers: EXPOSURE_LAYERS },
   { id: "vulnerability", label: "Vulnerability", layers: VULNERABILITY_LAYERS },
