@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-> UNDRR Risk to Resilience Map — MVP Prototype
+> UNDRR Risk and Resilience Map — MVP Prototype
 >
 > Adapted from the MVP Action Plan (2 Apr 2026, internal SharePoint). Pending questions remain — see [open questions](#open-questions).
 

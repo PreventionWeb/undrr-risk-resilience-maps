@@ -294,7 +294,7 @@ export function buildAboutPanel() {
           <li><strong>Oxford OPSIS / GRI</strong> — interaction model, layer inventory structure, and open-source codebase this tool builds upon.</li>
           <li><strong>UNEP/GRID-Geneva — MapX</strong> — geospatial data hosting, rendering, and map interactivity.</li>
           <li><strong>Data providers</strong> — GEM, JRC, GIRI/UNEP, and others listed in full on the <a href="#sources">Sources</a> page.</li>
-          <li><strong>UNDRR</strong> — programme ownership, branding, and the broader Risk to Resilience Metrics initiative.</li>
+          <li><strong>UNDRR</strong> — programme ownership, branding, and the broader Risk and Resilience Metrics initiative.</li>
         </ul>
       </div>
     </div>
