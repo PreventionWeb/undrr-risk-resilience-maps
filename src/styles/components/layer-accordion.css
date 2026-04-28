@@ -8,7 +8,6 @@
 
 .layer-item.layer-disabled {
   opacity: 0.45;
-  pointer-events: none;
 }
 
 .layer-item.layer-active {
@@ -94,4 +93,22 @@
   font-size: 0.7rem;
   color: #666;
   line-height: 1.4;
+}
+
+/* ── Layer groups (Risk / Resilience subheadings) ─── */
+
+.layer-group + .layer-group {
+  margin-top: 0.25rem;
+}
+
+.layer-group-heading {
+  margin: 0;
+  padding: 0.4rem 0.75rem 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #777;
+  background: #f9f9f9;
+  border-bottom: 1px solid #eee;
 }

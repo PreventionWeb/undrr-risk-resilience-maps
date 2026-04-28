@@ -13,6 +13,7 @@ const VALID_TYPES = ["rt", "vt", "cc"];
 export function validateLayers(tabs, primaryProject) {
   const errors = [];
   const seenIds = new Set();
+  const seenKeys = new Set();
 
   for (const tab of tabs) {
     if (!tab.id || !tab.label || !Array.isArray(tab.layers)) {
@@ -23,6 +24,7 @@ export function validateLayers(tabs, primaryProject) {
     for (const layer of tab.layers) {
       const ctx = `[${tab.id}] "${layer.label || "(no label)"}"`;
       const compound = Array.isArray(layer.sources) && layer.sources.length > 0;
+      const published = isLayerPublished(layer);
 
       if (!layer.label) {
         errors.push(`${ctx} -- missing label`);
@@ -32,23 +34,35 @@ export function validateLayers(tabs, primaryProject) {
         errors.push(`${ctx} -- invalid type "${layer.type}" (expected: ${VALID_TYPES.join(", ")})`);
       }
 
+      if (layer.key) {
+        if (seenKeys.has(layer.key)) {
+          errors.push(`${ctx} -- duplicate key "${layer.key}" (breaks hash routing and layerElementMap)`);
+        }
+        seenKeys.add(layer.key);
+      }
+
       // Enabled layers must belong to the primary project (SDK is single-project)
-      if (isLayerPublished(layer) && primaryProject && layer.project && layer.project !== primaryProject) {
+      if (published && primaryProject && layer.project && layer.project !== primaryProject) {
         errors.push(`${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`);
       }
 
       if (compound) {
-        // Compound layer: validate sources and widget
         if (!layer.widget || !layer.widget.type) {
           errors.push(`${ctx} -- compound layer missing widget.type`);
         }
         for (let s = 0; s < layer.sources.length; s++) {
           const src = layer.sources[s];
-          if (!src.id || typeof src.id !== "string") {
-            errors.push(`${ctx} -- sources[${s}] missing id`);
-          }
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
+          }
+          if (published) {
+            // Published compound layers require valid string IDs on every source
+            if (!src.id || typeof src.id !== "string") {
+              errors.push(`${ctx} -- sources[${s}] missing id`);
+            }
+          } else if (src.id != null && typeof src.id !== "string") {
+            // Unpublished layers may have null IDs; any non-null ID must be a string
+            errors.push(`${ctx} -- sources[${s}] id must be a string or null`);
           }
           if (src.id && seenIds.has(src.id)) {
             errors.push(`${ctx} -- sources[${s}] reuses view id "${src.id}" (already used by another layer -- breaks toggle state)`);

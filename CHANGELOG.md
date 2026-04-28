@@ -8,6 +8,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- Risk & Resilience tab now renders Risk Maps and Resilience Maps as distinct labelled subgroups in the sidebar; group headings hide automatically when disabled layers are not shown
+- Canonical Risk and Resilience layer inventory sourced from the planning spreadsheet: 16 Risk layers (AAL/PML by hazard, fiscal gap, recovery speed, ecosystem loss, supply-chain disruption, bank solvency, sovereign debt, DRR financing, humanitarian vs. prevention expenditure) and 3 Resilience layers (wellbeing, change in fiscal gap, adaptation) — all marked `disabled-awaiting-data` pending MapX view ID assignment
+- Config validator now checks for duplicate layer `key` values (previously only checked view IDs)
 - Resilience tab with planned placeholder entries for future resilience-linked content
 - Broader CDRI risk placeholders (AAL and 1:100 PML review entries) added to the Risk inventory
 - Public roadmap note clarifying that future indicator/chart content will live outside this repository and be cross-linked into the map experience later
@@ -39,6 +42,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- `buildLayerAccordion` was checking `!layer.disabled` (legacy flag) for the eye toggle, so layers with `status: "disabled-awaiting-data"` would receive an eye button that called `viewAdd(null)`; now uses `isLayerPublished()` consistently
+- Config validator was requiring non-null source IDs for all compound layers regardless of publication state; unpublished compound layers may now have `null` source IDs (IDs are assigned once views are uploaded)
 - Duplicate MapX view IDs between hazard and risk layers caused incorrect layer state; affected risk layers temporarily disabled with TODOs
 - Cross-project layer (Land Cover from HOME project) silently failing; disabled until a unified UNDRR MapX project is set up
 - Hash `sourceIdx` out-of-bounds read crashing compound layer restore on back/forward navigation
@@ -55,3 +60,5 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Unpublished prototype layers now support richer states such as Awaiting data and Pending removal while remaining hidden from the sidebar by default and retained in Sources/CSV
 - Primary category order now leads with Risk and Resilience
 - Coral Reefs moved to disabled/unpublished status while category scope is reviewed
+- Terminology updated from "risk to resilience" to "risk and resilience" throughout the project
+- Disabled layer accordions are now expandable so descriptions and metadata remain readable during review (previously `pointer-events: none` blocked interaction)

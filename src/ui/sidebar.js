@@ -87,15 +87,39 @@ export function buildSidebar() {
     empty.hidden = publishedLayers.length > 0;
     tabPanel.appendChild(empty);
 
-    for (const layer of tab.layers) {
-      const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-      if (!isLayerPublished(layer)) {
-        wrapper.hidden = !showDisabledLayers;
-        wrapper.dataset.layerDisabled = "true";
-      } else if (layer.key) {
-        layerElementMap.set(layer.key, { layer, eyeBtn, wrapper });
+    const addLayersToContainer = (layers, container) => {
+      for (const layer of layers) {
+        const { wrapper, eyeBtn } = buildLayerAccordion(layer);
+        if (!isLayerPublished(layer)) {
+          wrapper.hidden = !showDisabledLayers;
+          wrapper.dataset.layerDisabled = "true";
+          wrapper.classList.add("layer-disabled");
+        } else if (layer.key) {
+          layerElementMap.set(layer.key, { layer, eyeBtn, wrapper });
+        }
+        container.appendChild(wrapper);
       }
-      tabPanel.appendChild(wrapper);
+    };
+
+    if (tab.groups) {
+      for (const group of tab.groups) {
+        const groupEl = document.createElement("div");
+        groupEl.className = "layer-group";
+
+        const groupHeading = document.createElement("h3");
+        groupHeading.className = "layer-group-heading";
+        groupHeading.textContent = group.label;
+        groupEl.appendChild(groupHeading);
+
+        const groupItems = document.createElement("div");
+        groupItems.className = "layer-group-items";
+        addLayersToContainer(group.layers, groupItems);
+        groupEl.appendChild(groupItems);
+
+        tabPanel.appendChild(groupEl);
+      }
+    } else {
+      addLayersToContainer(tab.layers, tabPanel);
     }
 
     sidebarBody.appendChild(tabPanel);
@@ -197,6 +221,14 @@ function updateDisabledLayerVisibility() {
 
     for (const wrapper of tabPanel.querySelectorAll("[data-layer-disabled='true']")) {
       wrapper.hidden = !showDisabledLayers;
+    }
+
+    // Show/hide group headings based on whether the group has any visible items
+    for (const groupEl of tabPanel.querySelectorAll(".layer-group")) {
+      const items = groupEl.querySelector(".layer-group-items");
+      const heading = groupEl.querySelector(".layer-group-heading");
+      if (!items || !heading) continue;
+      heading.hidden = !Array.from(items.children).some((el) => !el.hidden);
     }
 
     const hasPublishedLayers = tab.layers.some(isLayerPublished);
@@ -311,10 +343,12 @@ async function reconcileLayersFromHash(hashLayers) {
 }
 
 function buildLayerAccordion(layer) {
+  const published = isLayerPublished(layer);
+
   const wrapper = document.createElement("div");
   wrapper.className = "layer-item";
 
-  // Header row: expand arrow + label + type tag + eye toggle
+  // Header row: expand arrow + label + type tag + eye toggle (published only)
   const header = document.createElement("div");
   header.className = "layer-header";
 
@@ -336,8 +370,9 @@ function buildLayerAccordion(layer) {
   tag.textContent = TYPE_LABELS[layer.type] || layer.type;
   header.appendChild(tag);
 
-  if (!layer.disabled) {
-    const eyeBtn = document.createElement("button");
+  let eyeBtn = null;
+  if (published) {
+    eyeBtn = document.createElement("button");
     eyeBtn.className = "layer-eye";
     eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
     eyeBtn.setAttribute("aria-pressed", "false");
@@ -381,33 +416,27 @@ function buildLayerAccordion(layer) {
 
   wrapper.appendChild(body);
 
-  // Toggle accordion on header click or Enter/Space
-  if (!layer.disabled) {
-    header.tabIndex = 0;
-    header.setAttribute("role", "button");
-    header.setAttribute("aria-expanded", "false");
+  // All layers support expand/collapse so reviewers can read descriptions
+  header.tabIndex = 0;
+  header.setAttribute("role", "button");
+  header.setAttribute("aria-expanded", "false");
 
-    const eyeBtn = header.querySelector(".layer-eye");
+  const toggleAccordion = () => {
+    const open = body.style.display !== "none";
+    body.style.display = open ? "none" : "block";
+    arrow.textContent = open ? "\u25B6" : "\u25BC"; // ▶ / ▼
+    header.setAttribute("aria-expanded", String(!open));
+  };
 
-    const toggleAccordion = () => {
-      const open = body.style.display !== "none";
-      body.style.display = open ? "none" : "block";
-      arrow.textContent = open ? "\u25B6" : "\u25BC"; // ▶ / ▼
-      header.setAttribute("aria-expanded", String(!open));
-    };
+  header.addEventListener("click", toggleAccordion);
+  header.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleAccordion();
+    }
+  });
 
-    header.addEventListener("click", toggleAccordion);
-    header.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        toggleAccordion();
-      }
-    });
-
-    return { wrapper, eyeBtn };
-  }
-
-  return { wrapper, eyeBtn: null };
+  return { wrapper, eyeBtn };
 }
 
 async function toggleLayer(layer, eyeBtn, wrapper) {

@@ -83,10 +83,10 @@ describe("generateLayerInventoryCSV", () => {
     expect(coralLines[0]).toContain("Pending removal");
   });
 
-  it("includes CDRI placeholders as Awaiting data", () => {
-    const cdriLines = lines.filter((l) => l.includes("cdri-pml-flood-100yr"));
-    expect(cdriLines.length).toBeGreaterThan(0);
-    expect(cdriLines[0]).toContain("Awaiting data");
+  it("includes risk placeholders as Awaiting data", () => {
+    const riskLines = lines.filter((l) => l.includes("aal-pml-housing"));
+    expect(riskLines.length).toBeGreaterThan(0);
+    expect(riskLines[0]).toContain("Awaiting data");
   });
 
   it("marks active layers as Active", () => {

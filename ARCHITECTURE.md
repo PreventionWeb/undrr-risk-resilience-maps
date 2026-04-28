@@ -24,7 +24,7 @@ undrr-risk-resilience-maps/
 │   │   │   ├── exposure.js
 │   │   │   ├── vulnerability.js
 │   │   │   ├── risk.js
-│   │   │   └── resilience.js   # Planned resilience placeholders / cross-link stubs
+│   │   │   └── resilience.js   # Canonical resilience layer definitions
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -94,11 +94,13 @@ Browser tab
 
 ### Navigation and layer panel
 
-Category tabs (Risk, Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
+Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
 
 **Two routing modes driven by `switchTab()`:**
 - **Info tabs** — hide the map (`#app-map`), show the full-page `#info-page` container, display the matching info panel.
 - **Data tabs** — show the map, show the floating layer panel with the matching tab's layers.
+
+The **Risk & Resilience tab** groups its layers into two named subgroups — **Risk Maps** and **Resilience Maps** — rendered as labelled section headings in the sidebar. This is driven by a `groups` field on the tab config (see `src/config/layers/index.js`). Other tabs use a flat `layers` array and render without subgroup headings. The `groups` field is optional; tabs that lack it render as before.
 
 The active tab and open layers are encoded in the URL hash (format: `#tab?layers=key:sourceIdx,...`) so links are shareable and browser back/forward works. On `hashchange`, both the active tab and the open layer set are reconciled against the new URL.
 
@@ -207,5 +209,5 @@ Test files cover pure and near-pure modules:
 ## What this is not
 
 - Not a full geospatial analysis platform (no draw-box queries, spatial mining)
-- Not a data viz tool beyond risk-to-resilience scope
+- Not a data viz tool beyond risk and resilience scope
 - Not an SPA. If multiple pages are needed, use Vite MPA (one HTML entry per page).
