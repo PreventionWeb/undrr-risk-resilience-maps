@@ -31,3 +31,7 @@ Not blocking -- the current callback pattern works fine for source switching and
 ## Dual-panel map view
 
 The GRI Risk Viewer supports side-by-side map panels. Each panel requires its own `mxsdk.Manager` instance (separate iframe). This is a v2 feature — no code exists yet and it's not currently planned for the MVP scope.
+
+## Mangrove `<details>` styling
+
+Mangrove provides built-in styling for `<summary>` elements inside `<details>`: padding, cursor, the disclosure triangle, and open/closed transitions are all handled by the design system. Do not add custom `padding`, `cursor`, `user-select`, `list-style`, or `::before` pseudo-element overrides to `summary` elements — they conflict with Mangrove defaults.

@@ -30,6 +30,10 @@ const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
 const layerElementMap = new Map();
+// Maps layer.key → [secondary eye buttons] across cross-tab sections.
+const secondaryEyeBtns = new Map();
+// Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
+const toggleInFlight = new Set();
 let showDisabledLayers = false;
 
 /**
@@ -65,6 +69,10 @@ export function buildSidebar() {
       updateDisabledLayerVisibility();
     });
   }
+
+  // Clear stale state (guards against HMR / test re-runs)
+  layerElementMap.clear();
+  secondaryEyeBtns.clear();
 
   // Populate info page with all info panels
   infoPage.appendChild(buildHomePanel());
@@ -126,6 +134,13 @@ export function buildSidebar() {
   }
 
   updateDisabledLayerVisibility();
+
+  // Second pass: append collapsed cross-tab sections to each tab panel.
+  // Built after the first pass so layerElementMap is fully populated.
+  for (const tab of TABS) {
+    const tabPanel = document.getElementById(`tab-${tab.id}`);
+    tabPanel.appendChild(buildCrossTabSections(tab));
+  }
 
   // Wire nav home link
   const homeLink = document.querySelector(".nav-home-link");
@@ -448,6 +463,11 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
     return;
   }
 
+  // Guard: prevent concurrent toggles for the same layer (rapid clicks / secondary + primary race)
+  if (layer.key && toggleInFlight.has(layer.key)) return;
+  if (layer.key) toggleInFlight.add(layer.key);
+
+  try {
   const widgetSlot = wrapper.querySelector(".layer-widget-slot");
   const sliderSlot = wrapper.querySelector(".layer-slider-slot");
   const legendSlot = wrapper.querySelector(".layer-legend-slot");
@@ -478,6 +498,10 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
     }
     eyeBtn.classList.remove("is-active");
     eyeBtn.setAttribute("aria-pressed", "false");
+    for (const btn of (secondaryEyeBtns.get(layer.key) ?? [])) {
+      btn.classList.remove("is-active");
+      btn.setAttribute("aria-pressed", "false");
+    }
     wrapper.classList.remove("layer-active");
     widgetSlot.innerHTML = "";
     sliderSlot.innerHTML = "";
@@ -492,6 +516,13 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
     store.openViews.add(activeViewId);
     eyeBtn.classList.add("is-active");
     eyeBtn.setAttribute("aria-pressed", "true");
+    for (const btn of (secondaryEyeBtns.get(layer.key) ?? [])) {
+      btn.classList.add("is-active");
+      btn.setAttribute("aria-pressed", "true");
+      // Auto-expand the cross-tab section containing this button
+      const section = btn.closest("details.cross-tab-section");
+      if (section) section.open = true;
+    }
     wrapper.classList.add("layer-active");
 
     // Expand accordion
@@ -525,6 +556,9 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
       : layer;
     addLegend(legendLayer, legendSlot);
     syncHashFromState();
+  }
+  } finally {
+    if (layer.key) toggleInFlight.delete(layer.key);
   }
 }
 
@@ -564,4 +598,91 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   legendSlot.innerHTML = "";
   const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
   addLegend(legendLayer, legendSlot);
+}
+
+/**
+ * Build collapsed <details> sections for all tabs other than the current one.
+ * Each section shows a compact row per published layer (label + type tag + eye toggle).
+ * Eye toggles delegate to the canonical eye button in layerElementMap.
+ */
+function buildCrossTabSections(currentTab) {
+  const container = document.createElement("div");
+  container.className = "cross-tab-sections";
+
+  for (const tab of TABS) {
+    if (tab.id === currentTab.id) continue;
+
+    const publishedLayers = tab.layers.filter((l) => isLayerPublished(l) && l.key);
+    if (publishedLayers.length === 0) continue;
+
+    const details = document.createElement("details");
+    details.className = "cross-tab-section";
+
+    const summary = document.createElement("summary");
+    summary.className = "cross-tab-summary";
+    summary.textContent = tab.label;
+    details.appendChild(summary);
+
+    if (tab.groups) {
+      for (const group of tab.groups) {
+        const groupLayers = group.layers.filter((l) => isLayerPublished(l) && l.key);
+        if (groupLayers.length === 0) continue;
+
+        const groupHeading = document.createElement("p");
+        groupHeading.className = "cross-tab-group-label";
+        groupHeading.textContent = group.label;
+        details.appendChild(groupHeading);
+
+        for (const layer of groupLayers) {
+          details.appendChild(buildCrossTabRow(layer));
+        }
+      }
+    } else {
+      for (const layer of publishedLayers) {
+        details.appendChild(buildCrossTabRow(layer));
+      }
+    }
+
+    container.appendChild(details);
+  }
+
+  return container;
+}
+
+/**
+ * Build a single compact row for a cross-tab section.
+ * Registers the eye button in secondaryEyeBtns so toggleLayer can keep it in sync.
+ */
+function buildCrossTabRow(layer) {
+  const row = document.createElement("div");
+  row.className = "cross-tab-row";
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "cross-tab-label";
+  labelEl.textContent = layer.label;
+  row.appendChild(labelEl);
+
+  const tag = document.createElement("span");
+  tag.className = "mg-tag layer-type-tag";
+  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
+  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
+  tag.textContent = TYPE_LABELS[layer.type] || layer.type;
+  row.appendChild(tag);
+
+  const eyeBtn = document.createElement("button");
+  eyeBtn.className = "layer-eye";
+  eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
+  eyeBtn.setAttribute("aria-pressed", "false");
+  eyeBtn.innerHTML = `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  eyeBtn.title = "Toggle layer — switch to tab for sub-source controls";
+  eyeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    layerElementMap.get(layer.key)?.eyeBtn.click();
+  });
+  row.appendChild(eyeBtn);
+
+  if (!secondaryEyeBtns.has(layer.key)) secondaryEyeBtns.set(layer.key, []);
+  secondaryEyeBtns.get(layer.key).push(eyeBtn);
+
+  return row;
 }
