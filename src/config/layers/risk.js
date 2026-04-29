@@ -192,9 +192,8 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    // NOTE: The inventory lists the same MapX ID for Floods and Earthquake
-    // (MX-HH3SN-J2JQY-ZKSZV). Floods is excluded until a unique ID is confirmed.
     sources: [
+      { id: "MX-X144T-FVH4D-CNILH", label: "Floods",            desc: "Current fiscal gap — floods." },
       { id: "MX-6R1HD-1QCSB-CDRCP", label: "Landslides",        desc: "Current fiscal gap — landslides." },
       { id: "MX-VPWOT-F3J3E-N5CPW", label: "Tropical Cyclones", desc: "Current fiscal gap — tropical cyclones." },
       { id: "MX-HH3SN-J2JQY-ZKSZV", label: "Earthquake",        desc: "Current fiscal gap — earthquake." },
