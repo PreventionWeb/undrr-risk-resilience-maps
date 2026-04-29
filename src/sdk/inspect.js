@@ -32,6 +32,8 @@ export function enableInspection() {
   _active = true;
   _batch = null;
   // In dev mode keep MapX's native popup so we can cross-check data.
+  // NOTE: The production branch (enable: true call) is never exercised by the
+  // test suite — Vitest always runs with import.meta.env.DEV === true.
   if (!import.meta.env.DEV) {
     _mapx?.ask("set_features_click_sdk_only", { enable: true }).catch(() => {});
   }
@@ -41,6 +43,7 @@ export function disableInspection() {
   _generation++;
   _active = false;
   _batch = null;
+  // See enableInspection() comment — production path untested by automated tests.
   if (!import.meta.env.DEV) {
     _mapx?.ask("set_features_click_sdk_only", { enable: false }).catch(() => {});
   }
