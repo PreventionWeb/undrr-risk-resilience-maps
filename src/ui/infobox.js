@@ -91,16 +91,20 @@ export function showInfobox(data) {
     _escHandler = null;
   }
 
-  const close = () => {
-    box.style.display = "none";
-    if (_escHandler) {
-      document.removeEventListener("keydown", _escHandler);
-      _escHandler = null;
-    }
-  };
+  const close = () => closeInfobox();
 
   if (closeBtn) closeBtn.onclick = close;
 
   _escHandler = (e) => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", _escHandler);
+}
+
+/** Close the infobox and remove its keyboard listener. */
+export function closeInfobox() {
+  const box = document.getElementById("infobox");
+  if (box) box.style.display = "none";
+  if (_escHandler) {
+    document.removeEventListener("keydown", _escHandler);
+    _escHandler = null;
+  }
 }

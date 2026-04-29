@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { validateLayers } from "./validate.js";
 
 const PRIMARY = "MX-PRIMARY";
@@ -103,6 +103,27 @@ describe("validateLayers", () => {
     expect(() =>
       validateLayers([makeTab("hazard", [makeSimpleLayer({ type: "xyz" })])], PRIMARY),
     ).toThrow();
+  });
+
+  it("accepts a valid geometry field", () => {
+    expect(() =>
+      validateLayers([makeTab("hazard", [makeSimpleLayer({ geometry: "point" })])], PRIMARY),
+    ).not.toThrow();
+  });
+
+  it("throws for an invalid geometry value", () => {
+    expect(() =>
+      validateLayers([makeTab("hazard", [makeSimpleLayer({ geometry: "blob" })])], PRIMARY),
+    ).toThrow();
+  });
+
+  it("warns (does not throw) when a vt layer is missing geometry", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() =>
+      validateLayers([makeTab("hazard", [makeSimpleLayer({ type: "vt", geometry: undefined })])], PRIMARY),
+    ).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("missing geometry"));
+    warn.mockRestore();
   });
 
   it("throws when an enabled layer belongs to a non-primary project", () => {

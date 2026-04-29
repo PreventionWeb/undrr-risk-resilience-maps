@@ -1,0 +1,49 @@
+/**
+ * Shared styles for draggable + resizable panels.
+ */
+
+/* ── Drag handle ──────────────────────────────────── */
+
+.is-draggable-handle {
+  cursor: grab;
+  user-select: none;
+  /* Prevent touch scroll from competing with drag */
+  touch-action: none;
+}
+
+/* ── Resize grip ──────────────────────────────────── */
+
+.panel-resize-grip {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 10;
+  /* Classic diagonal-stripe resize indicator */
+  background: linear-gradient(
+    -45deg,
+    transparent 33%,
+    rgba(0, 0, 0, 0.18) 33%,
+    rgba(0, 0, 0, 0.18) 40%,
+    transparent 40%,
+    transparent 66%,
+    rgba(0, 0, 0, 0.18) 66%,
+    rgba(0, 0, 0, 0.18) 73%,
+    transparent 73%
+  );
+  border-bottom-right-radius: 4px;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.panel-resize-grip:hover {
+  opacity: 1;
+}
+
+/* Resize grip is meaningless when the layer panel is collapsed */
+.layer-panel.is-collapsed .panel-resize-grip {
+  display: none;
+}

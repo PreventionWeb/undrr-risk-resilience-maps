@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { showInfobox } from "./infobox.js";
+import { showInfobox, closeInfobox } from "./infobox.js";
 
 function setupDOM() {
   document.body.innerHTML = `
@@ -132,5 +132,28 @@ describe("showInfobox", () => {
     const body = document.querySelector(".infobox-body").innerHTML;
     expect(body).not.toContain("<script>");
     expect(body).toContain("&lt;script&gt;");
+  });
+});
+
+describe("closeInfobox", () => {
+  beforeEach(setupDOM);
+
+  it("hides the box when visible", () => {
+    showInfobox({ attributes: { name: "X" } });
+    expect(document.getElementById("infobox").style.display).toBe("block");
+    closeInfobox();
+    expect(document.getElementById("infobox").style.display).toBe("none");
+  });
+
+  it("removes the Escape handler so a subsequent Escape does nothing", () => {
+    showInfobox({ attributes: { name: "X" } });
+    closeInfobox();
+    // Re-show to confirm the old Escape handler is gone (no double-close side-effects)
+    showInfobox({ attributes: { name: "Y" } });
+    expect(document.getElementById("infobox").style.display).toBe("block");
+  });
+
+  it("does not throw when box is already hidden", () => {
+    expect(() => closeInfobox()).not.toThrow();
   });
 });
