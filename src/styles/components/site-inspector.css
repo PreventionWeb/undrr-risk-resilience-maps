@@ -1,0 +1,245 @@
+/**
+ * Site inspector panel styles.
+ *
+ * Floating panel that shows coordinates and per-layer feature data when
+ * the user clicks the map in inspection mode.
+ */
+
+.site-inspector {
+  position: absolute;
+  /* Stacks below the inspect icon button; both share the same left offset */
+  top: calc(0.75rem + 2.25rem + 0.35rem);
+  left: calc(0.75rem + 20rem + 0.35rem);
+  z-index: var(--z-infobox);
+  width: 20rem;
+  max-height: calc(60% - 3rem);
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: left 0.2s ease;
+}
+
+/* Shift both the inspect button and results panel when the layer panel collapses */
+#app-map:has(.layer-panel.is-collapsed) .inspect-toggle-btn,
+#app-map:has(.layer-panel.is-collapsed) .site-inspector {
+  left: calc(0.75rem + 2.55rem + 0.35rem);
+}
+
+.site-inspector[hidden] {
+  display: none;
+}
+
+/* ── Header ──────────────────────────────────────── */
+
+.site-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+}
+
+.site-inspector-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.site-inspector-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #999;
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.site-inspector-close:hover {
+  color: var(--color-primary);
+  background: #f0f0f0;
+}
+
+.site-inspector-close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Coordinates ─────────────────────────────────── */
+
+.site-inspector-coords {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-primary-light);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-shrink: 0;
+  font-size: 0.75rem;
+}
+
+.site-inspector-coords-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.site-inspector-coords-value {
+  font-family: monospace;
+  flex: 1;
+}
+
+.site-inspector-coords-copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  line-height: 1;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.site-inspector-coords-copy:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+.site-inspector-coords-copy:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ── Layer list ──────────────────────────────────── */
+
+.site-inspector-layers {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.site-inspector-empty {
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.site-inspector-layer-row {
+  border-bottom: 1px solid var(--color-border-light);
+  padding: 0.4rem 0.75rem;
+}
+
+.site-inspector-layer-row:last-child {
+  border-bottom: none;
+}
+
+.site-inspector-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Data-presence indicator dot */
+.site-inspector-indicator {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.site-inspector-indicator--has-data {
+  background: #2e7d32;
+}
+
+.site-inspector-indicator--no-data {
+  background: #bbb;
+}
+
+.site-inspector-layer-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Attribute table / notes ─────────────────────── */
+
+.site-inspector-note {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin: 0.2rem 0 0 1rem;
+}
+
+.site-inspector-attrs {
+  width: 100%;
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
+  border-collapse: collapse;
+}
+
+.site-inspector-attrs td {
+  padding: 0.15rem 0.3rem;
+  vertical-align: top;
+}
+
+.site-inspector-attrs td:first-child {
+  font-weight: 500;
+  white-space: nowrap;
+  color: #666;
+  width: 45%;
+}
+
+/* ── Inspect toggle button — floating map tool icon ── */
+
+.inspect-toggle-btn {
+  position: absolute;
+  top: 0.75rem;
+  left: calc(0.75rem + 20rem + 0.35rem);
+  z-index: var(--z-panel);
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  color: #555;
+  padding: 0;
+  transition: left 0.2s ease, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.inspect-toggle-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.inspect-toggle-btn.is-active {
+  border-color: var(--color-primary);
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.inspect-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.inspect-toggle-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Crosshair cursor on map area while inspection is active */
+#app-map.inspection-active {
+  cursor: crosshair;
+}

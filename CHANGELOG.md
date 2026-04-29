@@ -8,6 +8,13 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- **Drag + resize for panels**: both the layer panel and the Site Details panel are now draggable (drag by their header bar) and resizable (bottom-right grip). Inline dimensions are cleared on collapse and restored on expand so the layer panel's collapsed state is not broken by a prior resize. Implemented in `src/utils/panels.js` (`makeDraggable`, `makeResizable`, `onPanelCollapse`, `onPanelExpand`) and `src/styles/components/panels.css`.
+- **Dev-mode MapX native inspector**: in development builds (`import.meta.env.DEV`), the `set_features_click_sdk_only` suppression call is skipped so MapX's native feature popup appears alongside our custom Site Details panel, enabling data cross-checking during development.
+
+- Site inspection mode: an **Inspect** button in the sidebar header activates click-to-inspect on the map. Clicking any location fires MapX `click_attributes` events (one per active vector layer); the app batches them and shows a floating **Site Details** panel with geographic coordinates, per-layer feature attributes, data-presence indicators, and a download button for each layer. Raster layers are shown as "not queryable at point". The panel closes on ✕ click or Escape. A generation counter prevents stale events from appearing after inspection is toggled off.
+- `LEARNINGS.md`: project-level knowledge base documenting the confirmed `click_attributes` payload shape, batching pattern, RT layer limitations, `set_features_click_sdk_only` usage, the Mangrove `<details>` convention, and the view-index pattern.
+- `closeInfobox()` exported from `src/ui/infobox.js` so the infobox can be explicitly dismissed when entering inspection mode.
+
 - Cross-tab layer sections: each tab panel now shows collapsed `<details>` sections for all other tabs, letting users toggle layers from any category without switching tabs. Secondary eye buttons delegate to the canonical toggle; state (active indicator, auto-expand) stays in sync. Rapid/concurrent clicks are guarded by an in-flight Set per layer key.
 - Risk & Resilience layers now active: MapX view IDs wired for AAL Public, AAL/PML Housing, AAL/PML to GDP 2025, PML to GDP 2025, Current Fiscal Gap (all 5 hazards including Floods), Well-being, and Change in Fiscal Gap — sourced from the confirmed inventory spreadsheet.
 - Risk & Resilience tab now renders Risk Maps and Resilience Maps as distinct labelled subgroups in the sidebar; group headings hide automatically when disabled layers are not shown

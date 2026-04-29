@@ -57,7 +57,7 @@ Every page follows this order:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Page Title</title>
   <!-- Mangrove CSS from CDN -->
-  <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.4.0/css/style.css" />
+  <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.6.0/css/style.css" />
 </head>
 <body>
   <!-- UNDRR page header -->
@@ -79,12 +79,12 @@ The SDK UMD script sets `window.mxsdk` as a global. The module script runs secon
 Single CSS link from UNDRR assets CDN. No JS component library, no npm package -- just the stylesheet.
 
 ```html
-<link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.4.0/css/style.css" />
+<link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.6.0/css/style.css" />
 ```
 
 ### Font sizing
 
-Mangrove 1.4.0 sets `html { font-size: 16px }` and uses `rem` throughout. All custom CSS in the demo repo uses `rem` accordingly (0.75rem = 12px, 1rem = 16px, etc.).
+Mangrove 1.6.0 sets `html { font-size: 16px }` and uses `rem` throughout. All custom CSS in the demo repo uses `rem` accordingly (0.75rem = 12px, 1rem = 16px, etc.).
 
 ### Components we use
 

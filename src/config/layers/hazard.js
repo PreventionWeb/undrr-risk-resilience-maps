@@ -67,6 +67,7 @@ export const HAZARD_LAYERS = [
     key: "earthquakes-live",
     label: "Earthquakes (live)",
     type: "cc",
+    geometry: "point",
     desc: "USGS Mag >= 5.5, past 30 days. Updated every 15 min.",
     source: "USGS Earthquake Hazards Program.",
     sourceUrl: "https://earthquake.usgs.gov/earthquakes/feed/",

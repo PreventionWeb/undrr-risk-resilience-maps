@@ -149,7 +149,7 @@ Plain ES module exports with setter functions, no framework.
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/static/mangrove/latest/css/style.css) (`latest` channel). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/static/mangrove/1.6.0/css/style.css) (v1.6.0). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)

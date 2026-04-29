@@ -9,9 +9,11 @@
 import { isLayerPublished } from "./layers/status.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
+const VALID_GEOMETRIES = ["point", "polygon", "line"];
 
 export function validateLayers(tabs, primaryProject) {
   const errors = [];
+  const warnings = [];
   const seenIds = new Set();
   const seenKeys = new Set();
 
@@ -32,6 +34,14 @@ export function validateLayers(tabs, primaryProject) {
 
       if (!VALID_TYPES.includes(layer.type)) {
         errors.push(`${ctx} -- invalid type "${layer.type}" (expected: ${VALID_TYPES.join(", ")})`);
+      }
+
+      if (layer.geometry && !VALID_GEOMETRIES.includes(layer.geometry)) {
+        errors.push(`${ctx} -- invalid geometry "${layer.geometry}" (expected: ${VALID_GEOMETRIES.join(", ")})`);
+      }
+
+      if (layer.type === "vt" && !layer.geometry) {
+        warnings.push(`${ctx} -- vt layer missing geometry field ("point", "polygon", or "line")`);
       }
 
       if (layer.key) {
@@ -95,6 +105,11 @@ export function validateLayers(tabs, primaryProject) {
         }
       }
     }
+  }
+
+  if (warnings.length > 0) {
+    console.warn("Layer config warnings:");
+    for (const w of warnings) console.warn(`  - ${w}`);
   }
 
   if (errors.length > 0) {

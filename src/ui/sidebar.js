@@ -13,12 +13,25 @@ import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
 import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel, buildAboutPanel } from "./info-panels.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
+import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { isLayerPublished } from "../config/layers/status.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
+
+let _viewsChangeCallback = null;
+
+/** Register a callback invoked whenever the set of open views changes. */
+export function onViewsChanged(fn) {
+  _viewsChangeCallback = fn;
+}
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
+const GEOMETRY_LABELS = { point: "points", polygon: "polygons", line: "lines" };
+
+function layerBadgeLabel(layer) {
+  return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
+}
 
 const INFO_TABS = ["home", "guide", "sources", "downloads", "about"];
 
@@ -47,9 +60,16 @@ export function buildSidebar() {
   const clearBtn = document.getElementById("layer-clear-btn");
   const disabledToggleBtn = document.getElementById("layer-disabled-toggle");
 
-  // Collapse / expand sidebar
+  // Collapse / expand sidebar — clear/restore inline resize dimensions so the
+  // collapsed CSS width isn't overridden by a prior user resize.
   toggle.addEventListener("click", () => {
-    panel.classList.toggle("is-collapsed");
+    if (panel.classList.contains("is-collapsed")) {
+      panel.classList.remove("is-collapsed");
+      onPanelExpand(panel);
+    } else {
+      onPanelCollapse(panel);
+      panel.classList.add("is-collapsed");
+    }
   });
 
   // "Clear all" turns off every active layer across all tabs
@@ -188,9 +208,16 @@ export function buildSidebar() {
       switchTab(tabId);
       // Expand the sidebar panel if it was collapsed
       const panel = document.getElementById("sidebar");
-      if (panel) panel.classList.remove("is-collapsed");
+      if (panel) {
+        panel.classList.remove("is-collapsed");
+        onPanelExpand(panel);
+      }
     }
   });
+
+  // Make the layer panel draggable and resizable
+  makeDraggable(panel, panel.querySelector(".layer-panel-header"));
+  makeResizable(panel);
 }
 
 function switchTab(tabId) {
@@ -281,6 +308,7 @@ function syncHashFromState() {
 function updateClearBtn() {
   const clearBtn = document.getElementById("layer-clear-btn");
   if (clearBtn) clearBtn.hidden = store.openViews.size === 0;
+  if (_viewsChangeCallback) _viewsChangeCallback(store.openViews.size);
 }
 
 /**
@@ -382,7 +410,7 @@ function buildLayerAccordion(layer) {
   tag.className = "mg-tag layer-type-tag";
   if (layer.type === "rt") tag.classList.add("mg-tag--accent");
   if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = TYPE_LABELS[layer.type] || layer.type;
+  tag.textContent = layerBadgeLabel(layer);
   header.appendChild(tag);
 
   let eyeBtn = null;
@@ -666,7 +694,7 @@ function buildCrossTabRow(layer) {
   tag.className = "mg-tag layer-type-tag";
   if (layer.type === "rt") tag.classList.add("mg-tag--accent");
   if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = TYPE_LABELS[layer.type] || layer.type;
+  tag.textContent = layerBadgeLabel(layer);
   row.appendChild(tag);
 
   const eyeBtn = document.createElement("button");
