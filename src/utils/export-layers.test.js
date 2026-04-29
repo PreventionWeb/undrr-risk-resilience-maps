@@ -84,7 +84,7 @@ describe("generateLayerInventoryCSV", () => {
   });
 
   it("includes risk placeholders as Awaiting data", () => {
-    const riskLines = lines.filter((l) => l.includes("aal-pml-housing"));
+    const riskLines = lines.filter((l) => l.includes("recovery-speed"));
     expect(riskLines.length).toBeGreaterThan(0);
     expect(riskLines[0]).toContain("Awaiting data");
   });
