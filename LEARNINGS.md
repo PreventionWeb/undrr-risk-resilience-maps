@@ -2,6 +2,8 @@
 
 Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
+> See [TODO.md](TODO.md) for outstanding work items.
+
 ---
 
 ## MapX SDK: `click_attributes` event
@@ -166,3 +168,13 @@ Incorrectly typing them as `rt` causes:
 All risk and resilience layers in `src/config/layers/risk.js` and `resilience.js` should be typed `vt`.
 
 True raster layers (like earthquake PGA in `hazard.js`) remain `rt`.
+
+---
+
+## MapX SDK: cross-project `view_add`
+
+The SDK initialises one MapX project at a time (currently ECO-DRR, `MX-2LD-FBB-58N-ROK-8RH`). In theory, `view_add` calls for views belonging to other projects should fail silently. In practice, cross-project calls work — layers from outside ECO-DRR load without error in testing.
+
+**Likely reason:** MapX respects the public visibility flag on a view. Publicly accessible views load regardless of which project the SDK is connected to.
+
+This is not guaranteed by the SDK contract. For now it is not a blocker, but consolidating all views into a single UNDRR project is the correct long-term solution (see [TODO.md](TODO.md#mapx-project-consolidation)).
