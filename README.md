@@ -32,6 +32,8 @@ Keep these files updated as the project evolves:
 - [PRD.md](PRD.md) -- product requirements, scope, blockers, and timeline
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- system design and technical decisions
 - [METHODOLOGY.md](METHODOLOGY.md) -- MapX API/SDK discovery approach and research methods
+- [TODO.md](TODO.md) -- deferred work items (future features, refactors, infrastructure)
+- [LEARNINGS.md](LEARNINGS.md) -- design decisions, SDK quirks, and hard-won knowledge
 - [CHANGELOG.md](CHANGELOG.md) -- notable changes ([Common Changelog](https://common-changelog.org/) format)
 - [research/](research/) -- GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns
 

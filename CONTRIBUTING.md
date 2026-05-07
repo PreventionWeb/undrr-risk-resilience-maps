@@ -24,3 +24,5 @@ The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-c
 ## Documentation
 
 Keep project docs updated alongside code changes. See the [README](README.md#project-documentation) for the full list of documentation files and what each one covers.
+
+When adding new work items, use [TODO.md](TODO.md). When discovering SDK quirks, design constraints, or non-obvious decisions, record them in [LEARNINGS.md](LEARNINGS.md).

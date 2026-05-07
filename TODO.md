@@ -2,6 +2,8 @@
 
 Deferred work items, tracked here until they move into issues or get done.
 
+> See [LEARNINGS.md](LEARNINGS.md) for design decisions, SDK quirks, and hard-won knowledge.
+
 ## State store upgrade
 
 The current store (`src/state/store.js`) is a Set of open view IDs plus an active tab string. This works for basic layer toggling, but will need to grow when we add:
@@ -12,13 +14,11 @@ The current store (`src/state/store.js`) is a Set of open view IDs plus an activ
 
 The upgrade path: replace the flat Set with a keyed object (`{ [layerId]: { visible, opacity, filters } }`) and add `saveSession()` / `loadSession()` helpers. Do this before adding any filter widgets beyond opacity.
 
-## Multi-project data strategy
+## MapX project consolidation
 
-The SDK connects to one MapX project at a time. Our layers currently span two projects (Eco-DRR and HOME), and cross-project `view_add` calls may fail silently.
+Create a dedicated UNDRR project in MapX that aggregates all needed data sources, keeping the SDK integration clean (one project, one iframe). Coordinate with the MapX platform contact at GRID-Geneva.
 
-**Plan:** Rather than building a multi-project SDK adapter, create a dedicated UNDRR project in MapX that aggregates all needed data sources. This keeps the SDK integration simple (one project, one iframe) and avoids the complexity of managing multiple Manager instances. Coordinate with the MapX platform contact at GRID-Geneva to set this up.
-
-Until then, layers from non-primary projects (e.g. Land Cover from HOME) may not load reliably.
+Cross-project `view_add` calls currently work in practice (see [LEARNINGS.md](LEARNINGS.md#mapx-sdk-cross-project-view_add)), so this is not blocking, but should be resolved before production.
 
 ## Widget event bus
 
@@ -32,6 +32,3 @@ Not blocking -- the current callback pattern works fine for source switching and
 
 The GRI Risk Viewer supports side-by-side map panels. Each panel requires its own `mxsdk.Manager` instance (separate iframe). This is a v2 feature — no code exists yet and it's not currently planned for the MVP scope.
 
-## Mangrove `<details>` styling
-
-Mangrove provides built-in styling for `<summary>` elements inside `<details>`: padding, cursor, the disclosure triangle, and open/closed transitions are all handled by the design system. Do not add custom `padding`, `cursor`, `user-select`, `list-style`, or `::before` pseudo-element overrides to `summary` elements — they conflict with Mangrove defaults.
