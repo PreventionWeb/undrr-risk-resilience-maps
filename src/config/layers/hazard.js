@@ -1,6 +1,43 @@
 import { ECO_DRR } from "./projects.js";
 
+const AWAITING = "disabled-awaiting-data";
+
+const HAZARD_INITIATIVE = "Geographic distribution of hotspots for key hazards and exposed sectors";
+const HAZARD_STEP = "UNDERSTAND YOUR HAZARD PROFILE";
+
 export const HAZARD_LAYERS = [
+  {
+    id: null,
+    key: "drought",
+    label: "Drought",
+    type: "rt",
+    desc: "Drought hazard — current conditions.",
+    source: "Source to be confirmed.",
+    citation: "Source to be confirmed.",
+    license: "TBD",
+    project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
+    status: AWAITING,
+    note: "Awaiting data — MapX view not yet available.",
+  },
+  {
+    id: null,
+    key: "extreme-heat",
+    label: "Extreme Heat",
+    type: "rt",
+    desc: "Extreme heat hazard.",
+    source: "Source to be confirmed.",
+    citation: "Source to be confirmed.",
+    license: "TBD",
+    project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
+    status: AWAITING,
+    note: "Awaiting data — MapX view not yet available.",
+  },
   {
     id: null,
     key: "river-flooding",
@@ -12,6 +49,9 @@ export const HAZARD_LAYERS = [
     citation: "Ward, P.J. et al. (2020): Aqueduct Floods Methodology. WRI Technical Note, Washington D.C. / Baugh, C. et al. (2024): Global river flood hazard maps. JRC. doi:10.2905/jrc-floods-floodmapgl.",
     license: "CC BY 4.0",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
     sources: [
       {
         id: "MX-V07LO-829XA-4BIZ8",
@@ -53,6 +93,9 @@ export const HAZARD_LAYERS = [
     citation: "Pagani, M. et al. (2018): Global Earthquake Model (GEM) Seismic Hazard Map. Earthquake Spectra, 34(4): 1281–1296. doi:10.1193/160117EQS316M.",
     license: "CC BY-NC-SA 4.0",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
     sources: [
       { id: "MX-J3YTW-RUQN3-40P87", label: "250 yr" },
       { id: "MX-4XSGY-9URYF-WMICZ", label: "475 yr" },
@@ -74,6 +117,9 @@ export const HAZARD_LAYERS = [
     citation: "USGS Earthquake Hazards Program. Advanced National Seismic System Comprehensive Earthquake Catalog (ComCat). earthquake.usgs.gov/earthquakes/feed/",
     license: "Public Domain (U.S. Government)",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
   },
   {
     id: "MX-8C214-22C3A-82165",
@@ -86,6 +132,9 @@ export const HAZARD_LAYERS = [
     citation: "GAR/PREVIEW Platform, UNEP/GRID-Geneva. Based on Ward, P.J. et al. (2020): Aqueduct Floods Methodology. WRI.",
     license: "CC BY 4.0",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
   },
   {
     id: null,
@@ -98,6 +147,9 @@ export const HAZARD_LAYERS = [
     citation: "Bloemendaal, N. et al. (2020): Generation of a global synthetic tropical cyclone hazard dataset using STORM. Scientific Data, 7: 40. doi:10.1038/s41597-020-0381-2.",
     license: "CC0 1.0 (STORM) / CC BY 4.0 (IRIS)",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
     sources: [
       {
         id: "MX-E180C-5B012-AFC77",
@@ -123,6 +175,9 @@ export const HAZARD_LAYERS = [
     citation: "GAR/PREVIEW Platform, UNEP/GRID-Geneva.",
     license: "UNEP",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
     sources: [
       {
         id: "MX-04E66-2E550-81068",
@@ -148,6 +203,9 @@ export const HAZARD_LAYERS = [
     citation: "GAR/PREVIEW Platform, UNEP/GRID-Geneva.",
     license: "UNEP",
     project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
     sources: [
       {
         id: "MX-F0DEE-12D97-6447B",
@@ -161,5 +219,37 @@ export const HAZARD_LAYERS = [
       },
     ],
     widget: { type: "sub-tabs", label: "Metric" },
+  },
+  {
+    id: null,
+    key: "wildfire",
+    label: "Wildfire",
+    type: "rt",
+    desc: "Wildfire hazard.",
+    source: "Source to be confirmed.",
+    citation: "Source to be confirmed.",
+    license: "TBD",
+    project: ECO_DRR,
+    initiative: HAZARD_INITIATIVE,
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
+    status: AWAITING,
+    note: "Awaiting data — MapX view not yet available.",
+  },
+  {
+    id: null,
+    key: "impacts-multiple-shocks",
+    label: "Impacts of Multiple Shocks",
+    type: "vt",
+    desc: "Compound and cascading impacts from multiple concurrent hazard shocks.",
+    source: "Source to be confirmed.",
+    citation: "Source to be confirmed.",
+    license: "TBD",
+    project: ECO_DRR,
+    initiative: "Impacts of multiple shocks",
+    r2rCategory: "Societies",
+    rrStep: HAZARD_STEP,
+    status: AWAITING,
+    note: "Awaiting data — MapX view not yet available.",
   },
 ];

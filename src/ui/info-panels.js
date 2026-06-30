@@ -114,6 +114,13 @@ function sourceCell(source, url) {
     : escHtml(source);
 }
 
+function mapxIds(layer) {
+  if (layer.sources && layer.sources.length) {
+    return layer.sources.map((s) => s.id || "—").join("\n");
+  }
+  return layer.id || "—";
+}
+
 function buildSourcesTable(layers) {
   const rows = layers.map((layer) => {
     const status = getLayerStatus(layer);
@@ -122,9 +129,14 @@ function buildSourcesTable(layers) {
     const statusBadge = isTrackedOnly
       ? `<span class="data-table__badge">${escHtml(status)}</span> `
       : "";
+    const ids = mapxIds(layer);
+    const idCell = ids.includes("\n")
+      ? ids.split("\n").map((id) => `<code>${escHtml(id)}</code>`).join("<br>")
+      : `<code>${escHtml(ids)}</code>`;
     return `
       <tr${rowClass}>
         <td>${statusBadge}${escHtml(layer.label)}</td>
+        <td class="data-table__mapx-id">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escHtml(layer.citation)}</td>
         <td class="data-table__license">${escHtml(layer.license)}</td>
@@ -138,6 +150,7 @@ function buildSourcesTable(layers) {
         <thead>
           <tr>
             <th scope="col">Dataset</th>
+            <th scope="col" class="data-table__mapx-id">MapX ID</th>
             <th scope="col">Source</th>
             <th scope="col">Citation</th>
             <th scope="col">License</th>
@@ -175,6 +188,10 @@ export function buildSourcesPanel() {
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
         <p class="info-page-hero__intro">Full attribution, citation, and licensing information for all datasets configured in this tool. Disabled layers remain listed for transparency during prototype review.</p>
+        <label class="sources-mapx-toggle">
+          <input type="checkbox" id="toggle-mapx-ids">
+          Show MapX view IDs
+        </label>
       </div>
     </div>
 
@@ -201,6 +218,10 @@ export function buildSourcesPanel() {
   `);
 
   panel.querySelector("#btn-download-inventory").addEventListener("click", downloadLayerInventory);
+
+  panel.querySelector("#toggle-mapx-ids").addEventListener("change", (e) => {
+    panel.classList.toggle("show-mapx-ids", e.target.checked);
+  });
 
   return panel;
 }

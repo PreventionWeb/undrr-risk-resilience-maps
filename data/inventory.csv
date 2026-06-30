@@ -1,0 +1,102 @@
+﻿Variable R-R Initiative,Category,R2R category,R&R Step,Layer key,Layer name,Sub-source,Type,Description,MapX view ID,Source,Citation,License,Inventory status
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,river-flooding,River Flooding,Depth,Raster,"Flood depth in mm, 25yr return period.",MX-V07LO-829XA-4BIZ8,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,river-flooding,River Flooding,Frequency,Raster,"Annual frequency of river floods, 25-1000yr return period.",MX-21A2A-BED99-D8D78,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,river-flooding,River Flooding,Exposure,Raster,Annual physical exposure to river floods.,MX-4918F-8A0E5-AF76B,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquake-pga,Earthquake PGA,250 yr,Raster,Peak Ground Acceleration from the GEM Global Seismic Hazard Map.,MX-J3YTW-RUQN3-40P87,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquake-pga,Earthquake PGA,475 yr,Raster,Peak Ground Acceleration from the GEM Global Seismic Hazard Map.,MX-4XSGY-9URYF-WMICZ,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquake-pga,Earthquake PGA,975 yr,Raster,Peak Ground Acceleration from the GEM Global Seismic Hazard Map.,MX-KE2UX-GL8CM-IZSIA,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquake-pga,Earthquake PGA,1500 yr,Raster,Peak Ground Acceleration from the GEM Global Seismic Hazard Map.,MX-SFF5U-3O2XL-SAIL9,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquake-pga,Earthquake PGA,2475 yr,Raster,Peak Ground Acceleration from the GEM Global Seismic Hazard Map.,MX-MWJ8Z-JYVYX-N9T0T,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,earthquakes-live,Earthquakes (live),,Custom / Live,"USGS Mag >= 5.5, past 30 days. Updated every 15 min.",MX-YLZJG-JAIID-V27X5,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,cyclone-surge,Cyclone Surge Exposure,,Raster,Annual physical exposure to surges from cyclones.,MX-8C214-22C3A-82165,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,tropical-cyclones,Tropical Cyclones,Frequency,Raster,Cyclone wind speed probabilities (STORM dataset).,MX-E180C-5B012-AFC77,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,tropical-cyclones,Tropical Cyclones,Exposure,Raster,Annual physical exposure to tropical cyclones.,MX-10AE5-746D1-76777,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,landslides,Landslides,Exposure,Raster,Annual exposure to landslides.,MX-04E66-2E550-81068,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,landslides,Landslides,Frequency,Raster,Annual frequency of landslides.,MX-05247-89997-66A64,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,tsunamis,Tsunamis,Exposure,Raster,Annual physical exposure to tsunamis.,MX-F0DEE-12D97-6447B,,,,Uploaded
+Geographic distribution of hotspots for key hazards and exposed sectors,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,tsunamis,Tsunamis,Frequency,Raster,Annual frequency of tsunamis.,MX-D7314-A5044-83377,,,,Uploaded
+Impacts of multiple shocks,Hazard,Societies,UNDERSTAND YOUR HAZARD PROFILE,impacts-of-multiple-shocks,,,,,,,,,
+Life years lost due to disasters,Vulnerability,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,life-years-lost-due-to-disasters,,,,,,,,,
+Recovery speed top/bottom quintile for an AAL/ PML,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,recovery-speed,Recovery Speed of consumption levels after a 1:100 Earthquake event,,,Raster,Recovery Speed of consumption levels after a 1:100 Earthquake event,,,,
+Recovery speed top/bottom quintile for an AAL/ PML,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,recovery-speed,Recovery Speed of consumption levels after a 1:100 Flood event,,,Raster,Recovery Speed of consumption levels after a 1:100 Flood event,,,,
+Recovery speed top/bottom quintile for an AAL/ PML,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,recovery-speed,Recovery Speed of consumption levels after a 1:100 Storm event,,,Raster,Recovery Speed of consumption levels after a 1:100 Storm event,,,,
+Recovery speed top/bottom quintile for an AAL/ PML,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,recovery-speed,Recovery Speed of consumption levels after a 1:100 Tsunami event,,,Raster,Recovery Speed of consumption levels after a 1:100 Tsunami event,,,,
+AAL to public infrastructure,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-public,AAL public current,,Raster,AAL Public Infrastructure - Existing Climate,MX-443WM-S89FY-2ANCD,,,,Uploaded
+AAL to public infrastructure,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-public,AAL public 2.6,,Raster,AAL Public Infrastructure - RCP 2.6 Climate scenario,MX-6HW4M-X4PAM-WH46T,,,,Uploaded
+AAL to public infrastructure,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-public,AAL public 8.5,,Raster,AAL Public Infrastructure - RCP 8.5 Climate Scenario,MX-QLZI0-AXK6X-8OAN7,,,,Uploaded
+AAL crops,Risk,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-crops,AAL crops,,,,,,,,
+PML crops,Risk,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-crops,PML crops,,,,,,,,
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,AAL housing current,,Raster,AAL Households - Existing Climate Scenario,MX-YP5S0-VBMJK-R7IMX,,,,Uploaded
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,AAL housing RCP2.6,,Raster,AAL Households - RCP 2.6 Climate Scenario,MX-MKE3F-AONM0-27UM0,,,,Uploaded
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,AAL housing RCP8.5,,Raster,AAL Households - RCP 8.5 Climate Scenario,MX-O1L8F-IKWHZ-VZTO7,,,,Uploaded
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,PML housing current,,Raster,PML Household in a 1:100 event - Current Climate Scenario,MX-ZA12C-TU5AH-L9K7P,,,,Uploaded
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,PML housing RCP2.6,,Raster,PML Household in a 1:100 event - RCP2.6 Climate Scenario,MX-XY8R2-9T29I-7235T,,,,Uploaded
+AAL/PML housing,Risk,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-pml-housing,PML housing RCP8.5,,Raster,PML Household in a 1:100 event - RCP8.5 Climate Scenario,MX-VWYGB-7A6CV-QC1UG,,,,Uploaded
+Economic loss to ecosystem failure under current conditions,Risk,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,ecosystem-loss,ecosystem loss,,,,,,,,
+AAL to GDP now and 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2025,Earthquake,,Raster,AAL in Earthquake Risk over nominal GDP 2025 - Current Climate Scenario,MX-9NADN-CB8JT-WC1OD,,,,Uploaded
+AAL to GDP now and 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2025,Landslides,,Raster,AAL in Landslides Risk over nominal GDP 2025 - Current Climate Scenario,MX-Y0QE0-24K69-FKLY4,,,,Uploaded
+AAL to GDP now and 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2025,Tropical Cyclones,,Raster,AAL in Tropical Cyclone Risk over nominal GDP 2025 - Current Climate Scenario,MX-1IW5U-0WB6E-23TWY,,,,Uploaded
+AAL to GDP now and 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2025,Floods,,Raster,AAL in Flood Risk over nominal GDP 2025 - Current Climate Scenario,MX-YYCOH-BJR17-AI5DC,,,,Uploaded
+AAL to GDP now and 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2025,Tsunamis,,Raster,AAL in Tsunami Risk over nominal GDP 2025 - Current Climate Scenario,MX-GWI29-SUI19-JI9NK,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2025,Earthquake,,Raster,PML in Earthquake 1:100 event Risk over nominal GDP 2025 - Current Climate Scenario,MX-D7PMU-PL88W-UYF2D,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2025,Landslides,,Raster,PML in Landslide 1:100 event Risk over nominal GDP 2025 - Current Climate Scenario,MX-AXEIH-GM2KV-TGOII,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2025,Tropical Cyclones,,Raster,PML in Tropical Cyclone 1:100 event Risk over nominal GDP 2025 - Current Climate Scenario,MX-V0I12-3KA70-ZVMX9,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2025,Floods,,Raster,PML in Flood 1:100 event Risk over nominal GDP 2025 - Current Climate Scenario,MX-2C1U4-W0QF9-OQ7EO,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2025,Tsunamis,,Raster,PML in Tsunami 1:100 event Risk over nominal GDP 2025 - Current Climate Scenario,MX-C7MNL-TEXT7-TN001,,,,Uploaded
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2050,Earthquake,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2050,Landslides,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2050,Tropical Cyclones,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2050,Floods,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,aal-to-gdp-2050,Tsunamis,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2050,Earthquake,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2050,Landslides,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2050,Tropical Cyclones,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2050,Floods,,,Raster,,,,,
+PML to GDP now and in 2050,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,pml-to-gdp-2050,Tsunamis,,,Raster,,,,,
+Cost of supply chain disruption,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,cost-supply-chain-disruption,,,,,,,,,
+Bank solvency in an AAL year / capital adequacy,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,bank-solvency-capital-adequacy,,,,,,,,,
+Current fiscal gap,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,current-fiscal-gap,Floods,,Raster,Fiscal Gap Return Period for Flood Risk,MX-X144T-FVH4D-CNILH,,,,Uploaded
+Current fiscal gap,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,current-fiscal-gap,Landslides,,Raster,Fiscal Gap Return Period for Landslide Risk,MX-6R1HD-1QCSB-CDRCP,,,,Uploaded
+Current fiscal gap,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,current-fiscal-gap,Tropical Cyclones,,Raster,Fiscal Gap Return Period for Cyclone Risk,MX-VPWOT-F3J3E-N5CPW,,,,Uploaded
+Current fiscal gap,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,current-fiscal-gap,Earthquake,,Raster,Fiscal Gap Return Period of Earthquake Risk,MX-HH3SN-J2JQY-ZKSZV,,,,Uploaded
+Current fiscal gap,Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,current-fiscal-gap,Tsunamis,,Raster,Fiscal Gap Return Period for Tsunami Risk,MX-I91L8-9WESU-ZXA05,,,,Uploaded
+Sovereign debt due to AAL event (Stress test),Risk,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,sovereign-debt-stress-test,,,,,,,,,
+Percentage of DRR/ resilience financing per GDP,Risk,Economy,PRIORITIZE CURRENT AND FUTURE INVESTMENT,drr-financing-per-gdp,,,,,,,,,
+Average expenditure on humanitarian relief as compared to AA/ prevention,Risk,Economy,PRIORITIZE CURRENT AND FUTURE INVESTMENT,humanitarian-vs-prevention-expenditure,,,,,,,,,
+"Based on a layered financing approach, matrix of potential project types that could be explored to accelerate resilience",Risk,Economy,CONSIDER POTENTIAL RESILIENCE OPTIONS,based-on-a-layered-financing-approach-matrix-of-po,,,,,,,,,
+# hazards covered by an early warning system and # of Admin 2 risk models,Resilience,Societies,UNDERSTAND YOUR HAZARD PROFILE,hazards-covered-by-an-early-warning-system-and-of-,,,,,,,,,
+Reduction in economic impacts of multiple shocks with resilient investement,Resilience,Societies,UNDERSTAND YOUR HAZARD PROFILE,reduction-in-economic-impacts-of-multiple-shocks-w,,,,,,,,,
+Adaptation benefit of adaptation to life years lost,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,adaptation-benefit-of-adaptation-to-life-years-los,,,,,,,,,
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Assets wo adaptation,,Raster,Disaster Risk to Physical Assets (%GDP) - No Adaptation Scenario,MX-836KR-C0OWG-2OGU2,,,,Uploaded
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Assets w adaptation,,Raster,Disaster Risk to Well-Being (% GDP) - No Adaptation Scenario,MX-NYKLB-MQNML-D4583,,,,Uploaded
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Wellbeing wo adaptation,,Raster,Disaster Risk to Physical Assets (%GDP) - Adaptation Scenario,MX-G1G8E-MGLJL-Z9JEU,,,,Uploaded
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Wellbeing w adaptation,,Raster,Disaster Risk to Well-Being (%GDP) - Adaptation Scenario,MX-P8K9H-PUNT8-SEH10,,,,Uploaded
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Change in assets,,Raster,Change in Expected Disaster-Related Asset Losses (% GDP),MX-B5EX7-UCSAR-CQUNJ,,,,Uploaded
+Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment,Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,wellbeing,Change in wellbeing,,Raster,Change in Expected Disaster-Related Well-Being Losses (% GDP),MX-3S4X6-9YXCI-MOI3L,,,,Uploaded
+Adaptation benefit in reduced losses to infrastructure (under 2.6 and 8.5 RCP?),Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,adaptation,TBD,TBD,TBD,,,,,,
+"Recovery time of utilities after a major shock, recovery time for restoration of public assets",Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,recovery-time-of-utilities-after-a-major-shock-rec,,,,,,,,,
+Reduction in agricultural losses with and without resilience measures under 2.6 and 8.5 scenarios,Resilience,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,reduction-in-agricultural-losses-with-and-without-,,,,,,,,,
+Impact of climate change and resilience building on food prices (FAO elastacity calculations 2026-2027),Resilience,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,impact-of-climate-change-and-resilience-building-o,,,,,,,,,
+"Adaptation benefit of increase in resilient housing / Insurability/ house price/mortgage/ insurance affordability/ needs some work, may need two types",Resilience,Societies,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,tbd,TBD,TBD,,,,,,,
+Adaptation benefit in reduced losses through ecosystem investment (under 2.6 and 8.5 RCP?),Resilience,Environment,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,adaptation-benefit-in-reduced-losses-through-ecosy,,,,,,,,,
+Adaptation benefit to GDP growth/ benefit to poverty headcount (without major shock),Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,tbd,TBD,TBD,,,,,,,
+Resilience benefit to GDP growth with and without investment in case of a 1:100 year event,Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,tbd,TBD,TBD,,,,,,,
+Reduction in supply chain damage with adaptation investment,Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,reduction-in-supply-chain-damage-with-adaptation-i,,,,,,,,,
+Bank solvency to a PML event with and without resilience measures,Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,bank-solvency-to-a-pml-event-with-and-without-resi,,,,,,,,,
+Change in fiscal gap with and without resilience measures,Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,change-fiscal-gap,Total with support,,Raster,Fiscal Gap Return Period across hazards - Including Special Drawing Rights (SDRs),MX-WOHMT-WYKWK-X25K9,,,,Uploaded
+Change in fiscal gap with and without resilience measures,Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,change-fiscal-gap,Total without support,,Raster,Fiscal Gap Return Period across Hazards - Without Special Drawing Rights (SDRs),MX-5GL7W-40NYZ-T1IX1,,,,Uploaded
+Sovereign debt change due to a PML event (Stress test),Resilience,Economy,LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE,sovereign-debt-change-due-to-a-pml-event-stress-te,,,,,,,,,
+Future planned spending on DRR / resilience in relation to AAL/ PML,Resilience,Societies,PRIORITIZE CURRENT AND FUTURE INVESTMENT,future-planned-spending-on-drr-resilience-in-relat,,,,,,,,,
+% of emergency funding required with and without a reserve in a PML event,Resilience,Economy,PRIORITIZE CURRENT AND FUTURE INVESTMENT,of-emergency-funding-required-with-and-without-a-r,,,,,,,,,
+Co benefits of resilience options with climate and energy tranistions,Resilience,Environment,CONSIDER POTENTIAL RESILIENCE OPTIONS,co-benefits-of-resilience-options-with-climate-and,,,,,,,,,
+Other,Exposure,Societies,other,population,Population,,Raster,Population distribution (HRSL/GHSL 2022).,MX-6YLMU-U4WXC-2JJD7,,,,
+Other,Exposure,Environment,other,land-cover,Land Cover,,Custom / Live,ESA WorldCover 10m (2021). Sentinel-1/2 based.,MX-KG1JB-OI13A-6RHKN,,,,Uploaded
+Other,Exposure,Environment,other,forests,Forests,,Raster,"Global forest coverage (MODIS, 2020).",MX-8F9EB-10D0B-93564,,,,Uploaded
+Other,Exposure,Environment,other,mangroves,Mangroves,,Raster,Global Mangrove Watch (1996-2016).,MX-AB65A-A5AD3-06D68,,,,Uploaded
+Other,Exposure,Environment,other,coral-reefs,Coral Reefs,,,Raster,Global coral reef distribution.,,,,
+Other,Exposure,Societies,other,roads-rail,Roads & Rail,,Vector,Global road and rail network.,TBD,,,,
+Other,Exposure,Societies,other,power-plants,Power Plants,,Vector,WRI Global Power Plants Database.,TBD,,,,
+Other,Vulnerability,Environment,other,intact-forests,Intact Forest Landscapes,,Vector,Large intact forest ecosystems (IFLs).,MX-FX1HT-Z7KXL-8X22K,,,,Uploaded
+Other,Vulnerability,Environment,other,water-stress,Water Stress (RCP8.5 2030),,Vector,Projected change in water stress.,MX-1L2TA-6FXPV-N3QMX,,,,Uploaded
+Other,Vulnerability,Societies,other,hdi,Human Development Index,,Vector,Subnational HDI.,MX-S7OAB-FQ220-REV2E,,,,In development
+Other,Vulnerability,Societies,other,rwi,Relative Wealth Index,,Vector,Meta Data for Good.,TBD,,,,

@@ -6,7 +6,7 @@
     <title>GRAR Metrics Facility Map Viewer</title>
     <link
       rel="stylesheet"
-      href="https://assets.undrr.org/static/mangrove/1.6.0/css/style.css"
+      href="https://assets.undrr.org/static/mangrove/1.8.0/css/style.css"
     />
   </head>
   <body>
@@ -82,12 +82,17 @@
       >
         <li class="mg-mega-topbar__item" role="none">
           <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
-            <img src="/logo-grar.svg" alt="GRAR Metrics Facility" style="height:21px" />
+            Risk &amp; Resilience Metrics
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
           <a href="#risk-resilience" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link is-active" data-tab="risk-resilience">
-            Risk &amp; Resilience
+            Risk
+          </a>
+        </li>
+        <li class="mg-mega-topbar__item" role="none">
+          <a href="#resilience" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="resilience">
+            Resilience
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
@@ -141,8 +146,8 @@
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
           <div class="layer-panel-actions">
-            <button class="layer-review-btn" id="layer-disabled-toggle" type="button" aria-pressed="false" title="Show disabled layers for review">
-              Show disabled
+            <button class="layer-review-btn" id="layer-disabled-toggle" type="button" aria-pressed="true" title="Show disabled layers for review">
+              Hide disabled
             </button>
             <button class="layer-clear-btn" id="layer-clear-btn" aria-label="Turn off all layers" title="Turn off all layers" hidden>
               Clear all

@@ -47,7 +47,7 @@ const layerElementMap = new Map();
 const secondaryEyeBtns = new Map();
 // Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
 const toggleInFlight = new Set();
-let showDisabledLayers = false;
+let showDisabledLayers = true;
 
 /**
  * Build the UI and wire up all nav links.
@@ -131,10 +131,11 @@ export function buildSidebar() {
 
     if (tab.groups) {
       for (const group of tab.groups) {
-        const groupEl = document.createElement("div");
+        const groupEl = document.createElement("details");
         groupEl.className = "layer-group";
+        groupEl.open = true;
 
-        const groupHeading = document.createElement("h3");
+        const groupHeading = document.createElement("summary");
         groupHeading.className = "layer-group-heading";
         groupHeading.textContent = group.label;
         groupEl.appendChild(groupHeading);
@@ -265,12 +266,11 @@ function updateDisabledLayerVisibility() {
       wrapper.hidden = !showDisabledLayers;
     }
 
-    // Show/hide group headings based on whether the group has any visible items
+    // Show/hide collapsible groups based on whether they have any visible items
     for (const groupEl of tabPanel.querySelectorAll(".layer-group")) {
       const items = groupEl.querySelector(".layer-group-items");
-      const heading = groupEl.querySelector(".layer-group-heading");
-      if (!items || !heading) continue;
-      heading.hidden = !Array.from(items.children).some((el) => !el.hidden);
+      if (!items) continue;
+      groupEl.hidden = !Array.from(items.children).some((el) => !el.hidden);
     }
 
     const hasPublishedLayers = tab.layers.some(isLayerPublished);

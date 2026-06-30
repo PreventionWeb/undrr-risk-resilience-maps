@@ -1,5 +1,8 @@
 import { ECO_DRR, HOME } from "./projects.js";
 
+const OTHER = "Other";
+const STEP_OTHER = "other";
+
 export const EXPOSURE_LAYERS = [
   {
     id: "MX-6YLMU-U4WXC-2JJD7",
@@ -12,6 +15,9 @@ export const EXPOSURE_LAYERS = [
     citation: "Meta & CIESIN (2022): High Resolution Settlement Layer. / Pesaresi, M. et al. (2023): GHSL Data Package 2023. JRC Technical Report EUR 31741 EN.",
     license: "CC BY 4.0",
     project: ECO_DRR,
+    initiative: OTHER,
+    r2rCategory: "Societies",
+    rrStep: STEP_OTHER,
   },
   {
     // TODO: move this view into the ECO_DRR project. Currently in HOME project
@@ -26,9 +32,12 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://esa-worldcover.org/",
     citation: "Zanaga, D. et al. (2022): ESA WorldCover 10 m 2021 v200. doi:10.5281/zenodo.7254221.",
     license: "CC BY 4.0",
-    note: "Awaiting data — view is in the MapX HOME project; cannot load until data is moved to the ECO-DRR project.",
     project: HOME,
+    initiative: OTHER,
+    r2rCategory: "Environment",
+    rrStep: STEP_OTHER,
     status: "disabled-awaiting-data",
+    note: "Awaiting data — view is in the MapX HOME project; cannot load until data is moved to the ECO-DRR project.",
   },
   {
     id: "MX-8F9EB-10D0B-93564",
@@ -41,6 +50,9 @@ export const EXPOSURE_LAYERS = [
     citation: "DiMiceli, C. et al. (2021): MOD44B.006 Terra Vegetation Continuous Fields Yearly Global 250m. NASA LP DAAC, Oak Ridge.",
     license: "Public Domain",
     project: ECO_DRR,
+    initiative: OTHER,
+    r2rCategory: "Environment",
+    rrStep: STEP_OTHER,
   },
   {
     id: "MX-AB65A-A5AD3-06D68",
@@ -53,6 +65,9 @@ export const EXPOSURE_LAYERS = [
     citation: "Bunting, P. et al. (2018): The Global Mangrove Watch — A New 2010 Global Baseline of Mangrove Extent. Remote Sensing, 10(10): 1669.",
     license: "CC BY 4.0",
     project: ECO_DRR,
+    initiative: OTHER,
+    r2rCategory: "Environment",
+    rrStep: STEP_OTHER,
   },
   {
     id: "MX-726D3-C0F95-0D97A",
@@ -65,8 +80,11 @@ export const EXPOSURE_LAYERS = [
     citation: "UNEP-WCMC, WorldFish Centre, WRI, TNC (2021): Global distribution of warm-water coral reefs. Ocean+ Library. doi:10.34892/t2wk-5t17.",
     license: "CC BY-NC-SA 3.0",
     project: ECO_DRR,
-    note: "Pending removal — retained in the prototype inventory while category scope is under review.",
+    initiative: OTHER,
+    r2rCategory: "Environment",
+    rrStep: STEP_OTHER,
     status: "disabled-pending-removal",
+    note: "Pending removal — retained in the prototype inventory while category scope is under review.",
   },
   {
     id: null,
@@ -79,8 +97,12 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://www.openstreetmap.org/",
     citation: "OpenStreetMap contributors (2024): OpenStreetMap Data. openstreetmap.org.",
     license: "ODbL 1.0",
-    note: "Awaiting data — MapX view ID not yet assigned.",
+    project: ECO_DRR,
+    initiative: OTHER,
+    r2rCategory: "Societies",
+    rrStep: STEP_OTHER,
     status: "disabled-awaiting-data",
+    note: "Awaiting data — MapX view ID not yet assigned.",
   },
   {
     id: null,
@@ -93,7 +115,11 @@ export const EXPOSURE_LAYERS = [
     sourceUrl: "https://datasets.wri.org/dataset/globalpowerplantdatabase",
     citation: "Byers, L. et al. (2019): A Global Database of Power Plants. World Resources Institute, Washington D.C.",
     license: "CC BY 4.0",
-    note: "Awaiting data — MapX view ID not yet assigned.",
+    project: ECO_DRR,
+    initiative: OTHER,
+    r2rCategory: "Societies",
+    rrStep: STEP_OTHER,
     status: "disabled-awaiting-data",
+    note: "Awaiting data — MapX view ID not yet assigned.",
   },
 ];

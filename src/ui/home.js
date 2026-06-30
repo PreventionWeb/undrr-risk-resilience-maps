@@ -9,10 +9,11 @@ import { TABS } from "../config/layers.js";
  * these never get out of sync with the navigation bar.
  */
 const CARD_VISUAL = {
-  "risk-resilience": { icon: "01", color: "#004f91", desc: "Combined risk and resilience assessment showing where hazard, exposure, and vulnerability converge, alongside planned resilience indicators." },
-  hazard:        { icon: "02", color: "#c72236", desc: "Natural hazards including river and coastal floods, droughts, earthquakes, and tropical cyclones." },
-  exposure:      { icon: "03", color: "#ed833f", desc: "Infrastructure and population elements at risk: roads, railways, power networks, and cropland." },
-  vulnerability: { icon: "04", color: "#f0b429", desc: "Socioeconomic and structural factors that amplify harm when hazards strike." },
+  "risk-resilience": { icon: "01", color: "#004f91", desc: "Analytics insights through approximately 20 metrics across 8 hazards highlighting key risks now up to 2050." },
+  hazard:        { icon: "02", color: "#c72236", desc: "Aims to provide current global hazard analysis for the 8 key hazards that cause more than 90% of economic costs." },
+  exposure:      { icon: "03", color: "#ed833f", desc: "Demographic, infrastructure, housing, transport, cropland at risk." },
+  vulnerability: { icon: "04", color: "#f0b429", desc: "Social, economic and structural factors that amplify harm when hazards strike." },
+  resilience:    { icon: "05", color: "#2d7d46", desc: "Indicative metrics that help measure the movement from risk towards greater resilience in social, economic and planetary systems." },
 };
 
 // Derive categories from TABS so id and label are never duplicated
@@ -43,8 +44,8 @@ export function buildHomePanel() {
     <div class="info-page-hero">
       <div class="mg-container">
         <p class="info-page-hero__eyebrow">Prototype · Interaction review only</p>
-        <h1 class="info-page-hero__title">GRAR Metrics Facility</h1>
-        <p class="info-page-hero__intro">Explore interactive global risk and resilience data layers — hazard exposure, economic impacts, and resilience benchmarks — all in one visualization platform. Part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">Risk &amp; Resilience Metrics</a> initiative.</p>
+        <h1 class="info-page-hero__title"><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">GRAR Metrics Facility</a></h1>
+        <p class="info-page-hero__intro">The Risk & Resilience Metrics Facility helps close this resilience gap by providing cutting‑edge analytics that empower decision makers and communities to make more informed decisions to protect against a risky future. It translates disaster risk science into clear signals that decision makers can use to not only understand current but also potential future risk. More information on the core Metrics Framework is available on the <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">Risk & Resilience Metrics website</a>.</p>
       </div>
     </div>
 

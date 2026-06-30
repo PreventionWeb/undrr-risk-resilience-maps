@@ -4,17 +4,18 @@ const AWAITING = "disabled-awaiting-data";
 const SOURCE_TBC = "Source to be confirmed.";
 const CITATION_TBC = "Source to be confirmed.";
 const LICENSE_TBC = "TBD";
-// Layers marked "done" in the inventory have confirmed MapX views; IDs to be
-// wired here once provided.
-const NOTE_ID_TBC = "MapX view exists; ID to be confirmed before enabling.";
 const NOTE_PENDING = "Awaiting data — MapX view not yet available.";
 
+const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
+const STEP_PRIORITIZE = "PRIORITIZE CURRENT AND FUTURE INVESTMENT";
+const STEP_CONSIDER = "CONSIDER POTENTIAL RESILIENCE OPTIONS";
+
 const HAZARD_SOURCES = [
-  { id: null, label: "Earthquake",       desc: "Earthquake hazard." },
-  { id: null, label: "Landslides",       desc: "Landslide hazard." },
+  { id: null, label: "Earthquake",        desc: "Earthquake hazard." },
+  { id: null, label: "Landslides",        desc: "Landslide hazard." },
   { id: null, label: "Tropical Cyclones", desc: "Tropical cyclone hazard." },
-  { id: null, label: "Floods",           desc: "Flood hazard." },
-  { id: null, label: "Tsunamis",         desc: "Tsunami hazard." },
+  { id: null, label: "Floods",            desc: "Flood hazard." },
+  { id: null, label: "Tsunamis",          desc: "Tsunami hazard." },
 ];
 
 export const RISK_LAYERS = [
@@ -29,6 +30,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Recovery speed top/bottom quintile for an AAL/ PML",
+    r2rCategory: "Societies",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
     sources: [
@@ -50,6 +54,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "AAL to public infrastructure",
+    r2rCategory: "Societies",
+    rrStep: STEP_LINK,
     sources: [
       { id: "MX-443WM-S89FY-2ANCD", label: "Current",  desc: "AAL for public assets under current climate." },
       { id: "MX-6HW4M-X4PAM-WH46T", label: "RCP 2.6",  desc: "AAL for public assets under RCP 2.6." },
@@ -68,6 +75,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "AAL crops",
+    r2rCategory: "Environment",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -82,6 +92,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "PML crops",
+    r2rCategory: "Environment",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -96,6 +109,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "AAL/PML housing",
+    r2rCategory: "Societies",
+    rrStep: STEP_LINK,
     sources: [
       { id: "MX-YP5S0-VBMJK-R7IMX", label: "AAL Current",  desc: "AAL for housing under current climate." },
       { id: "MX-MKE3F-AONM0-27UM0", label: "AAL RCP 2.6",  desc: "AAL for housing under RCP 2.6." },
@@ -117,6 +133,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Economic loss to ecosystem failure under current conditions",
+    r2rCategory: "Environment",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -131,6 +150,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "AAL to GDP now and 2050",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     sources: [
       { id: "MX-9NADN-CB8JT-WC1OD", label: "Earthquake",        desc: "AAL to GDP 2025 — earthquake." },
       { id: "MX-Y0QE0-24K69-FKLY4", label: "Landslides",        desc: "AAL to GDP 2025 — landslides." },
@@ -151,6 +173,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "PML to GDP now and in 2050",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     sources: [
       { id: "MX-D7PMU-PL88W-UYF2D", label: "Earthquake",        desc: "PML to GDP 2025 — earthquake." },
       { id: "MX-AXEIH-GM2KV-TGOII", label: "Landslides",        desc: "PML to GDP 2025 — landslides." },
@@ -171,6 +196,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "AAL to GDP now and 2050",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
     sources: HAZARD_SOURCES.map((s) => ({ ...s, desc: `AAL to GDP 2050 — ${s.label.toLowerCase()}.` })),
@@ -187,6 +215,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "PML to GDP now and in 2050",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
     sources: HAZARD_SOURCES.map((s) => ({ ...s, desc: `PML to GDP 2050 — ${s.label.toLowerCase()}.` })),
@@ -203,6 +234,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Current fiscal gap",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     sources: [
       { id: "MX-X144T-FVH4D-CNILH", label: "Floods",            desc: "Current fiscal gap — floods." },
       { id: "MX-6R1HD-1QCSB-CDRCP", label: "Landslides",        desc: "Current fiscal gap — landslides." },
@@ -223,6 +257,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Cost of supply chain disruption",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -237,6 +274,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Bank solvency in an AAL year / capital adequacy",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -251,6 +291,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Sovereign debt due to AAL event (Stress test)",
+    r2rCategory: "Economy",
+    rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -265,6 +308,9 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Percentage of DRR/ resilience financing per GDP",
+    r2rCategory: "Economy",
+    rrStep: STEP_PRIORITIZE,
     status: AWAITING,
     note: NOTE_PENDING,
   },
@@ -279,6 +325,25 @@ export const RISK_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
+    initiative: "Average expenditure on humanitarian relief as compared to AA/ prevention",
+    r2rCategory: "Economy",
+    rrStep: STEP_PRIORITIZE,
+    status: AWAITING,
+    note: NOTE_PENDING,
+  },
+  {
+    id: null,
+    key: "layered-financing-matrix",
+    label: "Layered Financing Matrix",
+    type: "vt",
+    desc: "Matrix of potential project types to accelerate resilience based on a layered financing approach.",
+    source: SOURCE_TBC,
+    citation: CITATION_TBC,
+    license: LICENSE_TBC,
+    project: ECO_DRR,
+    initiative: "Based on a layered financing approach, matrix of potential project types that could be explored to accelerate resilience",
+    r2rCategory: "Economy",
+    rrStep: STEP_CONSIDER,
     status: AWAITING,
     note: NOTE_PENDING,
   },

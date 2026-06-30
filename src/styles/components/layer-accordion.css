@@ -103,7 +103,7 @@
 
 .layer-group-heading {
   margin: 0;
-  padding: 0.4rem 0.75rem 0.3rem;
+  padding: 0.4rem 0.75rem 0.3rem 0.5rem;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -111,6 +111,24 @@
   color: #777;
   background: #f9f9f9;
   border-bottom: 1px solid #eee;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  user-select: none;
+}
+
+.layer-group-heading::-webkit-details-marker { display: none; }
+
+.layer-group-heading::before {
+  content: "▾";
+  font-size: 0.7rem;
+  transition: transform 0.15s;
+}
+
+.layer-group:not([open]) .layer-group-heading::before {
+  transform: rotate(-90deg);
 }
 
 /* ------------------------------------------------------------------ */
