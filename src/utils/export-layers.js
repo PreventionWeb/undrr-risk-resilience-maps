@@ -1,22 +1,39 @@
 /**
  * Layer inventory CSV export.
  *
- * Generates a CSV from the layer config TABS array so the file always
- * reflects the current state of the application. Includes one row per
- * MapX view ID (sub-sources of compound layers each get their own row).
+ * Column order matches data/inventory.csv (sourced from the master inventory
+ * spreadsheet) so the export can be compared against or re-imported as an
+ * updated inventory CSV.
  *
- * `citation` and `license` are layer-level fields only — not defined on
- * individual sub-sources of compound layers.
+ * One row per MapX view ID — sub-sources of compound layers each get their
+ * own row. `source`, `citation`, and `license` are layer-level fields and
+ * are not defined on individual sub-sources.
+ *
+ * Note: `sourceUrl` is intentionally omitted — it has no column in the master
+ * spreadsheet. Values are preserved in the JS config and not affected by imports.
+ *
+ * Inventory status mapping (JS status → human-readable):
+ *   published             → "Uploaded"
+ *   disabled-awaiting-data → "In development"
+ *   disabled-pending-removal → "Pending removal"
  */
 
 import { TABS } from "../config/layers/index.js";
-import { PROJECT_LABELS } from "../config/layers/projects.js";
-import { getLayerStatus, isLayerPublished } from "../config/layers/status.js";
+import { isLayerPublished, getLayerStatus } from "../config/layers/status.js";
 
 const TYPE_LABELS = {
   rt: "Raster",
   vt: "Vector",
   cc: "Custom / Live",
+};
+
+// Maps the human-readable labels returned by getLayerStatus → inventory CSV values
+const INVENTORY_STATUS = {
+  "Active":        "Uploaded",
+  "Placeholder":   "In development",
+  "Awaiting data": "In development",
+  "Pending removal": "Pending removal",
+  "Disabled":      "In development",
 };
 
 function cell(value) {
@@ -31,68 +48,81 @@ function row(...values) {
   return values.map(cell).join(",");
 }
 
+function inventoryStatus(layer, src) {
+  const raw = getLayerStatus(layer, src);
+  return INVENTORY_STATUS[raw] ?? raw;
+}
+
 export function generateLayerInventoryCSV() {
   const CRLF = "\r\n";
-  const BOM = "\uFEFF";
+  const BOM = "﻿";
 
   const lines = [
     row(
-      "Category", "Notes", "Layer key", "Layer name", "Sub-source",
-      "Type", "Description", "MapX view ID", "MapX project",
-      "Status", "Source attribution", "Source URL", "Citation", "License"
+      "Variable R-R Initiative",
+      "Category",
+      "R2R category",
+      "R&R Step",
+      "Layer key",
+      "Layer name",
+      "Sub-source",
+      "Type",
+      "Description",
+      "MapX view ID",
+      "Source",
+      "Citation",
+      "License",
+      "Inventory status",
     ),
   ];
 
   for (const tab of TABS) {
     for (const layer of tab.layers) {
-      const category = tab.label;
-      const type = TYPE_LABELS[layer.type] || layer.type;
-      const project = PROJECT_LABELS[layer.project] || layer.project || "";
+      const category  = tab.label;
+      const type      = TYPE_LABELS[layer.type] || layer.type || "";
+      const initiative = layer.initiative || "";
+      const r2rCat    = layer.r2rCategory || "";
+      const rrStep    = layer.rrStep || "";
 
-      // Warn in dev if an active layer is missing citation or license
       if (isLayerPublished(layer) && layer.id !== null && (!layer.citation || !layer.license)) {
         console.warn(`[layer-inventory] Active layer "${layer.key}" is missing citation or license.`);
       }
 
       if (layer.sources && layer.sources.length > 0) {
-        // Compound layer: one row per sub-source; citation/license from parent
         for (const src of layer.sources) {
-          const status = getLayerStatus(layer, src);
           lines.push(row(
+            initiative,
             category,
-            src.note || layer.note || "",
+            r2rCat,
+            rrStep,
             layer.key,
             layer.label,
             src.label,
             type,
             src.desc || layer.desc || "",
             src.id || "",
-            project,
-            status,
             src.source || layer.source || "",
-            src.sourceUrl || layer.sourceUrl || "",
             layer.citation || "",
             layer.license || "",
+            inventoryStatus(layer, src),
           ));
         }
       } else {
-        // Simple layer
-        const status = getLayerStatus(layer);
         lines.push(row(
+          initiative,
           category,
-          layer.note || "",
+          r2rCat,
+          rrStep,
           layer.key,
           layer.label,
           "",
           type,
           layer.desc || "",
           layer.id || "",
-          project,
-          status,
           layer.source || "",
-          layer.sourceUrl || "",
           layer.citation || "",
           layer.license || "",
+          inventoryStatus(layer),
         ));
       }
     }

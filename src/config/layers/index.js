@@ -35,22 +35,37 @@ import { RISK_LAYERS } from "./risk.js";
 import { RESILIENCE_LAYERS } from "./resilience.js";
 export { ECO_DRR, HOME, CDC } from "./projects.js";
 
+// Canonical R2R category display order
+const R2R_ORDER = ["Societies", "Economy", "Environment"];
+
+/**
+ * Group layers by r2rCategory if more than one category is present.
+ * Returns { groups, layers } — groups is null when only one category exists.
+ */
+function withR2rGroups(layers) {
+  const seen = new Set(layers.map((l) => l.r2rCategory).filter(Boolean));
+  if (seen.size <= 1) return { layers, groups: null };
+
+  const buckets = new Map(R2R_ORDER.map((cat) => [cat, []]));
+  for (const layer of layers) {
+    const cat = layer.r2rCategory || "Other";
+    if (!buckets.has(cat)) buckets.set(cat, []);
+    buckets.get(cat).push(layer);
+  }
+
+  const groups = [...buckets.entries()]
+    .filter(([, ls]) => ls.length > 0)
+    .map(([label, ls]) => ({ id: label.toLowerCase(), label, layers: ls }));
+
+  return { layers, groups };
+}
+
 export const TABS = [
-  (() => {
-    const groups = [
-      { id: "risk", label: "Risk Maps", layers: RISK_LAYERS },
-      { id: "resilience", label: "Resilience Maps", layers: RESILIENCE_LAYERS },
-    ];
-    return {
-      id: "risk-resilience",
-      label: "Risk & Resilience",
-      groups,
-      layers: groups.flatMap((g) => g.layers),
-    };
-  })(),
-  { id: "hazard", label: "Hazard", layers: HAZARD_LAYERS },
-  { id: "exposure", label: "Exposure", layers: EXPOSURE_LAYERS },
-  { id: "vulnerability", label: "Vulnerability", layers: VULNERABILITY_LAYERS },
+  { id: "risk-resilience", label: "Risk",          ...withR2rGroups(RISK_LAYERS) },
+  { id: "resilience",      label: "Resilience",    ...withR2rGroups(RESILIENCE_LAYERS) },
+  { id: "hazard",          label: "Hazard",        ...withR2rGroups(HAZARD_LAYERS) },
+  { id: "exposure",        label: "Exposure",      ...withR2rGroups(EXPOSURE_LAYERS) },
+  { id: "vulnerability",   label: "Vulnerability", ...withR2rGroups(VULNERABILITY_LAYERS) },
 ];
 
 export const PRIMARY_PROJECT = "MX-2LD-FBB-58N-ROK-8RH";

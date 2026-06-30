@@ -3,7 +3,7 @@ import { buildLayerInventoryFilename, generateLayerInventoryCSV } from "./export
 
 describe("generateLayerInventoryCSV", () => {
   let csv;
-  let lines; // all non-empty data lines (excluding header and BOM line)
+  let lines; // all non-empty data lines (excluding header)
   let header;
 
   beforeAll(() => {
@@ -23,32 +23,32 @@ describe("generateLayerInventoryCSV", () => {
     expect(csv).toContain("\r\n");
   });
 
-  it("has the expected header columns", () => {
+  it("has the expected header columns matching the inventory spreadsheet", () => {
     const expectedColumns = [
+      "Variable R-R Initiative",
       "Category",
-      "Notes",
+      "R2R category",
+      "R&R Step",
       "Layer key",
       "Layer name",
       "Sub-source",
       "Type",
       "Description",
       "MapX view ID",
-      "MapX project",
-      "Status",
-      "Source attribution",
-      "Source URL",
+      "Source",
       "Citation",
       "License",
+      "Inventory status",
     ];
     for (const col of expectedColumns) {
       expect(header).toContain(col);
     }
   });
 
-  it("puts Notes second in the header", () => {
+  it("puts Variable R-R Initiative first and Category second in the header", () => {
     const columns = header.split(",");
-    expect(columns[0].replace(/^\uFEFF/, "")).toBe("Category");
-    expect(columns[1]).toBe("Notes");
+    expect(columns[0].replace(/^﻿/, "")).toBe("Variable R-R Initiative");
+    expect(columns[1]).toBe("Category");
   });
 
   // --- content ---
@@ -65,16 +65,15 @@ describe("generateLayerInventoryCSV", () => {
     expect(eqLines.length).toBe(5);
   });
 
-  it("uses the project label, not the raw project ID", () => {
-    expect(csv).toContain("ECO-DRR (UNEP/GRID-Geneva)");
-    expect(csv).not.toContain("MX-2LD-FBB-58N-ROK-8RH");
+  it("includes R2R category and R&R Step values", () => {
+    expect(csv).toContain("Societies");
+    expect(csv).toContain("UNDERSTAND YOUR HAZARD PROFILE");
   });
 
-  it("marks legacy/generic unpublished layers as Disabled", () => {
-    // land-cover keeps a generic unpublished status path for compatibility checks
+  it("marks disabled-awaiting-data layers as In development", () => {
     const landCoverLines = lines.filter((l) => l.includes("land-cover"));
     expect(landCoverLines.length).toBeGreaterThan(0);
-    expect(landCoverLines[0]).toContain("Awaiting data");
+    expect(landCoverLines[0]).toContain("In development");
   });
 
   it("marks coral reefs as Pending removal", () => {
@@ -83,16 +82,16 @@ describe("generateLayerInventoryCSV", () => {
     expect(coralLines[0]).toContain("Pending removal");
   });
 
-  it("includes risk placeholders as Awaiting data", () => {
+  it("includes risk placeholders with In development status", () => {
     const riskLines = lines.filter((l) => l.includes("recovery-speed"));
     expect(riskLines.length).toBeGreaterThan(0);
-    expect(riskLines[0]).toContain("Awaiting data");
+    expect(riskLines[0]).toContain("In development");
   });
 
-  it("marks active layers as Active", () => {
-    const populationLines = lines.filter((l) => l.includes("population"));
+  it("marks published layers as Uploaded", () => {
+    const populationLines = lines.filter((l) => l.includes(",population,"));
     expect(populationLines.length).toBeGreaterThan(0);
-    expect(populationLines[0]).toContain("Active");
+    expect(populationLines[0]).toContain("Uploaded");
   });
 
   // --- CSV correctness ---
@@ -112,10 +111,7 @@ describe("generateLayerInventoryCSV", () => {
   });
 
   it("does not contain unescaped double-quotes inside quoted fields", () => {
-    // A double-quote inside a field should be represented as ""
-    // Verify no odd number of quotes per field segment
     for (const line of lines) {
-      // Split by unquoted commas and check each cell
       const cells = [];
       let cur = "";
       let inQ = false;
@@ -125,9 +121,9 @@ describe("generateLayerInventoryCSV", () => {
         else cur += ch;
       }
       cells.push(cur);
-      for (const cell of cells) {
-        if (cell.startsWith('"')) {
-          expect(cell.endsWith('"')).toBe(true);
+      for (const c of cells) {
+        if (c.startsWith('"')) {
+          expect(c.endsWith('"')).toBe(true);
         }
       }
     }
