@@ -18,7 +18,23 @@ Once this document is agreed, it becomes the baseline for all effort estimates a
 
 ---
 
-## 1. Purpose
+## 1. Context: two complementary tools
+
+The Risk & Resilience Metrics initiative is being delivered through two distinct but complementary tools. Understanding the boundary between them is important for scoping this viewer correctly.
+
+**Country pages — led by UNEP/GRID-Geneva, powered by Apache Superset**  
+Bar charts, indicator tables, time-series, and per-country narrative content for a defined set of countries. Superset is the data engine; output is embedded into UNDRR country profile pages or equivalent. This stream is the primary subject of GRID/UNEP's planning work.
+
+**Map viewer — this repository**  
+A global spatial explorer: toggleable data layers across five categories (Risk, Resilience, Hazard, Exposure, Vulnerability), site inspection, and layer metadata. Operates at the global scale; no country-level filtering or charting in V1.
+
+The two tools are designed to sit alongside each other. A natural future integration point would be clicking a country on the map and seeing Superset-driven charts — a pie chart of economic loss by hazard type, for example. This is technically realistic and architecturally straightforward once both tools are in production. It is explicitly **not in scope for V1** and is documented as a deferred feature in §3.
+
+For the purposes of this specification, all scope, effort, and resource discussion refers to the **map viewer only**.
+
+---
+
+## 2. Purpose
 
 The UNDRR Risk & Resilience Map Viewer is an interactive geospatial platform that makes global disaster risk and resilience data explorable by decision-makers, researchers, and UNDRR stakeholders. It provides a single interface for five data categories — Risk, Resilience, Hazard, Exposure, and Vulnerability — organised around the eight hazards that cause 90% of economic losses from disasters.
 
@@ -30,7 +46,7 @@ The tool is part of UNDRR's Risk & Resilience Metrics initiative. It does not du
 
 ---
 
-## 2. What has been built (current prototype)
+## 3. What has been built (current prototype)
 
 The following is implemented and tested as of July 2026:
 
@@ -80,7 +96,7 @@ The following is implemented and tested as of July 2026:
 
 ---
 
-## 3. Functional scope
+## 4. Functional scope
 
 ### In scope at production launch
 
@@ -119,7 +135,7 @@ The following are realistic and achievable features, but they represent distinct
 
 ---
 
-## 4. Known gaps and pre-launch requirements
+## 5. Known gaps and pre-launch requirements
 
 These are things the prototype has as placeholders that must be resolved before production:
 
@@ -138,7 +154,7 @@ These are things the prototype has as placeholders that must be resolved before 
 
 ---
 
-## 5. Open questions (affect scope and effort)
+## 6. Open questions (affect scope and effort)
 
 These must be answered before the resourcing plan can be finalised:
 
@@ -153,7 +169,7 @@ These must be answered before the resourcing plan can be finalised:
 
 ---
 
-## 6. Technical architecture summary
+## 7. Technical architecture summary
 
 ```
 Browser
