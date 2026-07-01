@@ -1,7 +1,20 @@
 # Product Specification — UNDRR Risk & Resilience Map Viewer
 
 > Version: 1.0 · Date: July 2026  
-> Status: Prototype complete. This document describes the current build and the agreed intended scope for production. Changes to this spec may materially affect effort estimates in the accompanying [Resourcing Plan](resourcing-plan.md).
+> Status: **V1 definition — stakeholder review required**
+
+---
+
+## ⚠ This document needs your feedback now
+
+A robust working prototype has been built. We are now defining **Version 1** — the production-ready release. This is the right moment to raise anything that isn't captured here, because:
+
+- Changes to V1 scope after build begins carry significant effort and cost implications
+- Anything not listed in §3 "In scope at V1" is explicitly deferred — it will not be in the first release
+- The resourcing plan in [Resourcing Plan](resourcing-plan.md) is based on this scope
+
+**If something is missing, wrong, or unclear — flag it before sign-off.**  
+Once this document is agreed, it becomes the baseline for all effort estimates and change control.
 
 ---
 
@@ -84,20 +97,25 @@ The following is implemented and tested as of July 2026:
 | Content pipeline | CSV import/export round-trip for non-developer updates to MapX IDs and status |
 | UNDRR Mangrove branding | Page header, nav, design tokens |
 
-### Explicitly out of scope at launch
+### Explicitly out of scope at V1
 
-| Feature | Reason / Future path |
-|---|---|
-| Side-by-side dual map panels | Was in original PRD; deferred — MapX SDK multi-view support needs validation |
-| Country profile click-through | Was in original PRD; deferred — country profile URLs not yet confirmed |
-| Geographic / attribute filtering | Significant new work; post-launch if required |
-| Time slider / temporal animation | Depends on data availability and MapX temporal API |
-| Dynamic legend extraction | MapX SDK does not currently expose legend data (see §5) |
-| Multilingual interface | UNDRR six-language need; not in scope for this tool at launch |
-| User accounts / saved sessions | No authentication beyond access control at URL level |
-| Geospatial analysis functions | Draw-box, spatial queries — out of scope per original PRD |
-| Print / PDF export of map | Post-launch if required |
-| Data upload to MapX | Programme team responsibility via MapX platform |
+The following are realistic and achievable features, but they represent distinct envelopes of work beyond the V1 build. They are documented here so they can be prioritised for future releases rather than appearing as gaps.
+
+| Feature | Why deferred | Illustrative example |
+|---|---|---|
+| **Enhanced site inspection (charts, joined data)** | Significant new work; see note below | Clicking a location shows a modal with a chart — e.g. a pie graph of economic loss by hazard type for that country, or a time-series of AAL values — drawn from a data join beyond the raw MapX attribute payload |
+| Side-by-side dual map panels | Was in original PRD; MapX SDK multi-view support needs validation | Compare two hazard layers at the same location simultaneously |
+| Country profile click-through | Country profile URLs not yet confirmed by programme team | Clicking a country opens the UNDRR country risk profile page |
+| Geographic / attribute filtering | New data model + UI; post-launch if required | "Show only layers relevant to Floods" or "highlight countries above risk threshold X" |
+| Time slider / temporal animation | Depends on data availability and MapX temporal API | Scrub through 2025–2050 projected AAL values on the map |
+| Dynamic legend extraction | MapX SDK does not currently expose legend data (see §5) | Legend colours and value breaks update automatically from the MapX view definition |
+| Multilingual interface | Significant i18n work; no current requirement | Arabic, French, Spanish versions of the UI |
+| User accounts / saved sessions | Beyond static-site architecture | Save and share a custom layer selection with colleagues |
+| Geospatial analysis functions | Out of scope per original PRD | Draw a bounding box and query all layers within it |
+| Print / PDF export | Post-launch if required | Export current map view as a PDF for a report |
+| Data upload to MapX | Programme team responsibility via MapX platform | — |
+
+**Note on enhanced site inspection:** The current V1 inspection panel shows tabular attribute data for the clicked location — coordinates, layer name, and the raw field values from the MapX feature. Richer in-panel analysis (charts, data joins, trend lines, comparative modals) is technically feasible but constitutes a separate product scope. It would require: a data join strategy (linking MapX feature attributes to an external dataset), a charting library, a modal UI component, and agreement on what analytical questions the tool should answer. This is called out as an illustrative example of the kind of enhancement that is **easy to underestimate** — it looks like "just adding a chart" but touches data architecture, UX design, and MapX SDK behaviour. If this is envisioned for V1, it must be scoped and resourced now.
 
 ---
 
