@@ -16,6 +16,8 @@ A robust working prototype has been built. We are now defining **Version 1** —
 **If something is missing, wrong, or unclear — flag it before sign-off.**  
 Once this document is agreed, it becomes the baseline for all effort estimates and change control.
 
+**Target for sign-off: 15 July 2026 progress review** (GRAR / UNEP/GRID-Geneva / Comms / IT). The resourcing discussion at that meeting depends on this scope being agreed.
+
 ---
 
 ## 1. Context: two complementary tools
@@ -145,9 +147,9 @@ These are things the prototype has as placeholders that must be resolved before 
 | **Tool name / branding** | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text | Final name agreed and applied throughout |
 | **MapX SDK version** | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin) | Pinned to a stable version to prevent silent breaking changes |
 | **Hosting** | GitHub Pages (static, manual deploy) | UNDRR infrastructure — decision needed (see §5) |
-| **Country links** | Not implemented | Country profile URL pattern confirmed; links added to site inspection panel |
-| **MapX commercial terms** | Flagged as open in original PRD | Confirmed as resolved (or still open?) |
-| **Legend images** | Static per layer (or absent) | Either dynamic extraction (see §5) or static images confirmed per layer |
+| **Country links** | Not implemented — was in original PRD scope | Country profile URL pattern confirmed by programme team; links added to site inspection panel. *Known gap from original scope.* |
+| **Per-layer download links** | Downloads page is a placeholder; `download_view_source_external` SDK method only works if a download URL is configured per view in MapX | Programme team to configure download URLs in MapX for each view, or accept that downloads link to source sites rather than direct files |
+| **Legend images** | Static per layer (or absent) | Either dynamic extraction (see §6) or static images confirmed per layer |
 | **Social / OG metadata** | `index.html` has no `<meta property="og:...">` tags | Basic social preview metadata added |
 | **Raster layer inspection** | Correctly flagged as non-queryable | No change needed — but UX message could be clearer |
 | **Mobile experience** | Not designed or tested for mobile | Decision: is mobile in scope? If yes, significant layout work required |
@@ -160,9 +162,10 @@ These must be answered before the resourcing plan can be finalised:
 
 1. **Hosting path** — standalone subdomain, embedded in Drupal/CMS, or content syndication iframe? Determines nav/auth/routing architecture.
 2. **MapX legend API** — does UNEP/GRID-Geneva plan to expose legend data programmatically? If yes, what timeline? If no, what is the fallback (static images managed per layer)?
-3. **Country profile click-through** — what URL pattern? Is this a priority for launch?
-4. **Final tool name** — needed before any branding/copy work proceeds.
-5. **Access control model** — who is this tool for, and how is access managed in production?
+3. **Country profile URL pattern** — what is the URL structure for UNDRR country profile pages? Needed to implement click-through (a known gap from original PRD scope).
+4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, what does the Downloads page link to?
+5. **Final tool name** — needed before any branding/copy work proceeds.
+6. **Access control model** — who is this tool for, and how is access managed in production?
 6. **Mobile scope** — required at launch, or desktop-first?
 7. **MapX collaboration scope** — SDK support only, or active co-development on this repository?
 8. **Dual map panels** — explicitly deferred, or still a launch requirement?
