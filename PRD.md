@@ -1,4 +1,8 @@
-# Product Requirements Document
+# Product Requirements Document *(archived)*
+
+> **Superseded.** This captured requirements during discovery and build (March–May 2026). The prototype is now complete and V1 scope is defined in [docs/product-spec.md](docs/product-spec.md). The production work plan is in [docs/resourcing-plan.md](docs/resourcing-plan.md). This file is retained for historical context only.
+
+---
 
 > UNDRR Risk and Resilience Map — MVP Prototype
 >

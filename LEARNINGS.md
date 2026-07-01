@@ -178,3 +178,31 @@ The SDK initialises one MapX project at a time (currently ECO-DRR, `MX-2LD-FBB-5
 **Likely reason:** MapX respects the public visibility flag on a view. Publicly accessible views load regardless of which project the SDK is connected to.
 
 This is not guaranteed by the SDK contract. For now it is not a blocker, but consolidating all views into a single UNDRR project is the correct long-term solution (see [TODO.md](TODO.md#mapx-project-consolidation)).
+
+---
+
+## Layer config: `r2rCategory` and `withR2rGroups()`
+
+Each layer object carries an `r2rCategory` field (`"Societies"`, `"Economy"`, or `"Environment"`) that maps to the UNDRR Risk-to-Resilience framework. The `withR2rGroups()` helper in `src/config/layers/index.js` groups a tab's layers into these categories for sidebar display.
+
+**How it works:**
+- If all layers in a tab share a single category (e.g. Hazard is all "Societies"), `groups` is `null` and the tab renders flat.
+- If multiple categories are present, `groups` is an array of `{ id, label, layers }` objects in fixed order: Societies → Economy → Environment.
+- The sidebar renders groups as `<details>`/`<summary>` elements, open by default, with a CSS arrow indicator that rotates when collapsed.
+- `updateDisabledLayerVisibility()` hides the entire `<details>` element (not just the heading) when all its child layers are disabled and "Show disabled" is off.
+
+**Adding a new layer:** Always set `r2rCategory`. Omitting it places the layer in an "Other" bucket that appears after the three standard groups.
+
+---
+
+## Content pipeline: `data/inventory.csv` ↔ JS layer config
+
+`data/inventory.csv` is the non-developer-editable source of truth for layer metadata. It is column-aligned to the programme team's master spreadsheet.
+
+`scripts/import-inventory.mjs` compares the CSV against the JS config files and reports differences. With `--apply` it patches:
+- MapX view IDs (`id:` on simple layers, `id:` on compound sub-sources)
+- Status changes between `disabled-awaiting-data` states
+
+It does **not** patch: label, description, source, citation, license, legend, widget config, or geometry. Those require a developer edit to the JS config.
+
+**Key implementation detail:** In the JS layer objects, `id:` appears *before* `key:`. The import script searches *backward* from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).
