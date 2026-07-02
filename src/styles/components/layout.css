@@ -7,6 +7,23 @@
   height: calc(100vh - var(--header-height) - var(--nav-height));
 }
 
+/* Visually hidden until keyboard-focused, then shown as a floating pill. */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary, #004f91);
+  color: #fff;
+  text-decoration: none;
+}
+
+.skip-to-content:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
 /* ── Navigation bar overrides ─────────────────────── */
 
 .nav-home-link {

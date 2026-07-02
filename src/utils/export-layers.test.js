@@ -47,7 +47,7 @@ describe("generateLayerInventoryCSV", () => {
 
   it("puts Variable R-R Initiative first and Category second in the header", () => {
     const columns = header.split(",");
-    expect(columns[0].replace(/^﻿/, "")).toBe("Variable R-R Initiative");
+    expect(columns[0].replace(/^\uFEFF/, "")).toBe("Variable R-R Initiative");
     expect(columns[1]).toBe("Category");
   });
 
@@ -116,9 +116,13 @@ describe("generateLayerInventoryCSV", () => {
       let cur = "";
       let inQ = false;
       for (const ch of line) {
-        if (ch === '"') { inQ = !inQ; cur += ch; }
-        else if (ch === "," && !inQ) { cells.push(cur); cur = ""; }
-        else cur += ch;
+        if (ch === '"') {
+          inQ = !inQ;
+          cur += ch;
+        } else if (ch === "," && !inQ) {
+          cells.push(cur);
+          cur = "";
+        } else cur += ch;
       }
       cells.push(cur);
       for (const c of cells) {

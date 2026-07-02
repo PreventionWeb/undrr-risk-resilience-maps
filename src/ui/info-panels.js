@@ -5,6 +5,7 @@
 
 import { downloadLayerInventory } from "../utils/export-layers.js";
 import { getLayerStatus } from "../config/layers/status.js";
+import { TABS } from "../config/layers/index.js";
 
 // ── Guide ─────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,9 @@ const GUIDE_STEPS = [
 ];
 
 export function buildGuidePanel() {
-  return buildPanel("tab-guide", `
+  return buildPanel(
+    "tab-guide",
+    `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Guide</h1>
@@ -52,7 +55,8 @@ export function buildGuidePanel() {
       <div class="mg-container">
         <h2 class="info-page-section__title">Getting started</h2>
         <ol class="info-steps-list">
-          ${GUIDE_STEPS.map((s, i) => `
+          ${GUIDE_STEPS.map(
+            (s, i) => `
             <li class="info-step">
               <span class="info-step__num">${String(i + 1).padStart(2, "0")}</span>
               <div class="info-step__content">
@@ -60,7 +64,8 @@ export function buildGuidePanel() {
                 <p class="info-step__desc">${s.desc}</p>
               </div>
             </li>
-          `).join("")}
+          `,
+          ).join("")}
         </ol>
       </div>
     </div>
@@ -77,34 +82,31 @@ export function buildGuidePanel() {
         </div>
       </div>
     </div>
-  `);
+  `,
+  );
 }
 
 // ── Sources ───────────────────────────────────────────────────────────────────
-
-import { TABS } from "../config/layers/index.js";
 
 // Platform-level credits not tied to any specific layer.
 const PLATFORM_CREDITS = [
   {
     label: "MapX",
     url: "https://app.mapx.org/",
-    detailHtml: '<a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> (<a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>) is a core part of this tool\'s data workflow and map interactivity. All geospatial layers are hosted, served, and rendered through the MapX platform.',
+    detailHtml:
+      '<a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> (<a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>) is a core part of this tool\'s data workflow and map interactivity. All geospatial layers are hosted, served, and rendered through the MapX platform.',
   },
   {
     label: "GRI Risk Viewer",
     url: "https://global.infrastructureresilience.org",
-    detailHtml: 'This tool is inspired by the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer</a> by <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford OPSIS</a>. Layer inventory and interaction model adapted under attribution.',
+    detailHtml:
+      'This tool is inspired by the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer</a> by <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford OPSIS</a>. Layer inventory and interaction model adapted under attribution.',
   },
 ];
 
 function escHtml(s) {
   if (s == null) return "";
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function sourceCell(source, url) {
@@ -122,18 +124,20 @@ function mapxIds(layer) {
 }
 
 function buildSourcesTable(layers) {
-  const rows = layers.map((layer) => {
-    const status = getLayerStatus(layer);
-    const isTrackedOnly = status !== "Active";
-    const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
-    const statusBadge = isTrackedOnly
-      ? `<span class="data-table__badge">${escHtml(status)}</span> `
-      : "";
-    const ids = mapxIds(layer);
-    const idCell = ids.includes("\n")
-      ? ids.split("\n").map((id) => `<code>${escHtml(id)}</code>`).join("<br>")
-      : `<code>${escHtml(ids)}</code>`;
-    return `
+  const rows = layers
+    .map((layer) => {
+      const status = getLayerStatus(layer);
+      const isTrackedOnly = status !== "Active";
+      const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
+      const statusBadge = isTrackedOnly ? `<span class="data-table__badge">${escHtml(status)}</span> ` : "";
+      const ids = mapxIds(layer);
+      const idCell = ids.includes("\n")
+        ? ids
+            .split("\n")
+            .map((id) => `<code>${escHtml(id)}</code>`)
+            .join("<br>")
+        : `<code>${escHtml(ids)}</code>`;
+      return `
       <tr${rowClass}>
         <td>${statusBadge}${escHtml(layer.label)}</td>
         <td class="data-table__mapx-id">${idCell}</td>
@@ -142,7 +146,8 @@ function buildSourcesTable(layers) {
         <td class="data-table__license">${escHtml(layer.license)}</td>
         <td>${escHtml(layer.note || layer.desc)}</td>
       </tr>`;
-  }).join("");
+    })
+    .join("");
 
   return `
     <div class="data-table-wrap">
@@ -173,17 +178,22 @@ export function buildSourcesPanel() {
       </div>`;
   }).join("");
 
-  const platformRows = PLATFORM_CREDITS.map((e) => `
+  const platformRows = PLATFORM_CREDITS.map(
+    (e) => `
     <div class="info-source-entry">
-      <p class="info-source-entry__label">${e.url
-        ? `<a href="${escHtml(e.url)}" target="_blank" rel="noopener">${escHtml(e.label)}</a>`
-        : escHtml(e.label)
+      <p class="info-source-entry__label">${
+        e.url
+          ? `<a href="${escHtml(e.url)}" target="_blank" rel="noopener">${escHtml(e.label)}</a>`
+          : escHtml(e.label)
       }</p>
       <p class="info-source-entry__detail">${e.detailHtml || escHtml(e.detail || "")}</p>
     </div>
-  `).join("");
+  `,
+  ).join("");
 
-  const panel = buildPanel("tab-sources", `
+  const panel = buildPanel(
+    "tab-sources",
+    `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
@@ -215,7 +225,8 @@ export function buildSourcesPanel() {
         </p>
       </div>
     </div>
-  `);
+  `,
+  );
 
   panel.querySelector("#btn-download-inventory").addEventListener("click", downloadLayerInventory);
 
@@ -226,11 +237,12 @@ export function buildSourcesPanel() {
   return panel;
 }
 
-
 // ── Downloads ─────────────────────────────────────────────────────────────────
 
 export function buildDownloadsPanel() {
-  return buildPanel("tab-downloads", `
+  return buildPanel(
+    "tab-downloads",
+    `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Downloads</h1>
@@ -261,13 +273,16 @@ export function buildDownloadsPanel() {
         </div>
       </div>
     </div>
-  `);
+  `,
+  );
 }
 
 // ── About ─────────────────────────────────────────────────────────────────────
 
 export function buildAboutPanel() {
-  return buildPanel("tab-about", `
+  return buildPanel(
+    "tab-about",
+    `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">About</h1>
@@ -331,10 +346,9 @@ export function buildAboutPanel() {
         </ul>
       </div>
     </div>
-  `);
+  `,
+  );
 }
-
-
 
 function buildPanel(id, innerHTML) {
   const el = document.createElement("div");

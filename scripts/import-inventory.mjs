@@ -47,10 +47,13 @@ function parseCSV(text) {
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (ch === '"') {
-        if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuote = !inQuote;
+        if (inQuote && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQuote = !inQuote;
       } else if (ch === "," && !inQuote) {
-        cells.push(cur); cur = "";
+        cells.push(cur);
+        cur = "";
       } else {
         cur += ch;
       }
@@ -63,24 +66,24 @@ function parseCSV(text) {
 
 // ── Load CSV ──────────────────────────────────────────────────────────────────
 
-const csvText = readFileSync(CSV_PATH, "utf-8").replace(/^﻿/, "");
+const csvText = readFileSync(CSV_PATH, "utf-8").replace(/^\uFEFF/, "");
 const [headerRow, ...dataRows] = parseCSV(csvText);
 
 const H = {};
-headerRow.forEach((h, i) => H[h.trim()] = i);
+headerRow.forEach((h, i) => (H[h.trim()] = i));
 
 // Build inventory index: key → { subSource → {mapxId, status, layerName, initiative, r2rCategory, rrStep} }
 const inventory = new Map();
 
 for (const r of dataRows) {
-  const key       = (r[H["Layer key"]] || "").trim();
+  const key = (r[H["Layer key"]] || "").trim();
   const subSource = (r[H["Sub-source"]] || "").trim();
-  const mapxId    = (r[H["MapX view ID"]] || "").trim();
-  const status    = (r[H["Inventory status"]] || "").trim();
+  const mapxId = (r[H["MapX view ID"]] || "").trim();
+  const status = (r[H["Inventory status"]] || "").trim();
   const layerName = (r[H["Layer name"]] || "").trim();
   const initiative = (r[H["Variable R-R Initiative"]] || "").trim();
-  const r2rCat    = (r[H["R2R category"]] || "").trim();
-  const rrStep    = (r[H["R&R Step"]] || "").trim();
+  const r2rCat = (r[H["R2R category"]] || "").trim();
+  const rrStep = (r[H["R&R Step"]] || "").trim();
 
   if (!key) continue;
 
@@ -140,9 +143,7 @@ function extractLayerEntries(src, file) {
       const objSrc = objStart >= 0 ? before.slice(objStart) : before.slice(-400);
 
       const idMatch = /id:\s*(null|["'][^"']*["'])/.exec(objSrc);
-      const currentId = idMatch
-        ? (idMatch[1] === "null" ? "" : idMatch[1].replace(/["']/g, ""))
-        : "";
+      const currentId = idMatch ? (idMatch[1] === "null" ? "" : idMatch[1].replace(/["']/g, "")) : "";
 
       // Also capture current status for status-change detection
       const statusMatch = /status:\s*["']([^"']+)["']/.exec(objSrc + forwardBlock.slice(0, 200));
@@ -306,15 +307,13 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
 
     // Replace null or old ID for this sub-source within the file.
     // Strategy: find the label string, then patch the nearest id: before it.
-    const labelPattern = c.subSource
-      ? `label: "${c.subSource}"`
-      : null;
+    const labelPattern = c.subSource ? `label: "${c.subSource}"` : null;
 
     if (labelPattern) {
       // Compound: find { id: X, label: "subSource" } or { id: X, ..., label: "subSource" }
       const re = new RegExp(
         `(id:\\s*)(null|"[^"]*")((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`,
-        "g"
+        "g",
       );
       const replaced = src.replace(re, (m, pre, _id, post) => {
         modified = true;
