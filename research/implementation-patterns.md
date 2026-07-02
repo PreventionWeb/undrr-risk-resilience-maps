@@ -1,6 +1,6 @@
 # Implementation patterns
 
-> Reference patterns for building MapX SDK embed apps. See [ARCHITECTURE.md](../ARCHITECTURE.md) for how these patterns are applied and [PRD.md](../PRD.md) for what we're building.
+> **Discovery-phase reference — archived.** Scaffolding and SDK patterns documented during research. Dependency versions listed here are from the discovery phase (Vite 6, Vitest 2) and are now outdated — see `package.json` for current versions. See [ARCHITECTURE.md](../ARCHITECTURE.md) for how these patterns are actually applied in the codebase.
 
 ## 1. Project scaffolding
 

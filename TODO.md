@@ -1,6 +1,6 @@
 # TODO
 
-Deferred work items, tracked here until they move into issues or get done.
+Deferred technical items — implementation details, refactors, and infrastructure tasks. For the production work plan (hosting, branding, access control, analytics, etc.) see [docs/resourcing-plan.md](docs/resourcing-plan.md).
 
 > See [LEARNINGS.md](LEARNINGS.md) for design decisions, SDK quirks, and hard-won knowledge.
 
@@ -30,5 +30,13 @@ Not blocking -- the current callback pattern works fine for source switching and
 
 ## Dual-panel map view
 
-The GRI Risk Viewer supports side-by-side map panels. Each panel requires its own `mxsdk.Manager` instance (separate iframe). This is a v2 feature — no code exists yet and it's not currently planned for the MVP scope.
+The GRI Risk Viewer supports side-by-side map panels. Each panel requires its own `mxsdk.Manager` instance (separate iframe). This is explicitly deferred to post-V1 — see [docs/product-spec.md](docs/product-spec.md). No code exists yet. MapX SDK multi-view support should be validated before this is scoped.
+
+## MapX SDK version pinning
+
+The SDK is currently loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` with no version pin. A breaking MapX deployment could silently break the tool. Pin to a stable versioned URL once MapX confirms their versioning approach. See resourcing plan WP-7.
+
+## Country profile click-through
+
+Clicking a country on the map (via site inspection) should link to the UNDRR Risk & Resilience country profile page. Implementation is straightforward (S effort) once the URL pattern is confirmed by the programme team. See resourcing plan WP-4.
 

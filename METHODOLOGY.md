@@ -1,6 +1,8 @@
 # Methodology
 
-> Keep this document updated as the project evolves.
+> MapX view ID discovery approach and API research. This covers how view IDs were found during the research phase.
+>
+> **Source of truth for view IDs:** [`data/inventory.csv`](data/inventory.csv) — maintained via [`scripts/import-inventory.mjs`](scripts/import-inventory.mjs). The probe and search methods below are for *discovering* new view IDs, not for day-to-day maintenance.
 
 ## Discovering MapX view IDs
 

@@ -1,8 +1,6 @@
 # GRI Risk Viewer — Layer Inventory
 
-> All layers in the [GRI Risk Viewer](https://global.infrastructureresilience.org), catalogued from browser inspection and the [Data Sources](https://global.infrastructureresilience.org/data) page. This is the baseline we're replicating.
->
-> Referenced by [PRD.md](../PRD.md) and [ARCHITECTURE.md](../ARCHITECTURE.md). See [gri-mapx-crosswalk.csv](gri-mapx-crosswalk.csv) for MapX availability and view IDs.
+> **Discovery-phase reference — archived.** GRI layer inventory catalogued during research. The UNDRR layer set has since been defined independently by the programme team and differs substantially from the GRI baseline (economic risk metrics, resilience indicators, and R&R framework categories rather than infrastructure layers). Retained for reference. See [data/inventory.csv](../data/inventory.csv) for the current layer inventory.
 
 ## Hazard layers
 
