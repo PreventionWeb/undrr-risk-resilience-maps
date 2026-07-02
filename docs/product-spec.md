@@ -53,11 +53,13 @@ The tool is part of UNDRR's Risk & Resilience Metrics initiative. It does not du
 The following is implemented and tested as of July 2026:
 
 ### Navigation & routing
+
 - Five data tabs (Risk, Resilience, Hazard, Exposure, Vulnerability) plus four info pages (Home, Guide, Sources, Downloads/About)
 - Hash-based URL routing: active tab and active layers are encoded in the URL, enabling shareable deep links
 - Tab switching via nav bar and keyboard; browser back/forward supported
 
 ### Map layer panel
+
 - Floating, draggable, resizable sidebar panel
 - Layer accordion: each layer has a toggle (eye icon), opacity slider, description, and legend image
 - "Show disabled" toggle to reveal placeholder/coming-soon layers during review
@@ -66,6 +68,7 @@ The following is implemented and tested as of July 2026:
 - R2R category groups (Societies / Economy / Environment) shown as collapsible headings within each tab, open by default
 
 ### Layer configuration
+
 - 100+ layer entries across all five categories
 - Simple layers (single MapX view) and compound layers (multiple sub-sources with a widget switcher)
 - Per-layer fields: label, description, type, source attribution, citation, license, MapX view ID, initiative, R2R category, R&R step, inventory status, note
@@ -73,11 +76,13 @@ The following is implemented and tested as of July 2026:
 - Widgets: stepped slider (e.g. return period selection), sub-tabs (e.g. metric switching)
 
 ### Site inspection
+
 - Inspect mode: click any location on the map to query active vector layers
 - Site Details panel: coordinates, per-layer feature attributes, data-presence indicators, per-layer data download
 - Raster layers correctly flagged as non-queryable at a point
 
 ### Info pages
+
 - **Home**: five category cards linking to each data tab; hero intro with UNDRR link
 - **Guide**: step-by-step usage instructions
 - **Sources**: per-category attribution tables (source, citation, license, notes); MapX view ID toggle for technical review; layer inventory CSV download
@@ -85,11 +90,13 @@ The following is implemented and tested as of July 2026:
 - **About**: tool description, acknowledgements, further reading
 
 ### Content pipeline
+
 - `data/inventory.csv`: 101-row master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata
 - `scripts/import-inventory.mjs`: dry-run diff tool and `--apply` mode to patch MapX view IDs and status changes from CSV into JS config
 - CSV export (Downloads / Sources page): generates a timestamped CSV of the current layer inventory
 
 ### Technical
+
 - Vite build system; 170 unit tests across 11 test files
 - UNDRR Mangrove design system v1.8.0
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
@@ -102,36 +109,36 @@ The following is implemented and tested as of July 2026:
 
 ### In scope at production launch
 
-| Feature | Notes |
-|---|---|
-| Five-tab layer explorer | Risk, Resilience, Hazard, Exposure, Vulnerability |
-| Layer toggle, opacity, legend | Legend currently static image per layer |
-| Site inspection (vector layers) | Click location → attribute popup |
-| Shareable deep links | Hash-encodes active tab + layers |
-| Sources attribution table | Per-layer citation, license, MapX view ID |
-| Layer inventory CSV export | Full inventory download |
-| Home page with category cards | Links to each tab |
-| Guide and About pages | Usage instructions and tool background |
-| Content pipeline | CSV import/export round-trip for non-developer updates to MapX IDs and status |
-| UNDRR Mangrove branding | Page header, nav, design tokens |
+| Feature                         | Notes                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| Five-tab layer explorer         | Risk, Resilience, Hazard, Exposure, Vulnerability                             |
+| Layer toggle, opacity, legend   | Legend currently static image per layer                                       |
+| Site inspection (vector layers) | Click location → attribute popup                                              |
+| Shareable deep links            | Hash-encodes active tab + layers                                              |
+| Sources attribution table       | Per-layer citation, license, MapX view ID                                     |
+| Layer inventory CSV export      | Full inventory download                                                       |
+| Home page with category cards   | Links to each tab                                                             |
+| Guide and About pages           | Usage instructions and tool background                                        |
+| Content pipeline                | CSV import/export round-trip for non-developer updates to MapX IDs and status |
+| UNDRR Mangrove branding         | Page header, nav, design tokens                                               |
 
 ### Explicitly out of scope at V1
 
 The following are realistic and achievable features, but they represent distinct envelopes of work beyond the V1 build. They are documented here so they can be prioritised for future releases rather than appearing as gaps.
 
-| Feature | Why deferred | Illustrative example |
-|---|---|---|
-| **Enhanced site inspection (charts, joined data)** | Significant new work; see note below | Clicking a location shows a modal with a chart — e.g. a pie graph of economic loss by hazard type for that country, or a time-series of AAL values — drawn from a data join beyond the raw MapX attribute payload |
-| Side-by-side dual map panels | Was in original PRD; MapX SDK multi-view support needs validation | Compare two hazard layers at the same location simultaneously |
-| Country profile click-through | Country profile URLs not yet confirmed by programme team | Clicking a country opens the UNDRR country risk profile page |
-| Geographic / attribute filtering | New data model + UI; post-launch if required | "Show only layers relevant to Floods" or "highlight countries above risk threshold X" |
-| Time slider / temporal animation | Depends on data availability and MapX temporal API | Scrub through 2025–2050 projected AAL values on the map |
-| Dynamic legend extraction | MapX SDK does not currently expose legend data (see §5) | Legend colours and value breaks update automatically from the MapX view definition |
-| Multilingual interface | Significant i18n work; no current requirement | Arabic, French, Spanish versions of the UI |
-| User accounts / saved sessions | Beyond static-site architecture | Save and share a custom layer selection with colleagues |
-| Geospatial analysis functions | Out of scope per original PRD | Draw a bounding box and query all layers within it |
-| Print / PDF export | Post-launch if required | Export current map view as a PDF for a report |
-| Data upload to MapX | Programme team responsibility via MapX platform | — |
+| Feature                                            | Why deferred                                                      | Illustrative example                                                                                                                                                                                              |
+| -------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Enhanced site inspection (charts, joined data)** | Significant new work; see note below                              | Clicking a location shows a modal with a chart — e.g. a pie graph of economic loss by hazard type for that country, or a time-series of AAL values — drawn from a data join beyond the raw MapX attribute payload |
+| Side-by-side dual map panels                       | Was in original PRD; MapX SDK multi-view support needs validation | Compare two hazard layers at the same location simultaneously                                                                                                                                                     |
+| Country profile click-through                      | Country profile URLs not yet confirmed by programme team          | Clicking a country opens the UNDRR country risk profile page                                                                                                                                                      |
+| Geographic / attribute filtering                   | New data model + UI; post-launch if required                      | "Show only layers relevant to Floods" or "highlight countries above risk threshold X"                                                                                                                             |
+| Time slider / temporal animation                   | Depends on data availability and MapX temporal API                | Scrub through 2025–2050 projected AAL values on the map                                                                                                                                                           |
+| Dynamic legend extraction                          | MapX SDK does not currently expose legend data (see §5)           | Legend colours and value breaks update automatically from the MapX view definition                                                                                                                                |
+| Multilingual interface                             | Significant i18n work; no current requirement                     | Arabic, French, Spanish versions of the UI                                                                                                                                                                        |
+| User accounts / saved sessions                     | Beyond static-site architecture                                   | Save and share a custom layer selection with colleagues                                                                                                                                                           |
+| Geospatial analysis functions                      | Out of scope per original PRD                                     | Draw a bounding box and query all layers within it                                                                                                                                                                |
+| Print / PDF export                                 | Post-launch if required                                           | Export current map view as a PDF for a report                                                                                                                                                                     |
+| Data upload to MapX                                | Programme team responsibility via MapX platform                   | —                                                                                                                                                                                                                 |
 
 **Note on enhanced site inspection:** The current V1 inspection panel shows tabular attribute data for the clicked location — coordinates, layer name, and the raw field values from the MapX feature. Richer in-panel analysis (charts, data joins, trend lines, comparative modals) is technically feasible but constitutes a separate product scope. It would require: a data join strategy (linking MapX feature attributes to an external dataset), a charting library, a modal UI component, and agreement on what analytical questions the tool should answer. This is called out as an illustrative example of the kind of enhancement that is **easy to underestimate** — it looks like "just adding a chart" but touches data architecture, UX design, and MapX SDK behaviour. If this is envisioned for V1, it must be scoped and resourced now.
 
@@ -141,18 +148,18 @@ The following are realistic and achievable features, but they represent distinct
 
 These are things the prototype has as placeholders that must be resolved before production:
 
-| Item | Current state | Required state |
-|---|---|---|
-| **Access control** | 4-digit PIN hardcoded in client JS (`src/pin-gate.js`) | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed |
-| **Tool name / branding** | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text | Final name agreed and applied throughout |
-| **MapX SDK version** | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin) | Pinned to a stable version to prevent silent breaking changes |
-| **Hosting** | GitHub Pages (static, manual deploy) | UNDRR infrastructure — decision needed (see §5) |
-| **Country links** | Not implemented — was in original PRD scope | Country profile URL pattern confirmed by programme team; links added to site inspection panel. *Known gap from original scope.* |
+| Item                         | Current state                                                                                                                           | Required state                                                                                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Access control**           | 4-digit PIN hardcoded in client JS (`src/pin-gate.js`)                                                                                  | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                           |
+| **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                    | Final name agreed and applied throughout                                                                                                |
+| **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                    | Pinned to a stable version to prevent silent breaking changes                                                                           |
+| **Hosting**                  | GitHub Pages (static, manual deploy)                                                                                                    | UNDRR infrastructure — decision needed (see §5)                                                                                         |
+| **Country links**            | Not implemented — was in original PRD scope                                                                                             | Country profile URL pattern confirmed by programme team; links added to site inspection panel. _Known gap from original scope._         |
 | **Per-layer download links** | Downloads page is a placeholder; `download_view_source_external` SDK method only works if a download URL is configured per view in MapX | Programme team to configure download URLs in MapX for each view, or accept that downloads link to source sites rather than direct files |
-| **Legend images** | Static per layer (or absent) | Either dynamic extraction (see §6) or static images confirmed per layer |
-| **Social / OG metadata** | `index.html` has no `<meta property="og:...">` tags | Basic social preview metadata added |
-| **Raster layer inspection** | Correctly flagged as non-queryable | No change needed — but UX message could be clearer |
-| **Mobile experience** | Not designed or tested for mobile | Decision: is mobile in scope? If yes, significant layout work required |
+| **Legend images**            | Static per layer (or absent)                                                                                                            | Either dynamic extraction (see §6) or static images confirmed per layer                                                                 |
+| **Social / OG metadata**     | `index.html` has no `<meta property="og:...">` tags                                                                                     | Basic social preview metadata added                                                                                                     |
+| **Raster layer inspection**  | Correctly flagged as non-queryable                                                                                                      | No change needed — but UX message could be clearer                                                                                      |
+| **Mobile experience**        | Not designed or tested for mobile                                                                                                       | Decision: is mobile in scope? If yes, significant layout work required                                                                  |
 
 ---
 
@@ -166,9 +173,9 @@ These must be answered before the resourcing plan can be finalised:
 4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, what does the Downloads page link to?
 5. **Final tool name** — needed before any branding/copy work proceeds.
 6. **Access control model** — who is this tool for, and how is access managed in production?
-6. **Mobile scope** — required at launch, or desktop-first?
-7. **MapX collaboration scope** — SDK support only, or active co-development on this repository?
-8. **Dual map panels** — explicitly deferred, or still a launch requirement?
+7. **Mobile scope** — required at launch, or desktop-first?
+8. **MapX collaboration scope** — SDK support only, or active co-development on this repository?
+9. **Dual map panels** — explicitly deferred, or still a launch requirement?
 
 ---
 
@@ -204,6 +211,7 @@ scripts/import-inventory.mjs            CSV → JS config import tool
 ```
 
 **Key constraints:**
+
 - All logic is client-side; no backend server required
 - MapX renders the map in an iframe via postMessage API; the app has no direct access to map DOM
 - Layer config lives in JS source files; content updates require a code change or the CSV import tool

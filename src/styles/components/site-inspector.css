@@ -215,7 +215,11 @@
   cursor: pointer;
   color: #555;
   padding: 0;
-  transition: left 0.2s ease, color 0.15s, background 0.15s, border-color 0.15s;
+  transition:
+    left 0.2s ease,
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .inspect-toggle-btn:hover {

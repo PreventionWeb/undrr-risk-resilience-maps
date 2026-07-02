@@ -23,16 +23,41 @@ export const RESILIENCE_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    initiative: "Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment",
+    initiative:
+      "Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment",
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     sources: [
-      { id: "MX-836KR-C0OWG-2OGU2", label: "Assets w/o adaptation",    desc: "Asset value without adaptation measures." },
-      { id: "MX-NYKLB-MQNML-D4583", label: "Assets w/ adaptation",      desc: "Asset value with adaptation measures." },
-      { id: "MX-G1G8E-MGLJL-Z9JEU", label: "Wellbeing w/o adaptation",  desc: "Well-being index without adaptation measures." },
-      { id: "MX-P8K9H-PUNT8-SEH10", label: "Wellbeing w/ adaptation",   desc: "Well-being index with adaptation measures." },
-      { id: "MX-B5EX7-UCSAR-CQUNJ", label: "Change in assets",          desc: "Change in assets attributable to adaptation." },
-      { id: "MX-3S4X6-9YXCI-MOI3L", label: "Change in wellbeing",       desc: "Change in well-being attributable to adaptation." },
+      {
+        id: "MX-836KR-C0OWG-2OGU2",
+        label: "Assets w/o adaptation",
+        desc: "Asset value without adaptation measures.",
+      },
+      {
+        id: "MX-NYKLB-MQNML-D4583",
+        label: "Assets w/ adaptation",
+        desc: "Asset value with adaptation measures.",
+      },
+      {
+        id: "MX-G1G8E-MGLJL-Z9JEU",
+        label: "Wellbeing w/o adaptation",
+        desc: "Well-being index without adaptation measures.",
+      },
+      {
+        id: "MX-P8K9H-PUNT8-SEH10",
+        label: "Wellbeing w/ adaptation",
+        desc: "Well-being index with adaptation measures.",
+      },
+      {
+        id: "MX-B5EX7-UCSAR-CQUNJ",
+        label: "Change in assets",
+        desc: "Change in assets attributable to adaptation.",
+      },
+      {
+        id: "MX-3S4X6-9YXCI-MOI3L",
+        label: "Change in wellbeing",
+        desc: "Change in well-being attributable to adaptation.",
+      },
     ],
     widget: { type: "sub-tabs", label: "Metric" },
   },
@@ -51,8 +76,16 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     sources: [
-      { id: "MX-WOHMT-WYKWK-X25K9", label: "With support",    desc: "Change in fiscal gap with financial support." },
-      { id: "MX-5GL7W-40NYZ-T1IX1", label: "Without support", desc: "Change in fiscal gap without financial support." },
+      {
+        id: "MX-WOHMT-WYKWK-X25K9",
+        label: "With support",
+        desc: "Change in fiscal gap with financial support.",
+      },
+      {
+        id: "MX-5GL7W-40NYZ-T1IX1",
+        label: "Without support",
+        desc: "Change in fiscal gap without financial support.",
+      },
     ],
     widget: { type: "sub-tabs", label: "Scenario" },
   },
@@ -132,7 +165,8 @@ export const RESILIENCE_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    initiative: "Recovery time of utilities after a major shock, recovery time for restoration of public assets",
+    initiative:
+      "Recovery time of utilities after a major shock, recovery time for restoration of public assets",
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
@@ -148,7 +182,8 @@ export const RESILIENCE_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    initiative: "Reduction in agricultural losses with and without resilience measures under 2.6 and 8.5 scenarios",
+    initiative:
+      "Reduction in agricultural losses with and without resilience measures under 2.6 and 8.5 scenarios",
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
@@ -164,7 +199,8 @@ export const RESILIENCE_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    initiative: "Impact of climate change and resilience building on food prices (FAO elastacity calculations 2026-2027)",
+    initiative:
+      "Impact of climate change and resilience building on food prices (FAO elastacity calculations 2026-2027)",
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
@@ -180,7 +216,8 @@ export const RESILIENCE_LAYERS = [
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
-    initiative: "Adaptation benefit of increase in resilient housing / Insurability/ house price/mortgage/ insurance affordability/ needs some work, may need two types",
+    initiative:
+      "Adaptation benefit of increase in resilient housing / Insurability/ house price/mortgage/ insurance affordability/ needs some work, may need two types",
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,

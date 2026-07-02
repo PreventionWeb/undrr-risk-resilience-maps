@@ -104,6 +104,7 @@ Browser tab
 Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
 
 **Two routing modes driven by `switchTab()`:**
+
 - **Info tabs** — hide the map (`#app-map`), show the full-page `#info-page` container, display the matching info panel.
 - **Data tabs** — show the map, show the floating layer panel with the matching tab's layers.
 
@@ -135,10 +136,10 @@ A **simple layer** maps to one MapX view ID. A **compound layer** groups multipl
 
 **Widget types** are registered in `src/ui/widgets/index.js`:
 
-| Type | UI | Use case |
-|---|---|---|
-| `sub-tabs` | Button bar | Switching between data metrics (depth / frequency / exposure) |
-| `stepped-slider` | Range input with tick labels | Selecting return periods or thresholds |
+| Type             | UI                           | Use case                                                      |
+| ---------------- | ---------------------------- | ------------------------------------------------------------- |
+| `sub-tabs`       | Button bar                   | Switching between data metrics (depth / frequency / exposure) |
+| `stepped-slider` | Range input with tick labels | Selecting return periods or thresholds                        |
 
 To add a new widget type: create a factory function in `src/ui/widgets/`, register it in the index. No changes to `sidebar.js` needed.
 
@@ -169,6 +170,7 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 ### Layer panel controls
 
 The floating layer panel includes:
+
 - **Per-layer accordions** — expand to reveal opacity slider, legend, and source-switching widget. Built by `buildLayerAccordion()` in `sidebar.js`; returns `{ wrapper, eyeBtn }` so the sidebar can maintain a `layerElementMap` (key → DOM references) without positional DOM queries.
 - **Eye toggle** — turns a layer on/off; aria-pressed reflects state
 - **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
@@ -201,17 +203,17 @@ Vitest + jsdom is configured in `vite.config.js`. Run tests with `npm test`.
 
 Test files cover pure and near-pure modules:
 
-| File | What it tests |
-|---|---|
-| `src/state/hash.test.js` | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey` |
-| `src/config/validate.test.js` | All error conditions (missing IDs, duplicate views, wrong project, legend schema) |
-| `src/ui/widgets/sub-tabs.test.js` | DOM construction, initial state, callbacks, aria roles |
-| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour |
-| `src/ui/infobox.test.js` | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler |
-| `src/ui/site-inspector.test.js` | Panel build, view index, batch collection, generation guard, raster fallback |
-| `src/ui/layer-controls.test.js` | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic |
-| `src/sdk/inspect.test.js` | `click_attributes` batching, generation counter, discard of stale events |
-| `src/utils/export-layers.test.js` | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting |
+| File                                    | What it tests                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                        |
+| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                |
+| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                           |
+| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                           |
+| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler            |
+| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                     |
+| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic |
+| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                         |
+| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting       |
 
 `sidebar.js` integration tests (hash restore, reconcile, clear-all) are not yet written — testing them requires a full DOM with `buildSidebar()` and mocked SDK modules.
 

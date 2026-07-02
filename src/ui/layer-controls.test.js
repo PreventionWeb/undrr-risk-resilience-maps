@@ -89,7 +89,7 @@ describe("addOpacitySlider", () => {
       new Promise((resolve) => {
         slider.dispatchEvent(new Event("input"));
         setTimeout(resolve, 0);
-      })
+      }),
     ).resolves.toBeUndefined();
   });
 });

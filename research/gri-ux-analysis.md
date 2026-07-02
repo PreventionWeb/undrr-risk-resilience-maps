@@ -52,6 +52,7 @@ Two-column layout:
 Each tab has a primary category section (expanded) plus the other tabs shown collapsed at the bottom. This means **all tab categories are accessible from any tab** without navigating away — they're accordion-collapsed in the sidebar.
 
 Example on the Risk tab:
+
 - **Risk** (expanded, primary) — contains layer accordions
 - **Hazards** (collapsed) — can expand inline
 - **Exposure** (collapsed)
@@ -83,7 +84,9 @@ When expanded:
 Different layers have different controls. Observed patterns:
 
 #### 1. Data source toggle + slider + dropdowns (Hazard layers)
+
 Example: **River Flooding**
+
 - **Data source toggle:** `[Aqueduct] [JRC]` — button group switching between data providers
 - **Description:** "Map shows river flooding depths for different return periods, from WRI Aqueduct (2020)."
 - **Return Period slider:** discrete steps `2  5  10  25  50  100  250  500  1000`
@@ -92,12 +95,16 @@ Example: **River Flooding**
 - **GCM dropdown:** WATCH / various climate models
 
 #### 2. Category dropdown (Exposure layers)
+
 Example: **Buildings**
+
 - **Description:** data source + year
 - **Dropdown:** All / Non-residential / Industry / etc.
 
 #### 3. Multi-dropdown with linked hazard (Risk layers)
+
 Example: **Infrastructure Risk**
+
 - **Description:** explains vulnerability assumptions
 - **Sector dropdown:** Roads / Rails / Power
 - **Hazard dropdown:** auto-linked based on sector (disabled when only one option)
@@ -106,7 +113,9 @@ Example: **Infrastructure Risk**
 - **Hazard layer toggle switch:** shows/hides the underlying hazard layer
 
 #### 4. Multi-dropdown (Adaptation layers)
+
 Example: **Nature-Based Solutions**
+
 - **Description** (with **preliminary** bold warning)
 - **Adaptation type dropdown:** e.g. Slope vegetation (natural regeneration)
 - **Geographic scope dropdown:** Country / Region
@@ -114,30 +123,37 @@ Example: **Nature-Based Solutions**
 - **Hazard dropdown:** auto-linked (disabled)
 
 #### 5. Nested sub-groups (Vulnerability)
+
 Example: **Vulnerability** tab contains two sub-groups:
+
 - **People** (expanded) — Human Development (Subnational), Human Development (Grid), Relative Wealth Index, Travel Time to Healthcare
 - **Planet** (expanded) — Biodiversity Intactness, Forest Landscape Integrity, Protected Areas (WDPA)
 
 #### 6. Disabled layers
+
 Example: **Wildfires** — greyed out, no show/hide toggle, signalling "coming soon" or unavailable data.
 
 ## Map area
 
 ### Map controls (floating toolbar, top-left of map)
+
 - **Search** (magnifying glass) — location search
 - **Layer switcher** (stacked squares) — toggle layer visibility
 - **Site inspection tool** (crosshair) — toggles feature inspection mode
 
 ### Map controls (top-right)
+
 - **Zoom in / Zoom out** (+/-)
 
 ### Legend (bottom-right of map)
+
 - Displays when layers are active
 - Shows layer title + colour ramp + value range
 - **Multiple legends stack vertically** when multiple layers are visible (e.g. hazard + damage on Risk tab)
 - Separator between legends
 
 ### Basemap toggle
+
 - Switches between light vector map and satellite imagery
 - Attribution bar at bottom: CARTO, OpenStreetMap, Sentinel-2
 
@@ -146,7 +162,9 @@ Example: **Wildfires** — greyed out, no show/hide toggle, signalling "coming s
 Activated via the crosshair button. Shows a prompt: "Click on the map to see details for a location."
 
 ### Site Details panel (right side)
+
 On click:
+
 ```
 ┌──────────────────────────────────────────┐
 │ Site Details                    ⬇  ✕     │
@@ -189,6 +207,7 @@ Layer state is encoded in URL query parameters:
 This enables **deep-linking to specific map states** — shareable URLs that reproduce exact layer configurations.
 
 Example:
+
 ```
 /view/risk?sections={"hazards":{"fluvial":{"aqueduct":true}},"risk":{"infrastructure":true},"exposure":{"infrastructure":true}}
 ```
@@ -196,19 +215,20 @@ Example:
 ## Cross-tab layer persistence
 
 Notably, when activating layers and switching tabs:
+
 - **Other tab categories remain accessible** as collapsed sections at the bottom of the sidebar
 - Toggling a layer in a collapsed section activates it without navigating to that tab
 - URL `sections` object can contain keys for multiple categories simultaneously
 
 ## Static content pages
 
-| Page | Route | Purpose |
-|---|---|---|
-| About | `/about` | Project description, team credits |
-| Guide | `/guide` | How to use the viewer |
-| Articles | `/articles` | Research articles and publications |
-| Sources | `/data` | Per-category data source documentation with links |
-| Downloads | `/downloads` | Data download links |
+| Page      | Route        | Purpose                                           |
+| --------- | ------------ | ------------------------------------------------- |
+| About     | `/about`     | Project description, team credits                 |
+| Guide     | `/guide`     | How to use the viewer                             |
+| Articles  | `/articles`  | Research articles and publications                |
+| Sources   | `/data`      | Per-category data source documentation with links |
+| Downloads | `/downloads` | Data download links                               |
 
 The **Sources** page is particularly relevant — it lists every data source grouped by category (Contextual, Hazard, Exposure, Vulnerability, Risk, Adaptation) with full attribution, links to original data, and citation information.
 

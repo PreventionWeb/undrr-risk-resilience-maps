@@ -22,6 +22,7 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 ```
 
 **Key behaviours:**
+
 - One event fires **per open view that MapX treats as a vector-tile source**, not per click.
 - `nPart` equals the number of such views. Many layers configured as `type: "rt"` in our app
   are stored by MapX as VT with a `GRAY_INDEX` property — they DO contribute to `nPart`.
@@ -30,7 +31,6 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 - MapX fires events in a `for...in` loop (see source), so delivery is ordered in practice, but the
   batch collector in `src/sdk/inspect.js` uses a `Map` keyed by `idView` and checks
   `map.size === nPart` rather than `part === nPart`, which handles out-of-order delivery safely.
-
 
 ---
 
@@ -60,6 +60,7 @@ the pixel value. These layers DO fire `click_attributes` and contribute to `nPar
 views.
 
 Implications:
+
 - Our local config `type: "rt"` is a semantic classification for UI purposes (no attribute explorer,
   no numeric filter widget), NOT a reliable indicator of whether MapX will fire `click_attributes`.
 - `inBatch` (the view ID appeared in a `click_attributes` event) is stronger evidence than local
@@ -155,6 +156,7 @@ that the `ask` call is **not** made (dev mode behavior).
 ## Layer type: `rt` vs `vt` for country-level indicator data
 
 MapX view type codes are:
+
 - `rt` — true raster tiles (gridded/continuous imagery: flood depth, earthquake PGA, population density)
 - `vt` — vector tiles (points, lines, polygons: country centroids, administrative boundaries)
 - `cc` — custom coded / live chart
@@ -162,6 +164,7 @@ MapX view type codes are:
 Country-level economic/risk metrics (AAL, PML, fiscal gap, wellbeing, etc.) are stored in MapX as **vector tile point data** — they render as dots on the map and DO fire `click_attributes` events with their country attributes.
 
 Incorrectly typing them as `rt` causes:
+
 1. The sidebar badge to say "raster" (misleading)
 2. The site inspector to show "Raster layer — not queryable" if the view doesn't appear in a `click_attributes` batch
 
@@ -186,6 +189,7 @@ This is not guaranteed by the SDK contract. For now it is not a blocker, but con
 Each layer object carries an `r2rCategory` field (`"Societies"`, `"Economy"`, or `"Environment"`) that maps to the UNDRR Risk-to-Resilience framework. The `withR2rGroups()` helper in `src/config/layers/index.js` groups a tab's layers into these categories for sidebar display.
 
 **How it works:**
+
 - If all layers in a tab share a single category (e.g. Hazard is all "Societies"), `groups` is `null` and the tab renders flat.
 - If multiple categories are present, `groups` is an array of `{ id, label, layers }` objects in fixed order: Societies → Economy → Environment.
 - The sidebar renders groups as `<details>`/`<summary>` elements, open by default, with a CSS arrow indicator that rotates when collapsed.
@@ -200,9 +204,10 @@ Each layer object carries an `r2rCategory` field (`"Societies"`, `"Economy"`, or
 `data/inventory.csv` is the non-developer-editable source of truth for layer metadata. It is column-aligned to the programme team's master spreadsheet.
 
 `scripts/import-inventory.mjs` compares the CSV against the JS config files and reports differences. With `--apply` it patches:
+
 - MapX view IDs (`id:` on simple layers, `id:` on compound sub-sources)
 - Status changes between `disabled-awaiting-data` states
 
 It does **not** patch: label, description, source, citation, license, legend, widget config, or geometry. Those require a developer edit to the JS config.
 
-**Key implementation detail:** In the JS layer objects, `id:` appears *before* `key:`. The import script searches *backward* from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).
+**Key implementation detail:** In the JS layer objects, `id:` appears _before_ `key:`. The import script searches _backward_ from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).

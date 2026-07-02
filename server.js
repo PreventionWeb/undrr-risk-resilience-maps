@@ -19,10 +19,7 @@ const rootDir = __dirname;
 const baseDir = fs.existsSync(distDir) ? distDir : rootDir;
 
 const server = http.createServer((req, res) => {
-  const filePath = path.join(
-    baseDir,
-    req.url === "/" ? "index.html" : req.url,
-  );
+  const filePath = path.join(baseDir, req.url === "/" ? "index.html" : req.url);
 
   if (!filePath.startsWith(baseDir)) {
     res.writeHead(403, { "Content-Type": "text/plain" });

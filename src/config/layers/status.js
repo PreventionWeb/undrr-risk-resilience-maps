@@ -15,11 +15,7 @@ const STATUS_LABELS = {
   "disabled-pending-removal": "Pending removal",
 };
 
-const UNPUBLISHED_STATUSES = new Set([
-  "disabled",
-  "disabled-awaiting-data",
-  "disabled-pending-removal",
-]);
+const UNPUBLISHED_STATUSES = new Set(["disabled", "disabled-awaiting-data", "disabled-pending-removal"]);
 
 export function getLayerPublicationState(layer) {
   if (layer.status) return layer.status;
