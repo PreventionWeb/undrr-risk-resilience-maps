@@ -39,4 +39,3 @@ The SDK is currently loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` with no
 ## Country profile click-through
 
 Clicking a country on the map (via site inspection) should link to the UNDRR Risk & Resilience country profile page. Implementation is straightforward (S effort) once the URL pattern is confirmed by the programme team. See resourcing plan WP-4.
-

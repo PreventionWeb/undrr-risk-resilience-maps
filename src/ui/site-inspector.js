@@ -132,7 +132,9 @@ export function showSiteInspector(result) {
 
   // Escape to close
   if (_escHandler) document.removeEventListener("keydown", _escHandler);
-  _escHandler = (e) => { if (e.key === "Escape") hideSiteInspector(); };
+  _escHandler = (e) => {
+    if (e.key === "Escape") hideSiteInspector();
+  };
   document.addEventListener("keydown", _escHandler);
 }
 
@@ -147,11 +149,7 @@ function buildLayerRow(idView, views) {
   const inBatch = Object.prototype.hasOwnProperty.call(views, idView);
   // Normalize: MapX sends an array of feature objects; take the first one.
   const rawAttrs = views[idView];
-  const props = inBatch
-    ? Array.isArray(rawAttrs)
-      ? rawAttrs[0]
-      : rawAttrs
-    : null;
+  const props = inBatch ? (Array.isArray(rawAttrs) ? rawAttrs[0] : rawAttrs) : null;
   const hasData = inBatch && props != null && typeof props === "object";
   const indicatorMod = hasData ? "has-data" : "no-data";
 
@@ -167,8 +165,7 @@ function buildLayerRow(idView, views) {
     // Render attribute table. "inBatch" beats local type — raster-as-VT layers
     // (GRAY_INDEX) come through here too.
     const entries = Object.entries(props).filter(
-      ([k, v]) =>
-        !SKIP_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
+      ([k, v]) => !SKIP_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
     );
     // Remap internal GRAY_INDEX → friendlier label
     const labelledEntries = entries.map(([k, v]) => [

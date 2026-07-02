@@ -37,7 +37,9 @@ export function validateLayers(tabs, primaryProject) {
       }
 
       if (layer.geometry && !VALID_GEOMETRIES.includes(layer.geometry)) {
-        errors.push(`${ctx} -- invalid geometry "${layer.geometry}" (expected: ${VALID_GEOMETRIES.join(", ")})`);
+        errors.push(
+          `${ctx} -- invalid geometry "${layer.geometry}" (expected: ${VALID_GEOMETRIES.join(", ")})`,
+        );
       }
 
       if (layer.type === "vt" && !layer.geometry) {
@@ -53,7 +55,9 @@ export function validateLayers(tabs, primaryProject) {
 
       // Enabled layers must belong to the primary project (SDK is single-project)
       if (published && primaryProject && layer.project && layer.project !== primaryProject) {
-        errors.push(`${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`);
+        errors.push(
+          `${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`,
+        );
       }
 
       if (compound) {
@@ -75,7 +79,9 @@ export function validateLayers(tabs, primaryProject) {
             errors.push(`${ctx} -- sources[${s}] id must be a string or null`);
           }
           if (src.id && seenIds.has(src.id)) {
-            errors.push(`${ctx} -- sources[${s}] reuses view id "${src.id}" (already used by another layer -- breaks toggle state)`);
+            errors.push(
+              `${ctx} -- sources[${s}] reuses view id "${src.id}" (already used by another layer -- breaks toggle state)`,
+            );
           }
           if (src.id) seenIds.add(src.id);
         }
@@ -88,7 +94,9 @@ export function validateLayers(tabs, primaryProject) {
 
       // Duplicate IDs across layers corrupt toggle state -- treat as an error
       if (layer.id && seenIds.has(layer.id)) {
-        errors.push(`${ctx} -- reuses view id "${layer.id}" (already used by another layer -- breaks toggle state)`);
+        errors.push(
+          `${ctx} -- reuses view id "${layer.id}" (already used by another layer -- breaks toggle state)`,
+        );
       }
       if (layer.id) seenIds.add(layer.id);
 

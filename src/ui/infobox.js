@@ -32,17 +32,9 @@ export function showInfobox(data) {
   // The SDK sends attributes as either an array (vector views) or a plain
   // object (custom coded views). Normalise to a single object.
   let props = null;
-  if (
-    data.attributes &&
-    Array.isArray(data.attributes) &&
-    data.attributes.length > 0
-  ) {
+  if (data.attributes && Array.isArray(data.attributes) && data.attributes.length > 0) {
     props = data.attributes[0];
-  } else if (
-    data.attributes &&
-    typeof data.attributes === "object" &&
-    !Array.isArray(data.attributes)
-  ) {
+  } else if (data.attributes && typeof data.attributes === "object" && !Array.isArray(data.attributes)) {
     props = data.attributes;
   }
 
@@ -60,9 +52,7 @@ export function showInfobox(data) {
     return;
   }
 
-  const nameEntry = entries.find(([k]) =>
-    ["name", "title", "label"].includes(k.toLowerCase()),
-  );
+  const nameEntry = entries.find(([k]) => ["name", "title", "label"].includes(k.toLowerCase()));
   const featureName = nameEntry ? String(nameEntry[1]) : "Feature";
 
   const title = box.querySelector(".infobox-title");
@@ -74,9 +64,7 @@ export function showInfobox(data) {
   if (body) {
     let html = '<table class="mg-table mg-table--small">';
     for (const [key, value] of entries) {
-      const label = key
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+      const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       html += `<tr><td>${esc(label)}</td><td>${esc(value)}</td></tr>`;
     }
     html += "</table>";
@@ -95,7 +83,9 @@ export function showInfobox(data) {
 
   if (closeBtn) closeBtn.onclick = close;
 
-  _escHandler = (e) => { if (e.key === "Escape") close(); };
+  _escHandler = (e) => {
+    if (e.key === "Escape") close();
+  };
   document.addEventListener("keydown", _escHandler);
 }
 

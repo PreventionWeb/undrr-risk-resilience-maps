@@ -29,11 +29,11 @@ const TYPE_LABELS = {
 
 // Maps the human-readable labels returned by getLayerStatus → inventory CSV values
 const INVENTORY_STATUS = {
-  "Active":        "Uploaded",
-  "Placeholder":   "In development",
+  Active: "Uploaded",
+  Placeholder: "In development",
   "Awaiting data": "In development",
   "Pending removal": "Pending removal",
-  "Disabled":      "In development",
+  Disabled: "In development",
 };
 
 function cell(value) {
@@ -78,11 +78,11 @@ export function generateLayerInventoryCSV() {
 
   for (const tab of TABS) {
     for (const layer of tab.layers) {
-      const category  = tab.label;
-      const type      = TYPE_LABELS[layer.type] || layer.type || "";
+      const category = tab.label;
+      const type = TYPE_LABELS[layer.type] || layer.type || "";
       const initiative = layer.initiative || "";
-      const r2rCat    = layer.r2rCategory || "";
-      const rrStep    = layer.rrStep || "";
+      const r2rCat = layer.r2rCategory || "";
+      const rrStep = layer.rrStep || "";
 
       if (isLayerPublished(layer) && layer.id !== null && (!layer.citation || !layer.license)) {
         console.warn(`[layer-inventory] Active layer "${layer.key}" is missing citation or license.`);
@@ -90,40 +90,44 @@ export function generateLayerInventoryCSV() {
 
       if (layer.sources && layer.sources.length > 0) {
         for (const src of layer.sources) {
-          lines.push(row(
+          lines.push(
+            row(
+              initiative,
+              category,
+              r2rCat,
+              rrStep,
+              layer.key,
+              layer.label,
+              src.label,
+              type,
+              src.desc || layer.desc || "",
+              src.id || "",
+              src.source || layer.source || "",
+              layer.citation || "",
+              layer.license || "",
+              inventoryStatus(layer, src),
+            ),
+          );
+        }
+      } else {
+        lines.push(
+          row(
             initiative,
             category,
             r2rCat,
             rrStep,
             layer.key,
             layer.label,
-            src.label,
+            "",
             type,
-            src.desc || layer.desc || "",
-            src.id || "",
-            src.source || layer.source || "",
+            layer.desc || "",
+            layer.id || "",
+            layer.source || "",
             layer.citation || "",
             layer.license || "",
-            inventoryStatus(layer, src),
-          ));
-        }
-      } else {
-        lines.push(row(
-          initiative,
-          category,
-          r2rCat,
-          rrStep,
-          layer.key,
-          layer.label,
-          "",
-          type,
-          layer.desc || "",
-          layer.id || "",
-          layer.source || "",
-          layer.citation || "",
-          layer.license || "",
-          inventoryStatus(layer),
-        ));
+            inventoryStatus(layer),
+          ),
+        );
       }
     }
   }

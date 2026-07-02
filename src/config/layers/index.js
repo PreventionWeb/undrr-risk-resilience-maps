@@ -61,11 +61,11 @@ function withR2rGroups(layers) {
 }
 
 export const TABS = [
-  { id: "risk-resilience", label: "Risk",          ...withR2rGroups(RISK_LAYERS) },
-  { id: "resilience",      label: "Resilience",    ...withR2rGroups(RESILIENCE_LAYERS) },
-  { id: "hazard",          label: "Hazard",        ...withR2rGroups(HAZARD_LAYERS) },
-  { id: "exposure",        label: "Exposure",      ...withR2rGroups(EXPOSURE_LAYERS) },
-  { id: "vulnerability",   label: "Vulnerability", ...withR2rGroups(VULNERABILITY_LAYERS) },
+  { id: "risk-resilience", label: "Risk", ...withR2rGroups(RISK_LAYERS) },
+  { id: "resilience", label: "Resilience", ...withR2rGroups(RESILIENCE_LAYERS) },
+  { id: "hazard", label: "Hazard", ...withR2rGroups(HAZARD_LAYERS) },
+  { id: "exposure", label: "Exposure", ...withR2rGroups(EXPOSURE_LAYERS) },
+  { id: "vulnerability", label: "Vulnerability", ...withR2rGroups(VULNERABILITY_LAYERS) },
 ];
 
 export const PRIMARY_PROJECT = "MX-2LD-FBB-58N-ROK-8RH";

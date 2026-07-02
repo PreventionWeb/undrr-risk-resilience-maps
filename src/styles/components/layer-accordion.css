@@ -119,7 +119,9 @@
   user-select: none;
 }
 
-.layer-group-heading::-webkit-details-marker { display: none; }
+.layer-group-heading::-webkit-details-marker {
+  display: none;
+}
 
 .layer-group-heading::before {
   content: "▾";

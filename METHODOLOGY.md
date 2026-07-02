@@ -2,7 +2,7 @@
 
 > MapX view ID discovery approach and API research. This covers how view IDs were found during the research phase.
 >
-> **Source of truth for view IDs:** [`data/inventory.csv`](data/inventory.csv) — maintained via [`scripts/import-inventory.mjs`](scripts/import-inventory.mjs). The probe and search methods below are for *discovering* new view IDs, not for day-to-day maintenance.
+> **Source of truth for view IDs:** [`data/inventory.csv`](data/inventory.csv) — maintained via [`scripts/import-inventory.mjs`](scripts/import-inventory.mjs). The probe and search methods below are for _discovering_ new view IDs, not for day-to-day maintenance.
 
 ## Discovering MapX view IDs
 
@@ -30,24 +30,24 @@ This produces `research/mapx-views-{project}.json` files and a `research/mapx-vi
 
 ### Known MapX projects
 
-| Project ID | Name | Approx. views |
-|---|---|---|
-| MX-2LD-FBB-58N-ROK-8RH | Eco-DRR Geospatial datasets | ~85 |
-| MX-YBJ-YYF-08R-UUR-QW6 | MapX Default/HOME | ~22 |
-| MX-Z5J-4IZ-RM2-3O9-506 | Training Project | ~22 |
+| Project ID             | Name                        | Approx. views |
+| ---------------------- | --------------------------- | ------------- |
+| MX-2LD-FBB-58N-ROK-8RH | Eco-DRR Geospatial datasets | ~85           |
+| MX-YBJ-YYF-08R-UUR-QW6 | MapX Default/HOME           | ~22           |
+| MX-Z5J-4IZ-RM2-3O9-506 | Training Project            | ~22           |
 
 The Eco-DRR project is the primary source. The HOME project has some global baseline layers (GHSL population, protected areas). Edit the `PROJECTS` array in the probe script to add others.
 
 ### MapX REST API routes (for reference, all require auth)
 
-| Route | Purpose |
-|---|---|
-| `/get/view/item/:id` | Single view details |
-| `/get/views/list/project/` | Views in a project |
+| Route                            | Purpose               |
+| -------------------------------- | --------------------- |
+| `/get/view/item/:id`             | Single view details   |
+| `/get/views/list/project/`       | Views in a project    |
 | `/get/views/list/global/public/` | Public views globally |
-| `/get/search/key` | Keyword search |
-| `/get/source/summary/` | Source data summary |
-| `/get/source/table/attribute/` | Attribute table |
+| `/get/search/key`                | Keyword search        |
+| `/get/source/summary/`           | Source data summary   |
+| `/get/source/table/attribute/`   | Attribute table       |
 
 These routes were found by reading the [MapX API source](https://github.com/unep-grid/mapx/blob/main/api/index.js).
 

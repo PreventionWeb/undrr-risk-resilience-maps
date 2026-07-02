@@ -18,7 +18,10 @@
 }
 
 @keyframes pin-gate-fade-out {
-  to { opacity: 0; pointer-events: none; }
+  to {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 .pin-gate__card {
@@ -92,9 +95,16 @@
 }
 
 @keyframes pin-shake {
-  0%, 100% { transform: translateX(0); }
-  25%       { transform: translateX(-5px); }
-  75%       { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .pin-gate__error {

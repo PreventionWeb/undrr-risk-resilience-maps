@@ -34,7 +34,9 @@
   background: #fff;
   cursor: pointer;
   color: var(--color-text-muted);
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 
 .widget-sub-tab:last-child {

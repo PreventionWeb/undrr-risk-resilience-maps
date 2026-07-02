@@ -1,4 +1,4 @@
-# Product Requirements Document *(archived)*
+# Product Requirements Document _(archived)_
 
 > **Superseded.** This captured requirements during discovery and build (March–May 2026). The prototype is now complete and V1 scope is defined in [docs/product-spec.md](docs/product-spec.md). The production work plan is in [docs/resourcing-plan.md](docs/resourcing-plan.md). This file is retained for historical context only.
 
@@ -10,16 +10,16 @@
 
 ## Glossary
 
-| Term | Meaning |
-|---|---|
-| UNDRR | United Nations Office for Disaster Risk Reduction |
+| Term            | Meaning                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| UNDRR           | United Nations Office for Disaster Risk Reduction                                                                                            |
 | GRI Risk Viewer | [Global Resilience Index Risk Viewer](https://global.infrastructureresilience.org) by Oxford OPSIS. The interaction model we're replicating. |
-| MapX | [UNEP/GRID-Geneva geospatial platform](https://app.mapx.org/). Hosts map layers and provides an SDK for embedding maps via iframe. |
-| Mangrove | UNDRR's CSS component library for consistent branding (page headers, cards, grids, buttons). |
-| CRI | Climate Risk Index — upgraded risk layers being prepared by the UNDRR programme team. |
-| GAR | Global Assessment Report on Disaster Risk Reduction. MapX hosts GAR-derived hazard data via its PREVIEW platform. |
-| RCP / SSP | Representative Concentration Pathways / Shared Socioeconomic Pathways — climate scenario frameworks used in hazard projections. |
-| PGA | Peak Ground Acceleration — seismic hazard measure. |
+| MapX            | [UNEP/GRID-Geneva geospatial platform](https://app.mapx.org/). Hosts map layers and provides an SDK for embedding maps via iframe.           |
+| Mangrove        | UNDRR's CSS component library for consistent branding (page headers, cards, grids, buttons).                                                 |
+| CRI             | Climate Risk Index — upgraded risk layers being prepared by the UNDRR programme team.                                                        |
+| GAR             | Global Assessment Report on Disaster Risk Reduction. MapX hosts GAR-derived hazard data via its PREVIEW platform.                            |
+| RCP / SSP       | Representative Concentration Pathways / Shared Socioeconomic Pathways — climate scenario frameworks used in hazard projections.              |
+| PGA             | Peak Ground Acceleration — seismic hazard measure.                                                                                           |
 
 ### Roles referenced in this document
 
@@ -55,15 +55,15 @@ What the user sees:
 
 ## In scope
 
-| Requirement | Detail |
-|---|---|
-| GRI baseline layers | All current GRI layers: roads, rails, power, plus upgraded CRI layers (from programme team) |
-| Metrics project layers | Augmented layers where data is ready — crop layer confirmed; heat/drought in progress |
-| Per-layer metadata | Source attribution, download links or pointers to source sites |
+| Requirement                | Detail                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GRI baseline layers        | All current GRI layers: roads, rails, power, plus upgraded CRI layers (from programme team)                               |
+| Metrics project layers     | Augmented layers where data is ready — crop layer confirmed; heat/drought in progress                                     |
+| Per-layer metadata         | Source attribution, download links or pointers to source sites                                                            |
 | Resilience review category | Placeholder resilience entries and future cross-links to indicator content while delivery formats are still being defined |
-| Country links | Country-level click-through to Risk & Resilience country pages |
-| Feature data popups | Basic click-on-point data display (matching existing GRI behaviour) |
-| GRI/Oxford credits | Clear successor/credits note acknowledging GRI and Oxford |
+| Country links              | Country-level click-through to Risk & Resilience country pages                                                            |
+| Feature data popups        | Basic click-on-point data display (matching existing GRI behaviour)                                                       |
+| GRI/Oxford credits         | Clear successor/credits note acknowledging GRI and Oxford                                                                 |
 
 ## Out of scope
 
@@ -80,14 +80,14 @@ No freeform data mixing by end-users.
 
 Layers are organised by tab (hazard / exposure / vulnerability / risk, plus a planned resilience category). The definitive inventory is pending from the programme team (see [open questions](#open-questions)). See [research/gri-layer-inventory.md](research/gri-layer-inventory.md) for the full GRI baseline and [research/gri-mapx-crosswalk.csv](research/gri-mapx-crosswalk.csv) for MapX availability and view IDs.
 
-| Source | Status |
-|---|---|
-| GRI layers (roads, rails, power) | Ready to clone |
-| Upgraded CRI layers (programme team) | Signalled as ready |
-| Metrics: crop layer | Confirmed |
-| Metrics: heat/drought layers | In progress |
-| Subnational vulnerability indices | Future (review backlog) |
-| Early warning layers | Future (review backlog) |
+| Source                               | Status                  |
+| ------------------------------------ | ----------------------- |
+| GRI layers (roads, rails, power)     | Ready to clone          |
+| Upgraded CRI layers (programme team) | Signalled as ready      |
+| Metrics: crop layer                  | Confirmed               |
+| Metrics: heat/drought layers         | In progress             |
+| Subnational vulnerability indices    | Future (review backlog) |
+| Early warning layers                 | Future (review backlog) |
 
 ## Open questions
 
@@ -100,16 +100,16 @@ Layers are organised by tab (hazard / exposure / vulnerability / risk, plus a pl
 
 ## Blockers
 
-| Blocker | Owner | Risk |
-|---|---|---|
-| MapX commercial/partnership terms clarified | UNDRR digital lead + MapX platform contact | Medium |
-| Data list confirmed and layers uploaded to MapX | Programme lead | Medium |
-| Upgraded GRI/CRI layers available | Programme team | Low |
+| Blocker                                         | Owner                                      | Risk   |
+| ----------------------------------------------- | ------------------------------------------ | ------ |
+| MapX commercial/partnership terms clarified     | UNDRR digital lead + MapX platform contact | Medium |
+| Data list confirmed and layers uploaded to MapX | Programme lead                             | Medium |
+| Upgraded GRI/CRI layers available               | Programme team                             | Low    |
 
 ## Timeline
 
-| Phase | Period | Activities |
-|---|---|---|
-| Discovery | March – early April 2026 | Formalise MapX terms, compile data inventory, agree tab structure, initial demo. **Done.** |
-| Build | April – mid-May 2026 | MVP scaffold complete: nav bar, PIN gate, floating layer panel, SDK integration, legends, compound layers, info pages (Home, Guide, Sources, Downloads), hash-based URL routing (active layers + tab). Remaining: country page links, per-layer metadata, real data layers once confirmed by programme team. |
-| Soft launch | End of May 2026 | London Climate Week |
+| Phase       | Period                   | Activities                                                                                                                                                                                                                                                                                                   |
+| ----------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Discovery   | March – early April 2026 | Formalise MapX terms, compile data inventory, agree tab structure, initial demo. **Done.**                                                                                                                                                                                                                   |
+| Build       | April – mid-May 2026     | MVP scaffold complete: nav bar, PIN gate, floating layer panel, SDK integration, legends, compound layers, info pages (Home, Guide, Sources, Downloads), hash-based URL routing (active layers + tab). Remaining: country page links, per-layer metadata, real data layers once confirmed by programme team. |
+| Soft launch | End of May 2026          | London Climate Week                                                                                                                                                                                                                                                                                          |

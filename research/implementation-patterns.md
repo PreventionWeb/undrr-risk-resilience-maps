@@ -12,7 +12,7 @@ Vite handles multi-page apps by listing HTML entry points in `rollupOptions.inpu
 // vite.config.js
 export default defineConfig({
   root: ".",
-  base: "/your-project/",       // deploy path
+  base: "/your-project/", // deploy path
   server: { port: 3001 },
   build: {
     outDir: "dist",
@@ -52,21 +52,21 @@ Every page follows this order:
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Page Title</title>
-  <!-- Mangrove CSS from CDN -->
-  <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.6.0/css/style.css" />
-</head>
-<body>
-  <!-- UNDRR page header -->
-  <!-- Page content (sidebar + map container) -->
-  
-  <!-- CRITICAL: UMD must load BEFORE module script -->
-  <script src="https://app.mapx.org/sdk/mxsdk.umd.js"></script>
-  <script type="module" src="/src/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page Title</title>
+    <!-- Mangrove CSS from CDN -->
+    <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.6.0/css/style.css" />
+  </head>
+  <body>
+    <!-- UNDRR page header -->
+    <!-- Page content (sidebar + map container) -->
+
+    <!-- CRITICAL: UMD must load BEFORE module script -->
+    <script src="https://app.mapx.org/sdk/mxsdk.umd.js"></script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
 ```
 
@@ -89,18 +89,25 @@ Mangrove 1.6.0 sets `html { font-size: 16px }` and uses `rem` throughout. All cu
 ### Components we use
 
 **Page header** (UNDRR black bar with Sendai 4-colour stripe):
+
 ```html
 <header class="mg-page-header mg-page-header--default">
   <div class="mg-page-header__decoration">
-    <div></div><div></div><div></div><div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
   </div>
   <div class="mg-page-header__toolbar-wrapper">
     <div class="mg-page-header__container mg-container">
       <div class="mg-page-header__region mg-page-header__region--toolbar">
         <section class="mg-page-header__block mg-page-header__block--logo">
           <a href="https://www.undrr.org">
-            <img src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
-                 alt="UNDRR Logo" class="mg-page-header__logo-img" />
+            <img
+              src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
+              alt="UNDRR Logo"
+              class="mg-page-header__logo-img"
+            />
           </a>
         </section>
       </div>
@@ -133,16 +140,16 @@ The demo's `shared.css` (760 lines) overrides Mangrove for:
 
 ### Colour palette (from Mangrove)
 
-| Token | Hex | Use |
-|---|---|---|
-| Blue-900 | #004f91 | Primary interactive, active states |
-| Blue-700 | #3372a7 | Hover states |
-| Neutral-800 | #1a1a1a | Text, dark backgrounds |
-| Neutral-100 | #ccc | Borders |
-| Sendai Red | #c10920 | Danger, alerts |
-| Sendai Orange | #eb752a | Accent, raster tags |
-| Sendai Purple | #962987 | Story maps |
-| Sendai Turquoise | #00afae | Explorer highlights |
+| Token            | Hex     | Use                                |
+| ---------------- | ------- | ---------------------------------- |
+| Blue-900         | #004f91 | Primary interactive, active states |
+| Blue-700         | #3372a7 | Hover states                       |
+| Neutral-800      | #1a1a1a | Text, dark backgrounds             |
+| Neutral-100      | #ccc    | Borders                            |
+| Sendai Red       | #c10920 | Danger, alerts                     |
+| Sendai Orange    | #eb752a | Accent, raster tags                |
+| Sendai Purple    | #962987 | Story maps                         |
+| Sendai Turquoise | #00afae | Explorer highlights                |
 
 ## 3. MapX SDK integration
 
@@ -156,10 +163,10 @@ let _mapx = null;
 
 export function initSDK(container) {
   _mapx = new mxsdk.Manager({
-    container,                          // DOM element for iframe
+    container, // DOM element for iframe
     url: "https://app.mapx.org/?project=MX-PROJECT-ID",
     params: {
-      closePanels: true,                // hide MapX's own sidebar
+      closePanels: true, // hide MapX's own sidebar
       language: "en",
       theme: "color_light",
     },
@@ -184,17 +191,19 @@ Other modules call `getSDK().ask(...)` to send commands. The Manager creates an 
 
 ```js
 // src/main.js
-initPinGate();                              // 1. PIN overlay (if needed)
-const mapx = initSDK(document.getElementById("mapx"));  // 2. Create iframe
+initPinGate(); // 1. PIN overlay (if needed)
+const mapx = initSDK(document.getElementById("mapx")); // 2. Create iframe
 
-mapx.on("ready", async () => {              // 3. Wait for MapX to load
-  buildViewButtons();                       // 4. Build sidebar UI
-  enableActionButtons();                    // 5. Wire toolbar
+mapx.on("ready", async () => {
+  // 3. Wait for MapX to load
+  buildViewButtons(); // 4. Build sidebar UI
+  enableActionButtons(); // 5. Wire toolbar
   await mapx.ask("set_vector_highlight", { enable: true }); // 6. Enable clicks
-  initCoordinateDisplay(2000);              // 7. Start polling
+  initCoordinateDisplay(2000); // 7. Start polling
 });
 
-mapx.on("click_attributes", (...args) => {  // 8. Listen for feature clicks
+mapx.on("click_attributes", (...args) => {
+  // 8. Listen for feature clicks
   showInfobox(args.length === 1 ? args[0] : args);
 });
 ```
@@ -205,15 +214,15 @@ Everything after `initSDK` must wait for `ready`. The map isn't interactive unti
 
 Each area of SDK functionality is wrapped in a thin module under `src/sdk/`:
 
-| Module | What it wraps |
-|---|---|
-| `client.js` | Manager lifecycle (initSDK, getSDK) |
-| `views.js` | view_add, view_remove, view_geojson_create, getViewMeta, getViewLegendImage |
-| `filters.js` | setViewLayerTransparency, getViewLayerTransparency, setViewLayerFilterText, setViewLayerFilterNumeric |
-| `map-control.js` | mapFlyTo, mapGetZoom, commonLocFitBbox, setProjection, set3dTerrain, setModeAerial |
-| `ui.js` | setVectorHighlight, setLanguage, setTheme |
-| `data-query.js` | getViewSourceGeojson, getViewTableAttribute, getViewSourceSummary |
-| `map-layers.js` | Mapbox GL passthrough (addSource, addLayer, removeSource, removeLayer, queryRenderedFeatures) |
+| Module           | What it wraps                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `client.js`      | Manager lifecycle (initSDK, getSDK)                                                                   |
+| `views.js`       | view_add, view_remove, view_geojson_create, getViewMeta, getViewLegendImage                           |
+| `filters.js`     | setViewLayerTransparency, getViewLayerTransparency, setViewLayerFilterText, setViewLayerFilterNumeric |
+| `map-control.js` | mapFlyTo, mapGetZoom, commonLocFitBbox, setProjection, set3dTerrain, setModeAerial                    |
+| `ui.js`          | setVectorHighlight, setLanguage, setTheme                                                             |
+| `data-query.js`  | getViewSourceGeojson, getViewTableAttribute, getViewSourceSummary                                     |
+| `map-layers.js`  | Mapbox GL passthrough (addSource, addLayer, removeSource, removeLayer, queryRenderedFeatures)         |
 
 Each is a one-liner wrapper around `getSDK().ask("method_name", params)`. The point is to centralize SDK calls so nothing else in the app touches `ask()` directly.
 
@@ -249,11 +258,11 @@ The core interaction: user clicks a button in the sidebar, a layer appears/disap
 // src/ui/view-buttons.js
 async function toggleView(idView, btn, wrapper) {
   if (store.openViews.has(idView)) {
-    await viewRemove(idView);           // SDK call
-    store.openViews.delete(idView);     // Update local state
-    btn.classList.remove("is-active");  // Update button visual
-    removeTransparencySlider(wrapper);  // Remove slider
-    removeLegend(idView);              // Remove legend entry
+    await viewRemove(idView); // SDK call
+    store.openViews.delete(idView); // Update local state
+    btn.classList.remove("is-active"); // Update button visual
+    removeTransparencySlider(wrapper); // Remove slider
+    removeLegend(idView); // Remove legend entry
   } else {
     await viewAdd(idView);
     store.openViews.add(idView);
@@ -273,12 +282,12 @@ The SDK uses **transparency** (0 = opaque, 100 = invisible). The UI shows **opac
 ```js
 // Reading from SDK → UI
 const transparency = await getViewLayerTransparency(idView);
-slider.value = String(100 - transparency);  // invert for display
+slider.value = String(100 - transparency); // invert for display
 
 // Writing from UI → SDK
 slider.addEventListener("input", async () => {
   const opacity = Number(slider.value);
-  await setViewLayerTransparency(idView, 100 - opacity);  // invert for SDK
+  await setViewLayerTransparency(idView, 100 - opacity); // invert for SDK
 });
 ```
 
@@ -309,24 +318,24 @@ The image is appended to a floating panel positioned at bottom-right of the map.
 The SDK provides `commonLocGetListCodes()` which returns available country (ISO 3166) and region (M49) codes. These populate a dropdown. On selection:
 
 ```js
-await commonLocFitBbox(code, { duration: 2000 });  // fly to country bbox
+await commonLocFitBbox(code, { duration: 2000 }); // fly to country bbox
 ```
 
 ### For the GRI Risk Viewer clone
 
 The patterns above map directly to what we need:
 
-| GRI feature | Demo pattern to reuse |
-|---|---|
-| Tabbed sidebar with layer toggles | `view-buttons.js` toggle pattern, but organized by tab (risk/resilience/hazard/exposure/vulnerability) instead of flat list |
-| Per-layer controls (sliders, dropdowns) | Extend the transparency slider pattern with additional control types per layer |
-| Show/hide eye toggle | Same as `toggleView()` with `is-active` class |
-| Legend panel | `legends.js` as-is |
-| Site inspection / feature popup | `infobox.js` click handler |
-| URL state encoding | New -- GRI encodes layer state in URL query params. Not in the demo. |
-| Cross-tab layer persistence | New -- other tabs' layers stay collapsed but accessible. Not in the demo. |
-| Basemap toggle | `setModeAerial("toggle")` already in demo |
-| Country click-through | New -- click feature → open external country page URL |
+| GRI feature                             | Demo pattern to reuse                                                                                                       |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Tabbed sidebar with layer toggles       | `view-buttons.js` toggle pattern, but organized by tab (risk/resilience/hazard/exposure/vulnerability) instead of flat list |
+| Per-layer controls (sliders, dropdowns) | Extend the transparency slider pattern with additional control types per layer                                              |
+| Show/hide eye toggle                    | Same as `toggleView()` with `is-active` class                                                                               |
+| Legend panel                            | `legends.js` as-is                                                                                                          |
+| Site inspection / feature popup         | `infobox.js` click handler                                                                                                  |
+| URL state encoding                      | New -- GRI encodes layer state in URL query params. Not in the demo.                                                        |
+| Cross-tab layer persistence             | New -- other tabs' layers stay collapsed but accessible. Not in the demo.                                                   |
+| Basemap toggle                          | `setModeAerial("toggle")` already in demo                                                                                   |
+| Country click-through                   | New -- click feature → open external country page URL                                                                       |
 
 ### What we need to build fresh
 

@@ -69,9 +69,7 @@ export function writeHash(tab, layers) {
   let hash = `#${tab}`;
 
   if (layers.length > 0) {
-    const segments = layers.map(({ key, sourceIdx }) =>
-      sourceIdx > 0 ? `${key}:${sourceIdx}` : key,
-    );
+    const segments = layers.map(({ key, sourceIdx }) => (sourceIdx > 0 ? `${key}:${sourceIdx}` : key));
     hash += `?layers=${segments.join(",")}`;
   }
 

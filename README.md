@@ -27,18 +27,18 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 
 ## Project documentation
 
-| File | Purpose |
-|---|---|
-| [docs/product-spec.md](docs/product-spec.md) | V1 scope definition — what's in, what's deferred, pre-launch requirements |
-| [docs/resourcing-plan.md](docs/resourcing-plan.md) | Work packages, effort estimates, risk register |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System design and technical decisions |
-| [LEARNINGS.md](LEARNINGS.md) | MapX SDK quirks, design decisions, hard-won knowledge |
-| [TODO.md](TODO.md) | Deferred technical items |
-| [METHODOLOGY.md](METHODOLOGY.md) | MapX view ID discovery approach and API research |
-| [CHANGELOG.md](CHANGELOG.md) | Notable changes |
-| [data/inventory.csv](data/inventory.csv) | Master layer inventory — source of truth for layer metadata and MapX view IDs |
-| [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`) |
-| [research/](research/) | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns |
+| File                                                         | Purpose                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| [docs/product-spec.md](docs/product-spec.md)                 | V1 scope definition — what's in, what's deferred, pre-launch requirements     |
+| [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                                |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                         |
+| [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                         |
+| [TODO.md](TODO.md)                                           | Deferred technical items                                                      |
+| [METHODOLOGY.md](METHODOLOGY.md)                             | MapX view ID discovery approach and API research                              |
+| [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes                                                               |
+| [data/inventory.csv](data/inventory.csv)                     | Master layer inventory — source of truth for layer metadata and MapX view IDs |
+| [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                             |
+| [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns     |
 
 ## URL routing
 

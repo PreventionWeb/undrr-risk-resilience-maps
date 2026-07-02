@@ -112,7 +112,9 @@ test("probe MapX view catalogues", async ({ page }) => {
   const csvHeader = "project,project_id,view_id,type,title,abstract";
   const csvRows = allViews.map((v) => {
     const esc = (s) => `"${(s || "").replace(/"/g, '""')}"`;
-    return [esc(v.projectName), esc(v.project), esc(v.id), esc(v.type), esc(v.title), esc(v.abstract)].join(",");
+    return [esc(v.projectName), esc(v.project), esc(v.id), esc(v.type), esc(v.title), esc(v.abstract)].join(
+      ",",
+    );
   });
   const csvPath = join(RESEARCH_DIR, "mapx-views-all.csv");
   writeFileSync(csvPath, [csvHeader, ...csvRows].join("\n"));

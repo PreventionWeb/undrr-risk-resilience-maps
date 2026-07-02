@@ -104,9 +104,7 @@ export async function addLegend(layer, container) {
 
     const img = document.createElement("img");
     img.className = "layer-legend-img";
-    img.src = legendData.startsWith("data:")
-      ? legendData
-      : `data:image/png;base64,${legendData}`;
+    img.src = legendData.startsWith("data:") ? legendData : `data:image/png;base64,${legendData}`;
     img.alt = "SDK legend";
 
     if (hasLocalLegend) {

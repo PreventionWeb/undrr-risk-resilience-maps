@@ -12,7 +12,8 @@ export const EXPOSURE_LAYERS = [
     desc: "Population distribution (HRSL/GHSL 2022).",
     source: "High Resolution Settlement Layer (Meta / CIESIN); GHSL 2022 (EU Joint Research Centre).",
     sourceUrl: "https://human-settlement.emergency.copernicus.eu/",
-    citation: "Meta & CIESIN (2022): High Resolution Settlement Layer. / Pesaresi, M. et al. (2023): GHSL Data Package 2023. JRC Technical Report EUR 31741 EN.",
+    citation:
+      "Meta & CIESIN (2022): High Resolution Settlement Layer. / Pesaresi, M. et al. (2023): GHSL Data Package 2023. JRC Technical Report EUR 31741 EN.",
     license: "CC BY 4.0",
     project: ECO_DRR,
     initiative: OTHER,
@@ -47,7 +48,8 @@ export const EXPOSURE_LAYERS = [
     desc: "Global forest coverage (MODIS, 2020).",
     source: "MODIS Global Vegetation Continuous Fields (NASA LP DAAC).",
     sourceUrl: "https://lpdaac.usgs.gov/products/mod44bv006/",
-    citation: "DiMiceli, C. et al. (2021): MOD44B.006 Terra Vegetation Continuous Fields Yearly Global 250m. NASA LP DAAC, Oak Ridge.",
+    citation:
+      "DiMiceli, C. et al. (2021): MOD44B.006 Terra Vegetation Continuous Fields Yearly Global 250m. NASA LP DAAC, Oak Ridge.",
     license: "Public Domain",
     project: ECO_DRR,
     initiative: OTHER,
@@ -62,7 +64,8 @@ export const EXPOSURE_LAYERS = [
     desc: "Global Mangrove Watch (1996-2016).",
     source: "Global Mangrove Watch (JAXA / Aberystwyth University).",
     sourceUrl: "https://www.globalmangrovewatch.org/",
-    citation: "Bunting, P. et al. (2018): The Global Mangrove Watch — A New 2010 Global Baseline of Mangrove Extent. Remote Sensing, 10(10): 1669.",
+    citation:
+      "Bunting, P. et al. (2018): The Global Mangrove Watch — A New 2010 Global Baseline of Mangrove Extent. Remote Sensing, 10(10): 1669.",
     license: "CC BY 4.0",
     project: ECO_DRR,
     initiative: OTHER,
@@ -77,7 +80,8 @@ export const EXPOSURE_LAYERS = [
     desc: "Global coral reef distribution.",
     source: "UNEP-WCMC / IMaRS-USF Global Coral Reef dataset.",
     sourceUrl: "https://wcmc.io/coral-reef-data",
-    citation: "UNEP-WCMC, WorldFish Centre, WRI, TNC (2021): Global distribution of warm-water coral reefs. Ocean+ Library. doi:10.34892/t2wk-5t17.",
+    citation:
+      "UNEP-WCMC, WorldFish Centre, WRI, TNC (2021): Global distribution of warm-water coral reefs. Ocean+ Library. doi:10.34892/t2wk-5t17.",
     license: "CC BY-NC-SA 3.0",
     project: ECO_DRR,
     initiative: OTHER,
@@ -113,7 +117,8 @@ export const EXPOSURE_LAYERS = [
     desc: "WRI Global Power Plants Database.",
     source: "WRI Global Power Plants Database.",
     sourceUrl: "https://datasets.wri.org/dataset/globalpowerplantdatabase",
-    citation: "Byers, L. et al. (2019): A Global Database of Power Plants. World Resources Institute, Washington D.C.",
+    citation:
+      "Byers, L. et al. (2019): A Global Database of Power Plants. World Resources Institute, Washington D.C.",
     license: "CC BY 4.0",
     project: ECO_DRR,
     initiative: OTHER,
