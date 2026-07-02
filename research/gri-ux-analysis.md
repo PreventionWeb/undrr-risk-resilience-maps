@@ -1,8 +1,6 @@
 # GRI Risk Viewer — UX & Interaction Model Analysis
 
-> Reference analysis of the [GRI Risk Viewer](https://global.infrastructureresilience.org) interaction patterns. This documents the application structure we aim to replicate (reskinned with UNDRR Mangrove styling). This is not a design spec — it's an inventory of what the GRI Risk Viewer does so we can scope what to build.
->
-> Used by [PRD.md](../PRD.md) and [ARCHITECTURE.md](../ARCHITECTURE.md).
+> **Discovery-phase reference — archived.** This documents the GRI Risk Viewer interaction model that informed the prototype. The project has since diverged in several areas (five tabs not four, Resilience as a first-class category, floating panel instead of fixed sidebar, R2R category groupings). Retained for context. See [ARCHITECTURE.md](../ARCHITECTURE.md) for how the app is actually built.
 
 ## Page structure
 

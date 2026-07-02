@@ -1,35 +1,39 @@
 # Architecture
 
-> Keep this document updated as the project evolves.
->
-> Adapted for the requirements in [PRD.md](PRD.md). See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model this architecture targets. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
+> See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove. See the [PRD](PRD.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v1.8.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
 ```
 undrr-risk-resilience-maps/
 ├── index.html                  # Main entry point
+├── data/
+│   └── inventory.csv           # Master layer inventory (source of truth for MapX view IDs)
+├── scripts/
+│   └── import-inventory.mjs    # CSV → JS config import tool (dry-run + --apply)
 ├── src/
 │   ├── pin-gate.js             # Preview PIN gate (sessionStorage auth)
 │   ├── main.js                 # App bootstrap: validates config, builds UI, inits SDK
 │   ├── config/
 │   │   ├── layers/             # Per-category layer definitions
-│   │   │   ├── index.js        # Assembles TABS array + exports PRIMARY_PROJECT
+│   │   │   ├── index.js        # Assembles TABS array, withR2rGroups() helper
 │   │   │   ├── projects.js     # MapX project IDs (ECO_DRR, HOME, CDC)
-│   │   │   ├── hazard.js       # Compound + simple hazard layers
+│   │   │   ├── status.js       # isLayerPublished(), getLayerStatus() helpers
+│   │   │   ├── hazard.js
 │   │   │   ├── exposure.js
 │   │   │   ├── vulnerability.js
 │   │   │   ├── risk.js
-│   │   │   └── resilience.js   # Canonical resilience layer definitions
+│   │   │   └── resilience.js
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
 │   │   ├── views.js            # view add/remove/query
 │   │   ├── filters.js          # layer transparency, filters
+│   │   ├── inspect.js          # click_attributes batch collector, generation guard
 │   │   └── map-control.js      # flyTo, zoom, projection
 │   ├── state/
 │   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
@@ -37,9 +41,10 @@ undrr-risk-resilience-maps/
 │   ├── ui/
 │   │   ├── sidebar.js          # Nav routing, layer panel, accordions, clear-all
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
-│   │   ├── home.js             # Home / About full-page view
-│   │   ├── info-panels.js      # Guide, Sources, Downloads full-page views
-│   │   ├── infobox.js          # Feature click popup
+│   │   ├── home.js             # Home page cards
+│   │   ├── info-panels.js      # Guide, Sources, Downloads, About full-page views
+│   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
+│   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel
 │   │   └── widgets/            # Source-switching widgets (registry pattern)
 │   │       ├── index.js        # Widget registry + isCompound helper
 │   │       ├── sub-tabs.js     # Button bar for metric switching
@@ -51,15 +56,17 @@ undrr-risk-resilience-maps/
 │           ├── layout.css      # App shell, nav, info-page containers
 │           ├── pin-gate.css    # PIN gate overlay
 │           ├── layer-panel.css # Floating sidebar panel
-│           ├── layer-accordion.css
+│           ├── layer-accordion.css # Layer items + R2R group headings
 │           ├── opacity-slider.css
 │           ├── legend.css
-│           ├── home-panel.css  # Info page hero, sections, cards
+│           ├── home-panel.css  # Info page hero, sections, cards, Sources table
+│           ├── panels.css      # Drag + resize for layer panel and Site Details
+│           ├── site-inspector.css
 │           ├── widgets.css     # Sub-tabs and stepped-slider
 │           └── infobox.css
 ├── .github/workflows/deploy.yml # GitHub Pages CI
 ├── vite.config.js
-├── server.js                   # Static production server
+├── server.js                   # Static production server (for previewing dist/)
 └── package.json
 ```
 
@@ -100,7 +107,7 @@ Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Man
 - **Info tabs** — hide the map (`#app-map`), show the full-page `#info-page` container, display the matching info panel.
 - **Data tabs** — show the map, show the floating layer panel with the matching tab's layers.
 
-The **Risk & Resilience tab** groups its layers into two named subgroups — **Risk Maps** and **Resilience Maps** — rendered as labelled section headings in the sidebar. This is driven by a `groups` field on the tab config (see `src/config/layers/index.js`). Other tabs use a flat `layers` array and render without subgroup headings. The `groups` field is optional; tabs that lack it render as before.
+Tabs whose layers span multiple R2R categories (Societies / Economy / Environment) are grouped by the `withR2rGroups()` helper in `src/config/layers/index.js`. Each group renders as a `<details>`/`<summary>` element in the sidebar, open by default, with a collapsible arrow. Tabs with only one category (e.g. Hazard) render flat. The `groups` field is `null` for flat tabs; the sidebar checks it and renders accordingly.
 
 The active tab and open layers are encoded in the URL hash (format: `#tab?layers=key:sourceIdx,...`) so links are shareable and browser back/forward works. On `hashchange`, both the active tab and the open layer set are reconciled against the new URL.
 
@@ -149,7 +156,7 @@ Plain ES module exports with setter functions, no framework.
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/static/mangrove/1.6.0/css/style.css) (v1.6.0). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/static/mangrove/1.8.0/css/style.css) (v1.8.0). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
@@ -201,7 +208,9 @@ Test files cover pure and near-pure modules:
 | `src/ui/widgets/sub-tabs.test.js` | DOM construction, initial state, callbacks, aria roles |
 | `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour |
 | `src/ui/infobox.test.js` | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler |
+| `src/ui/site-inspector.test.js` | Panel build, view index, batch collection, generation guard, raster fallback |
 | `src/ui/layer-controls.test.js` | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic |
+| `src/sdk/inspect.test.js` | `click_attributes` batching, generation counter, discard of stale events |
 | `src/utils/export-layers.test.js` | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting |
 
 `sidebar.js` integration tests (hash restore, reconcile, clear-all) are not yet written — testing them requires a full DOM with `buildSidebar()` and mocked SDK modules.

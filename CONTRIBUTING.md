@@ -4,7 +4,8 @@
 
 ## Workflow
 
-- All changes go through **pull requests** -- no direct commits to `main`.
+- Feature and fix changes go through **pull requests** — branch, PR, review, merge.
+- Dependency bumps, doc-only changes, and chore commits may go directly to `main` when no code review is needed.
 - PRs should be reviewed before merging.
 
 ## Commits
