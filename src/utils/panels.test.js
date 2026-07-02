@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "./panels.js";
 
 // jsdom doesn't implement offsetParent / offsetWidth so we stub the minimal

@@ -33,6 +33,18 @@ function layerBadgeLabel(layer) {
   return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
 }
 
+const EYE_ICON_SVG = `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
+/** Build the type/geometry badge shown next to a layer label. */
+function buildLayerTypeTag(layer) {
+  const tag = document.createElement("span");
+  tag.className = "mg-tag layer-type-tag";
+  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
+  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
+  tag.textContent = layerBadgeLabel(layer);
+  return tag;
+}
+
 const INFO_TABS = ["home", "guide", "sources", "downloads", "about"];
 
 // All valid tab IDs for hash routing
@@ -111,7 +123,8 @@ export function buildSidebar() {
     const publishedLayers = tab.layers.filter(isLayerPublished);
     const empty = document.createElement("p");
     empty.className = "tab-panel-empty mg-form-help";
-    empty.textContent = 'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
+    empty.textContent =
+      'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
     empty.hidden = publishedLayers.length > 0;
     tabPanel.appendChild(empty);
 
@@ -192,7 +205,7 @@ export function buildSidebar() {
 
   // Read initial tab from URL hash, fall back to default
   const { tab: hashTab } = parseHash();
-  const initialTab = (hashTab && ALL_TABS.includes(hashTab)) ? hashTab : store.activeTab;
+  const initialTab = hashTab && ALL_TABS.includes(hashTab) ? hashTab : store.activeTab;
   switchTab(initialTab);
 
   // Browser back/forward: reconcile both tab and layer state from the new hash
@@ -318,9 +331,7 @@ function updateClearBtn() {
 function safeSourceIdx(layer, sourceIdx) {
   if (!isCompound(layer)) return 0;
   const n = layer.sources.length;
-  return Number.isInteger(sourceIdx) && sourceIdx >= 0 && sourceIdx < n
-    ? sourceIdx
-    : 0;
+  return Number.isInteger(sourceIdx) && sourceIdx >= 0 && sourceIdx < n ? sourceIdx : 0;
 }
 
 /**
@@ -406,12 +417,7 @@ function buildLayerAccordion(layer) {
   label.textContent = layer.label;
   header.appendChild(label);
 
-  const tag = document.createElement("span");
-  tag.className = "mg-tag layer-type-tag";
-  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
-  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = layerBadgeLabel(layer);
-  header.appendChild(tag);
+  header.appendChild(buildLayerTypeTag(layer));
 
   let eyeBtn = null;
   if (published) {
@@ -419,7 +425,7 @@ function buildLayerAccordion(layer) {
     eyeBtn.className = "layer-eye";
     eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
     eyeBtn.setAttribute("aria-pressed", "false");
-    eyeBtn.innerHTML = `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    eyeBtn.innerHTML = EYE_ICON_SVG;
     eyeBtn.title = "Toggle layer";
     eyeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -486,7 +492,9 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
   // Guard: SDK must be ready before attempting map operations
   if (!isSDKReady()) {
     const label = wrapper.querySelector(".layer-label");
-    const msg = label ? `${label.textContent} cannot be toggled yet — map is still loading.` : "Map is still loading.";
+    const msg = label
+      ? `${label.textContent} cannot be toggled yet — map is still loading.`
+      : "Map is still loading.";
     console.warn(msg);
     return;
   }
@@ -496,95 +504,94 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
   if (layer.key) toggleInFlight.add(layer.key);
 
   try {
-  const widgetSlot = wrapper.querySelector(".layer-widget-slot");
-  const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-  const legendSlot = wrapper.querySelector(".layer-legend-slot");
-  const compound = isCompound(layer);
+    const widgetSlot = wrapper.querySelector(".layer-widget-slot");
+    const sliderSlot = wrapper.querySelector(".layer-slider-slot");
+    const legendSlot = wrapper.querySelector(".layer-legend-slot");
+    const compound = isCompound(layer);
 
-  // Determine which view ID is currently active
-  const key = compound ? compoundKey(layer) : null;
-  const activeIdx = compound ? store.getActiveSource(key) : 0;
-  // Guard against out-of-bounds active index (defensive; shouldn't happen with validated config)
-  const safeIdx = compound && activeIdx < layer.sources.length ? activeIdx : 0;
-  const activeViewId = compound ? layer.sources[safeIdx].id : layer.id;
+    // Determine which view ID is currently active
+    const key = compound ? compoundKey(layer) : null;
+    const activeIdx = compound ? store.getActiveSource(key) : 0;
+    // Guard against out-of-bounds active index (defensive; shouldn't happen with validated config)
+    const safeIdx = compound && activeIdx < layer.sources.length ? activeIdx : 0;
+    const activeViewId = compound ? layer.sources[safeIdx].id : layer.id;
 
-  // Is this layer currently on? For compound layers, check if ANY source is open.
-  const isOn = compound
-    ? layer.sources.some((s) => store.openViews.has(s.id))
-    : store.openViews.has(layer.id);
+    // Is this layer currently on? For compound layers, check if ANY source is open.
+    const isOn = compound
+      ? layer.sources.some((s) => store.openViews.has(s.id))
+      : store.openViews.has(layer.id);
 
-  if (isOn) {
-    // Turn off -- remove whichever source view is active
-    const removeId = compound
-      ? layer.sources.find((s) => store.openViews.has(s.id))?.id
-      : layer.id;
-    if (removeId) {
-      try { await viewRemove(removeId); } catch (err) {
-        console.warn(`Failed to remove view ${removeId}:`, err);
+    if (isOn) {
+      // Turn off -- remove whichever source view is active
+      const removeId = compound ? layer.sources.find((s) => store.openViews.has(s.id))?.id : layer.id;
+      if (removeId) {
+        try {
+          await viewRemove(removeId);
+        } catch (err) {
+          console.warn(`Failed to remove view ${removeId}:`, err);
+        }
+        store.openViews.delete(removeId);
       }
-      store.openViews.delete(removeId);
-    }
-    eyeBtn.classList.remove("is-active");
-    eyeBtn.setAttribute("aria-pressed", "false");
-    for (const btn of (secondaryEyeBtns.get(layer.key) ?? [])) {
-      btn.classList.remove("is-active");
-      btn.setAttribute("aria-pressed", "false");
-    }
-    wrapper.classList.remove("layer-active");
-    widgetSlot.innerHTML = "";
-    sliderSlot.innerHTML = "";
-    legendSlot.innerHTML = "";
-    syncHashFromState();
-  } else {
-    // Turn on
-    try { await viewAdd(activeViewId); } catch (err) {
-      console.warn(`Failed to add view ${activeViewId}:`, err);
-      return;
-    }
-    store.openViews.add(activeViewId);
-    eyeBtn.classList.add("is-active");
-    eyeBtn.setAttribute("aria-pressed", "true");
-    for (const btn of (secondaryEyeBtns.get(layer.key) ?? [])) {
-      btn.classList.add("is-active");
-      btn.setAttribute("aria-pressed", "true");
-      // Auto-expand the cross-tab section containing this button
-      const section = btn.closest("details.cross-tab-section");
-      if (section) section.open = true;
-    }
-    wrapper.classList.add("layer-active");
-
-    // Expand accordion
-    const body = wrapper.querySelector(".layer-body");
-    const header = wrapper.querySelector(".layer-header");
-    const arrow = wrapper.querySelector(".layer-arrow");
-    body.style.display = "block";
-    arrow.textContent = "\u25BC";
-    header.setAttribute("aria-expanded", "true");
-
-    // Build source-switching widget for compound layers
-    if (compound && layer.widget) {
-      const descEl = wrapper.querySelector(".layer-desc");
-      const widgetEl = buildWidget(
-        layer.widget, layer.sources, activeIdx,
-        (newIdx) => switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot),
-      );
-      if (widgetEl) widgetSlot.appendChild(widgetEl);
-
-      // Show the active source's description instead of the parent's
-      if (descEl && layer.sources[activeIdx].desc) {
-        descEl.textContent = layer.sources[activeIdx].desc;
+      eyeBtn.classList.remove("is-active");
+      eyeBtn.setAttribute("aria-pressed", "false");
+      for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+        btn.classList.remove("is-active");
+        btn.setAttribute("aria-pressed", "false");
       }
-    }
+      wrapper.classList.remove("layer-active");
+      widgetSlot.innerHTML = "";
+      sliderSlot.innerHTML = "";
+      legendSlot.innerHTML = "";
+      syncHashFromState();
+    } else {
+      // Turn on
+      try {
+        await viewAdd(activeViewId);
+      } catch (err) {
+        console.warn(`Failed to add view ${activeViewId}:`, err);
+        return;
+      }
+      store.openViews.add(activeViewId);
+      eyeBtn.classList.add("is-active");
+      eyeBtn.setAttribute("aria-pressed", "true");
+      for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+        btn.classList.add("is-active");
+        btn.setAttribute("aria-pressed", "true");
+        // Auto-expand the cross-tab section containing this button
+        const section = btn.closest("details.cross-tab-section");
+        if (section) section.open = true;
+      }
+      wrapper.classList.add("layer-active");
 
-    addOpacitySlider(activeViewId, sliderSlot);
-    // For compound layers, merge the active source's fields (desc, legend)
-    // onto the parent layer so addLegend sees the right data.
-    const legendLayer = compound
-      ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
-      : layer;
-    addLegend(legendLayer, legendSlot);
-    syncHashFromState();
-  }
+      // Expand accordion
+      const body = wrapper.querySelector(".layer-body");
+      const header = wrapper.querySelector(".layer-header");
+      const arrow = wrapper.querySelector(".layer-arrow");
+      body.style.display = "block";
+      arrow.textContent = "\u25BC";
+      header.setAttribute("aria-expanded", "true");
+
+      // Build source-switching widget for compound layers
+      if (compound && layer.widget) {
+        const descEl = wrapper.querySelector(".layer-desc");
+        const widgetEl = buildWidget(layer.widget, layer.sources, activeIdx, (newIdx) =>
+          switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot),
+        );
+        if (widgetEl) widgetSlot.appendChild(widgetEl);
+
+        // Show the active source's description instead of the parent's
+        if (descEl && layer.sources[activeIdx].desc) {
+          descEl.textContent = layer.sources[activeIdx].desc;
+        }
+      }
+
+      addOpacitySlider(activeViewId, sliderSlot);
+      // For compound layers, merge the active source's fields (desc, legend)
+      // onto the parent layer so addLegend sees the right data.
+      const legendLayer = compound ? { ...layer, ...layer.sources[activeIdx], label: layer.label } : layer;
+      addLegend(legendLayer, legendSlot);
+      syncHashFromState();
+    }
   } finally {
     if (layer.key) toggleInFlight.delete(layer.key);
   }
@@ -601,13 +608,24 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   if (oldId === newId) return;
 
   // Remove old, add new
-  try { await viewRemove(oldId); } catch (e) { console.warn(e); }
+  try {
+    await viewRemove(oldId);
+  } catch (e) {
+    console.warn(e);
+  }
   store.openViews.delete(oldId);
 
-  try { await viewAdd(newId); } catch (e) {
+  try {
+    await viewAdd(newId);
+  } catch (e) {
     // Rollback: re-add old view if new one fails
     console.warn(`Failed to switch to source ${newIdx}:`, e);
-    try { await viewAdd(oldId); store.openViews.add(oldId); } catch { /* */ }
+    try {
+      await viewAdd(oldId);
+      store.openViews.add(oldId);
+    } catch {
+      /* */
+    }
     return;
   }
   store.openViews.add(newId);
@@ -690,18 +708,13 @@ function buildCrossTabRow(layer) {
   labelEl.textContent = layer.label;
   row.appendChild(labelEl);
 
-  const tag = document.createElement("span");
-  tag.className = "mg-tag layer-type-tag";
-  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
-  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = layerBadgeLabel(layer);
-  row.appendChild(tag);
+  row.appendChild(buildLayerTypeTag(layer));
 
   const eyeBtn = document.createElement("button");
   eyeBtn.className = "layer-eye";
   eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
   eyeBtn.setAttribute("aria-pressed", "false");
-  eyeBtn.innerHTML = `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  eyeBtn.innerHTML = EYE_ICON_SVG;
   eyeBtn.title = "Toggle layer — switch to tab for sub-source controls";
   eyeBtn.addEventListener("click", (e) => {
     e.stopPropagation();

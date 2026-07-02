@@ -1,15 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link
-      rel="stylesheet"
-      href="https://assets.undrr.org/static/mangrove/1.8.0/css/style.css"
-    />
+    <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.8.0/css/style.css" />
   </head>
   <body>
+    <a href="#app-map" class="skip-to-content">Skip to map</a>
+
     <!-- Preview PIN gate overlay -->
     <div id="pin-gate" class="pin-gate" role="dialog" aria-modal="true" aria-labelledby="pin-gate-title">
       <div class="pin-gate__card">
@@ -19,10 +18,13 @@
           class="pin-gate__logo"
           width="180"
           height="26"
-          onerror="this.style.display='none'"
+          onerror="this.style.display = 'none'"
         />
         <h1 class="pin-gate__title" id="pin-gate-title">GRAR Metrics Facility Map Viewer</h1>
-        <p class="pin-gate__desc">This is a prototype for interaction and review only. It does not reflect actual data or final look and feel. It is shared for early feedback purposes only.</p>
+        <p class="pin-gate__desc">
+          This is a prototype for interaction and review only. It does not reflect actual data or final look
+          and feel. It is shared for early feedback purposes only.
+        </p>
         <div class="pin-gate__input-row">
           <label class="pin-gate__label" for="pin-input">Enter the PIN for access.</label>
           <div class="pin-gate__controls">
@@ -38,7 +40,9 @@
             />
           </div>
         </div>
-        <p id="pin-error" class="pin-gate__error" aria-live="polite" hidden>Incorrect PIN. Please try again.</p>
+        <p id="pin-error" class="pin-gate__error" aria-live="polite" hidden>
+          Incorrect PIN. Please try again.
+        </p>
       </div>
     </div>
 
@@ -52,12 +56,8 @@
       </div>
       <div class="mg-page-header__toolbar-wrapper">
         <div class="mg-page-header__container mg-container">
-          <div
-            class="mg-page-header__region mg-page-header__region--toolbar"
-          >
-            <section
-              class="mg-page-header__block mg-page-header__block--logo"
-            >
+          <div class="mg-page-header__region mg-page-header__region--toolbar">
+            <section class="mg-page-header__block mg-page-header__block--logo">
               <a href="https://www.undrr.org">
                 <img
                   src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
@@ -75,23 +75,29 @@
 
     <!-- Category navigation bar -->
     <nav class="mg-mega-wrapper" aria-label="Map navigation">
-      <ul
-        class="mg-mega-topbar | mg-container-full-width"
-        role="menubar"
-        aria-label="Map category menu"
-      >
+      <ul class="mg-mega-topbar | mg-container-full-width" role="menubar" aria-label="Map category menu">
         <li class="mg-mega-topbar__item" role="none">
           <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
             Risk &amp; Resilience Metrics
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#risk-resilience" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link is-active" data-tab="risk-resilience">
+          <a
+            href="#risk-resilience"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-tab-link is-active"
+            data-tab="risk-resilience"
+          >
             Risk
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#resilience" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="resilience">
+          <a
+            href="#resilience"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-tab-link"
+            data-tab="resilience"
+          >
             Resilience
           </a>
         </li>
@@ -101,12 +107,22 @@
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#exposure" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="exposure">
+          <a
+            href="#exposure"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-tab-link"
+            data-tab="exposure"
+          >
             Exposure
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#vulnerability" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="vulnerability">
+          <a
+            href="#vulnerability"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-tab-link"
+            data-tab="vulnerability"
+          >
             Vulnerability
           </a>
         </li>
@@ -117,12 +133,22 @@
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#sources" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="sources">
+          <a
+            href="#sources"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-info-link"
+            data-panel="sources"
+          >
             Sources
           </a>
         </li>
         <li class="mg-mega-topbar__item" role="none">
-          <a href="#downloads" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="downloads">
+          <a
+            href="#downloads"
+            role="menuitem"
+            class="mg-mega-topbar__item-link nav-info-link"
+            data-panel="downloads"
+          >
             Downloads
           </a>
         </li>
@@ -146,14 +172,38 @@
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
           <div class="layer-panel-actions">
-            <button class="layer-review-btn" id="layer-disabled-toggle" type="button" aria-pressed="true" title="Show disabled layers for review">
+            <button
+              class="layer-review-btn"
+              id="layer-disabled-toggle"
+              type="button"
+              aria-pressed="true"
+              title="Show disabled layers for review"
+            >
               Hide disabled
             </button>
-            <button class="layer-clear-btn" id="layer-clear-btn" aria-label="Turn off all layers" title="Turn off all layers" hidden>
+            <button
+              class="layer-clear-btn"
+              id="layer-clear-btn"
+              aria-label="Turn off all layers"
+              title="Turn off all layers"
+              hidden
+            >
               Clear all
             </button>
             <button class="layer-panel-toggle" id="panel-toggle" aria-label="Collapse panel">
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg
+                aria-hidden="true"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
             </button>
           </div>
         </div>
@@ -161,15 +211,30 @@
       </div>
 
       <!-- Inspect toggle — floats as an icon tool to the right of the layer panel -->
-      <button class="inspect-toggle-btn" id="inspect-toggle" type="button"
-        aria-pressed="false" disabled
-        title="Site inspection tool — click a location on the map to inspect active layers">
-        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="8"/>
-          <line x1="12" y1="2" x2="12" y2="5"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-          <line x1="2" y1="12" x2="5" y2="12"/>
-          <line x1="19" y1="12" x2="22" y2="12"/>
+      <button
+        class="inspect-toggle-btn"
+        id="inspect-toggle"
+        type="button"
+        aria-pressed="false"
+        disabled
+        title="Site inspection tool — click a location on the map to inspect active layers"
+      >
+        <svg
+          aria-hidden="true"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <line x1="12" y1="2" x2="12" y2="5" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="12" x2="22" y2="12" />
         </svg>
       </button>
 
