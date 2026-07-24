@@ -278,11 +278,12 @@ MapX has two useful but different legend paths:
 - `get_view_legend_image` returns the already-rendered PNG used by the previous UI.
 - `get_views` returns the active project catalogue, including `data.style` for vector-tile views.
 
-`src/sdk/legends.js` caches the catalogue request and converts a conservative subset of vector
-styles into provider-neutral entries: title, localised label, colour, opacity, size, geometry,
-border, and no-data styling. `src/ui/layer-controls.js` renders those entries with semantic HTML
-and temporarily keeps the MapX PNG in a collapsed, lazy-loaded comparison disclosure for visual
-acceptance.
+`src/sdk/legends.js` caches the catalogue per SDK manager, refreshes once on a missing view, and
+converts a conservative subset of vector styles into provider-neutral entries: title, localised
+label, colour, opacity, size, geometry, border, and no-data styling. `src/ui/layer-controls.js`
+renders those entries with semantic HTML and temporarily keeps the MapX PNG in a collapsed,
+lazy-loaded comparison disclosure for visual acceptance. Labelled image fallbacks retain the
+adapter reason so raster and unsupported-style behavior is visible during the trial.
 
 Do not assume every MapX view can be reconstructed safely. Raster legends, sprites, enabled or
 malformed custom styles, unsafe colours, and excessive rule sets return `null` from the adapter,

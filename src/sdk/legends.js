@@ -10,8 +10,37 @@ import { getSDK } from "./client.js";
 
 const MAX_LEGEND_RULES = 500;
 const COLOR_PATTERN = /^(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\([^)]{1,50}\)|[a-z]{1,30})$/i;
+const LANGUAGE_KEY_PATTERN = /^[a-z]{2}(?:-[a-z]{2})?$/i;
+const SUPPORTED_GEOMETRIES = ["point", "line", "polygon"];
 
 let catalogPromise = null;
+let catalogSDK = null;
+
+/**
+ * @typedef {Object} LegendEntry
+ * @property {string} color
+ * @property {string} label
+ * @property {number} opacity
+ * @property {number|null} size
+ * @property {"point"|"line"|"polygon"} geometry
+ * @property {string|null} borderColor
+ */
+
+/**
+ * @typedef {Object} LegendDefinition
+ * @property {string} title
+ * @property {LegendEntry[]} entries
+ */
+
+/**
+ * @typedef {"raster"|"unsupported-view-type"|"catalog-miss"|"custom-style"|"schema-invalid"|"too-many-rules"|"unsupported-style"} LegendFallbackReason
+ */
+
+/**
+ * @typedef {Object} LegendResolution
+ * @property {LegendDefinition|null} legend
+ * @property {LegendFallbackReason|null} reason
+ */
 
 function isSafeColor(value) {
   return (
@@ -22,21 +51,38 @@ function isSafeColor(value) {
   );
 }
 
-function localizedValue(object, key, language) {
+function localizedObjectValue(object, language) {
   if (!object || typeof object !== "object") return "";
-  const requested = object[`${key}_${language}`] ?? object[language];
+  const requested = object[language];
   if (typeof requested === "string" && requested.trim()) return requested.trim();
 
-  const english = object[`${key}_en`] ?? object.en;
+  const english = object.en;
   if (typeof english === "string" && english.trim()) return english.trim();
 
-  const prefix = `${key}_`;
   const fallback = Object.entries(object).find(
     ([candidateKey, value]) =>
-      (candidateKey.startsWith(prefix) || (key === "" && candidateKey.length === 2)) &&
-      typeof value === "string" &&
-      value.trim(),
+      LANGUAGE_KEY_PATTERN.test(candidateKey) && typeof value === "string" && value.trim(),
   );
+  return fallback?.[1]?.trim() ?? "";
+}
+
+function localizedPrefixedValue(object, prefix, language) {
+  if (!object || typeof object !== "object") return "";
+  const requested = object[`${prefix}${language}`];
+  if (typeof requested === "string" && requested.trim()) return requested.trim();
+
+  const english = object[`${prefix}en`];
+  if (typeof english === "string" && english.trim()) return english.trim();
+
+  const fallback = Object.entries(object).find(([candidateKey, value]) => {
+    const suffix = candidateKey.slice(prefix.length);
+    return (
+      candidateKey.startsWith(prefix) &&
+      LANGUAGE_KEY_PATTERN.test(suffix) &&
+      typeof value === "string" &&
+      value.trim()
+    );
+  });
   return fallback?.[1]?.trim() ?? "";
 }
 
@@ -47,13 +93,13 @@ function displayValue(value) {
   return "";
 }
 
-function hasEnabledCustomStyle(style) {
+function hasUnsupportedCustomStyle(style) {
   const json = style?.custom?.json;
   if (json == null || json === "") return false;
-  if (typeof json === "object") return json?.enable === true;
+  if (typeof json === "object") return json?.enable !== false;
   if (typeof json !== "string" || !json.trim()) return true;
   try {
-    return JSON.parse(json)?.enable === true;
+    return JSON.parse(json)?.enable !== false;
   } catch {
     return true;
   }
@@ -64,7 +110,7 @@ function normaliseRule(rule, language, geometry, isNoData = false) {
   if (rule.sprite != null && rule.sprite !== "" && rule.sprite !== "none") return null;
   if (rule.add_border === true && !isSafeColor(rule.color_border)) return null;
 
-  const localizedLabel = localizedValue(rule, "label", language);
+  const localizedLabel = localizedPrefixedValue(rule, "label_", language);
   const label = localizedLabel || displayValue(rule.value) || (isNoData ? "No data" : "");
   if (!label) return null;
 
@@ -84,69 +130,117 @@ function normaliseRule(rule, language, geometry, isNoData = false) {
 }
 
 /**
- * Convert a MapX view returned by `get_views` into a structured legend.
- * Unsupported schemas return null so callers can use the authoritative PNG.
+ * Resolve a MapX view returned by `get_views` into a structured legend or a
+ * diagnostic fallback reason.
+ *
+ * @returns {LegendResolution}
  */
-export function parseMapXLegend(view, language = "en") {
-  if (view?.type !== "vt") return null;
+export function resolveParsedMapXLegend(view, language = "en") {
+  if (view?.type !== "vt") {
+    return { legend: null, reason: view?.type === "rt" ? "raster" : "unsupported-view-type" };
+  }
 
   const style = view?.data?.style;
   const rules = style?.rules;
+  if (hasUnsupportedCustomStyle(style)) {
+    return { legend: null, reason: "custom-style" };
+  }
+  if (Array.isArray(rules) && rules.length > MAX_LEGEND_RULES) {
+    return { legend: null, reason: "too-many-rules" };
+  }
   if (
     !style ||
-    hasEnabledCustomStyle(style) ||
     (style.hideNulls != null && typeof style.hideNulls !== "boolean") ||
     !Array.isArray(rules) ||
-    rules.length === 0 ||
-    rules.length > MAX_LEGEND_RULES
+    rules.length === 0
   ) {
-    return null;
+    return { legend: null, reason: "schema-invalid" };
   }
 
   const geometryValue = view?.data?.geometry?.type;
-  if (!["point", "line", "polygon"].includes(geometryValue)) return null;
+  if (!SUPPORTED_GEOMETRIES.includes(geometryValue)) {
+    return { legend: null, reason: "schema-invalid" };
+  }
   const geometry = geometryValue;
   const entries = rules.map((rule) => normaliseRule(rule, language, geometry));
-  if (entries.some((entry) => entry == null)) return null;
+  if (entries.some((entry) => entry == null)) {
+    return { legend: null, reason: "unsupported-style" };
+  }
 
   if (style.hideNulls !== true && style.nulls != null) {
-    if (!Array.isArray(style.nulls)) return null;
-    if (entries.length + style.nulls.length > MAX_LEGEND_RULES) return null;
+    if (!Array.isArray(style.nulls)) return { legend: null, reason: "schema-invalid" };
+    if (entries.length + style.nulls.length > MAX_LEGEND_RULES) {
+      return { legend: null, reason: "too-many-rules" };
+    }
     for (const rule of style.nulls) {
       const entry = normaliseRule(rule, language, geometry, true);
-      if (!entry) return null;
+      if (!entry) return { legend: null, reason: "unsupported-style" };
       entries.push(entry);
     }
   }
 
-  const title = localizedValue(style.titleLegend, "", language);
-  return { title, entries, source: "mapx-vector-style" };
+  const title = localizedObjectValue(style.titleLegend, language);
+  return { legend: { title, entries }, reason: null };
 }
 
-async function getCatalog() {
+/**
+ * Convert a MapX view into a structured legend. Kept as the small parsing API
+ * for callers that do not need fallback diagnostics.
+ */
+export function parseMapXLegend(view, language = "en") {
+  return resolveParsedMapXLegend(view, language).legend;
+}
+
+async function getCatalog(refresh = false) {
+  const sdk = getSDK();
+  if (sdk !== catalogSDK) {
+    catalogSDK = sdk;
+    catalogPromise = null;
+  }
+  if (refresh) catalogPromise = null;
+
   if (!catalogPromise) {
-    catalogPromise = getSDK()
+    const request = sdk
       .ask("get_views")
       .then((views) => {
         if (!Array.isArray(views)) throw new Error("MapX get_views did not return an array");
         return views;
       })
       .catch((error) => {
-        catalogPromise = null;
+        if (catalogPromise === request) catalogPromise = null;
         throw error;
       });
+    catalogPromise = request;
   }
   return catalogPromise;
 }
 
-export async function getMapXLegend(idView, language = "en") {
-  if (typeof idView !== "string" || !idView) return null;
-  const views = await getCatalog();
-  const view = views.find((candidate) => candidate?.id === idView);
-  return view ? parseMapXLegend(view, language) : null;
+/**
+ * Resolve a view from the live MapX catalogue. A cache miss is refreshed once
+ * because `view_add` can add public cross-project views after initialisation.
+ *
+ * @returns {Promise<LegendResolution>}
+ */
+export async function resolveMapXLegend(idView, language = "en") {
+  if (typeof idView !== "string" || !idView) {
+    return { legend: null, reason: "catalog-miss" };
+  }
+
+  let views = await getCatalog();
+  let view = views.find((candidate) => candidate?.id === idView);
+  if (!view) {
+    views = await getCatalog(true);
+    view = views.find((candidate) => candidate?.id === idView);
+  }
+  return view ? resolveParsedMapXLegend(view, language) : { legend: null, reason: "catalog-miss" };
 }
 
-/** Test helper: clear the project-catalogue request cache. */
+export async function getMapXLegend(idView, language = "en") {
+  return (await resolveMapXLegend(idView, language)).legend;
+}
+
+/** Clear cached catalogue state after an SDK/project lifecycle change. */
 export function resetMapXLegendCache() {
   catalogPromise = null;
+  catalogSDK = null;
 }

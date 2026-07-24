@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  ask: vi.fn(),
-}));
+const mocks = vi.hoisted(() => {
+  const ask = vi.fn();
+  return { ask, sdk: { ask } };
+});
 
 vi.mock("./client.js", () => ({
-  getSDK: () => ({ ask: mocks.ask }),
+  getSDK: () => mocks.sdk,
 }));
 
-import { getMapXLegend, parseMapXLegend, resetMapXLegendCache } from "./legends.js";
+import {
+  getMapXLegend,
+  parseMapXLegend,
+  resetMapXLegendCache,
+  resolveMapXLegend,
+  resolveParsedMapXLegend,
+} from "./legends.js";
 
 function vectorView(overrides = {}) {
   return {
@@ -50,6 +57,7 @@ function vectorView(overrides = {}) {
 
 beforeEach(() => {
   mocks.ask.mockReset();
+  mocks.sdk = { ask: mocks.ask };
   resetMapXLegendCache();
 });
 
@@ -57,7 +65,6 @@ describe("parseMapXLegend", () => {
   it("normalises vector rules, title, opacity, border, and no-data styling", () => {
     expect(parseMapXLegend(vectorView())).toEqual({
       title: "Risk level",
-      source: "mapx-vector-style",
       entries: [
         {
           color: "#f7fbff",
@@ -102,6 +109,30 @@ describe("parseMapXLegend", () => {
     const view = vectorView();
     view.data.style.hideNulls = true;
     expect(parseMapXLegend(view).entries).toHaveLength(2);
+  });
+
+  it("ignores non-language title metadata when selecting a fallback language", () => {
+    const view = vectorView();
+    view.data.style.titleLegend = {
+      description: "Internal metadata, not a title",
+      fr: "Niveau de risque",
+    };
+
+    expect(parseMapXLegend(view, "de").title).toBe("Niveau de risque");
+  });
+
+  it("reports why raster and custom-style views require image fallbacks", () => {
+    expect(resolveParsedMapXLegend({ ...vectorView(), type: "rt" })).toEqual({
+      legend: null,
+      reason: "raster",
+    });
+
+    const custom = vectorView();
+    custom.data.style.custom.json = '{"enable":true}';
+    expect(resolveParsedMapXLegend(custom)).toEqual({
+      legend: null,
+      reason: "custom-style",
+    });
   });
 
   it.each([
@@ -205,6 +236,30 @@ describe("getMapXLegend", () => {
   it("returns null when the view is not in the active project catalogue", async () => {
     mocks.ask.mockResolvedValue([vectorView()]);
     await expect(getMapXLegend("MX-MISSING")).resolves.toBeNull();
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes a cached catalogue once when view_add makes a later view available", async () => {
+    const second = vectorView({ id: "MX-SECOND" });
+    mocks.ask.mockResolvedValueOnce([vectorView()]).mockResolvedValueOnce([vectorView(), second]);
+
+    await expect(getMapXLegend("MX-TEST")).resolves.toBeTruthy();
+    await expect(resolveMapXLegend("MX-SECOND")).resolves.toMatchObject({
+      legend: { title: "Risk level" },
+      reason: null,
+    });
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
+  });
+
+  it("scopes the catalogue cache to the active SDK manager", async () => {
+    mocks.ask.mockResolvedValue([vectorView()]);
+    await expect(getMapXLegend("MX-TEST")).resolves.toBeTruthy();
+
+    const nextAsk = vi.fn().mockResolvedValue([vectorView({ id: "MX-NEXT" })]);
+    mocks.sdk = { ask: nextAsk };
+
+    await expect(getMapXLegend("MX-NEXT")).resolves.toBeTruthy();
+    expect(nextAsk).toHaveBeenCalledTimes(1);
   });
 
   it("evicts a failed catalogue request so a later attempt can retry", async () => {

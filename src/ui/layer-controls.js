@@ -6,7 +6,17 @@
  */
 import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
-import { getMapXLegend } from "../sdk/legends.js";
+import { resolveMapXLegend } from "../sdk/legends.js";
+
+const IMAGE_FALLBACK_LABELS = {
+  raster: "MapX image legend (raster)",
+  "catalog-miss": "MapX image legend (view not in project catalogue)",
+  "custom-style": "MapX image legend (custom style)",
+  "unsupported-view-type": "MapX image legend",
+  "schema-invalid": "MapX image legend (unsupported style schema)",
+  "too-many-rules": "MapX image legend (large rule set)",
+  "unsupported-style": "MapX image legend (unsupported style)",
+};
 
 /**
  * Build an opacity slider for a view and append it to container.
@@ -71,41 +81,74 @@ export async function addOpacitySlider(idView, container) {
  *   2. Structured vector style rules from the MapX project catalogue.
  *   3. The server-rendered MapX PNG for unsupported or malformed views.
  *
- * @param {{ id: string, legend?: Array<{color: string, label: string}> }} layer
+ * @param {{ id: string, type?: string, geometry?: string, legend?: Array<{color: string, label: string, geometry?: string}> }} layer
  * @param {HTMLElement} container - element to append the legend into
  */
 export async function addLegend(layer, container) {
+  // This marker gives the async render ownership of its slot. Clearing the
+  // slot (layer close/source switch) detaches it, preventing stale commits.
+  const requestMarker = document.createComment(`legend:${layer.id ?? "local"}`);
+  container.appendChild(requestMarker);
+  const isCurrentRequest = () => requestMarker.parentNode === container;
+
   const hasLocalLegend = Array.isArray(layer.legend) && layer.legend.length > 0;
   let structuredLegend = null;
+  let fallbackReason = layer.type === "rt" ? "raster" : "unsupported-view-type";
   if (hasLocalLegend) {
     structuredLegend = {
+      title: "",
       entries: layer.legend.map((item) => ({
         ...item,
         geometry: item.geometry ?? layer.geometry ?? "polygon",
       })),
     };
-  } else {
+  } else if (layer.type === "vt") {
     try {
-      structuredLegend = await getMapXLegend(layer.id);
+      const resolution = await resolveMapXLegend(layer.id);
+      if (!isCurrentRequest()) return;
+      structuredLegend = resolution.legend;
+      fallbackReason = resolution.reason;
     } catch {
+      if (!isCurrentRequest()) return;
+      fallbackReason = "catalog-miss";
       // Catalogue errors fall through to the authoritative image.
     }
   }
 
   if (structuredLegend) {
+    requestMarker.remove();
     renderStructuredLegend(structuredLegend, container);
     addImageLegendComparison(layer.id, container);
     return;
   }
 
+  if (!isCurrentRequest()) return;
+
   // Unsupported styles use the SDK image as their primary legend.
   try {
     const legendData = await getViewLegendImage(layer.id);
-    if (!legendData) return;
-    container.appendChild(createLegendImage(legendData, "MapX legend"));
+    if (!isCurrentRequest()) return;
+    if (!legendData) {
+      requestMarker.remove();
+      return;
+    }
+    requestMarker.replaceWith(createImageLegendFallback(legendData, fallbackReason));
   } catch {
+    if (isCurrentRequest()) requestMarker.remove();
     // Not all layers have SDK legends
   }
+}
+
+function createImageLegendFallback(legendData, reason) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "legend-image-fallback";
+
+  const caption = document.createElement("div");
+  caption.className = "legend-image-fallback-label";
+  caption.textContent = IMAGE_FALLBACK_LABELS[reason] ?? "MapX image legend";
+  wrapper.appendChild(caption);
+  wrapper.appendChild(createLegendImage(legendData, "MapX image legend"));
+  return wrapper;
 }
 
 function createLegendImage(legendData, alt) {
@@ -125,13 +168,17 @@ function addImageLegendComparison(idView, container) {
   details.appendChild(summary);
 
   let requested = false;
+  let status = null;
   details.addEventListener("toggle", async () => {
     if (!details.open || requested) return;
     requested = true;
 
-    const status = document.createElement("span");
+    status?.remove();
+    status = document.createElement("span");
     status.className = "legend-diagnostic-status";
     status.textContent = "Loading MapX image legend…";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
     details.appendChild(status);
 
     try {
@@ -143,6 +190,7 @@ function addImageLegendComparison(idView, container) {
       status.replaceWith(createLegendImage(legendData, "MapX image legend for comparison"));
     } catch {
       status.textContent = "MapX image legend could not be loaded.";
+      requested = false;
     }
   });
 
@@ -152,7 +200,6 @@ function addImageLegendComparison(idView, container) {
 function renderStructuredLegend(definition, container) {
   const el = document.createElement("div");
   el.className = "html-legend";
-  el.setAttribute("role", "list");
 
   if (definition.title) {
     const title = document.createElement("div");
@@ -163,6 +210,9 @@ function renderStructuredLegend(definition, container) {
 
   const rules = document.createElement("div");
   rules.className = "html-legend-rules";
+  rules.setAttribute("role", "list");
+  rules.setAttribute("aria-label", definition.title || "Legend");
+  rules.tabIndex = 0;
 
   for (const item of definition.entries) {
     const row = document.createElement("div");

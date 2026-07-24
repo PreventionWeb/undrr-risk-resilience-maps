@@ -61,7 +61,7 @@ The following is implemented and tested as of July 2026:
 ### Map layer panel
 
 - Floating, draggable, resizable sidebar panel
-- Layer accordion: each layer has a toggle (eye icon), opacity slider, description, and legend image
+- Layer accordion: each layer has a toggle (eye icon), opacity slider, description, and either a native or image legend
 - "Show disabled" toggle to reveal placeholder/coming-soon layers during review
 - "Clear all" to deactivate all layers at once
 - Cross-tab sections: layers from other tabs accessible without leaving the current tab
@@ -98,7 +98,7 @@ The following is implemented and tested as of July 2026:
 
 ### Technical
 
-- Vite build system; 225 unit tests across 16 test files
+- Vite build system with a comprehensive unit-test suite
 - UNDRR Mangrove design system v1.8.0
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
 - PIN gate (prototype access control; see §4)

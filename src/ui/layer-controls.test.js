@@ -9,12 +9,12 @@ vi.mock("../sdk/views.js", () => ({
   getViewLegendImage: vi.fn(),
 }));
 vi.mock("../sdk/legends.js", () => ({
-  getMapXLegend: vi.fn(),
+  resolveMapXLegend: vi.fn(),
 }));
 
 import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
-import { getMapXLegend } from "../sdk/legends.js";
+import { resolveMapXLegend } from "../sdk/legends.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 
 // ─── addOpacitySlider ─────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ describe("addLegend", () => {
   beforeEach(() => {
     container = document.createElement("div");
     vi.resetAllMocks();
-    getMapXLegend.mockResolvedValue(null);
+    resolveMapXLegend.mockResolvedValue({ legend: null, reason: "unsupported-style" });
   });
 
   const simpleLayer = {
@@ -145,31 +145,37 @@ describe("addLegend", () => {
     expect(swatch.style.backgroundColor).toBe("rgb(204, 204, 204)");
   });
 
-  it("shows SDK legend image directly when no local legend", async () => {
+  it("shows and labels the SDK legend image directly when no local legend", async () => {
     getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
-    await addLegend({ id: "view-1" }, container);
+    await addLegend({ id: "view-1", type: "rt" }, container);
     const img = container.querySelector(".layer-legend-img");
     expect(img).not.toBeNull();
     expect(img.src).toContain("data:image/png");
     expect(container.querySelector("details")).toBeNull();
+    expect(container.querySelector(".legend-image-fallback-label").textContent).toBe(
+      "MapX image legend (raster)",
+    );
   });
 
   it("renders structured MapX rules as the default legend", async () => {
-    getMapXLegend.mockResolvedValue({
-      title: "Risk level",
-      entries: [
-        {
-          color: "#f00",
-          label: "High",
-          opacity: 0.7,
-          geometry: "point",
-          size: 12,
-        },
-      ],
+    resolveMapXLegend.mockResolvedValue({
+      legend: {
+        title: "Risk level",
+        entries: [
+          {
+            color: "#f00",
+            label: "High",
+            opacity: 0.7,
+            geometry: "point",
+            size: 12,
+          },
+        ],
+      },
+      reason: null,
     });
     getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
 
-    await addLegend({ id: "view-1" }, container);
+    await addLegend({ id: "view-1", type: "vt" }, container);
 
     expect(container.querySelector(".html-legend-title").textContent).toBe("Risk level");
     expect(container.querySelector(".html-legend-label").textContent).toBe("High");
@@ -182,13 +188,16 @@ describe("addLegend", () => {
   });
 
   it("uses the PNG fallback when no structured MapX legend is available", async () => {
-    getMapXLegend.mockResolvedValue(null);
+    resolveMapXLegend.mockResolvedValue({ legend: null, reason: "custom-style" });
     getViewLegendImage.mockResolvedValue("fallback");
 
-    await addLegend({ id: "view-1" }, container);
+    await addLegend({ id: "view-1", type: "vt" }, container);
 
     expect(container.querySelector(".html-legend")).toBeNull();
     expect(container.querySelector(".layer-legend-img")).not.toBeNull();
+    expect(container.querySelector(".legend-image-fallback-label").textContent).toBe(
+      "MapX image legend (custom style)",
+    );
   });
 
   it("lazy-loads the MapX image when its structured-legend comparison is opened", async () => {
@@ -219,6 +228,58 @@ describe("addLegend", () => {
         "MapX image legend is not available.",
       ),
     );
+  });
+
+  it("does not commit a stale async legend after its slot is cleared and reused", async () => {
+    let resolveFirst;
+    resolveMapXLegend
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        legend: {
+          title: "Current",
+          entries: [
+            {
+              color: "#0f0",
+              label: "Current rule",
+              opacity: 1,
+              geometry: "polygon",
+              size: null,
+              borderColor: null,
+            },
+          ],
+        },
+        reason: null,
+      });
+
+    const staleRender = addLegend({ id: "old", type: "vt" }, container);
+    container.replaceChildren();
+    await addLegend({ id: "new", type: "vt" }, container);
+    resolveFirst({
+      legend: {
+        title: "Stale",
+        entries: [
+          {
+            color: "#f00",
+            label: "Stale rule",
+            opacity: 1,
+            geometry: "polygon",
+            size: null,
+            borderColor: null,
+          },
+        ],
+      },
+      reason: null,
+    });
+    await staleRender;
+
+    expect(container.querySelector(".html-legend-title").textContent).toBe("Current");
+    expect(container.textContent).toContain("Current rule");
+    expect(container.textContent).not.toContain("Stale");
   });
 
   it("prepends data URI prefix when SDK returns raw base64", async () => {
