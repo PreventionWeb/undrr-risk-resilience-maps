@@ -17,6 +17,7 @@
  */
 
 import { TABS } from "../config/layers.js";
+import { getExternalRuntimeByViewId } from "../external/index.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
 
 // MapX internal fields not meaningful for end users
@@ -139,7 +140,8 @@ export function showSiteInspector(result) {
 }
 
 function buildLayerRow(idView, views) {
-  const entry = VIEW_INDEX.get(idView);
+  const runtime = getExternalRuntimeByViewId(idView);
+  const entry = VIEW_INDEX.get(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
   const label = entry ? (entry.source?.label ?? entry.layer.label) : idView;
   const type = entry?.layer.type ?? "vt";
 

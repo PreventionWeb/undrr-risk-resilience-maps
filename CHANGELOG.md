@@ -8,6 +8,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- **External EDRA crop-risk prototype**: the Risk → Environment group can now fetch European Drought Risk Atlas NUTS-2 boundaries and drought-related crop-yield reductions directly from Copernicus CEMS, reproject the source geometry from EPSG:3035, and inject it into MapX as a temporary GeoJSON view. The layer includes barley/maize/wheat and historical/current/+1.5 °C/+2 °C/+3 °C controls, opacity, a local legend, URL restore, and site-inspection attributes.
+- External-layer runtime registry and provider adapter pattern, allowing non-MapX sources to participate in the existing `openViews`, inspection, clear-all, and layer-control workflows without a permanent MapX view ID.
+- External-runtime governance guide covering the programme source-tracker row, ownership workflow, measured EDRA payload/reprojection costs, reliability and privacy dependencies, production trade-offs, and migration triggers.
 - **Drag + resize for panels**: both the layer panel and the Site Details panel are now draggable (drag by their header bar) and resizable (bottom-right grip). Inline dimensions are cleared on collapse and restored on expand so the layer panel's collapsed state is not broken by a prior resize. Implemented in `src/utils/panels.js` (`makeDraggable`, `makeResizable`, `onPanelCollapse`, `onPanelExpand`) and `src/styles/components/panels.css`.
 - **Dev-mode MapX native inspector**: in development builds (`import.meta.env.DEV`), the `set_features_click_sdk_only` suppression call is skipped so MapX's native feature popup appears alongside our custom Site Details panel, enabling data cross-checking during development.
 - Site inspection mode: an **Inspect** button in the sidebar header activates click-to-inspect on the map. Clicking any location fires MapX `click_attributes` events (one per active vector layer); the app batches them and shows a floating **Site Details** panel with geographic coordinates, per-layer feature attributes, data-presence indicators, and a download button for each layer. Raster layers are shown as "not queryable at point". The panel closes on ✕ click or Escape. A generation counter prevents stale events from appearing after inspection is toggled off.
@@ -50,6 +53,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- EDRA value requests now cover all available regions, including the Azores and Madeira; strict schema, duplicate-key, feature/vertex/value-count, and minimum join-coverage checks fail visibly instead of silently rendering a plausible no-data map.
+- EDRA crop colours, thresholds, and no-data styling now come from the live configuration used by the source explorer. The MapX paint expression and HTML legend share that validated definition, preventing independent upstream-style drift.
+- External-view deletion failures now keep the prior runtime registration and UI state authoritative; failed replacements clean up the candidate view instead of risking a hidden or duplicated MapX layer.
 - `buildLayerAccordion` was checking `!layer.disabled` (legacy flag) for the eye toggle, so layers with `status: "disabled-awaiting-data"` would receive an eye button that called `viewAdd(null)`; now uses `isLayerPublished()` consistently
 - Config validator was requiring non-null source IDs for all compound layers regardless of publication state; unpublished compound layers may now have `null` source IDs (IDs are assigned once views are uploaded)
 - Duplicate MapX view IDs between hazard and risk layers caused incorrect layer state; affected risk layers temporarily disabled with TODOs
@@ -62,6 +68,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- EDRA geometry, crop, and style-configuration responses are cached per page session, failed requests remain retryable, and source requests now time out after 30 seconds. Scenario switches no longer repeat the values request.
+- External crop/scenario settings are encoded in shared URLs and reconciled on browser back/forward navigation.
+- Layer inventory distinguishes externally delivered layers with a blank MapX ID and `External runtime` status instead of describing them as MapX uploads.
 - Layout from fixed sidebar to floating panel over full-width map
 - Hazard layers reorganised into compound layers where data pairs exist
 - Layer toggles guarded by SDK readiness flag so they cannot fire before the map is connected

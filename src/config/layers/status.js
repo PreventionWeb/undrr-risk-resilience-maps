@@ -29,6 +29,8 @@ export function getLayerStatus(layer, source = null) {
     return STATUS_LABELS[publicationState];
   }
 
+  if (layer.external) return STATUS_LABELS.active;
+
   const viewId = source ? source.id : layer.id;
   return viewId ? STATUS_LABELS.active : STATUS_LABELS.placeholder;
 }

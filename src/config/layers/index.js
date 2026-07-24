@@ -11,13 +11,18 @@
  *   type     - "rt" (raster), "vt" (vector), or "cc" (custom coded / live)
  *   desc     - Short description shown when the layer accordion is expanded
  *   project  - MapX project ID that owns the view
+ *   licenseUrl - optional URL for the source licence/terms
  *   status   - optional unpublished state:
  *              "disabled", "disabled-awaiting-data", or
  *              "disabled-pending-removal"
  *              Unpublished layers are not currently published in the map
  *              explorer, but remain in Sources and CSV export for prototype
  *              tracking. Legacy `disabled: true` is still supported.
- *   legend   - optional [{color, label}] array for local HTML legend override
+ *   legend   - optional [{color, label}] array for local HTML legend override.
+ *              External providers own their runtime control and legend data.
+ *   external - optional {provider, defaults} definition. External providers
+ *              create a temporary MapX GeoJSON view at runtime, so `id` and
+ *              `project` are not required.
  *
  * Compound layer fields (multiple switchable views under one accordion):
  *   id       - null (real IDs live in sources)

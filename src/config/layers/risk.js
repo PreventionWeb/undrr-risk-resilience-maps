@@ -66,6 +66,28 @@ export const RISK_LAYERS = [
   },
   {
     id: null,
+    key: "edra-crop-yield-reduction",
+    label: "Drought impact on crop yields (EDRA)",
+    type: "vt",
+    geometry: "polygon",
+    desc: "Experimental external source. Average annual crop yield reduction due to drought at NUTS-2 level. Compare barley, maize, and wheat across historical, current, and global-warming scenarios.",
+    source: "Copernicus Emergency Management Service — European Drought Risk Atlas",
+    sourceUrl: "https://drought.emergency.copernicus.eu/tumbo/edra/explore",
+    citation:
+      "Rossi, L. et al. (2023), European Drought Risk Atlas, Publications Office of the European Union, EUR 31682 EN, doi:10.2760/608737. Contains modified Copernicus Emergency Management Service information 2026.",
+    license: "Copernicus CEMS terms and conditions",
+    licenseUrl: "https://drought.emergency.copernicus.eu/terms%26conditions/",
+    initiative: "EDRA drought-related crop yield reduction",
+    r2rCategory: "Environment",
+    rrStep: STEP_LINK,
+    external: {
+      provider: "edra-agriculture",
+      defaults: { crop: "WHEAT", scenario: "20" },
+    },
+    note: "Prototype: fetched from EDRA at runtime and injected into MapX as a temporary GeoJSON view.",
+  },
+  {
+    id: null,
     key: "aal-crops",
     label: "AAL — Crops",
     type: "vt",

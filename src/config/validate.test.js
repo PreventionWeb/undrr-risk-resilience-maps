@@ -61,6 +61,15 @@ describe("validateLayers", () => {
     expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).not.toThrow();
   });
 
+  it("passes for a published external layer without a MapX id or project", () => {
+    const layer = makeSimpleLayer({
+      id: null,
+      project: undefined,
+      external: { provider: "test-provider", defaults: { scenario: "current" } },
+    });
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).not.toThrow();
+  });
+
   // --- tab-level errors ---
 
   it("throws when a tab is missing id", () => {
@@ -118,6 +127,22 @@ describe("validateLayers", () => {
 
   it("throws when an enabled simple layer has an empty string id", () => {
     expect(() => validateLayers([makeTab("hazard", [makeSimpleLayer({ id: "" })])], PRIMARY)).toThrow();
+  });
+
+  it("throws when an external layer is missing a provider", () => {
+    const layer = makeSimpleLayer({
+      id: null,
+      external: { defaults: { scenario: "current" } },
+    });
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).toThrow();
+  });
+
+  it("throws when an external layer is missing defaults", () => {
+    const layer = makeSimpleLayer({
+      id: null,
+      external: { provider: "test-provider" },
+    });
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).toThrow();
   });
 
   it("throws on duplicate view IDs across layers", () => {

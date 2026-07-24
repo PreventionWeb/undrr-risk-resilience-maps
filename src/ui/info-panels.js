@@ -94,7 +94,7 @@ const PLATFORM_CREDITS = [
     label: "MapX",
     url: "https://app.mapx.org/",
     detailHtml:
-      '<a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> (<a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>) is a core part of this tool\'s data workflow and map interactivity. All geospatial layers are hosted, served, and rendered through the MapX platform.',
+      '<a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> (<a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>) is a core part of this tool\'s data workflow and map interactivity. Most layers are hosted by MapX; selected external prototypes are fetched from their source and rendered as temporary MapX views.',
   },
   {
     label: "GRI Risk Viewer",
@@ -117,6 +117,7 @@ function sourceCell(source, url) {
 }
 
 function mapxIds(layer) {
+  if (layer.external) return "— (external runtime)";
   if (layer.sources && layer.sources.length) {
     return layer.sources.map((s) => s.id || "—").join("\n");
   }
@@ -143,7 +144,7 @@ function buildSourcesTable(layers) {
         <td class="data-table__mapx-id">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escHtml(layer.citation)}</td>
-        <td class="data-table__license">${escHtml(layer.license)}</td>
+        <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
         <td>${escHtml(layer.note || layer.desc)}</td>
       </tr>`;
     })

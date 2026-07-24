@@ -4,14 +4,16 @@
  * Encodes the active tab and layer state into the URL hash so links
  * are shareable and browser back/forward works.
  *
- * Format: #tab?layers=key:sourceIdx,key:sourceIdx,...
+ * Format: #tab?layers=key:sourceIdx,key:sourceIdx,...&variants=<encoded JSON>
  * Examples:
  *   #hazard
  *   #hazard?layers=river-flooding:0,earthquake-pga:2
  *   #exposure?layers=population,forests
  *
  * Simple layers use just the key (no colon). Compound layers append
- * :sourceIndex. Source index 0 is omitted for brevity.
+ * :sourceIndex. Source index 0 is omitted for brevity. Runtime external
+ * settings are stored separately in `variants` so shared links reproduce the
+ * selected scientific variant without changing the existing layer syntax.
  */
 
 import { TABS } from "../config/layers.js";
@@ -35,7 +37,7 @@ function getLayerIndex() {
 
 /**
  * Parse the URL hash into { tab, layers }.
- * @returns {{ tab: string|null, layers: Array<{key: string, sourceIdx: number}> }}
+ * @returns {{ tab: string|null, layers: Array<{key: string, sourceIdx: number, settings?: object}> }}
  */
 export function parseHash() {
   const raw = location.hash.replace("#", "");
@@ -55,6 +57,23 @@ export function parseHash() {
         }
       }
     }
+
+    const variantsStr = params.get("variants");
+    if (variantsStr) {
+      try {
+        const variants = JSON.parse(variantsStr);
+        if (variants && typeof variants === "object" && !Array.isArray(variants)) {
+          for (const layer of layers) {
+            const settings = variants[layer.key];
+            if (settings && typeof settings === "object" && !Array.isArray(settings)) {
+              layer.settings = settings;
+            }
+          }
+        }
+      } catch {
+        // Invalid optional variant state must not break ordinary layer restore.
+      }
+    }
   }
 
   return { tab: tab || null, layers };
@@ -63,7 +82,7 @@ export function parseHash() {
 /**
  * Write the current state to the URL hash.
  * @param {string} tab - Active tab ID
- * @param {Array<{key: string, sourceIdx: number}>} layers - Active layers
+ * @param {Array<{key: string, sourceIdx: number, settings?: object}>} layers - Active layers
  */
 export function writeHash(tab, layers) {
   let hash = `#${tab}`;
@@ -71,6 +90,15 @@ export function writeHash(tab, layers) {
   if (layers.length > 0) {
     const segments = layers.map(({ key, sourceIdx }) => (sourceIdx > 0 ? `${key}:${sourceIdx}` : key));
     hash += `?layers=${segments.join(",")}`;
+
+    const variants = Object.fromEntries(
+      layers
+        .filter(({ settings }) => settings && typeof settings === "object")
+        .map(({ key, settings }) => [key, settings]),
+    );
+    if (Object.keys(variants).length > 0) {
+      hash += `&variants=${encodeURIComponent(JSON.stringify(variants))}`;
+    }
   }
 
   if (location.hash !== hash) {

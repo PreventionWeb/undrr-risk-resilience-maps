@@ -27,6 +27,12 @@ describe("layer status helpers", () => {
     expect(isLayerPublished(layer)).toBe(true);
   });
 
+  it("treats enabled external layers without permanent ids as active", () => {
+    const layer = { id: null, external: { provider: "example", defaults: {} } };
+    expect(getLayerStatus(layer)).toBe("Active");
+    expect(isLayerPublished(layer)).toBe(true);
+  });
+
   it("treats enabled layers without an id as placeholders", () => {
     const layer = { id: null, disabled: false };
     expect(getLayerStatus(layer)).toBe("Placeholder");

@@ -14,6 +14,7 @@
  *
  * Inventory status mapping (JS status → human-readable):
  *   published             → "Uploaded"
+ *   published + external  → "External runtime"
  *   disabled-awaiting-data → "In development"
  *   disabled-pending-removal → "Pending removal"
  */
@@ -49,6 +50,7 @@ function row(...values) {
 }
 
 function inventoryStatus(layer, src) {
+  if (layer.external && isLayerPublished(layer)) return "External runtime";
   const raw = getLayerStatus(layer, src);
   return INVENTORY_STATUS[raw] ?? raw;
 }
@@ -79,12 +81,17 @@ export function generateLayerInventoryCSV() {
   for (const tab of TABS) {
     for (const layer of tab.layers) {
       const category = tab.label;
-      const type = TYPE_LABELS[layer.type] || layer.type || "";
+      const baseType = TYPE_LABELS[layer.type] || layer.type || "";
+      const type = layer.external ? `${baseType} / external runtime` : baseType;
       const initiative = layer.initiative || "";
       const r2rCat = layer.r2rCategory || "";
       const rrStep = layer.rrStep || "";
 
-      if (isLayerPublished(layer) && layer.id !== null && (!layer.citation || !layer.license)) {
+      if (
+        isLayerPublished(layer) &&
+        (layer.id !== null || layer.external) &&
+        (!layer.citation || !layer.license)
+      ) {
         console.warn(`[layer-inventory] Active layer "${layer.key}" is missing citation or license.`);
       }
 
@@ -121,7 +128,7 @@ export function generateLayerInventoryCSV() {
             "",
             type,
             layer.desc || "",
-            layer.id || "",
+            layer.external ? "" : layer.id || "",
             layer.source || "",
             layer.citation || "",
             layer.license || "",

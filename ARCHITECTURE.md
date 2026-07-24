@@ -1,6 +1,7 @@
 # Architecture
 
 > See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
+> Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
 
 ## Overview
 
@@ -12,7 +13,7 @@ Static site, no backend. The app embeds MapX in an iframe via the SDK's postMess
 undrr-risk-resilience-maps/
 ├── index.html                  # Main entry point
 ├── data/
-│   └── inventory.csv           # Master layer inventory (source of truth for MapX view IDs)
+│   └── inventory.csv           # Master metadata, delivery status, and permanent MapX IDs
 ├── scripts/
 │   └── import-inventory.mjs    # CSV → JS config import tool (dry-run + --apply)
 ├── src/
@@ -35,12 +36,16 @@ undrr-risk-resilience-maps/
 │   │   ├── filters.js          # layer transparency, filters
 │   │   ├── inspect.js          # click_attributes batch collector, generation guard
 │   │   └── map-control.js      # flyTo, zoom, projection
+│   ├── external/               # Runtime external-provider boundary
+│   │   ├── index.js            # Generic provider contract + temporary-view registry
+│   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── state/
 │   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
 │   │   ├── sidebar.js          # Nav routing, layer panel, accordions, clear-all
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
+│   │   ├── external-controls.js # Provider-neutral external-layer controls
 │   │   ├── home.js             # Home page cards
 │   │   ├── info-panels.js      # Guide, Sources, Downloads, About full-page views
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
@@ -91,13 +96,56 @@ Browser tab
   │     ├── src/sdk/client.js    → mxsdk.Manager lifecycle + readiness flag
   │     ├── src/sdk/views.js     → view add/remove/query
   │     ├── src/sdk/filters.js   → layer transparency, filters
-  │     └── src/sdk/map-control.js → flyTo, zoom, projection
+  │     ├── src/sdk/map-control.js → flyTo, zoom, projection
+  │     └── src/external/        → external data adapters + runtime view registry
   │
   └── MapX iframe (cross-origin)
         └── communicates via postMessage ↕
 ```
 
-**Single-project constraint:** the SDK connects to one MapX project at a time (`PRIMARY_PROJECT = ECO_DRR`). All enabled layers must belong to this project. `validateLayers()` enforces this at startup — any enabled layer with a different `project` value throws an error. Layers that belong to other projects (e.g. `HOME`) are marked `disabled: true` with a TODO comment until data is consolidated.
+**Single-project constraint:** the SDK connects to one MapX project at a time (`PRIMARY_PROJECT = ECO_DRR`). All enabled, pre-built MapX layers must belong to this project. `validateLayers()` enforces this at startup — any enabled layer with a different `project` value throws an error. Layers that belong to other projects (e.g. `HOME`) are marked `disabled: true` with a TODO comment until data is consolidated. Runtime external layers are exempt because they create temporary views within the connected project.
+
+### Runtime external layers
+
+An external layer has no permanent MapX view ID. Its config uses an `external` definition:
+
+```js
+{
+  id: null,
+  key: "edra-crop-yield-reduction",
+  type: "vt",
+  geometry: "polygon",
+  external: {
+    provider: "edra-agriculture",
+    defaults: { crop: "WHEAT", scenario: "20" },
+  },
+}
+```
+
+`src/external/index.js` resolves the provider and maintains two runtime indexes: stable layer key → active temporary view, and temporary MapX ID → layer metadata. This lets external views use the same `store.openViews` Set, opacity controls, clear-all behavior, hash restore, and site inspector as pre-built MapX views.
+
+The EDRA adapter reproduces the source explorer's data pipeline:
+
+1. Fetch simplified NUTS-2 polygons from the EDRA WFS-like service.
+2. Reproject coordinates from EPSG:3035 to WGS84 GeoJSON.
+3. Fetch agriculture values for the selected crop and join on NUTS code.
+4. Fetch the source explorer's live configuration and validate the selected crop's style buckets.
+5. Generate both the MapX paint expression and HTML legend from that style, then create a
+   non-persistent `MX-GJ-*` GeoJSON view.
+
+Changing a crop or scenario creates a candidate replacement before deleting the prior view. The
+runtime registry is updated only after MapX confirms that the old view was removed; failed
+replacements are cleaned up and the prior registration remains authoritative. The map camera is
+captured and restored because MapX automatically fits the extent of each newly created GeoJSON
+view. Geometry, values, and the upstream style configuration are cached in the page session, and
+failed requests are evicted so they can be retried. The stable layer key plus provider settings are
+stored in the URL so shared links and browser history reproduce the selected crop and scenario.
+
+This is an exception path, not the default ingestion model. It adds a direct browser dependency on
+the source service plus client-side CPU, memory, and `postMessage` cloning costs. Keep
+provider-specific URLs, fields, projections, joins, and styles inside the adapter. See
+[docs/external-layers.md](docs/external-layers.md) for the dependency flow, measured EDRA payload,
+programme tracker row, operational risks, and migration triggers.
 
 ### Navigation and layer panel
 
@@ -118,7 +166,7 @@ Layer configs may also be retained in unpublished review states such as **disabl
 
 ### Simple vs compound layers
 
-A **simple layer** maps to one MapX view ID. A **compound layer** groups multiple related views under a single accordion item with a widget to switch between them. Only one source view is active on the map at a time.
+A **simple layer** maps to one permanent MapX view ID. A **compound layer** groups multiple related views under a single accordion item with a widget to switch between them. A **runtime external layer** maps a stable config key to a temporary MapX view ID while it is active. Only one source view is active on the map at a time.
 
 ```js
 {

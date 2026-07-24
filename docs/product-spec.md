@@ -91,13 +91,14 @@ The following is implemented and tested as of July 2026:
 
 ### Content pipeline
 
-- `data/inventory.csv`: 101-row master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata
+- `data/inventory.csv`: master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata. Runtime external layers have a blank MapX ID and `External runtime` status.
 - `scripts/import-inventory.mjs`: dry-run diff tool and `--apply` mode to patch MapX view IDs and status changes from CSV into JS config
 - CSV export (Downloads / Sources page): generates a timestamped CSV of the current layer inventory
+- `docs/external-layers.md`: approval, tracker, architecture, performance, and operating requirements for exceptional non-MapX sources
 
 ### Technical
 
-- Vite build system; 170 unit tests across 11 test files
+- Vite build system; 204 unit tests across 15 test files
 - UNDRR Mangrove design system v1.8.0
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
 - PIN gate (prototype access control; see §4)
@@ -214,4 +215,5 @@ scripts/import-inventory.mjs            CSV → JS config import tool
 
 - All logic is client-side; no backend server required
 - MapX renders the map in an iframe via postMessage API; the app has no direct access to map DOM
+- Runtime external layers add direct browser dependencies on third-party APIs and must pass the external-source review checklist
 - Layer config lives in JS source files; content updates require a code change or the CSV import tool

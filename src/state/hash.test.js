@@ -58,6 +58,28 @@ describe("parseHash", () => {
     const { layers } = parseHash();
     expect(layers).toEqual([{ key: "river-flooding", sourceIdx: 0 }]);
   });
+
+  it("parses external variant settings without changing the layer syntax", () => {
+    const variants = encodeURIComponent(
+      JSON.stringify({ "edra-crop-yield-reduction": { crop: "MAIZE", scenario: "30" } }),
+    );
+    window.location.hash = `#risk-resilience?layers=edra-crop-yield-reduction&variants=${variants}`;
+    expect(parseHash()).toEqual({
+      tab: "risk-resilience",
+      layers: [
+        {
+          key: "edra-crop-yield-reduction",
+          sourceIdx: 0,
+          settings: { crop: "MAIZE", scenario: "30" },
+        },
+      ],
+    });
+  });
+
+  it("ignores malformed optional variant state", () => {
+    window.location.hash = "#risk-resilience?layers=edra-crop-yield-reduction&variants=%7Bbad";
+    expect(parseHash().layers).toEqual([{ key: "edra-crop-yield-reduction", sourceIdx: 0 }]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -101,6 +123,18 @@ describe("writeHash", () => {
     const lengthBefore = window.history.length;
     writeHash("hazard", []);
     expect(window.history.length).toBe(lengthBefore);
+  });
+
+  it("round-trips external variant settings", () => {
+    const layers = [
+      {
+        key: "edra-crop-yield-reduction",
+        sourceIdx: 0,
+        settings: { crop: "BARLEY", scenario: "15" },
+      },
+    ];
+    writeHash("risk-resilience", layers);
+    expect(parseHash().layers).toEqual(layers);
   });
 });
 

@@ -94,6 +94,14 @@ describe("generateLayerInventoryCSV", () => {
     expect(populationLines[0]).toContain("Uploaded");
   });
 
+  it("distinguishes external runtime layers from MapX uploads", () => {
+    const edraLines = lines.filter((l) => l.includes("edra-crop-yield-reduction"));
+    expect(edraLines).toHaveLength(1);
+    expect(edraLines[0]).toContain("Vector / external runtime");
+    expect(edraLines[0]).toContain("External runtime");
+    expect(edraLines[0]).not.toContain("Runtime external view");
+  });
+
   // --- CSV correctness ---
 
   it("correctly quotes fields that contain commas", () => {
