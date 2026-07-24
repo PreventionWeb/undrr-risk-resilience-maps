@@ -1,6 +1,7 @@
 # Architecture
 
 > See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
+> Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
 
 ## Overview
 
@@ -12,7 +13,7 @@ Static site, no backend. The app embeds MapX in an iframe via the SDK's postMess
 undrr-risk-resilience-maps/
 ├── index.html                  # Main entry point
 ├── data/
-│   └── inventory.csv           # Master layer inventory (source of truth for MapX view IDs)
+│   └── inventory.csv           # Master metadata, delivery status, and permanent MapX IDs
 ├── scripts/
 │   └── import-inventory.mjs    # CSV → JS config import tool (dry-run + --apply)
 ├── src/
@@ -35,12 +36,16 @@ undrr-risk-resilience-maps/
 │   │   ├── filters.js          # layer transparency, filters
 │   │   ├── inspect.js          # click_attributes batch collector, generation guard
 │   │   └── map-control.js      # flyTo, zoom, projection
+│   ├── external/               # Runtime external-provider boundary
+│   │   ├── index.js            # Generic provider contract + temporary-view registry
+│   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── state/
 │   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
 │   │   ├── sidebar.js          # Nav routing, layer panel, accordions, clear-all
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
+│   │   ├── external-controls.js # Provider-neutral external-layer controls
 │   │   ├── home.js             # Home page cards
 │   │   ├── info-panels.js      # Guide, Sources, Downloads, About full-page views
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
@@ -126,7 +131,19 @@ The EDRA adapter reproduces the source explorer's data pipeline:
 3. Fetch agriculture values for the selected crop and join on NUTS code.
 4. Ask MapX to create and style a non-persistent `MX-GJ-*` GeoJSON view.
 
-Changing a crop or scenario creates the replacement before deleting the prior view, so a network failure leaves the visible layer intact. The map camera is captured and restored because MapX automatically fits the extent of each newly created GeoJSON view. Only the stable layer key is stored in the URL; a restored link starts with the configured default crop and scenario.
+Changing a crop or scenario creates a candidate replacement before deleting the prior view. The
+runtime registry is updated only after MapX confirms that the old view was removed; failed
+replacements are cleaned up and the prior registration remains authoritative. The map camera is
+captured and restored because MapX automatically fits the extent of each newly created GeoJSON
+view. Geometry and values are cached in the page session, and failed requests are evicted so they
+can be retried. The stable layer key plus provider settings are stored in the URL so shared links
+and browser history reproduce the selected crop and scenario.
+
+This is an exception path, not the default ingestion model. It adds a direct browser dependency on
+the source service plus client-side CPU, memory, and `postMessage` cloning costs. Keep
+provider-specific URLs, fields, projections, joins, and styles inside the adapter. See
+[docs/external-layers.md](docs/external-layers.md) for the dependency flow, measured EDRA payload,
+programme tracker row, operational risks, and migration triggers.
 
 ### Navigation and layer panel
 

@@ -191,7 +191,10 @@ _Making it possible for non-developers to update layer metadata without a code c
 **Effort:** S–M (KH + CE) for process definition; ongoing XS per update cycle  
 **Resource:** KH + CE
 
-**Current state:** `scripts/import-inventory.mjs` handles MapX view ID and status updates from CSV. Description, source, citation, license still require direct JS edits.
+**Current state:** `scripts/import-inventory.mjs` handles MapX view ID and status updates from CSV.
+Description, source, citation, license still require direct JS edits. Runtime external layers use a
+blank MapX ID and `External runtime` status; their additional governance fields and workflow are
+defined in [external-layers.md](external-layers.md).
 
 **Tasks:**
 
@@ -213,8 +216,12 @@ _Layer inventory updates, new data arriving from programme team, MapX view ID ch
 
 - Programme team provides updated inventory → CE edits `data/inventory.csv` → KH runs import → PR review → deploy
 - New data uploaded to MapX by programme team → MapX view ID captured in CSV → import
+- External runtime data approved by programme team → blank MapX ID + `External runtime` status in
+  the tracker → engineering adapter/performance review → PR review → deploy
 - Coming-soon layers activated when data is ready
 - Source citations and licenses confirmed per layer
+- Quarterly review of external service ownership, CORS, schema, citation, and continued suitability
+  for runtime delivery
 
 ---
 

@@ -256,4 +256,15 @@ Each layer object carries an `r2rCategory` field (`"Societies"`, `"Economy"`, or
 
 It does **not** patch: label, description, source, citation, license, legend, widget config, or geometry. Those require a developer edit to the JS config.
 
+Runtime external layers use one simple-layer row with:
+
+- a blank **MapX view ID** (temporary `MX-GJ-*` IDs are never durable);
+- **Type** such as `Vector / external runtime`;
+- **Inventory status** `External runtime`, which the importer treats as published.
+
+Do not create one CSV row per external control combination unless those combinations are genuine,
+permanent sub-sources. The EDRA crop and scenario selectors are represented by one tracker row.
+See [docs/external-layers.md](docs/external-layers.md) for the exact EDRA entry and operational
+metadata that does not fit in the 14-column CSV.
+
 **Key implementation detail:** In the JS layer objects, `id:` appears _before_ `key:`. The import script searches _backward_ from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).

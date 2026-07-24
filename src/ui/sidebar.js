@@ -77,6 +77,49 @@ function setLayerToggleDisabled(layer, eyeBtn, disabled) {
   }
 }
 
+function externalSettingsMatch(left, right) {
+  if (!left || !right) return false;
+  return Object.keys(right).every((key) => left[key] === right[key]);
+}
+
+async function updateExternalVariant(
+  layer,
+  settings,
+  eyeBtn,
+  wrapper,
+  externalDefinition,
+  updateHash = true,
+) {
+  const sliderSlot = wrapper.querySelector(".layer-slider-slot");
+  const legendSlot = wrapper.querySelector(".layer-legend-slot");
+  if (layer.key) toggleInFlight.add(layer.key);
+  setLayerToggleDisabled(layer, eyeBtn, true);
+  try {
+    const result = await replaceExternalLayer(layer, settings);
+    store.openViews.delete(result.previousIdView);
+    store.openViews.add(result.runtime.idView);
+
+    sliderSlot.innerHTML = "";
+    addOpacitySlider(result.runtime.idView, sliderSlot);
+    legendSlot.innerHTML = "";
+    addLegend({ ...layer, id: result.runtime.idView, legend: externalDefinition.legend }, legendSlot);
+    if (updateHash) syncHashFromState();
+    return result.runtime;
+  } finally {
+    setLayerToggleDisabled(layer, eyeBtn, false);
+    if (layer.key) toggleInFlight.delete(layer.key);
+  }
+}
+
+function renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition) {
+  const widgetSlot = wrapper.querySelector(".layer-widget-slot");
+  widgetSlot.innerHTML = "";
+  const controls = buildExternalControls(externalDefinition, runtime.settings, (settings) =>
+    updateExternalVariant(layer, settings, eyeBtn, wrapper, externalDefinition),
+  );
+  widgetSlot.appendChild(controls);
+}
+
 /**
  * Build the UI and wire up all nav links.
  */
@@ -222,7 +265,9 @@ export function buildSidebar() {
   // Read initial tab from URL hash, fall back to default
   const { tab: hashTab } = parseHash();
   const initialTab = hashTab && ALL_TABS.includes(hashTab) ? hashTab : store.activeTab;
-  switchTab(initialTab);
+  // Preserve a valid incoming hash until MapX is ready and can restore its
+  // layers. Writing empty runtime state here would erase the shared link.
+  switchTab(initialTab, { syncHash: !hashTab || !ALL_TABS.includes(hashTab) });
 
   // Browser back/forward: reconcile both tab and layer state from the new hash
   window.addEventListener("hashchange", () => {
@@ -250,9 +295,9 @@ export function buildSidebar() {
   makeResizable(panel);
 }
 
-function switchTab(tabId) {
+function switchTab(tabId, { syncHash = true } = {}) {
   store.setActiveTab(tabId);
-  syncHashFromState();
+  if (syncHash) syncHashFromState();
 
   const appMap = document.getElementById("app-map");
   const infoPage = document.getElementById("info-page");
@@ -324,10 +369,12 @@ function syncHashFromState() {
           const idx = layer.sources.indexOf(activeSource);
           layers.push({ key: layer.key, sourceIdx: idx });
         }
-      } else if (
-        (isExternalLayer(layer) && getExternalLayerRuntime(layer)) ||
-        store.openViews.has(layer.id)
-      ) {
+      } else if (isExternalLayer(layer)) {
+        const runtime = getExternalLayerRuntime(layer);
+        if (runtime) {
+          layers.push({ key: layer.key, sourceIdx: 0, settings: runtime.settings });
+        }
+      } else if (store.openViews.has(layer.id)) {
         layers.push({ key: layer.key, sourceIdx: 0 });
       }
     }
@@ -362,7 +409,7 @@ export async function restoreLayersFromHash() {
   const { layers } = parseHash();
   if (layers.length === 0) return;
 
-  for (const { key, sourceIdx } of layers) {
+  for (const { key, sourceIdx, settings } of layers) {
     const el = layerElementMap.get(key);
     if (!el) continue;
     const { layer, eyeBtn } = el;
@@ -373,7 +420,11 @@ export async function restoreLayersFromHash() {
     }
 
     if (!eyeBtn.classList.contains("is-active")) {
-      eyeBtn.click();
+      if (isExternalLayer(layer)) {
+        await toggleLayer(layer, eyeBtn, el.wrapper, settings);
+      } else {
+        eyeBtn.click();
+      }
     }
   }
 }
@@ -400,7 +451,11 @@ async function reconcileLayersFromHash(hashLayers) {
         // Always set — including 0 — so any prior source state is cleared
         store.setActiveSource(compoundKey(layer), safeSourceIdx(layer, hashEntry.sourceIdx));
       }
-      eyeBtn.click(); // turn on
+      if (isExternalLayer(layer)) {
+        await toggleLayer(layer, eyeBtn, wrapper, hashEntry.settings);
+      } else {
+        eyeBtn.click(); // turn on
+      }
     } else if (isOn && shouldBeOn && isCompound(layer)) {
       // Layer stays on: switch source if hash encodes a different index
       const safeIdx = safeSourceIdx(layer, hashEntry.sourceIdx);
@@ -410,6 +465,24 @@ async function reconcileLayersFromHash(hashLayers) {
         const sliderSlot = wrapper.querySelector(".layer-slider-slot");
         const legendSlot = wrapper.querySelector(".layer-legend-slot");
         await switchSource(layer, compoundKey(layer), safeIdx, descEl, sliderSlot, legendSlot);
+      }
+    } else if (isOn && shouldBeOn && isExternalLayer(layer) && hashEntry.settings) {
+      const runtime = getExternalLayerRuntime(layer);
+      if (runtime && !externalSettingsMatch(runtime.settings, hashEntry.settings)) {
+        const externalDefinition = getExternalLayerDefinition(layer);
+        try {
+          const updated = await updateExternalVariant(
+            layer,
+            hashEntry.settings,
+            eyeBtn,
+            wrapper,
+            externalDefinition,
+            false,
+          );
+          renderExternalControls(layer, updated, eyeBtn, wrapper, externalDefinition);
+        } catch (error) {
+          console.warn(`Failed to restore external variant for ${layer.key}:`, error);
+        }
       }
     }
   }
@@ -507,7 +580,7 @@ function buildLayerAccordion(layer) {
   return { wrapper, eyeBtn };
 }
 
-async function toggleLayer(layer, eyeBtn, wrapper) {
+async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null) {
   // Guard: SDK must be ready before attempting map operations
   if (!isSDKReady()) {
     const label = wrapper.querySelector(".layer-label");
@@ -529,6 +602,7 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
     const sliderSlot = wrapper.querySelector(".layer-slider-slot");
     const legendSlot = wrapper.querySelector(".layer-legend-slot");
     const compound = isCompound(layer);
+    const externalDefinition = external ? getExternalLayerDefinition(layer) : null;
     // Determine which view ID is currently active
     const key = compound ? compoundKey(layer) : null;
     const activeIdx = compound ? store.getActiveSource(key) : 0;
@@ -560,6 +634,7 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
           }
         } catch (err) {
           console.warn(`Failed to remove view ${removeId}:`, err);
+          if (external) return;
         }
         store.openViews.delete(removeId);
       }
@@ -576,15 +651,36 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
       syncHashFromState();
     } else {
       // Turn on
+      let externalStatus = null;
+      if (external) {
+        const body = wrapper.querySelector(".layer-body");
+        const header = wrapper.querySelector(".layer-header");
+        const arrow = wrapper.querySelector(".layer-arrow");
+        body.style.display = "block";
+        arrow.textContent = "\u25BC";
+        header.setAttribute("aria-expanded", "true");
+
+        widgetSlot.innerHTML = "";
+        externalStatus = document.createElement("p");
+        externalStatus.className = "external-layer-status";
+        externalStatus.setAttribute("aria-live", "polite");
+        externalStatus.textContent = `Loading ${layer.label}…`;
+        widgetSlot.appendChild(externalStatus);
+      }
+
       try {
         if (external) {
-          runtime = await openExternalLayer(layer);
+          runtime = await openExternalLayer(layer, initialExternalSettings ?? layer.external.defaults);
           activeViewId = runtime.idView;
         } else {
           await viewAdd(activeViewId);
         }
       } catch (err) {
         console.warn(`Failed to add layer ${layer.key || activeViewId}:`, err);
+        if (externalStatus) {
+          externalStatus.classList.add("is-error");
+          externalStatus.textContent = `Could not load ${layer.label}. Please try again.`;
+        }
         return;
       }
       store.openViews.add(activeViewId);
@@ -622,34 +718,14 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
       }
 
       if (external) {
-        const definition = getExternalLayerDefinition(layer);
-        const controls = buildExternalControls(definition, runtime.settings, async (settings) => {
-          if (layer.key) toggleInFlight.add(layer.key);
-          setLayerToggleDisabled(layer, eyeBtn, true);
-          try {
-            const result = await replaceExternalLayer(layer, settings);
-            store.openViews.delete(result.previousIdView);
-            store.openViews.add(result.runtime.idView);
-
-            sliderSlot.innerHTML = "";
-            addOpacitySlider(result.runtime.idView, sliderSlot);
-            legendSlot.innerHTML = "";
-            addLegend({ ...layer, id: result.runtime.idView }, legendSlot);
-            syncHashFromState();
-            return result.runtime;
-          } finally {
-            setLayerToggleDisabled(layer, eyeBtn, false);
-            if (layer.key) toggleInFlight.delete(layer.key);
-          }
-        });
-        widgetSlot.appendChild(controls);
+        renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition);
       }
 
       addOpacitySlider(activeViewId, sliderSlot);
       // For compound layers, merge the active source's fields (desc, legend)
       // onto the parent layer so addLegend sees the right data.
       const legendLayer = external
-        ? { ...layer, id: activeViewId }
+        ? { ...layer, id: activeViewId, legend: externalDefinition.legend }
         : compound
           ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
           : layer;

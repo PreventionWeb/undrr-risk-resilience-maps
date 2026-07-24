@@ -117,7 +117,7 @@ function sourceCell(source, url) {
 }
 
 function mapxIds(layer) {
-  if (layer.external) return "Runtime external view";
+  if (layer.external) return "— (external runtime)";
   if (layer.sources && layer.sources.length) {
     return layer.sources.map((s) => s.id || "—").join("\n");
   }
@@ -144,7 +144,7 @@ function buildSourcesTable(layers) {
         <td class="data-table__mapx-id">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escHtml(layer.citation)}</td>
-        <td class="data-table__license">${escHtml(layer.license)}</td>
+        <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
         <td>${escHtml(layer.note || layer.desc)}</td>
       </tr>`;
     })

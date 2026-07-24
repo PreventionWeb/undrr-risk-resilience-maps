@@ -21,6 +21,16 @@ const PROVIDERS = {
 const runtimeByLayerKey = new Map();
 const runtimeByViewId = new Map();
 
+/**
+ * Provider contract:
+ * - create(settings, sdk?) -> Promise<{ idView, settings }>
+ * - remove(idView, sdk?) -> Promise<void>
+ * - controls -> serialisable control definitions for the generic UI
+ * - legend -> serialisable legend entries for the generic UI
+ *
+ * Provider-specific URLs, projections, joins, and styles stay in the adapter.
+ * The sidebar and runtime registry only depend on this contract.
+ */
 function providerFor(layer) {
   const provider = PROVIDERS[layer.external?.provider];
   if (!provider) throw new Error(`Unknown external layer provider: ${layer.external?.provider}`);
@@ -57,7 +67,6 @@ export function getExternalLayerDefinition(layer) {
   return {
     controls: provider.controls,
     legend: provider.legend,
-    defaults: { ...layer.external.defaults },
   };
 }
 
@@ -71,11 +80,8 @@ export async function openExternalLayer(layer, settings = layer.external.default
 export async function closeExternalLayer(layer) {
   const runtime = getExternalLayerRuntime(layer);
   if (!runtime) return null;
-  try {
-    await providerFor(layer).remove(runtime.idView);
-  } finally {
-    unregister(runtime);
-  }
+  await providerFor(layer).remove(runtime.idView);
+  unregister(runtime);
   return runtime;
 }
 
@@ -103,21 +109,35 @@ export async function replaceExternalLayer(layer, settings) {
 
   const sdk = getSDK();
   const camera = await captureCamera(sdk);
-  const next = await providerFor(layer).create(settings, sdk);
-
-  unregister(current);
-  const runtime = register(layer, next);
-
+  const provider = providerFor(layer);
+  let next;
   try {
-    await providerFor(layer).remove(current.idView, sdk);
-  } catch (error) {
-    console.warn(`Failed to delete replaced external view ${current.idView}:`, error);
-  }
+    next = await provider.create(settings, sdk);
+    try {
+      await provider.remove(current.idView, sdk);
+    } catch (error) {
+      // Keep the currently registered view authoritative. Best-effort cleanup
+      // of the candidate prevents a duplicate if old-view deletion failed.
+      try {
+        await provider.remove(next.idView, sdk);
+      } catch (cleanupError) {
+        console.warn(`Failed to clean up replacement external view ${next.idView}:`, cleanupError);
+      }
+      throw error;
+    }
 
-  if (camera) {
-    await sdk.ask("map_jump_to", camera).catch(() => {});
+    unregister(current);
+    const runtime = register(layer, next);
+    return { runtime, previousIdView: current.idView };
+  } finally {
+    if (camera) {
+      try {
+        await sdk.ask("map_jump_to", camera);
+      } catch {
+        // Camera restoration is best-effort and must not corrupt view state.
+      }
+    }
   }
-  return { runtime, previousIdView: current.idView };
 }
 
 /** Test helper for clearing module state without issuing SDK calls. */

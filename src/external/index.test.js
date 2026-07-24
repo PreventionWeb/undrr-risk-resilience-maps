@@ -39,7 +39,9 @@ const layer = {
 
 beforeEach(() => {
   resetExternalRuntime();
-  vi.clearAllMocks();
+  mocks.sdk.ask.mockReset();
+  mocks.create.mockReset();
+  mocks.remove.mockReset();
 });
 
 describe("external runtime registry", () => {
@@ -58,6 +60,19 @@ describe("external runtime registry", () => {
     expect(mocks.remove).toHaveBeenCalledWith("MX-GJ-FIRST");
     expect(getExternalLayerRuntime(layer)).toBeNull();
     expect(getExternalRuntimeByViewId("MX-GJ-FIRST")).toBeNull();
+  });
+
+  it("keeps a view registered when MapX fails to remove it", async () => {
+    mocks.create.mockResolvedValue({
+      idView: "MX-GJ-STILL-OPEN",
+      settings: { crop: "WHEAT", scenario: "20" },
+    });
+    mocks.remove.mockRejectedValueOnce(new Error("MapX delete failed"));
+
+    const opened = await openExternalLayer(layer);
+    await expect(closeExternalLayer(layer)).rejects.toThrow("MapX delete failed");
+    expect(getExternalLayerRuntime(layer)).toBe(opened);
+    expect(getExternalRuntimeByViewId("MX-GJ-STILL-OPEN")).toBe(opened);
   });
 
   it("replaces a view, preserves the camera, and updates both indexes", async () => {
@@ -106,5 +121,32 @@ describe("external runtime registry", () => {
     expect(getExternalLayerRuntime(layer)).toBe(current);
     expect(getExternalRuntimeByViewId("MX-GJ-CURRENT")).toBe(current);
     expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it("cleans up the new view when old-view deletion fails", async () => {
+    mocks.create
+      .mockResolvedValueOnce({
+        idView: "MX-GJ-CURRENT",
+        settings: { crop: "WHEAT", scenario: "20" },
+      })
+      .mockResolvedValueOnce({
+        idView: "MX-GJ-REPLACEMENT",
+        settings: { crop: "BARLEY", scenario: "30" },
+      });
+    mocks.remove.mockRejectedValueOnce(new Error("Could not delete current")).mockResolvedValueOnce();
+    mocks.sdk.ask
+      .mockResolvedValueOnce({ lng: 12, lat: 48 })
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(true);
+
+    const current = await openExternalLayer(layer);
+    await expect(replaceExternalLayer(layer, { crop: "BARLEY", scenario: "30" })).rejects.toThrow(
+      "Could not delete current",
+    );
+
+    expect(mocks.remove).toHaveBeenNthCalledWith(1, "MX-GJ-CURRENT", mocks.sdk);
+    expect(mocks.remove).toHaveBeenNthCalledWith(2, "MX-GJ-REPLACEMENT", mocks.sdk);
+    expect(getExternalLayerRuntime(layer)).toBe(current);
+    expect(getExternalRuntimeByViewId("MX-GJ-REPLACEMENT")).toBeNull();
   });
 });

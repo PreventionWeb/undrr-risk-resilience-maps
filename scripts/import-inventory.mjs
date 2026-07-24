@@ -22,6 +22,7 @@
  * What --apply does NOT change (review manually):
  *   - Published ↔ disabled transitions (adding/removing the status field entirely)
  *   - source, citation, license, desc, legend, widget, sourceUrl, geometry, note
+ *   - external provider definitions (external rows intentionally have no MapX ID)
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -169,6 +170,7 @@ for (const relPath of CONFIG_FILES) {
 function csvStatusToJs(csvStatus) {
   switch ((csvStatus || "").trim()) {
     case "Uploaded":
+    case "External runtime":
     case "done":
       return "published";
     case "Pending removal":

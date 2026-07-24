@@ -36,6 +36,20 @@ The GRI Risk Viewer supports side-by-side map panels. Each panel requires its ow
 
 The SDK is currently loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` with no version pin. A breaking MapX deployment could silently break the tool. Pin to a stable versioned URL once MapX confirms their versioning approach. See resourcing plan WP-7.
 
+## External runtime layer production decision
+
+The EDRA integration is intentionally a trial. Before production launch:
+
+- Assign a programme owner and record the external-service review date.
+- Complete privacy and CSP review for direct browser requests to CEMS.
+- Add error/latency monitoring or explicitly accept console-only diagnostics.
+- Test first-load behavior on representative low-power devices and constrained networks.
+- Decide whether to keep runtime ingestion, host a preprocessed WGS84 geometry snapshot, or publish
+  stable MapX views.
+
+See [docs/external-layers.md](docs/external-layers.md) for measured costs, source-tracker guidance,
+operational risks, migration triggers, and the merge-blocking acceptance checklist.
+
 ## Country profile click-through
 
 Clicking a country on the map (via site inspection) should link to the UNDRR Risk & Resilience country profile page. Implementation is straightforward (S effort) once the URL pattern is confirmed by the programme team. See resourcing plan WP-4.

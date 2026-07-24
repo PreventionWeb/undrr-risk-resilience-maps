@@ -43,7 +43,7 @@ export function buildExternalControls(definition, initialSettings, onChange) {
       const next = { ...current, [key]: select.value };
       for (const input of selects.values()) input.disabled = true;
       status.classList.remove("is-error");
-      status.textContent = "Updating EDRA layer…";
+      status.textContent = "Updating external layer…";
 
       try {
         const result = await onChange(next);
@@ -58,7 +58,7 @@ export function buildExternalControls(definition, initialSettings, onChange) {
           input.value = current[controlKey];
         }
         status.classList.add("is-error");
-        status.textContent = "Could not update the EDRA layer. Please try again.";
+        status.textContent = "Could not update the external layer. Please try again.";
         console.warn("Failed to update external layer:", error);
       } finally {
         for (const input of selects.values()) input.disabled = false;

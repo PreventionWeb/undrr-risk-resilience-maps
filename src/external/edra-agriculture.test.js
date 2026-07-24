@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildEDRAGeoJSON, createEDRAView, resetEDRAGeometryCache } from "./edra-agriculture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildEDRAGeoJSON, createEDRAView, deleteEDRAView, resetEDRACaches } from "./edra-agriculture.js";
 
 const GEOMETRY_RESPONSE = {
   type: "FeatureCollection",
@@ -42,13 +42,17 @@ function jsonResponse(data) {
 }
 
 beforeEach(() => {
-  resetEDRAGeometryCache();
+  resetEDRACaches();
   vi.stubGlobal(
     "fetch",
     vi.fn((url) =>
       String(url).includes("wfsService") ? jsonResponse(GEOMETRY_RESPONSE) : jsonResponse(VALUES_RESPONSE),
     ),
   );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("buildEDRAGeoJSON", () => {
@@ -68,8 +72,9 @@ describe("buildEDRAGeoJSON", () => {
     });
   });
 
-  it("caches geometry while fetching fresh values for each variant", async () => {
+  it("caches geometry and each crop response across scenario changes", async () => {
     await buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" });
+    await buildEDRAGeoJSON({ crop: "WHEAT", scenario: "30" });
     await buildEDRAGeoJSON({ crop: "MAIZE", scenario: "30" });
 
     const geometryCalls = fetch.mock.calls.filter(([url]) => String(url).includes("wfsService"));
@@ -77,16 +82,74 @@ describe("buildEDRAGeoJSON", () => {
     expect(geometryCalls).toHaveLength(1);
     expect(valueCalls).toHaveLength(2);
     expect(String(valueCalls[1][0])).toContain("subsystem=MAIZE");
-    expect(String(valueCalls[1][0])).toContain("EPSG%3A3035");
+    expect(String(valueCalls[1][0])).toContain("bbox=-180%2C-90%2C180%2C90%2CEPSG%3A4326");
   });
 
   it("omits the styled value property when EDRA has no data for a region", async () => {
+    const noDataValues = [{ ...VALUES_RESPONSE[0], value_current: null }];
     fetch.mockImplementation((url) =>
-      String(url).includes("wfsService") ? jsonResponse(GEOMETRY_RESPONSE) : jsonResponse([]),
+      String(url).includes("wfsService") ? jsonResponse(GEOMETRY_RESPONSE) : jsonResponse(noDataValues),
     );
 
     const data = await buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" });
     expect(data.features[0].properties).not.toHaveProperty("yield_reduction_pct");
+  });
+
+  it("evicts a failed crop request so a later attempt can retry", async () => {
+    let valueAttempts = 0;
+    fetch.mockImplementation((url) => {
+      if (String(url).includes("wfsService")) return jsonResponse(GEOMETRY_RESPONSE);
+      valueAttempts++;
+      return valueAttempts === 1
+        ? Promise.reject(new Error("Temporary EDRA failure"))
+        : jsonResponse(VALUES_RESPONSE);
+    });
+
+    await expect(buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" })).rejects.toThrow(
+      "Temporary EDRA failure",
+    );
+    await expect(buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" })).resolves.toBeTruthy();
+    expect(valueAttempts).toBe(2);
+  });
+
+  it("rejects schema drift instead of silently rendering a no-data map", async () => {
+    const invalidValues = [{ ...VALUES_RESPONSE[0] }];
+    delete invalidValues[0].value_20;
+    fetch.mockImplementation((url) =>
+      String(url).includes("wfsService") ? jsonResponse(GEOMETRY_RESPONSE) : jsonResponse(invalidValues),
+    );
+
+    await expect(buildEDRAGeoJSON({ crop: "WHEAT", scenario: "20" })).rejects.toThrow("is missing value_20");
+  });
+
+  it("rejects an implausibly low region join coverage", async () => {
+    const features = Array.from({ length: 10 }, (_, index) => ({
+      ...structuredClone(GEOMETRY_RESPONSE.features[0]),
+      properties: { code: `XY${String(index).padStart(2, "0")}`, name_eng: `Region ${index}` },
+    }));
+    const geometry = { type: "FeatureCollection", features };
+    fetch.mockImplementation((url) =>
+      String(url).includes("wfsService") ? jsonResponse(geometry) : jsonResponse(VALUES_RESPONSE),
+    );
+
+    await expect(buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" })).rejects.toThrow(
+      "join coverage is only",
+    );
+  });
+
+  it("times out stalled upstream requests", async () => {
+    vi.useFakeTimers();
+    fetch.mockImplementation(
+      (_url, { signal }) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+        }),
+    );
+
+    const request = buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" });
+    const rejection = expect(request).rejects.toThrow("timed out after 30 seconds");
+    await vi.advanceTimersByTimeAsync(30_000);
+    await rejection;
   });
 });
 
@@ -119,5 +182,21 @@ describe("createEDRAView", () => {
         paint: expect.objectContaining({ "fill-opacity": 0.82 }),
       }),
     );
+  });
+});
+
+describe("deleteEDRAView", () => {
+  it("falls back to hiding a temporary view when full deletion fails", async () => {
+    const sdk = {
+      ask: vi.fn().mockRejectedValueOnce(new Error("delete failed")).mockResolvedValueOnce(true),
+    };
+
+    await expect(deleteEDRAView("MX-GJ-EXAMPLE", sdk)).resolves.toBe(true);
+    expect(sdk.ask).toHaveBeenNthCalledWith(1, "view_geojson_delete", {
+      idView: "MX-GJ-EXAMPLE",
+    });
+    expect(sdk.ask).toHaveBeenNthCalledWith(2, "view_remove", {
+      idView: "MX-GJ-EXAMPLE",
+    });
   });
 });
