@@ -82,6 +82,11 @@
   color: #fff;
 }
 
+.layer-eye:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 /* ── Expanded body ────────────────────────────────── */
 
 .layer-body {

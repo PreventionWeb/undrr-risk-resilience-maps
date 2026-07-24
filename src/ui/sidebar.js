@@ -16,7 +16,16 @@ import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
+import { buildExternalControls } from "./external-controls.js";
 import { isLayerPublished } from "../config/layers/status.js";
+import {
+  closeExternalLayer,
+  getExternalLayerDefinition,
+  getExternalLayerRuntime,
+  isExternalLayer,
+  openExternalLayer,
+  replaceExternalLayer,
+} from "../external/index.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 
@@ -60,6 +69,13 @@ const secondaryEyeBtns = new Map();
 // Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
 const toggleInFlight = new Set();
 let showDisabledLayers = true;
+
+function setLayerToggleDisabled(layer, eyeBtn, disabled) {
+  eyeBtn.disabled = disabled;
+  for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+    btn.disabled = disabled;
+  }
+}
 
 /**
  * Build the UI and wire up all nav links.
@@ -308,7 +324,10 @@ function syncHashFromState() {
           const idx = layer.sources.indexOf(activeSource);
           layers.push({ key: layer.key, sourceIdx: idx });
         }
-      } else if (store.openViews.has(layer.id)) {
+      } else if (
+        (isExternalLayer(layer) && getExternalLayerRuntime(layer)) ||
+        store.openViews.has(layer.id)
+      ) {
         layers.push({ key: layer.key, sourceIdx: 0 });
       }
     }
@@ -502,31 +521,43 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
   // Guard: prevent concurrent toggles for the same layer (rapid clicks / secondary + primary race)
   if (layer.key && toggleInFlight.has(layer.key)) return;
   if (layer.key) toggleInFlight.add(layer.key);
+  const external = isExternalLayer(layer);
+  if (external) setLayerToggleDisabled(layer, eyeBtn, true);
 
   try {
     const widgetSlot = wrapper.querySelector(".layer-widget-slot");
     const sliderSlot = wrapper.querySelector(".layer-slider-slot");
     const legendSlot = wrapper.querySelector(".layer-legend-slot");
     const compound = isCompound(layer);
-
     // Determine which view ID is currently active
     const key = compound ? compoundKey(layer) : null;
     const activeIdx = compound ? store.getActiveSource(key) : 0;
     // Guard against out-of-bounds active index (defensive; shouldn't happen with validated config)
     const safeIdx = compound && activeIdx < layer.sources.length ? activeIdx : 0;
-    const activeViewId = compound ? layer.sources[safeIdx].id : layer.id;
+    let runtime = external ? getExternalLayerRuntime(layer) : null;
+    let activeViewId = external ? runtime?.idView : compound ? layer.sources[safeIdx].id : layer.id;
 
     // Is this layer currently on? For compound layers, check if ANY source is open.
-    const isOn = compound
-      ? layer.sources.some((s) => store.openViews.has(s.id))
-      : store.openViews.has(layer.id);
+    const isOn = external
+      ? Boolean(runtime)
+      : compound
+        ? layer.sources.some((s) => store.openViews.has(s.id))
+        : store.openViews.has(layer.id);
 
     if (isOn) {
       // Turn off -- remove whichever source view is active
-      const removeId = compound ? layer.sources.find((s) => store.openViews.has(s.id))?.id : layer.id;
+      const removeId = external
+        ? runtime.idView
+        : compound
+          ? layer.sources.find((s) => store.openViews.has(s.id))?.id
+          : layer.id;
       if (removeId) {
         try {
-          await viewRemove(removeId);
+          if (external) {
+            await closeExternalLayer(layer);
+          } else {
+            await viewRemove(removeId);
+          }
         } catch (err) {
           console.warn(`Failed to remove view ${removeId}:`, err);
         }
@@ -546,9 +577,14 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
     } else {
       // Turn on
       try {
-        await viewAdd(activeViewId);
+        if (external) {
+          runtime = await openExternalLayer(layer);
+          activeViewId = runtime.idView;
+        } else {
+          await viewAdd(activeViewId);
+        }
       } catch (err) {
-        console.warn(`Failed to add view ${activeViewId}:`, err);
+        console.warn(`Failed to add layer ${layer.key || activeViewId}:`, err);
         return;
       }
       store.openViews.add(activeViewId);
@@ -585,14 +621,43 @@ async function toggleLayer(layer, eyeBtn, wrapper) {
         }
       }
 
+      if (external) {
+        const definition = getExternalLayerDefinition(layer);
+        const controls = buildExternalControls(definition, runtime.settings, async (settings) => {
+          if (layer.key) toggleInFlight.add(layer.key);
+          setLayerToggleDisabled(layer, eyeBtn, true);
+          try {
+            const result = await replaceExternalLayer(layer, settings);
+            store.openViews.delete(result.previousIdView);
+            store.openViews.add(result.runtime.idView);
+
+            sliderSlot.innerHTML = "";
+            addOpacitySlider(result.runtime.idView, sliderSlot);
+            legendSlot.innerHTML = "";
+            addLegend({ ...layer, id: result.runtime.idView }, legendSlot);
+            syncHashFromState();
+            return result.runtime;
+          } finally {
+            setLayerToggleDisabled(layer, eyeBtn, false);
+            if (layer.key) toggleInFlight.delete(layer.key);
+          }
+        });
+        widgetSlot.appendChild(controls);
+      }
+
       addOpacitySlider(activeViewId, sliderSlot);
       // For compound layers, merge the active source's fields (desc, legend)
       // onto the parent layer so addLegend sees the right data.
-      const legendLayer = compound ? { ...layer, ...layer.sources[activeIdx], label: layer.label } : layer;
+      const legendLayer = external
+        ? { ...layer, id: activeViewId }
+        : compound
+          ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
+          : layer;
       addLegend(legendLayer, legendSlot);
       syncHashFromState();
     }
   } finally {
+    if (external) setLayerToggleDisabled(layer, eyeBtn, false);
     if (layer.key) toggleInFlight.delete(layer.key);
   }
 }

@@ -27,6 +27,7 @@ export function validateLayers(tabs, primaryProject) {
       const ctx = `[${tab.id}] "${layer.label || "(no label)"}"`;
       const compound = Array.isArray(layer.sources) && layer.sources.length > 0;
       const published = isLayerPublished(layer);
+      const external = Boolean(layer.external);
 
       if (!layer.label) {
         errors.push(`${ctx} -- missing label`);
@@ -54,13 +55,26 @@ export function validateLayers(tabs, primaryProject) {
       }
 
       // Enabled layers must belong to the primary project (SDK is single-project)
-      if (published && primaryProject && layer.project && layer.project !== primaryProject) {
+      if (!external && published && primaryProject && layer.project && layer.project !== primaryProject) {
         errors.push(
           `${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`,
         );
       }
 
-      if (compound) {
+      if (external) {
+        if (!layer.key) {
+          errors.push(`${ctx} -- external layer missing key`);
+        }
+        if (!layer.external.provider || typeof layer.external.provider !== "string") {
+          errors.push(`${ctx} -- external layer missing external.provider`);
+        }
+        if (!layer.external.defaults || typeof layer.external.defaults !== "object") {
+          errors.push(`${ctx} -- external layer missing external.defaults`);
+        }
+        if (compound) {
+          errors.push(`${ctx} -- external layers cannot also define compound sources`);
+        }
+      } else if (compound) {
         if (!layer.widget || !layer.widget.type) {
           errors.push(`${ctx} -- compound layer missing widget.type`);
         }

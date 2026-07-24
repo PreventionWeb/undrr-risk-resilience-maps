@@ -126,6 +126,52 @@ For compound layers (those with a `sources` array), every source's `id` is regis
 index maps each source view ID to the parent layer + the specific source, so the correct
 sub-label is shown in the inspector.
 
+Temporary external views have dynamic `MX-GJ-*` IDs and cannot be included in the static index.
+`src/external/index.js` therefore keeps a second runtime index keyed by temporary view ID. The
+site inspector consults the static index first, then the external runtime index.
+
+---
+
+## MapX SDK: temporary GeoJSON views for external data
+
+The SDK can inject client-supplied GeoJSON into the active MapX iframe:
+
+```js
+const view = await mapx.ask("view_geojson_create", {
+  data: featureCollection,
+  save: false,
+  title: "External layer",
+});
+await mapx.ask("view_geojson_set_style", {
+  idView: view.id,
+  paint: { "fill-color": "#f27739", "fill-opacity": 0.82 },
+});
+```
+
+The returned ID has the form `MX-GJ-*`. Delete it with `view_geojson_delete`, not the normal
+`view_remove`, when the app no longer needs the temporary view.
+
+Important behavior: creating a GeoJSON view automatically fits the map to its extent. When
+replacing a view to change its data attributes, capture `map_get_center` and `map_get_zoom`
+before creation and restore them with `map_jump_to` afterwards.
+
+---
+
+## EDRA agriculture source is not in the public drought WMS
+
+The European Drought Risk Atlas agriculture scenarios are built by the EDRA web application,
+not advertised by `api/wms?REQUEST=GetCapabilities`. Its client combines:
+
+- NUTS geometry from `gis/gapk/wfsService?MAP=EDRA...`
+- values from `edra/rest/dataByBBox?system=AGRICULTURE&subsystem=...`
+
+The values request requires the projection as the final comma-separated bbox component:
+`2000000,1000000,7000000,6000000,EPSG:3035`. Omitting it returns HTTP 400.
+
+The geometry service also returns EPSG:3035 coordinates even when `SRSNAME=EPSG:4326` is
+requested. MapX's GeoJSON importer assumes WGS84 and does not apply the embedded per-geometry
+`crs` member, so reproject every coordinate before calling `view_geojson_create`.
+
 ---
 
 ## Drag + resize panels: collapse vs inline-style conflict

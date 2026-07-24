@@ -84,7 +84,11 @@ export function generateLayerInventoryCSV() {
       const r2rCat = layer.r2rCategory || "";
       const rrStep = layer.rrStep || "";
 
-      if (isLayerPublished(layer) && layer.id !== null && (!layer.citation || !layer.license)) {
+      if (
+        isLayerPublished(layer) &&
+        (layer.id !== null || layer.external) &&
+        (!layer.citation || !layer.license)
+      ) {
         console.warn(`[layer-inventory] Active layer "${layer.key}" is missing citation or license.`);
       }
 
@@ -121,7 +125,7 @@ export function generateLayerInventoryCSV() {
             "",
             type,
             layer.desc || "",
-            layer.id || "",
+            layer.external ? "Runtime external view" : layer.id || "",
             layer.source || "",
             layer.citation || "",
             layer.license || "",

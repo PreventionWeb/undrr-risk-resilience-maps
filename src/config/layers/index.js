@@ -18,6 +18,9 @@
  *              explorer, but remain in Sources and CSV export for prototype
  *              tracking. Legacy `disabled: true` is still supported.
  *   legend   - optional [{color, label}] array for local HTML legend override
+ *   external - optional {provider, defaults} definition. External providers
+ *              create a temporary MapX GeoJSON view at runtime, so `id` and
+ *              `project` are not required.
  *
  * Compound layer fields (multiple switchable views under one accordion):
  *   id       - null (real IDs live in sources)
