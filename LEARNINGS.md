@@ -268,3 +268,27 @@ See [docs/external-layers.md](docs/external-layers.md) for the exact EDRA entry 
 metadata that does not fit in the 14-column CSV.
 
 **Key implementation detail:** In the JS layer objects, `id:` appears _before_ `key:`. The import script searches _backward_ from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).
+
+---
+
+## MapX legends: structured vector rules with image fallback
+
+MapX has two useful but different legend paths:
+
+- `get_view_legend_image` returns the already-rendered PNG used by the previous UI.
+- `get_views` returns the active project catalogue, including `data.style` for vector-tile views.
+
+`src/sdk/legends.js` caches the catalogue request and converts a conservative subset of vector
+styles into provider-neutral entries: title, localised label, colour, opacity, size, geometry,
+border, and no-data styling. `src/ui/layer-controls.js` renders those entries with semantic HTML
+and temporarily keeps the MapX PNG in a collapsed, lazy-loaded comparison disclosure for visual
+acceptance.
+
+Do not assume every MapX view can be reconstructed safely. Raster legends, sprites, enabled or
+malformed custom styles, unsafe colours, and excessive rule sets return `null` from the adapter,
+which deliberately sends the UI back to the MapX PNG. This is both a compatibility boundary and a
+guard against showing a plausible but incorrect legend if the upstream schema changes.
+
+The dedicated legend-state/value SDK methods were added to MapX in September 2023, so the general
+capability is not new. The important unresolved question is whether the detailed vector style
+shape returned by `get_views` is a stable, supported contract.

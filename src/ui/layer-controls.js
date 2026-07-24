@@ -6,6 +6,7 @@
  */
 import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
+import { getMapXLegend } from "../sdk/legends.js";
 
 /**
  * Build an opacity slider for a view and append it to container.
@@ -65,62 +66,134 @@ export async function addOpacitySlider(idView, container) {
 /**
  * Render the legend for a layer and append it to container.
  *
- * If the layer config has a local `legend` array, renders HTML colour swatches.
- * The SDK legend image (server-rendered PNG) is also fetched:
- *   - When no local legend exists: shown as the primary legend.
- *   - When a local legend exists: shown as a collapsed diagnostic toggle.
+ * Priority:
+ *   1. A local legend declared by the layer/provider.
+ *   2. Structured vector style rules from the MapX project catalogue.
+ *   3. The server-rendered MapX PNG for unsupported or malformed views.
  *
  * @param {{ id: string, legend?: Array<{color: string, label: string}> }} layer
  * @param {HTMLElement} container - element to append the legend into
  */
 export async function addLegend(layer, container) {
   const hasLocalLegend = Array.isArray(layer.legend) && layer.legend.length > 0;
+  let structuredLegend = null;
   if (hasLocalLegend) {
-    const el = document.createElement("div");
-    el.className = "html-legend";
-    for (const item of layer.legend) {
-      const row = document.createElement("div");
-      row.className = "html-legend-row";
-
-      const swatch = document.createElement("span");
-      swatch.className = "html-legend-swatch";
-      swatch.style.background = item.color || "#ccc";
-      row.appendChild(swatch);
-
-      const label = document.createElement("span");
-      label.className = "html-legend-label";
-      label.textContent = item.label || "";
-      row.appendChild(label);
-
-      el.appendChild(row);
+    structuredLegend = {
+      entries: layer.legend.map((item) => ({
+        ...item,
+        geometry: item.geometry ?? layer.geometry ?? "polygon",
+      })),
+    };
+  } else {
+    try {
+      structuredLegend = await getMapXLegend(layer.id);
+    } catch {
+      // Catalogue errors fall through to the authoritative image.
     }
-    container.appendChild(el);
   }
 
-  // Fetch SDK legend image
+  if (structuredLegend) {
+    renderStructuredLegend(structuredLegend, container);
+    addImageLegendComparison(layer.id, container);
+    return;
+  }
+
+  // Unsupported styles use the SDK image as their primary legend.
   try {
     const legendData = await getViewLegendImage(layer.id);
     if (!legendData) return;
-
-    const img = document.createElement("img");
-    img.className = "layer-legend-img";
-    img.src = legendData.startsWith("data:") ? legendData : `data:image/png;base64,${legendData}`;
-    img.alt = "SDK legend";
-
-    if (hasLocalLegend) {
-      // Show as collapsed diagnostic
-      const details = document.createElement("details");
-      details.className = "legend-diagnostic";
-      const summary = document.createElement("summary");
-      summary.textContent = "SDK legend (diagnostic)";
-      details.appendChild(summary);
-      details.appendChild(img);
-      container.appendChild(details);
-    } else {
-      // No local override -- show SDK image directly
-      container.appendChild(img);
-    }
+    container.appendChild(createLegendImage(legendData, "MapX legend"));
   } catch {
     // Not all layers have SDK legends
   }
+}
+
+function createLegendImage(legendData, alt) {
+  const img = document.createElement("img");
+  img.className = "layer-legend-img";
+  img.src = legendData.startsWith("data:") ? legendData : `data:image/png;base64,${legendData}`;
+  img.alt = alt;
+  return img;
+}
+
+function addImageLegendComparison(idView, container) {
+  const details = document.createElement("details");
+  details.className = "legend-diagnostic";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Show MapX image legend (comparison)";
+  details.appendChild(summary);
+
+  let requested = false;
+  details.addEventListener("toggle", async () => {
+    if (!details.open || requested) return;
+    requested = true;
+
+    const status = document.createElement("span");
+    status.className = "legend-diagnostic-status";
+    status.textContent = "Loading MapX image legend…";
+    details.appendChild(status);
+
+    try {
+      const legendData = await getViewLegendImage(idView);
+      if (!legendData) {
+        status.textContent = "MapX image legend is not available.";
+        return;
+      }
+      status.replaceWith(createLegendImage(legendData, "MapX image legend for comparison"));
+    } catch {
+      status.textContent = "MapX image legend could not be loaded.";
+    }
+  });
+
+  container.appendChild(details);
+}
+
+function renderStructuredLegend(definition, container) {
+  const el = document.createElement("div");
+  el.className = "html-legend";
+  el.setAttribute("role", "list");
+
+  if (definition.title) {
+    const title = document.createElement("div");
+    title.className = "html-legend-title";
+    title.textContent = definition.title;
+    el.appendChild(title);
+  }
+
+  const rules = document.createElement("div");
+  rules.className = "html-legend-rules";
+
+  for (const item of definition.entries) {
+    const row = document.createElement("div");
+    row.className = "html-legend-row";
+    row.setAttribute("role", "listitem");
+
+    const symbol = document.createElement("span");
+    symbol.className = "html-legend-symbol";
+    symbol.setAttribute("aria-hidden", "true");
+
+    const swatch = document.createElement("span");
+    const geometry = ["point", "line", "polygon"].includes(item.geometry) ? item.geometry : "polygon";
+    swatch.className = `html-legend-swatch html-legend-swatch--${geometry}`;
+    swatch.style.backgroundColor = item.color || "#ccc";
+    if (Number.isFinite(item.opacity)) swatch.style.opacity = String(item.opacity);
+    if (item.borderColor) swatch.style.borderColor = item.borderColor;
+    if (Number.isFinite(item.size)) {
+      const size = Math.min(14, Math.max(5, item.size));
+      swatch.style.setProperty("--legend-symbol-size", `${size}px`);
+    }
+    symbol.appendChild(swatch);
+    row.appendChild(symbol);
+
+    const label = document.createElement("span");
+    label.className = "html-legend-label";
+    label.textContent = item.label || "";
+    row.appendChild(label);
+
+    rules.appendChild(row);
+  }
+
+  el.appendChild(rules);
+  container.appendChild(el);
 }

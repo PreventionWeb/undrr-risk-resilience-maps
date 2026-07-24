@@ -33,6 +33,7 @@ undrr-risk-resilience-maps/
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
 │   │   ├── views.js            # view add/remove/query
+│   │   ├── legends.js          # MapX vector-style → structured legend adapter
 │   │   ├── filters.js          # layer transparency, filters
 │   │   ├── inspect.js          # click_attributes batch collector, generation guard
 │   │   └── map-control.js      # flyTo, zoom, projection
@@ -95,6 +96,7 @@ Browser tab
   ├── Our app (parent window)
   │     ├── src/sdk/client.js    → mxsdk.Manager lifecycle + readiness flag
   │     ├── src/sdk/views.js     → view add/remove/query
+  │     ├── src/sdk/legends.js   → validated vector-style legend extraction
   │     ├── src/sdk/filters.js   → layer transparency, filters
   │     ├── src/sdk/map-control.js → flyTo, zoom, projection
   │     └── src/external/        → external data adapters + runtime view registry
@@ -223,7 +225,7 @@ The floating layer panel includes:
 - **Eye toggle** — turns a layer on/off; aria-pressed reflects state
 - **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
 - **Clear all button** — appears in the panel header; iterates `layerElementMap` to turn off all active layers across all tabs at once
-- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). If the layer config has a local `legend` array, HTML colour swatches are rendered; the SDK's server-rendered legend image is shown as a collapsed diagnostic when a local legend exists, or as the primary legend when no local override is present.
+- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). Legend priority is: a provider-owned local legend; validated MapX vector style rules from `get_views`; then the server-rendered MapX PNG. Raster, sprite, custom-coded, malformed, or excessive rule sets deliberately retain the PNG fallback rather than risk rendering a misleading approximation. While the structured renderer is being validated, its MapX PNG is also available in a collapsed comparison disclosure, lazy-loaded on first expansion, and can be retired after visual acceptance.
 
 ### Feature popups and click handling
 
@@ -251,17 +253,18 @@ Vitest + jsdom is configured in `vite.config.js`. Run tests with `npm test`.
 
 Test files cover pure and near-pure modules:
 
-| File                                    | What it tests                                                                                    |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                        |
-| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                |
-| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                           |
-| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                           |
-| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler            |
-| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                     |
-| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic |
-| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                         |
-| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting       |
+| File                                    | What it tests                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                         |
+| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
+| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                            |
+| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                            |
+| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler             |
+| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                      |
+| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic  |
+| `src/sdk/legends.test.js`               | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache |
+| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                          |
+| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
 `sidebar.js` integration tests (hash restore, reconcile, clear-all) are not yet written — testing them requires a full DOM with `buildSidebar()` and mocked SDK modules.
 

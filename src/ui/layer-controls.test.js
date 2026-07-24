@@ -8,9 +8,13 @@ vi.mock("../sdk/filters.js", () => ({
 vi.mock("../sdk/views.js", () => ({
   getViewLegendImage: vi.fn(),
 }));
+vi.mock("../sdk/legends.js", () => ({
+  getMapXLegend: vi.fn(),
+}));
 
 import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
+import { getMapXLegend } from "../sdk/legends.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 
 // ─── addOpacitySlider ─────────────────────────────────────────────────────────
@@ -101,6 +105,7 @@ describe("addLegend", () => {
   beforeEach(() => {
     container = document.createElement("div");
     vi.resetAllMocks();
+    getMapXLegend.mockResolvedValue(null);
   });
 
   const simpleLayer = {
@@ -129,7 +134,7 @@ describe("addLegend", () => {
     getViewLegendImage.mockResolvedValue(null);
     await addLegend(simpleLayer, container);
     const swatch = container.querySelector(".html-legend-swatch");
-    expect(swatch.style.background).toBe("rgb(255, 0, 0)");
+    expect(swatch.style.backgroundColor).toBe("rgb(255, 0, 0)");
   });
 
   it("uses #ccc fallback for a missing color", async () => {
@@ -137,7 +142,7 @@ describe("addLegend", () => {
     const layer = { id: "v", legend: [{ label: "X" }] };
     await addLegend(layer, container);
     const swatch = container.querySelector(".html-legend-swatch");
-    expect(swatch.style.background).toBe("rgb(204, 204, 204)");
+    expect(swatch.style.backgroundColor).toBe("rgb(204, 204, 204)");
   });
 
   it("shows SDK legend image directly when no local legend", async () => {
@@ -149,12 +154,71 @@ describe("addLegend", () => {
     expect(container.querySelector("details")).toBeNull();
   });
 
-  it("wraps SDK image in a collapsed <details> diagnostic when local legend exists", async () => {
+  it("renders structured MapX rules as the default legend", async () => {
+    getMapXLegend.mockResolvedValue({
+      title: "Risk level",
+      entries: [
+        {
+          color: "#f00",
+          label: "High",
+          opacity: 0.7,
+          geometry: "point",
+          size: 12,
+        },
+      ],
+    });
+    getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
+
+    await addLegend({ id: "view-1" }, container);
+
+    expect(container.querySelector(".html-legend-title").textContent).toBe("Risk level");
+    expect(container.querySelector(".html-legend-label").textContent).toBe("High");
+    expect(container.querySelector(".html-legend-swatch--point")).not.toBeNull();
+    expect(container.querySelector("details.legend-diagnostic").open).toBe(false);
+    expect(container.querySelector("details summary").textContent).toBe(
+      "Show MapX image legend (comparison)",
+    );
+    expect(getViewLegendImage).not.toHaveBeenCalled();
+  });
+
+  it("uses the PNG fallback when no structured MapX legend is available", async () => {
+    getMapXLegend.mockResolvedValue(null);
+    getViewLegendImage.mockResolvedValue("fallback");
+
+    await addLegend({ id: "view-1" }, container);
+
+    expect(container.querySelector(".html-legend")).toBeNull();
+    expect(container.querySelector(".layer-legend-img")).not.toBeNull();
+  });
+
+  it("lazy-loads the MapX image when its structured-legend comparison is opened", async () => {
     getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
     await addLegend(simpleLayer, container);
     const details = container.querySelector("details.legend-diagnostic");
     expect(details).not.toBeNull();
-    expect(details.querySelector("img")).not.toBeNull();
+    expect(details.querySelector("summary").textContent).toBe("Show MapX image legend (comparison)");
+    expect(getViewLegendImage).not.toHaveBeenCalled();
+
+    details.open = true;
+    details.dispatchEvent(new Event("toggle"));
+    await vi.waitFor(() => expect(details.querySelector("img")).not.toBeNull());
+
+    expect(getViewLegendImage).toHaveBeenCalledTimes(1);
+    expect(getViewLegendImage).toHaveBeenCalledWith("view-1");
+  });
+
+  it("shows a non-fatal message when a comparison image is unavailable", async () => {
+    getViewLegendImage.mockResolvedValue(null);
+    await addLegend(simpleLayer, container);
+    const details = container.querySelector("details.legend-diagnostic");
+
+    details.open = true;
+    details.dispatchEvent(new Event("toggle"));
+    await vi.waitFor(() =>
+      expect(details.querySelector(".legend-diagnostic-status").textContent).toBe(
+        "MapX image legend is not available.",
+      ),
+    );
   });
 
   it("prepends data URI prefix when SDK returns raw base64", async () => {
