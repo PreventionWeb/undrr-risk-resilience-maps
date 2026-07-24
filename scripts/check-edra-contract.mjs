@@ -10,6 +10,7 @@ import {
   buildEDRAGeoJSON,
   EDRA_CROPS,
   EDRA_SCENARIOS,
+  getEDRAStyle,
   resetEDRACaches,
 } from "../src/external/edra-agriculture.js";
 
@@ -17,6 +18,10 @@ resetEDRACaches();
 
 const results = [];
 for (const crop of EDRA_CROPS) {
+  const style = await getEDRAStyle(crop.value);
+  if (style.legend.length < 2 || style.legend.at(-1)?.label !== "No data") {
+    throw new Error(`${crop.label}: live style produced an invalid legend`);
+  }
   for (const scenario of EDRA_SCENARIOS) {
     const data = await buildEDRAGeoJSON({
       crop: crop.value,
@@ -47,4 +52,4 @@ for (const code of ["PT20", "PT30"]) {
 }
 
 console.table(results);
-console.log("EDRA live contract check passed for all 15 crop/scenario variants.");
+console.log("EDRA live contract check passed for all 15 crop/scenario variants and 3 live styles.");

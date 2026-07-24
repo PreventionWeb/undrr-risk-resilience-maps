@@ -97,9 +97,10 @@ external runtime registry
 EDRA adapter
     ├── fetch and cache geometry
     ├── fetch and cache values by crop
+    ├── fetch and validate the source explorer's live style configuration
     ├── reproject EPSG:3035 → WGS84
     ├── join NUTS-2 attributes
-    └── create / style / delete temporary MapX views
+    └── derive the MapX paint expression and HTML legend from one source definition
 ```
 
 Responsibilities are deliberately separated:
@@ -128,6 +129,7 @@ machine. They describe magnitude, not a service-level guarantee.
 | Initial geometry response | 7,442,494 bytes decoded JSON (7.10 MiB); 242 features and about 194,716 vertices. The same file is about 3.02 MiB under local gzip compression. | Noticeably heavier than enabling a pre-built MapX view. Paid once per page session, subject to browser HTTP caching. |
 | Client reprojection       | About 609 ms in a standalone local Node benchmark for all vertices.                                                                             | One-time main-thread work on first activation; slower devices may pause longer.                                      |
 | Values response           | About 48,938 bytes decoded (47.8 KiB) for one crop; about 14 KiB under local gzip compression.                                                  | Small relative to geometry. Cached once per crop in the page session.                                                |
+| Style configuration       | One JSON request to the EDRA explorer configuration service per page session.                                                                   | Bucket thresholds, colours, and no-data colour drive both the map and local legend; malformed styles fail visibly.   |
 | Scenario change           | No additional EDRA request after the crop response is cached, but joined GeoJSON is cloned into the MapX iframe and reparsed.                   | Faster than first load, but not instant; controls are locked during replacement.                                     |
 | Crop change               | One small values request the first time each crop is selected, then the same clone/parse cost as a scenario change.                             | Three crop responses maximum per page session under the current configuration.                                       |
 | Browser memory            | Reprojected geometry is retained; MapX retains the active view. Replacement briefly holds old and new views.                                    | Expect tens of megabytes of transient client memory, not only the 7.1 MiB source-file size.                          |
@@ -146,6 +148,11 @@ CPU pressure and should not be approved without profiling.
 - **Undocumented application APIs:** the crop map is not advertised in the public drought WMS
   capabilities. The adapter follows endpoints used by the EDRA web application, so URLs, field
   names, or response behavior may change without a WMS-style compatibility promise.
+- **Style drift:** the adapter reads the crop-to-style mapping, discrete thresholds, colours, and
+  no-data colour from the same live configuration used by the EDRA explorer. The MapX paint
+  expression and local HTML legend are generated from that one validated response, so they cannot
+  drift independently. An unavailable or malformed style response prevents activation rather than
+  showing a plausible but incorrectly styled map.
 - **CORS dependency:** CEMS must continue allowing the viewer origin to fetch the APIs directly.
 - **Client privacy:** activating the layer makes the browser contact CEMS, exposing normal request
   metadata such as IP address and user agent. This should be covered by the site's privacy review.
@@ -200,8 +207,8 @@ authority and are therefore merge-blocking acceptance criteria rather than code 
       production privacy notice and CSP `connect-src` policy cover
       `https://drought.emergency.copernicus.eu`.
 - [ ] Engineering runs `yarn test:edra-contract` and records a passing result for all 15 variants
-      close to merge time. CI or an agreed scheduled monitor must own subsequent schema/CORS drift
-      detection.
+      and all three live crop styles close to merge time. CI or an agreed scheduled monitor must
+      own subsequent data/style schema and CORS drift detection.
 - [ ] Engineering tests a cold activation with 4× CPU throttling and a constrained mobile network
       profile on the agreed minimum device. The layer must become interactive within 10 seconds,
       recover cleanly after the 30-second timeout, and must not crash or freeze the viewer.

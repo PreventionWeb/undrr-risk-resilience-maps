@@ -129,15 +129,17 @@ The EDRA adapter reproduces the source explorer's data pipeline:
 1. Fetch simplified NUTS-2 polygons from the EDRA WFS-like service.
 2. Reproject coordinates from EPSG:3035 to WGS84 GeoJSON.
 3. Fetch agriculture values for the selected crop and join on NUTS code.
-4. Ask MapX to create and style a non-persistent `MX-GJ-*` GeoJSON view.
+4. Fetch the source explorer's live configuration and validate the selected crop's style buckets.
+5. Generate both the MapX paint expression and HTML legend from that style, then create a
+   non-persistent `MX-GJ-*` GeoJSON view.
 
 Changing a crop or scenario creates a candidate replacement before deleting the prior view. The
 runtime registry is updated only after MapX confirms that the old view was removed; failed
 replacements are cleaned up and the prior registration remains authoritative. The map camera is
 captured and restored because MapX automatically fits the extent of each newly created GeoJSON
-view. Geometry and values are cached in the page session, and failed requests are evicted so they
-can be retried. The stable layer key plus provider settings are stored in the URL so shared links
-and browser history reproduce the selected crop and scenario.
+view. Geometry, values, and the upstream style configuration are cached in the page session, and
+failed requests are evicted so they can be retried. The stable layer key plus provider settings are
+stored in the URL so shared links and browser history reproduce the selected crop and scenario.
 
 This is an exception path, not the default ingestion model. It adds a direct browser dependency on
 the source service plus client-side CPU, memory, and `postMessage` cloning costs. Keep

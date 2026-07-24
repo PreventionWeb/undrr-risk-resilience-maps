@@ -17,7 +17,6 @@ vi.mock("./edra-agriculture.js", () => ({
   createEDRAView: mocks.create,
   deleteEDRAView: mocks.remove,
   EDRA_CONTROLS: [],
-  EDRA_LEGEND: [],
 }));
 
 import {

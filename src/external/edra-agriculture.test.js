@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildEDRAGeoJSON, createEDRAView, deleteEDRAView, resetEDRACaches } from "./edra-agriculture.js";
+import {
+  buildEDRAGeoJSON,
+  createEDRAView,
+  deleteEDRAView,
+  getEDRAStyle,
+  resetEDRACaches,
+} from "./edra-agriculture.js";
 
 const GEOMETRY_RESPONSE = {
   type: "FeatureCollection",
@@ -34,6 +40,49 @@ const VALUES_RESPONSE = [
   },
 ];
 
+const CONFIG_RESPONSE = {
+  styles: [
+    {
+      code: "wheat-live-style",
+      styleRules: [
+        {
+          type: "DISCRETE",
+          buckets: [
+            { maxValue: 3, backgroundColor: "#fff4cc", minLabel: "0" },
+            {
+              minValue: 3.0001,
+              maxValue: 8,
+              backgroundColor: "#ff9900",
+              minLabel: "3",
+            },
+            { minValue: 8.0001, backgroundColor: "#990000", label: ">8" },
+          ],
+        },
+        { type: "NODATA", backgroundColor: "rgba(210,210,210,1)" },
+      ],
+    },
+    {
+      code: "barley-live-style",
+      styleRules: [
+        {
+          type: "DISCRETE",
+          buckets: [
+            { maxValue: 4, backgroundColor: "#eef5dd", minLabel: "0" },
+            { minValue: 4.0001, backgroundColor: "#557733", label: ">4" },
+          ],
+        },
+        { type: "NODATA", backgroundColor: "#cccccc" },
+      ],
+    },
+  ],
+  edra: {
+    subsystems: [
+      { code: "WHEAT", systemCode: "AGRICULTURE", style: "wheat-live-style" },
+      { code: "BARLEY", systemCode: "AGRICULTURE", style: "barley-live-style" },
+    ],
+  },
+};
+
 function jsonResponse(data) {
   return Promise.resolve({
     ok: true,
@@ -45,9 +94,12 @@ beforeEach(() => {
   resetEDRACaches();
   vi.stubGlobal(
     "fetch",
-    vi.fn((url) =>
-      String(url).includes("wfsService") ? jsonResponse(GEOMETRY_RESPONSE) : jsonResponse(VALUES_RESPONSE),
-    ),
+    vi.fn((url) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("wfsService")) return jsonResponse(GEOMETRY_RESPONSE);
+      if (requestUrl.includes("services/config")) return jsonResponse(CONFIG_RESPONSE);
+      return jsonResponse(VALUES_RESPONSE);
+    }),
   );
 });
 
@@ -154,6 +206,62 @@ describe("buildEDRAGeoJSON", () => {
 });
 
 describe("createEDRAView", () => {
+  it("derives legend buckets and the MapX fill expression from EDRA's live configuration", async () => {
+    const style = await getEDRAStyle("WHEAT");
+
+    expect(style.legend).toEqual([
+      { color: "#fff4cc", label: "0–3%" },
+      { color: "#ff9900", label: "3–8%" },
+      { color: "#990000", label: ">8%" },
+      { color: "rgba(210,210,210,1)", label: "No data" },
+    ]);
+    expect(style.fillColor).toEqual([
+      "case",
+      ["has", "yield_reduction_pct"],
+      [
+        "step",
+        ["to-number", ["get", "yield_reduction_pct"]],
+        "#fff4cc",
+        3.0001,
+        "#ff9900",
+        8.0001,
+        "#990000",
+      ],
+      "rgba(210,210,210,1)",
+    ]);
+  });
+
+  it("rejects malformed upstream style configuration", async () => {
+    fetch.mockImplementation((url) => {
+      const requestUrl = String(url);
+      if (requestUrl.includes("services/config")) {
+        return jsonResponse({
+          ...CONFIG_RESPONSE,
+          styles: [
+            {
+              code: "wheat-live-style",
+              styleRules: [
+                {
+                  type: "DISCRETE",
+                  buckets: [
+                    { maxValue: 3, backgroundColor: "#fff" },
+                    { minValue: 2, backgroundColor: "#000" },
+                  ],
+                },
+                { type: "NODATA", backgroundColor: "#ccc" },
+              ],
+            },
+          ],
+        });
+      }
+      return requestUrl.includes("wfsService")
+        ? jsonResponse(GEOMETRY_RESPONSE)
+        : jsonResponse(VALUES_RESPONSE);
+    });
+
+    await expect(getEDRAStyle("WHEAT")).rejects.toThrow("non-increasing bucket thresholds");
+  });
+
   it("creates and styles a temporary MapX GeoJSON view", async () => {
     const sdk = {
       ask: vi.fn().mockResolvedValueOnce({ id: "MX-GJ-EXAMPLE" }).mockResolvedValueOnce(true),
@@ -164,6 +272,11 @@ describe("createEDRAView", () => {
     expect(result).toEqual({
       idView: "MX-GJ-EXAMPLE",
       settings: { crop: "BARLEY", scenario: "15" },
+      legend: [
+        { color: "#eef5dd", label: "0–4%" },
+        { color: "#557733", label: ">4%" },
+        { color: "#cccccc", label: "No data" },
+      ],
     });
     expect(sdk.ask).toHaveBeenNthCalledWith(
       1,
@@ -179,7 +292,15 @@ describe("createEDRAView", () => {
       "view_geojson_set_style",
       expect.objectContaining({
         idView: "MX-GJ-EXAMPLE",
-        paint: expect.objectContaining({ "fill-opacity": 0.82 }),
+        paint: expect.objectContaining({
+          "fill-color": [
+            "case",
+            ["has", "yield_reduction_pct"],
+            ["step", ["to-number", ["get", "yield_reduction_pct"]], "#eef5dd", 4.0001, "#557733"],
+            "#cccccc",
+          ],
+          "fill-opacity": 0.82,
+        }),
       }),
     );
   });

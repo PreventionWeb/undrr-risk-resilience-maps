@@ -7,14 +7,13 @@
  * the same openViews Set as pre-built MapX layers.
  */
 import { getSDK } from "../sdk/client.js";
-import { createEDRAView, deleteEDRAView, EDRA_CONTROLS, EDRA_LEGEND } from "./edra-agriculture.js";
+import { createEDRAView, deleteEDRAView, EDRA_CONTROLS } from "./edra-agriculture.js";
 
 const PROVIDERS = {
   "edra-agriculture": {
     create: createEDRAView,
     remove: deleteEDRAView,
     controls: EDRA_CONTROLS,
-    legend: EDRA_LEGEND,
   },
 };
 
@@ -23,10 +22,10 @@ const runtimeByViewId = new Map();
 
 /**
  * Provider contract:
- * - create(settings, sdk?) -> Promise<{ idView, settings }>
+ * - create(settings, sdk?) -> Promise<{ idView, settings, legend? }>
  * - remove(idView, sdk?) -> Promise<void>
  * - controls -> serialisable control definitions for the generic UI
- * - legend -> serialisable legend entries for the generic UI
+ * - create may return runtime legend entries derived from the upstream source
  *
  * Provider-specific URLs, projections, joins, and styles stay in the adapter.
  * The sidebar and runtime registry only depend on this contract.
@@ -66,7 +65,6 @@ export function getExternalLayerDefinition(layer) {
   const provider = providerFor(layer);
   return {
     controls: provider.controls,
-    legend: provider.legend,
   };
 }
 

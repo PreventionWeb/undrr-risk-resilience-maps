@@ -14,6 +14,7 @@ const GEOMETRY_URL =
   `${EDRA_ORIGIN}/gis/gapk/wfsService?MAP=EDRA&SERVICE=WFS&VERSION=1.0.0` +
   "&REQUEST=GetFeature&TYPENAME=nuts2_simplified&outputFormat=application/json";
 const VALUES_URL = `${EDRA_ORIGIN}/edra/rest/dataByBBox`;
+const CONFIG_URL = `${EDRA_ORIGIN}/services/config?appCode=edra`;
 // Query every value record. The previous continental EPSG:3035 extent omitted
 // the Azores and Madeira even though their polygons are part of the WFS layer.
 const VALUES_BBOX = "-180,-90,180,90,EPSG:4326";
@@ -40,22 +41,13 @@ export const EDRA_SCENARIOS = [
   { value: "30", label: "+3 °C", property: "value_30" },
 ];
 
-export const EDRA_LEGEND = [
-  { color: "#FCEDD3", label: "0–2.5%" },
-  { color: "#FAD194", label: "2.5–5%" },
-  { color: "#F7AC70", label: "5–7.5%" },
-  { color: "#F27739", label: "7.5–10%" },
-  { color: "#DA3B30", label: "10–12.5%" },
-  { color: "#B10200", label: ">12.5%" },
-  { color: "#d1d5db", label: "No data" },
-];
-
 export const EDRA_CONTROLS = [
   { key: "crop", label: "Crop", options: EDRA_CROPS },
   { key: "scenario", label: "Climate scenario", options: EDRA_SCENARIOS },
 ];
 
 let geometryPromise = null;
+let configPromise = null;
 const valuesPromises = new Map();
 
 function optionFor(options, value, name) {
@@ -190,6 +182,121 @@ async function getGeometry() {
   return geometryPromise;
 }
 
+function validateColor(value, context) {
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.length > 64 ||
+    [...value].some((character) => character.charCodeAt(0) < 32)
+  ) {
+    throw new Error(`EDRA ${context} is not a valid colour`);
+  }
+  return value;
+}
+
+function formatLegendValue(value) {
+  return Number(value).toLocaleString("en", { maximumFractionDigits: 4 });
+}
+
+function legendLabelForBucket(bucket, index, buckets) {
+  if (typeof bucket.label === "string" && bucket.label.trim()) {
+    const label = bucket.label.trim();
+    return label.includes("%") ? label : `${label}%`;
+  }
+
+  const previousMax = index > 0 ? buckets[index - 1].maxValue : null;
+  const lower =
+    bucket.minLabel != null
+      ? String(bucket.minLabel)
+      : previousMax != null
+        ? formatLegendValue(previousMax)
+        : "0";
+  if (bucket.maxValue == null) return `>${lower}%`;
+  return `${lower}–${formatLegendValue(bucket.maxValue)}%`;
+}
+
+function parseStyle(config, crop) {
+  const subsystems = config?.edra?.subsystems ?? config?.subsystems;
+  if (!Array.isArray(config?.styles) || !Array.isArray(subsystems)) {
+    throw new Error("EDRA configuration is missing styles or subsystems");
+  }
+
+  const subsystem = subsystems.find(
+    (candidate) => candidate?.systemCode === "AGRICULTURE" && candidate?.code === crop.value,
+  );
+  if (typeof subsystem?.style !== "string" || !subsystem.style) {
+    throw new Error(`EDRA configuration has no style for ${crop.label}`);
+  }
+
+  const style = config.styles.find((candidate) => candidate?.code === subsystem.style);
+  const discreteRule = style?.styleRules?.find((rule) => rule?.type === "DISCRETE");
+  const noDataRule = style?.styleRules?.find((rule) => rule?.type === "NODATA");
+  const buckets = discreteRule?.buckets;
+  if (!Array.isArray(buckets) || buckets.length === 0 || buckets.length > 50) {
+    throw new Error(`EDRA style for ${crop.label} has an invalid bucket count`);
+  }
+
+  let previousMax = null;
+  const parsedBuckets = buckets.map((bucket, index) => {
+    const color = validateColor(bucket?.backgroundColor, `${crop.label} bucket ${index + 1} colour`);
+    const minValue = bucket?.minValue == null ? null : Number(bucket.minValue);
+    const maxValue = bucket?.maxValue == null ? null : Number(bucket.maxValue);
+    if (index > 0 && !Number.isFinite(minValue)) {
+      throw new Error(`EDRA style for ${crop.label} bucket ${index + 1} is missing minValue`);
+    }
+    if (
+      minValue != null &&
+      (!Number.isFinite(minValue) || (previousMax != null && minValue <= previousMax))
+    ) {
+      throw new Error(`EDRA style for ${crop.label} has non-increasing bucket thresholds`);
+    }
+    if (maxValue != null && (!Number.isFinite(maxValue) || (minValue != null && maxValue < minValue))) {
+      throw new Error(`EDRA style for ${crop.label} bucket ${index + 1} has an invalid maxValue`);
+    }
+    if (index < buckets.length - 1 && !Number.isFinite(maxValue)) {
+      throw new Error(`EDRA style for ${crop.label} bucket ${index + 1} is missing maxValue`);
+    }
+    if (maxValue != null) previousMax = maxValue;
+    return { ...bucket, color, minValue, maxValue };
+  });
+
+  const noDataColor = validateColor(noDataRule?.backgroundColor, `${crop.label} no-data colour`);
+  const step = ["step", ["to-number", ["get", "yield_reduction_pct"]], parsedBuckets[0].color];
+  for (const bucket of parsedBuckets.slice(1)) {
+    step.push(bucket.minValue, bucket.color);
+  }
+
+  return {
+    fillColor: ["case", ["has", "yield_reduction_pct"], step, noDataColor],
+    legend: [
+      ...parsedBuckets.map((bucket, index) => ({
+        color: bucket.color,
+        label: legendLabelForBucket(bucket, index, parsedBuckets),
+      })),
+      { color: noDataColor, label: "No data" },
+    ],
+  };
+}
+
+async function getConfig() {
+  if (!configPromise) {
+    configPromise = fetchJson(CONFIG_URL).catch((error) => {
+      configPromise = null;
+      throw error;
+    });
+  }
+  return configPromise;
+}
+
+/**
+ * Fetch and validate the live EDRA style used by the source explorer.
+ * The resulting definition drives both MapX rendering and the local legend.
+ */
+export async function getEDRAStyle(cropValue) {
+  const crop = optionFor(EDRA_CROPS, cropValue, "crop");
+  return parseStyle(await getConfig(), crop);
+}
+
 function valuesRequestUrl(crop) {
   const params = new URLSearchParams({
     system: "AGRICULTURE",
@@ -256,31 +363,10 @@ export async function buildEDRAGeoJSON(settings) {
   };
 }
 
-const FILL_COLOR = [
-  "case",
-  ["has", "yield_reduction_pct"],
-  [
-    "step",
-    ["to-number", ["get", "yield_reduction_pct"]],
-    "#FCEDD3",
-    2.5001,
-    "#FAD194",
-    5.0001,
-    "#F7AC70",
-    7.5001,
-    "#F27739",
-    10.0001,
-    "#DA3B30",
-    12.5001,
-    "#B10200",
-  ],
-  "#d1d5db",
-];
-
 export async function createEDRAView(settings, sdk = getSDK()) {
   const crop = optionFor(EDRA_CROPS, settings.crop, "crop");
   const scenario = optionFor(EDRA_SCENARIOS, settings.scenario, "scenario");
-  const data = await buildEDRAGeoJSON(settings);
+  const [data, style] = await Promise.all([buildEDRAGeoJSON(settings), getEDRAStyle(crop.value)]);
   const view = await sdk.ask("view_geojson_create", {
     data,
     save: false,
@@ -295,7 +381,7 @@ export async function createEDRAView(settings, sdk = getSDK()) {
     await sdk.ask("view_geojson_set_style", {
       idView,
       paint: {
-        "fill-color": FILL_COLOR,
+        "fill-color": style.fillColor,
         "fill-opacity": 0.82,
         "fill-outline-color": "rgba(91, 33, 24, 0.45)",
       },
@@ -305,7 +391,11 @@ export async function createEDRAView(settings, sdk = getSDK()) {
     throw error;
   }
 
-  return { idView, settings: { crop: crop.value, scenario: scenario.value } };
+  return {
+    idView,
+    settings: { crop: crop.value, scenario: scenario.value },
+    legend: style.legend,
+  };
 }
 
 export async function deleteEDRAView(idView, sdk = getSDK()) {
@@ -329,5 +419,6 @@ export async function deleteEDRAView(idView, sdk = getSDK()) {
 /** Test helper: clear shared request caches between isolated test cases. */
 export function resetEDRACaches() {
   geometryPromise = null;
+  configPromise = null;
   valuesPromises.clear();
 }

@@ -54,6 +54,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Fixed
 
 - EDRA value requests now cover all available regions, including the Azores and Madeira; strict schema, duplicate-key, feature/vertex/value-count, and minimum join-coverage checks fail visibly instead of silently rendering a plausible no-data map.
+- EDRA crop colours, thresholds, and no-data styling now come from the live configuration used by the source explorer. The MapX paint expression and HTML legend share that validated definition, preventing independent upstream-style drift.
 - External-view deletion failures now keep the prior runtime registration and UI state authoritative; failed replacements clean up the candidate view instead of risking a hidden or duplicated MapX layer.
 - `buildLayerAccordion` was checking `!layer.disabled` (legacy flag) for the eye toggle, so layers with `status: "disabled-awaiting-data"` would receive an eye button that called `viewAdd(null)`; now uses `isLayerPublished()` consistently
 - Config validator was requiring non-null source IDs for all compound layers regardless of publication state; unpublished compound layers may now have `null` source IDs (IDs are assigned once views are uploaded)
@@ -67,7 +68,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- EDRA geometry and crop responses are cached per page session, failed requests remain retryable, and source requests now time out after 30 seconds. Scenario switches no longer repeat the values request.
+- EDRA geometry, crop, and style-configuration responses are cached per page session, failed requests remain retryable, and source requests now time out after 30 seconds. Scenario switches no longer repeat the values request.
 - External crop/scenario settings are encoded in shared URLs and reconciled on browser back/forward navigation.
 - Layer inventory distinguishes externally delivered layers with a blank MapX ID and `External runtime` status instead of describing them as MapX uploads.
 - Layout from fixed sidebar to floating panel over full-width map

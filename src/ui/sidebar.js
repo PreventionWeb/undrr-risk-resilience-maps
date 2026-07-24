@@ -102,7 +102,7 @@ async function updateExternalVariant(
     sliderSlot.innerHTML = "";
     addOpacitySlider(result.runtime.idView, sliderSlot);
     legendSlot.innerHTML = "";
-    addLegend({ ...layer, id: result.runtime.idView, legend: externalDefinition.legend }, legendSlot);
+    addLegend({ ...layer, id: result.runtime.idView, legend: result.runtime.legend }, legendSlot);
     if (updateHash) syncHashFromState();
     return result.runtime;
   } finally {
@@ -725,7 +725,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       // For compound layers, merge the active source's fields (desc, legend)
       // onto the parent layer so addLegend sees the right data.
       const legendLayer = external
-        ? { ...layer, id: activeViewId, legend: externalDefinition.legend }
+        ? { ...layer, id: activeViewId, legend: runtime.legend }
         : compound
           ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
           : layer;
