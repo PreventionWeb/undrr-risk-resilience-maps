@@ -93,8 +93,10 @@ export async function addLegend(layer, container) {
 
   const hasLocalLegend = Array.isArray(layer.legend) && layer.legend.length > 0;
   let structuredLegend = null;
+  let structuredMode = null;
   let fallbackReason = layer.type === "rt" ? "raster" : "unsupported-view-type";
   if (hasLocalLegend) {
+    structuredMode = "local-structured";
     structuredLegend = {
       title: "",
       entries: layer.legend.map((item) => ({
@@ -107,6 +109,7 @@ export async function addLegend(layer, container) {
       const resolution = await resolveMapXLegend(layer.id);
       if (!isCurrentRequest()) return;
       structuredLegend = resolution.legend;
+      structuredMode = structuredLegend ? "mapx-vector-structured" : null;
       fallbackReason = resolution.reason;
     } catch {
       if (!isCurrentRequest()) return;
@@ -117,7 +120,7 @@ export async function addLegend(layer, container) {
 
   if (structuredLegend) {
     requestMarker.remove();
-    renderStructuredLegend(structuredLegend, container);
+    renderStructuredLegend(structuredLegend, container, structuredMode);
     addImageLegendComparison(layer.id, container);
     return;
   }
@@ -142,6 +145,8 @@ export async function addLegend(layer, container) {
 function createImageLegendFallback(legendData, reason) {
   const wrapper = document.createElement("div");
   wrapper.className = "legend-image-fallback";
+  wrapper.dataset.legendMode = "mapx-image";
+  wrapper.dataset.legendReason = reason ?? "unknown";
 
   const caption = document.createElement("div");
   caption.className = "legend-image-fallback-label";
@@ -162,6 +167,7 @@ function createLegendImage(legendData, alt) {
 function addImageLegendComparison(idView, container) {
   const details = document.createElement("details");
   details.className = "legend-diagnostic";
+  details.dataset.legendComparison = "mapx-image";
 
   const summary = document.createElement("summary");
   summary.textContent = "Show MapX image legend (comparison)";
@@ -197,9 +203,10 @@ function addImageLegendComparison(idView, container) {
   container.appendChild(details);
 }
 
-function renderStructuredLegend(definition, container) {
+function renderStructuredLegend(definition, container, mode) {
   const el = document.createElement("div");
   el.className = "html-legend";
+  el.dataset.legendMode = mode;
 
   if (definition.title) {
     const title = document.createElement("div");

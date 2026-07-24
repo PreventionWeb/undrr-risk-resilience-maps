@@ -2,6 +2,7 @@
 
 > See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
 > Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
+> Native/image legend release checks and representative layer coverage are tracked in [docs/mapx-legend-acceptance.md](docs/mapx-legend-acceptance.md).
 
 ## Overview
 

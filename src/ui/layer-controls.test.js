@@ -121,6 +121,7 @@ describe("addLegend", () => {
     await addLegend(simpleLayer, container);
     const swatches = container.querySelectorAll(".html-legend-swatch");
     expect(swatches).toHaveLength(2);
+    expect(container.querySelector(".html-legend").dataset.legendMode).toBe("local-structured");
   });
 
   it("renders correct label text for each legend entry", async () => {
@@ -180,6 +181,7 @@ describe("addLegend", () => {
     expect(container.querySelector(".html-legend-title").textContent).toBe("Risk level");
     expect(container.querySelector(".html-legend-label").textContent).toBe("High");
     expect(container.querySelector(".html-legend-swatch--point")).not.toBeNull();
+    expect(container.querySelector(".html-legend").dataset.legendMode).toBe("mapx-vector-structured");
     expect(container.querySelector("details.legend-diagnostic").open).toBe(false);
     expect(container.querySelector("details summary").textContent).toBe(
       "Show MapX image legend (comparison)",
@@ -198,6 +200,10 @@ describe("addLegend", () => {
     expect(container.querySelector(".legend-image-fallback-label").textContent).toBe(
       "MapX image legend (custom style)",
     );
+    expect(container.querySelector(".legend-image-fallback").dataset).toMatchObject({
+      legendMode: "mapx-image",
+      legendReason: "custom-style",
+    });
   });
 
   it("lazy-loads the MapX image when its structured-legend comparison is opened", async () => {
