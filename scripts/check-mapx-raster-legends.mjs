@@ -26,7 +26,15 @@ for (const idView of VIEW_IDS) {
     throw new Error(`${idView}: MapX returned an unexpected view`);
   }
 
-  const resolution = await resolveRasterMapXLegend(view);
+  // Simulate a cross-origin browser request. GIRI permits app.mapx.org but
+  // rejects other origins, so this exercises the MapX mirror retry as well as
+  // the provider's JSON contract.
+  const browserLikeRequest = (url, options) =>
+    fetch(url, {
+      ...options,
+      headers: { ...options.headers, Origin: "https://viewer.example" },
+    });
+  const resolution = await resolveRasterMapXLegend(view, "en", browserLikeRequest);
   if (!resolution.legend) {
     throw new Error(`${idView}: structured legend failed (${resolution.reason})`);
   }

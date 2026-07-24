@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   getGeoServerLegendJsonUrl,
+  getMapXMirrorUrl,
   parseGeoServerRasterLegend,
   resolveRasterMapXLegend,
 } from "./raster-legends.js";
@@ -89,6 +90,17 @@ describe("getGeoServerLegendJsonUrl", () => {
     ["unsafe protocol", "javascript:alert(1)"],
   ])("rejects a %s URL", (_name, url) => {
     expect(getGeoServerLegendJsonUrl(url)).toBeNull();
+  });
+});
+
+describe("getMapXMirrorUrl", () => {
+  it("encodes the complete provider URL as one mirror parameter", () => {
+    const providerUrl = getGeoServerLegendJsonUrl(rasterView().data.source.legend);
+    const mirrorUrl = new URL(getMapXMirrorUrl(providerUrl));
+
+    expect(mirrorUrl.origin).toBe("https://api.mapx.org");
+    expect(mirrorUrl.pathname).toBe("/get/mirror");
+    expect(mirrorUrl.searchParams.get("url")).toBe(providerUrl);
   });
 });
 
@@ -189,6 +201,23 @@ describe("resolveRasterMapXLegend", () => {
     expect(options.credentials).toBe("omit");
     expect(options.referrerPolicy).toBe("no-referrer");
     expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("retries through the MapX mirror when the provider rejects the viewer origin", async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 403, headers: { get: () => null } })
+      .mockResolvedValueOnce(jsonResponse());
+
+    const resolution = await resolveRasterMapXLegend(rasterView(), "en", request);
+
+    expect(resolution.legend).toMatchObject({ title: "cm/s2" });
+    expect(request).toHaveBeenCalledTimes(2);
+    const directUrl = request.mock.calls[0][0];
+    const mirrorUrl = new URL(request.mock.calls[1][0]);
+    expect(mirrorUrl.origin).toBe("https://api.mapx.org");
+    expect(mirrorUrl.pathname).toBe("/get/mirror");
+    expect(mirrorUrl.searchParams.get("url")).toBe(directUrl);
   });
 
   it.each([

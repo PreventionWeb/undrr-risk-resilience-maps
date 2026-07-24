@@ -63,6 +63,8 @@ use case and questions in
 [this follow-up](https://github.com/unep-grid/mapx/issues/288#issuecomment-5072297282).
 
 The raster adapter uses GeoServer's documented JSON form of `GetLegendGraphic`, currently limited
-to discrete `intervals` and `values` colour maps. It does not parse pixels or generic WMS SLD, and
-it falls back to MapX's authoritative image for continuous ramps, CORS/network failures, invalid
-schemas, and non-GeoServer sources.
+to discrete `intervals` and `values` colour maps. It first requests the provider directly, then
+retries through MapX's existing `/get/mirror` route when the provider rejects the embedding
+viewer's browser origin. It does not parse pixels or generic WMS SLD, and it falls back to MapX's
+authoritative image for continuous ramps, failure of both request paths, invalid schemas, and
+non-GeoServer sources.

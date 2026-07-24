@@ -11,6 +11,7 @@
 const MAX_LEGEND_BYTES = 256 * 1024;
 const MAX_LEGEND_ENTRIES = 500;
 const REQUEST_TIMEOUT_MS = 5000;
+const MAPX_MIRROR_URL = "https://api.mapx.org/get/mirror";
 const COLOR_PATTERN = /^(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\([^)]{1,50}\)|[a-z]{1,30})$/i;
 const LANGUAGE_KEY_PATTERN = /^[a-z]{2}(?:-[a-z]{2})?$/i;
 const SUPPORTED_COLORMAP_TYPES = new Set(["intervals", "values"]);
@@ -78,6 +79,17 @@ export function getGeoServerLegendJsonUrl(legendUrl) {
   }
   url.searchParams.set("format", "application/json");
   return url.toString();
+}
+
+/**
+ * Route a validated provider request through the same MapX mirror used by
+ * MapX raster sources. This is a retry path for providers that allow
+ * app.mapx.org but reject the embedding viewer's browser origin.
+ */
+export function getMapXMirrorUrl(providerUrl) {
+  const mirrorUrl = new URL(MAPX_MIRROR_URL);
+  mirrorUrl.searchParams.set("url", providerUrl);
+  return mirrorUrl.toString();
 }
 
 /**
@@ -149,16 +161,11 @@ export async function resolveRasterMapXLegend(view, language = "en", request = f
   const jsonUrl = getGeoServerLegendJsonUrl(legendUrl);
   if (!jsonUrl) return { legend: null, reason: "raster" };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
   try {
-    const response = await request(jsonUrl, {
-      credentials: "omit",
-      headers: { Accept: "application/json" },
-      referrerPolicy: "no-referrer",
-      signal: controller.signal,
-    });
+    let response = await requestLegend(jsonUrl, request);
+    if (!response?.ok) {
+      response = await requestLegend(getMapXMirrorUrl(jsonUrl), request);
+    }
     if (!response?.ok) return { legend: null, reason: "raster-json-unavailable" };
 
     const contentType = response.headers?.get?.("content-type") ?? "";
@@ -187,6 +194,21 @@ export async function resolveRasterMapXLegend(view, language = "en", request = f
     return legend ? { legend, reason: null } : { legend: null, reason: "raster-json-unsupported" };
   } catch {
     return { legend: null, reason: "raster-json-unavailable" };
+  }
+}
+
+async function requestLegend(url, request) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await request(url, {
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+      referrerPolicy: "no-referrer",
+      signal: controller.signal,
+    });
+  } catch {
+    return null;
   } finally {
     clearTimeout(timeout);
   }
