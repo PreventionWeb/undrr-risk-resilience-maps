@@ -2,22 +2,28 @@
  * Live MapX/GeoServer raster legend contract check.
  *
  * This intentionally stays outside the default unit-test suite because it
- * depends on two public services. It verifies that every configured
- * Earthquake PGA view still advertises a GeoServer JSON legend that the
- * viewer can render.
+ * depends on the MapX view API, the GIRI GeoServer, and the MapX mirror. It
+ * verifies that every currently configured Earthquake PGA view still
+ * advertises a GeoServer JSON legend that the viewer can render.
  */
+import { HAZARD_LAYERS } from "../src/config/layers/hazard.js";
 import { resolveRasterMapXLegend } from "../src/sdk/raster-legends.js";
 
-const VIEW_IDS = [
-  "MX-J3YTW-RUQN3-40P87",
-  "MX-4XSGY-9URYF-WMICZ",
-  "MX-KE2UX-GL8CM-IZSIA",
-  "MX-SFF5U-3O2XL-SAIL9",
-  "MX-MWJ8Z-JYVYX-N9T0T",
-];
+const earthquakeLayer = HAZARD_LAYERS.find((layer) => layer.key === "earthquake-pga");
+const viewIds = earthquakeLayer?.sources?.map((source) => source.id) ?? [];
+if (viewIds.length === 0) throw new Error("Earthquake PGA has no configured MapX views");
+
+let mirrorRequests = 0;
+const browserLikeRequest = (url, options) => {
+  if (new URL(url).origin === "https://api.mapx.org") mirrorRequests += 1;
+  return fetch(url, {
+    ...options,
+    headers: { ...options.headers, Origin: "https://viewer.example" },
+  });
+};
 
 const results = [];
-for (const idView of VIEW_IDS) {
+for (const idView of viewIds) {
   const response = await fetch(`https://api.mapx.org/get/view/item/${encodeURIComponent(idView)}`);
   if (!response.ok) throw new Error(`${idView}: MapX returned HTTP ${response.status}`);
 
@@ -29,11 +35,6 @@ for (const idView of VIEW_IDS) {
   // Simulate a cross-origin browser request. GIRI permits app.mapx.org but
   // rejects other origins, so this exercises the MapX mirror retry as well as
   // the provider's JSON contract.
-  const browserLikeRequest = (url, options) =>
-    fetch(url, {
-      ...options,
-      headers: { ...options.headers, Origin: "https://viewer.example" },
-    });
   const resolution = await resolveRasterMapXLegend(view, "en", browserLikeRequest);
   if (!resolution.legend) {
     throw new Error(`${idView}: structured legend failed (${resolution.reason})`);
@@ -53,5 +54,11 @@ for (const idView of VIEW_IDS) {
   });
 }
 
+if (mirrorRequests !== viewIds.length) {
+  throw new Error(`Expected ${viewIds.length} mirror retries, observed ${mirrorRequests}`);
+}
+
 console.table(results);
-console.log("MapX raster legend contract passed for all 5 Earthquake PGA views.");
+console.log(
+  `MapX raster legend contract passed for all ${viewIds.length} Earthquake PGA views via the mirror retry.`,
+);

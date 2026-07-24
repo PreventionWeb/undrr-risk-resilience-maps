@@ -155,7 +155,7 @@ describe("addLegend", () => {
     expect(img.src).toContain("data:image/png");
     expect(container.querySelector("details")).toBeNull();
     expect(container.querySelector(".legend-image-fallback-label").textContent).toBe(
-      "MapX image legend (raster)",
+      "Structured raster legend not supported — showing MapX image",
     );
   });
 
@@ -183,15 +183,46 @@ describe("addLegend", () => {
         ],
       },
       reason: null,
+      transport: "mapx-mirror",
     });
 
     await addLegend({ id: "view-1", type: "rt" }, container);
 
     expect(container.querySelector(".html-legend-title").textContent).toBe("cm/s2");
     expect(container.querySelector(".html-legend").dataset.legendMode).toBe("mapx-raster-structured");
+    expect(container.querySelector(".html-legend").dataset.legendTransport).toBe("mapx-mirror");
     expect(container.querySelector(".html-legend-swatch--transparent")).not.toBeNull();
     expect(container.querySelector("details.legend-diagnostic")).not.toBeNull();
     expect(getViewLegendImage).not.toHaveBeenCalled();
+  });
+
+  it("exposes non-sensitive raster fallback diagnostics for maintainers", async () => {
+    resolveMapXLegend.mockResolvedValue({
+      legend: null,
+      reason: "raster-json-unavailable",
+      diagnostic: {
+        transport: "mapx-mirror",
+        failureKind: "http",
+        status: 502,
+        directFailureKind: "http",
+        directStatus: 403,
+      },
+    });
+    getViewLegendImage.mockResolvedValue("fallback");
+
+    await addLegend({ id: "view-1", type: "rt" }, container);
+
+    const fallback = container.querySelector(".legend-image-fallback");
+    expect(fallback.dataset).toMatchObject({
+      legendMode: "mapx-image",
+      legendReason: "raster-json-unavailable",
+      legendTransport: "mapx-mirror",
+      legendFailure: "http",
+      legendStatus: "502",
+    });
+    expect(fallback.querySelector(".legend-image-fallback-label").textContent).toBe(
+      "Structured raster legend unavailable — showing MapX image",
+    );
   });
 
   it("renders structured MapX rules as the default legend", async () => {

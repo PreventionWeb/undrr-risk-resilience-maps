@@ -52,9 +52,9 @@ _These are not development tasks but must be resolved before downstream work can
 
 ### WP-2 · MapX legend integration
 
-_A working prototype now renders supported MapX vector styles as native HTML legends. MapX's `get_views` response exposes the rule colours, labels, title, opacity, geometry, and no-data styling needed for this path; the existing image command remains the fallback._
+_A working prototype now renders supported MapX vector styles and approved discrete GeoServer raster colormaps as structured HTML legends. The existing MapX image command remains the compatibility fallback._
 
-**What's left:** confirm with MapX that the consumed style fields are a supported contract; visually compare representative production vector legends; and verify fallback coverage for raster, sprite, and custom-coded views.
+**What's left:** confirm with MapX that the consumed view fields and mirror route are supported contracts; approve the privacy/CSP implications; visually compare representative vector and Earthquake PGA legends; and verify fallback coverage for continuous/static raster, sprite, and custom-coded views.
 
 **Effort:** S–M remaining
 
@@ -64,11 +64,12 @@ _A working prototype now renders supported MapX vector styles as native HTML leg
 
 1. Provider-owned local legend for runtime external layers.
 2. Validated MapX vector rules rendered natively for supported schemas.
-3. Server-rendered MapX PNG for raster, sprite, custom-coded, malformed, or unsupported schemas.
+3. Validated GeoServer `intervals`/`values` from approved HTTPS providers, with an allowlisted MapX mirror retry for origin denial.
+4. MapX image fallback for continuous/static/unapproved raster, sprite, custom-coded, malformed, or unsupported schemas.
 
-**Action:** Ask MapX: "Are the vector style fields returned by `get_views` a supported SDK contract, and can changes to that schema be communicated?" Run visual acceptance against a representative layer set before merge.
+**Action:** Confirm the `get_views` fields and `/get/mirror` service expectations with MapX. Run the documented regression procedure in `docs/legends.md` before merge.
 
-**Scope sensitivity:** Medium. Schema drift does not remove legends because the image fallback remains, but could reduce the number rendered natively.
+**Scope sensitivity:** Medium. Schema/route drift does not remove legends because the image fallback remains, but could reduce structured coverage or add latency.
 
 ---
 
@@ -273,21 +274,21 @@ _Currently zero observability into usage or errors._
 
 **With mobile:** add **2–4 weeks** FE resource.
 
-**MapX legend:** native vector rendering is prototyped; allow **S–M** KH time for production-view QA, hardening, and MapX contract confirmation.
+**MapX legend:** structured vector and approved discrete-raster rendering are prototyped; allow **S–M** KH time for production-view QA, privacy/CSP review, and MapX contract confirmation.
 
 ---
 
 ## Risk register
 
-| ID  | Risk                                                                                                    | Likelihood | Impact    | Mitigation                                                                    |
-| --- | ------------------------------------------------------------------------------------------------------- | ---------- | --------- | ----------------------------------------------------------------------------- |
-| R1  | MapX changes the undocumented shape of vector style fields returned by `get_views`                      | Medium     | Medium    | Strict validation and automatic MapX PNG fallback; seek contract confirmation |
-| R2  | Hosting decision takes > 4 weeks to resolve                                                             | Medium     | High      | Time-box: escalate to decision-maker if unresolved by [date]                  |
-| R3  | Stakeholder behavior spec expands post-prototype (country links, filtering, dual panels all reinstated) | Medium     | High      | Product Spec sign-off before further development; change-control note in spec |
-| R4  | MapX SDK breaking change before version pinning is in place (WP-7)                                      | Low        | High      | WP-7 is cheap — do it first                                                   |
-| R5  | Content team lacks capacity for ongoing inventory updates                                               | Medium     | Medium    | Define editorial SLA; automate CSV sync from SharePoint if needed             |
-| R6  | UNDRR SSO required for access control (makes static-site architecture insufficient)                     | Low        | Very high | Clarify early; if SSO needed, architecture changes significantly              |
-| R7  | Mobile required at launch but not scoped or resourced                                                   | Low        | High      | Confirm mobile scope in WP-1 decisions before any WP-8 work begins            |
+| ID  | Risk                                                                                                    | Likelihood | Impact    | Mitigation                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------- | ---------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| R1  | MapX changes undocumented view fields or the mirror route used by structured legends                    | Medium     | Medium    | Strict validation, approved-host policy, live contract check, MapX image fallback, and contract confirmation |
+| R2  | Hosting decision takes > 4 weeks to resolve                                                             | Medium     | High      | Time-box: escalate to decision-maker if unresolved by [date]                                                 |
+| R3  | Stakeholder behavior spec expands post-prototype (country links, filtering, dual panels all reinstated) | Medium     | High      | Product Spec sign-off before further development; change-control note in spec                                |
+| R4  | MapX SDK breaking change before version pinning is in place (WP-7)                                      | Low        | High      | WP-7 is cheap — do it first                                                                                  |
+| R5  | Content team lacks capacity for ongoing inventory updates                                               | Medium     | Medium    | Define editorial SLA; automate CSV sync from SharePoint if needed                                            |
+| R6  | UNDRR SSO required for access control (makes static-site architecture insufficient)                     | Low        | Very high | Clarify early; if SSO needed, architecture changes significantly                                             |
+| R7  | Mobile required at launch but not scoped or resourced                                                   | Low        | High      | Confirm mobile scope in WP-1 decisions before any WP-8 work begins                                           |
 
 ---
 

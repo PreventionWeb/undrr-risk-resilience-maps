@@ -1,37 +1,27 @@
 /**
- * Structured MapX vector legends.
+ * Structured MapX legend catalogue and adapter dispatcher.
  *
  * MapX exposes complete vector style rules through `get_views`, while its
- * dedicated legend image command returns only a PNG. This module normalises
- * the supported part of the view style into a small, provider-neutral model
- * for the parent application's HTML renderer.
+ * dedicated legend image command returns only an image. This module owns the
+ * live catalogue lifecycle, parses vector views, and dispatches raster views
+ * to their separate adapter.
  */
 import { getSDK } from "./client.js";
-import { resolveRasterMapXLegend } from "./raster-legends.js";
+import {
+  displayLegendValue,
+  isSafeLegendColor,
+  isSafeLegendText,
+  localizedLegendValue,
+  MAX_LEGEND_ENTRIES,
+} from "./legend-model.js";
+import { resetRasterLegendCache, resolveRasterMapXLegend } from "./raster-legends.js";
 
-const MAX_LEGEND_RULES = 500;
-const COLOR_PATTERN = /^(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\([^)]{1,50}\)|[a-z]{1,30})$/i;
-const LANGUAGE_KEY_PATTERN = /^[a-z]{2}(?:-[a-z]{2})?$/i;
 const SUPPORTED_GEOMETRIES = ["point", "line", "polygon"];
 
 let catalogPromise = null;
 let catalogSDK = null;
 
-/**
- * @typedef {Object} LegendEntry
- * @property {string} color
- * @property {string} label
- * @property {number} opacity
- * @property {number|null} size
- * @property {"point"|"line"|"polygon"} geometry
- * @property {string|null} borderColor
- */
-
-/**
- * @typedef {Object} LegendDefinition
- * @property {string} title
- * @property {LegendEntry[]} entries
- */
+/** @typedef {import("./legend-model.js").LegendDefinition} LegendDefinition */
 
 /**
  * @typedef {"raster"|"raster-json-unavailable"|"raster-json-invalid"|"raster-json-unsupported"|"unsupported-view-type"|"catalog-miss"|"custom-style"|"schema-invalid"|"too-many-rules"|"unsupported-style"} LegendFallbackReason
@@ -41,57 +31,25 @@ let catalogSDK = null;
  * @typedef {Object} LegendResolution
  * @property {LegendDefinition|null} legend
  * @property {LegendFallbackReason|null} reason
+ * @property {"direct"|"mapx-mirror"|null} [transport]
+ * @property {{transport: string, failureKind: string, status: number|null}|null} [diagnostic]
  */
-
-function isSafeColor(value) {
-  return (
-    typeof value === "string" &&
-    value.length <= 64 &&
-    COLOR_PATTERN.test(value.trim()) &&
-    ![...value].some((character) => character.charCodeAt(0) < 32)
-  );
-}
-
-function localizedObjectValue(object, language) {
-  if (!object || typeof object !== "object") return "";
-  const requested = object[language];
-  if (typeof requested === "string" && requested.trim()) return requested.trim();
-
-  const english = object.en;
-  if (typeof english === "string" && english.trim()) return english.trim();
-
-  const fallback = Object.entries(object).find(
-    ([candidateKey, value]) =>
-      LANGUAGE_KEY_PATTERN.test(candidateKey) && typeof value === "string" && value.trim(),
-  );
-  return fallback?.[1]?.trim() ?? "";
-}
 
 function localizedPrefixedValue(object, prefix, language) {
   if (!object || typeof object !== "object") return "";
   const requested = object[`${prefix}${language}`];
-  if (typeof requested === "string" && requested.trim()) return requested.trim();
+  if (isSafeLegendText(requested)) return requested.trim();
 
   const english = object[`${prefix}en`];
-  if (typeof english === "string" && english.trim()) return english.trim();
+  if (isSafeLegendText(english)) return english.trim();
 
   const fallback = Object.entries(object).find(([candidateKey, value]) => {
     const suffix = candidateKey.slice(prefix.length);
     return (
-      candidateKey.startsWith(prefix) &&
-      LANGUAGE_KEY_PATTERN.test(suffix) &&
-      typeof value === "string" &&
-      value.trim()
+      candidateKey.startsWith(prefix) && /^[a-z]{2}(?:-[a-z]{2})?$/i.test(suffix) && isSafeLegendText(value)
     );
   });
   return fallback?.[1]?.trim() ?? "";
-}
-
-function displayValue(value) {
-  if (typeof value === "string") return value.trim();
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  if (typeof value === "boolean") return String(value);
-  return "";
 }
 
 function hasUnsupportedCustomStyle(style) {
@@ -107,12 +65,12 @@ function hasUnsupportedCustomStyle(style) {
 }
 
 function normaliseRule(rule, language, geometry, isNoData = false) {
-  if (!rule || !isSafeColor(rule.color)) return null;
+  if (!rule || !isSafeLegendColor(rule.color)) return null;
   if (rule.sprite != null && rule.sprite !== "" && rule.sprite !== "none") return null;
-  if (rule.add_border === true && !isSafeColor(rule.color_border)) return null;
+  if (rule.add_border === true && !isSafeLegendColor(rule.color_border)) return null;
 
   const localizedLabel = localizedPrefixedValue(rule, "label_", language);
-  const label = localizedLabel || displayValue(rule.value) || (isNoData ? "No data" : "");
+  const label = localizedLabel || displayLegendValue(rule.value) || (isNoData ? "No data" : "");
   if (!label) return null;
 
   const opacity = rule.opacity == null ? 1 : Number(rule.opacity);
@@ -146,7 +104,7 @@ export function resolveParsedMapXLegend(view, language = "en") {
   if (hasUnsupportedCustomStyle(style)) {
     return { legend: null, reason: "custom-style" };
   }
-  if (Array.isArray(rules) && rules.length > MAX_LEGEND_RULES) {
+  if (Array.isArray(rules) && rules.length > MAX_LEGEND_ENTRIES) {
     return { legend: null, reason: "too-many-rules" };
   }
   if (
@@ -170,7 +128,7 @@ export function resolveParsedMapXLegend(view, language = "en") {
 
   if (style.hideNulls !== true && style.nulls != null) {
     if (!Array.isArray(style.nulls)) return { legend: null, reason: "schema-invalid" };
-    if (entries.length + style.nulls.length > MAX_LEGEND_RULES) {
+    if (entries.length + style.nulls.length > MAX_LEGEND_ENTRIES) {
       return { legend: null, reason: "too-many-rules" };
     }
     for (const rule of style.nulls) {
@@ -180,7 +138,7 @@ export function resolveParsedMapXLegend(view, language = "en") {
     }
   }
 
-  const title = localizedObjectValue(style.titleLegend, language);
+  const title = localizedLegendValue(style.titleLegend, language);
   return { legend: { title, entries }, reason: null };
 }
 
@@ -197,6 +155,7 @@ async function getCatalog(refresh = false) {
   if (sdk !== catalogSDK) {
     catalogSDK = sdk;
     catalogPromise = null;
+    resetRasterLegendCache();
   }
   if (refresh) catalogPromise = null;
 
@@ -246,4 +205,5 @@ export async function getMapXLegend(idView, language = "en") {
 export function resetMapXLegendCache() {
   catalogPromise = null;
   catalogSDK = null;
+  resetRasterLegendCache();
 }

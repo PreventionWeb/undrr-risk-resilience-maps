@@ -187,6 +187,16 @@ describe("parseMapXLegend", () => {
       })(),
     ],
     [
+      "overlong labels and values",
+      (() => {
+        const view = vectorView();
+        view.data.style.rules[0].label_en = "x".repeat(201);
+        view.data.style.rules[0].label_fr = "x".repeat(201);
+        view.data.style.rules[0].value = "x".repeat(201);
+        return view;
+      })(),
+    ],
+    [
       "unknown geometry",
       (() => {
         const view = vectorView();

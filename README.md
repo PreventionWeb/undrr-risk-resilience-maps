@@ -12,12 +12,13 @@ The prototype is protected by a PIN gate — a soft barrier for stakeholder revi
 ## Developing
 
 ```bash
-npm install
-npm run dev        # Vite dev server at http://localhost:3001
-npm run build      # Production build to dist/
-npm run preview    # Preview production build
-npm test           # Vitest unit tests (204 tests across 15 files)
-npm run test:edra-contract  # Optional live check of all 15 EDRA variants
+yarn install
+yarn dev        # Vite dev server at http://localhost:3001
+yarn build      # Production build to dist/
+yarn preview    # Preview production build
+yarn test       # Vitest unit tests
+yarn test:edra-contract         # Optional live check of all 15 EDRA variants
+yarn test:mapx-raster-contract  # Optional live MapX/GIRI/mirror legend check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow conventions (PRs, conventional commits, changelog).
@@ -33,6 +34,8 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 | [docs/product-spec.md](docs/product-spec.md)                 | V1 scope definition — what's in, what's deferred, pre-launch requirements |
 | [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                            |
 | [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs  |
+| [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide  |
+| [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                  |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                     |
 | [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                     |
 | [TODO.md](TODO.md)                                           | Deferred technical items                                                  |

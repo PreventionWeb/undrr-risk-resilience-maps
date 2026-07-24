@@ -36,6 +36,22 @@ The GRI Risk Viewer supports side-by-side map panels. Each panel requires its ow
 
 The SDK is currently loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` with no version pin. A breaking MapX deployment could silently break the tool. Pin to a stable versioned URL once MapX confirms their versioning approach. See resourcing plan WP-7.
 
+## Structured legend production acceptance
+
+Before merging or treating structured legends as production-ready:
+
+- Complete the browser visual comparison in `docs/legends.md` for representative vector,
+  Earthquake PGA, and deliberate image-fallback cases.
+- Confirm with MapX whether the consumed `get_views` fields and `/get/mirror` route are supported
+  client contracts, including rate limits, destination validation, availability, and change
+  communication.
+- Approve the privacy and Content Security Policy implications of direct GIRI and MapX mirror
+  requests.
+- Assign an owner/cadence for `yarn test:mapx-raster-contract` or schedule it in CI.
+
+If those dependencies cannot be governed, disable structured extraction and retain the MapX image
+fallback. See `docs/legends.md` and `docs/adr/0001-structured-legends.md`.
+
 ## External runtime layer production decision
 
 The EDRA integration is intentionally a trial. Before production launch:

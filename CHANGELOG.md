@@ -44,7 +44,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Floating layer panel over full-width map (collapsible, scrollable)
 - Accordion layer items with expand arrow, type tags, and eye toggle
 - Per-layer opacity sliders (inverted to MapX SDK transparency)
-- Native, accessible HTML legends for supported MapX vector styles, generated from the active project's live view rules with a lazy-loaded MapX image comparison, labelled fallback reasons, stale-render protection, and automatic PNG fallback for raster, sprite, custom, or unsupported styles
+- Accessible structured HTML legends for supported MapX vector styles and approved discrete GeoServer raster colormaps, with bounded/allowlisted MapX mirror retry, lazy image comparison, labelled diagnostics, stale-render protection, and automatic image fallback for unsupported styles
 - Local legend override system (HTML swatches) with SDK PNG as diagnostic fallback
 - Feature click popup (infobox) from MapX `click_attributes` events
 - MapX SDK wrapper modules (`src/sdk/client.js`, `views.js`, `filters.js`, `map-control.js`)

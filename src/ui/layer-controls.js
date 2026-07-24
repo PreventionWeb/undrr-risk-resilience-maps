@@ -9,10 +9,10 @@ import { getViewLegendImage } from "../sdk/views.js";
 import { resolveMapXLegend } from "../sdk/legends.js";
 
 const IMAGE_FALLBACK_LABELS = {
-  raster: "MapX image legend (raster)",
-  "raster-json-unavailable": "MapX image legend (raster data unavailable)",
-  "raster-json-invalid": "MapX image legend (invalid raster data)",
-  "raster-json-unsupported": "MapX image legend (unsupported raster style)",
+  raster: "Structured raster legend not supported — showing MapX image",
+  "raster-json-unavailable": "Structured raster legend unavailable — showing MapX image",
+  "raster-json-invalid": "Structured raster legend invalid — showing MapX image",
+  "raster-json-unsupported": "Raster style not supported — showing MapX image",
   "catalog-miss": "MapX image legend (view not in project catalogue)",
   "custom-style": "MapX image legend (custom style)",
   "unsupported-view-type": "MapX image legend",
@@ -82,7 +82,7 @@ export async function addOpacitySlider(idView, container) {
  * Priority:
  *   1. A local legend declared by the layer/provider.
  *   2. Structured vector rules or supported GeoServer raster colour maps.
- *   3. The server-rendered MapX PNG for unsupported or malformed views.
+ *   3. The MapX image fallback for unsupported or malformed views.
  *
  * @param {{ id: string, type?: string, geometry?: string, legend?: Array<{color: string, label: string, geometry?: string}> }} layer
  * @param {HTMLElement} container - element to append the legend into
@@ -97,6 +97,8 @@ export async function addLegend(layer, container) {
   const hasLocalLegend = Array.isArray(layer.legend) && layer.legend.length > 0;
   let structuredLegend = null;
   let structuredMode = null;
+  let structuredTransport = null;
+  let fallbackDiagnostic = null;
   let fallbackReason = layer.type === "rt" ? "raster" : "unsupported-view-type";
   if (hasLocalLegend) {
     structuredMode = "local-structured";
@@ -112,22 +114,24 @@ export async function addLegend(layer, container) {
       const resolution = await resolveMapXLegend(layer.id);
       if (!isCurrentRequest()) return;
       structuredLegend = resolution.legend;
+      structuredTransport = resolution.transport ?? null;
       structuredMode = structuredLegend
         ? layer.type === "rt"
           ? "mapx-raster-structured"
           : "mapx-vector-structured"
         : null;
       fallbackReason = resolution.reason;
+      fallbackDiagnostic = resolution.diagnostic ?? null;
     } catch {
       if (!isCurrentRequest()) return;
       fallbackReason = "catalog-miss";
-      // Catalogue errors fall through to the authoritative image.
+      // Catalogue errors fall through to the MapX image fallback.
     }
   }
 
   if (structuredLegend) {
     requestMarker.remove();
-    renderStructuredLegend(structuredLegend, container, structuredMode);
+    renderStructuredLegend(structuredLegend, container, structuredMode, structuredTransport);
     addImageLegendComparison(layer.id, container);
     return;
   }
@@ -142,18 +146,21 @@ export async function addLegend(layer, container) {
       requestMarker.remove();
       return;
     }
-    requestMarker.replaceWith(createImageLegendFallback(legendData, fallbackReason));
+    requestMarker.replaceWith(createImageLegendFallback(legendData, fallbackReason, fallbackDiagnostic));
   } catch {
     if (isCurrentRequest()) requestMarker.remove();
     // Not all layers have SDK legends
   }
 }
 
-function createImageLegendFallback(legendData, reason) {
+function createImageLegendFallback(legendData, reason, diagnostic) {
   const wrapper = document.createElement("div");
   wrapper.className = "legend-image-fallback";
   wrapper.dataset.legendMode = "mapx-image";
   wrapper.dataset.legendReason = reason ?? "unknown";
+  if (diagnostic?.transport) wrapper.dataset.legendTransport = diagnostic.transport;
+  if (diagnostic?.failureKind) wrapper.dataset.legendFailure = diagnostic.failureKind;
+  if (Number.isInteger(diagnostic?.status)) wrapper.dataset.legendStatus = String(diagnostic.status);
 
   const caption = document.createElement("div");
   caption.className = "legend-image-fallback-label";
@@ -210,10 +217,11 @@ function addImageLegendComparison(idView, container) {
   container.appendChild(details);
 }
 
-function renderStructuredLegend(definition, container, mode) {
+function renderStructuredLegend(definition, container, mode, transport) {
   const el = document.createElement("div");
   el.className = "html-legend";
   el.dataset.legendMode = mode;
+  if (transport) el.dataset.legendTransport = transport;
 
   if (definition.title) {
     const title = document.createElement("div");
