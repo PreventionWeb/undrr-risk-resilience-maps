@@ -6,7 +6,7 @@
 
 ## Discovering MapX view IDs
 
-The MapX REST API (`app.mapx.org/get/...`) requires authentication for all view-listing and search endpoints. There is no public/anonymous catalogue API. Tested April 2026; the API returns `{"type":"error","message":"Missing parameter: [\"idUser\",\"idProject\",\"token\"]}` without credentials.
+MapX view-listing and search endpoints require authentication. There is no public/anonymous catalogue enumeration API. Tested April 2026; those endpoints return `{"type":"error","message":"Missing parameter: [\"idUser\",\"idProject\",\"token\"]}` without credentials. The single-view route at `https://api.mapx.org/get/view/item/:id` is readable for eligible public views, but it cannot enumerate the catalogue.
 
 The only unauthenticated way to enumerate views is through the SDK's iframe postMessage bridge. The `get_views` method returns the full catalogue for the loaded project, authenticated automatically via the iframe session.
 
@@ -38,16 +38,16 @@ This produces `research/mapx-views-{project}.json` files and a `research/mapx-vi
 
 The Eco-DRR project is the primary source. The HOME project has some global baseline layers (GHSL population, protected areas). Edit the `PROJECTS` array in the probe script to add others.
 
-### MapX REST API routes (for reference, all require auth)
+### MapX REST API routes
 
-| Route                            | Purpose               |
-| -------------------------------- | --------------------- |
-| `/get/view/item/:id`             | Single view details   |
-| `/get/views/list/project/`       | Views in a project    |
-| `/get/views/list/global/public/` | Public views globally |
-| `/get/search/key`                | Keyword search        |
-| `/get/source/summary/`           | Source data summary   |
-| `/get/source/table/attribute/`   | Attribute table       |
+| Route                            | Purpose                    | Anonymous access      |
+| -------------------------------- | -------------------------- | --------------------- |
+| `/get/view/item/:id`             | Single public view details | Eligible public views |
+| `/get/views/list/project/`       | Views in a project         | No                    |
+| `/get/views/list/global/public/` | Public views globally      | No                    |
+| `/get/search/key`                | Keyword search             | No                    |
+| `/get/source/summary/`           | Source data summary        | No                    |
+| `/get/source/table/attribute/`   | Attribute table            | No                    |
 
 These routes were found by reading the [MapX API source](https://github.com/unep-grid/mapx/blob/main/api/index.js).
 

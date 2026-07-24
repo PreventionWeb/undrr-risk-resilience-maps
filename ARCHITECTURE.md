@@ -2,6 +2,7 @@
 
 > See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
 > Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
+> Legend architecture, upstream contracts, troubleshooting, and regression QA are documented in [docs/legends.md](docs/legends.md).
 
 ## Overview
 
@@ -33,6 +34,9 @@ undrr-risk-resilience-maps/
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
 │   │   ├── views.js            # view add/remove/query
+│   │   ├── legend-model.js     # Shared structured legend model + safety limits
+│   │   ├── legends.js          # MapX catalogue + vector legend adapter/dispatcher
+│   │   ├── raster-legends.js   # Approved GeoServer raster legend adapter
 │   │   ├── filters.js          # layer transparency, filters
 │   │   ├── inspect.js          # click_attributes batch collector, generation guard
 │   │   └── map-control.js      # flyTo, zoom, projection
@@ -95,6 +99,8 @@ Browser tab
   ├── Our app (parent window)
   │     ├── src/sdk/client.js    → mxsdk.Manager lifecycle + readiness flag
   │     ├── src/sdk/views.js     → view add/remove/query
+  │     ├── src/sdk/legends.js   → catalogue + validated vector legend extraction
+  │     ├── src/sdk/raster-legends.js → approved GeoServer raster legend extraction
   │     ├── src/sdk/filters.js   → layer transparency, filters
   │     ├── src/sdk/map-control.js → flyTo, zoom, projection
   │     └── src/external/        → external data adapters + runtime view registry
@@ -223,7 +229,7 @@ The floating layer panel includes:
 - **Eye toggle** — turns a layer on/off; aria-pressed reflects state
 - **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
 - **Clear all button** — appears in the panel header; iterates `layerElementMap` to turn off all active layers across all tabs at once
-- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). If the layer config has a local `legend` array, HTML colour swatches are rendered; the SDK's server-rendered legend image is shown as a collapsed diagnostic when a local legend exists, or as the primary legend when no local override is present.
+- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). Legend priority is: a provider-owned structured legend; validated MapX vector rules from `get_views`; discrete GeoServer raster `intervals`/`values` from an approved provider; then the MapX image fallback. Raster requests first contact the exact approved provider endpoint and retry its explicit HTTP 403 origin denial through the allowlisted MapX mirror within one bounded request budget. Network failures and redirects go directly to the image fallback. Continuous ramps, unapproved providers, sprites, custom code, malformed responses, and excessive rule sets deliberately retain a labelled image rather than risk a misleading approximation. The full security boundary, fallback reasons, operations, and regression procedure are in `docs/legends.md`. While the structured renderer is being validated, its MapX image is also available in a collapsed comparison disclosure, lazy-loaded on first expansion. The catalogue cache is scoped to the active SDK manager and refreshes once on a missing view because `view_add` can introduce public cross-project views after initialisation. Async renders use a DOM ownership marker so a closed layer or superseded compound source cannot append stale legend content.
 
 ### Feature popups and click handling
 
@@ -243,27 +249,34 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 - Vite dev server with hot reload
 - Vite/Rollup produces static assets to `dist/`
 - Serve with the Node.js static server (`server.js`) or any static host
-- No backend needed. All data comes from MapX.
+- No application backend is needed. Runtime data can come from MapX and explicitly approved external providers; some legend requests may use the MapX mirror.
 
 ## Testing
 
-Vitest + jsdom is configured in `vite.config.js`. Run tests with `npm test`.
+Vitest + jsdom is configured in `vite.config.js`. Run tests with `yarn test`.
 
 Test files cover pure and near-pure modules:
 
-| File                                    | What it tests                                                                                    |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                        |
-| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                |
-| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                           |
-| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                           |
-| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler            |
-| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                     |
-| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic |
-| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                         |
-| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting       |
+| File                                    | What it tests                                                                                     |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                         |
+| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
+| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                            |
+| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                            |
+| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler             |
+| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                      |
+| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic  |
+| `src/sdk/legends.test.js`               | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache |
+| `src/sdk/legend-model.test.js`          | Shared color/text/value safety and localization rules                                             |
+| `src/sdk/raster-legends.test.js`        | Provider policy, mirror retry, bounded streaming, GeoServer schema, diagnostics, timeout          |
+| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                          |
+| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
 `sidebar.js` integration tests (hash restore, reconcile, clear-all) are not yet written — testing them requires a full DOM with `buildSidebar()` and mocked SDK modules.
+
+`yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
+PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser
+visual regression steps.
 
 ## What this is not
 

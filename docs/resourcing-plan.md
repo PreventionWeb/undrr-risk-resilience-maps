@@ -52,23 +52,24 @@ _These are not development tasks but must be resolved before downstream work can
 
 ### WP-2 · MapX legend integration
 
-_The highest-risk technical item. Current state: legend per layer is a static image (or absent). Dynamic legend would show the actual colour-ramp + value labels from the MapX view, which is essential for data literacy._
+_A working prototype now renders supported MapX vector styles and approved discrete GeoServer raster colormaps as structured HTML legends. The existing MapX image command remains the compatibility fallback._
 
-**What's needed:** MapX SDK to expose legend data (colour steps, labels, units) as a JavaScript object so the app can render it natively rather than embed an image.
+**What's left:** confirm with MapX that the consumed view fields and mirror route are supported contracts; approve the privacy/CSP implications; visually compare representative vector and Earthquake PGA legends; and verify fallback coverage for continuous/static raster, sprite, and custom-coded views.
 
-**Effort:** ?  
-**Resource:** MX (primary) + KH (integration)
+**Effort:** S–M remaining
 
-**Paths:**
+**Resource:** KH (primary) + MX (contract confirmation)
 
-1. _MapX adds a legend API_ — KH integrates it; est. S–M dev effort on our side, unknown MapX timeline.
-2. _MapX exposes raw style config_ — KH builds a legend renderer from it; est. M–L.
-3. _Static images per layer_ — CE provides images; KH adds to config; est. S but ongoing maintenance burden.
-4. _No legend at launch_ — acceptable for prototype, not for production.
+**Implemented path:**
 
-**Action:** Open a formal conversation with MapX now. Ask specifically: "What is the current and planned SDK support for extracting legend data? What would it take?" Their answer determines which path and what timeline applies.
+1. Provider-owned local legend for runtime external layers.
+2. Validated MapX vector rules rendered natively for supported schemas.
+3. Validated GeoServer `intervals`/`values` from approved HTTPS providers, with an allowlisted MapX mirror retry for origin denial.
+4. MapX image fallback for continuous/static/unapproved raster, sprite, custom-coded, malformed, or unsupported schemas.
 
-**Scope sensitivity:** High. If MapX cannot support this, we need a content decision about static images, which has ongoing maintenance cost.
+**Action:** Confirm the `get_views` fields and `/get/mirror` service expectations with MapX. Run the documented regression procedure in `docs/legends.md` before merge.
+
+**Scope sensitivity:** Medium. Schema/route drift does not remove legends because the image fallback remains, but could reduce structured coverage or add latency.
 
 ---
 
@@ -255,39 +256,39 @@ _Currently zero observability into usage or errors._
 
 ## Summary view
 
-| WP    | Name                | Effort     | Resource          | Dependency            | Risk                     |
-| ----- | ------------------- | ---------- | ----------------- | --------------------- | ------------------------ |
-| WP-1  | Decisions           | 0 dev days | KH + stakeholders | —                     | High — blocks everything |
-| WP-2  | MapX legend         | ? (S–L)    | MX + KH           | MX response           | High — unknown ceiling   |
-| WP-3  | Hosting             | S–L        | KH + IT           | WP-1 hosting decision | Medium                   |
-| WP-4  | Country links       | S          | KH                | WP-1 URL pattern      | Low                      |
-| WP-5  | Access control      | XS–M       | KH (+ IT)         | WP-1 auth decision    | Low–Medium               |
-| WP-6  | Branding/copy       | XS         | KH + CE           | WP-1 name decision    | Low                      |
-| WP-7  | SDK hardening       | S          | KH                | —                     | Low                      |
-| WP-8  | Mobile/a11y         | S–L        | KH or FE + UX     | WP-1 mobile decision  | Medium                   |
-| WP-9  | Content pipeline    | S–M        | KH + CE           | —                     | Low                      |
-| WP-10 | Content maintenance | XS/cycle   | CE + KH           | —                     | Low                      |
-| WP-11 | Analytics           | S          | KH                | WP-3 hosting          | Low                      |
+| WP    | Name                | Effort     | Resource          | Dependency               | Risk                      |
+| ----- | ------------------- | ---------- | ----------------- | ------------------------ | ------------------------- |
+| WP-1  | Decisions           | 0 dev days | KH + stakeholders | —                        | High — blocks everything  |
+| WP-2  | MapX legend         | S–M        | KH + MX           | MX contract confirmation | Medium — guarded fallback |
+| WP-3  | Hosting             | S–L        | KH + IT           | WP-1 hosting decision    | Medium                    |
+| WP-4  | Country links       | S          | KH                | WP-1 URL pattern         | Low                       |
+| WP-5  | Access control      | XS–M       | KH (+ IT)         | WP-1 auth decision       | Low–Medium                |
+| WP-6  | Branding/copy       | XS         | KH + CE           | WP-1 name decision       | Low                       |
+| WP-7  | SDK hardening       | S          | KH                | —                        | Low                       |
+| WP-8  | Mobile/a11y         | S–L        | KH or FE + UX     | WP-1 mobile decision     | Medium                    |
+| WP-9  | Content pipeline    | S–M        | KH + CE           | —                        | Low                       |
+| WP-10 | Content maintenance | XS/cycle   | CE + KH           | —                        | Low                       |
+| WP-11 | Analytics           | S          | KH                | WP-3 hosting             | Low                       |
 
-**Without mobile and MapX legend:** total remaining effort is approximately **3–6 weeks** of KH time, largely sequential on decisions being made.
+**Without mobile:** total remaining effort is approximately **3–6 weeks** of KH time, largely sequential on decisions being made.
 
 **With mobile:** add **2–4 weeks** FE resource.
 
-**MapX legend:** add **unknown weeks** of MX time + **S–M** KH integration.
+**MapX legend:** structured vector and approved discrete-raster rendering are prototyped; allow **S–M** KH time for production-view QA, privacy/CSP review, and MapX contract confirmation.
 
 ---
 
 ## Risk register
 
-| ID  | Risk                                                                                                    | Likelihood | Impact    | Mitigation                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------- | ---------- | --------- | --------------------------------------------------------------------------------------- |
-| R1  | MapX SDK does not expose legend data and has no near-term plan to do so                                 | Medium     | High      | Start conversation immediately; agree fallback (static images) so launch is not blocked |
-| R2  | Hosting decision takes > 4 weeks to resolve                                                             | Medium     | High      | Time-box: escalate to decision-maker if unresolved by [date]                            |
-| R3  | Stakeholder behavior spec expands post-prototype (country links, filtering, dual panels all reinstated) | Medium     | High      | Product Spec sign-off before further development; change-control note in spec           |
-| R4  | MapX SDK breaking change before version pinning is in place (WP-7)                                      | Low        | High      | WP-7 is cheap — do it first                                                             |
-| R5  | Content team lacks capacity for ongoing inventory updates                                               | Medium     | Medium    | Define editorial SLA; automate CSV sync from SharePoint if needed                       |
-| R6  | UNDRR SSO required for access control (makes static-site architecture insufficient)                     | Low        | Very high | Clarify early; if SSO needed, architecture changes significantly                        |
-| R7  | Mobile required at launch but not scoped or resourced                                                   | Low        | High      | Confirm mobile scope in WP-1 decisions before any WP-8 work begins                      |
+| ID  | Risk                                                                                                    | Likelihood | Impact    | Mitigation                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------- | ---------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| R1  | MapX changes undocumented view fields or the mirror route used by structured legends                    | Medium     | Medium    | Strict validation, approved-host policy, live contract check, MapX image fallback, and contract confirmation |
+| R2  | Hosting decision takes > 4 weeks to resolve                                                             | Medium     | High      | Time-box: escalate to decision-maker if unresolved by [date]                                                 |
+| R3  | Stakeholder behavior spec expands post-prototype (country links, filtering, dual panels all reinstated) | Medium     | High      | Product Spec sign-off before further development; change-control note in spec                                |
+| R4  | MapX SDK breaking change before version pinning is in place (WP-7)                                      | Low        | High      | WP-7 is cheap — do it first                                                                                  |
+| R5  | Content team lacks capacity for ongoing inventory updates                                               | Medium     | Medium    | Define editorial SLA; automate CSV sync from SharePoint if needed                                            |
+| R6  | UNDRR SSO required for access control (makes static-site architecture insufficient)                     | Low        | Very high | Clarify early; if SSO needed, architecture changes significantly                                             |
+| R7  | Mobile required at launch but not scoped or resourced                                                   | Low        | High      | Confirm mobile scope in WP-1 decisions before any WP-8 work begins                                           |
 
 ---
 
@@ -297,7 +298,7 @@ _Currently zero observability into usage or errors._
 
 - WP-1: Run down all decisions in parallel; time-box to 2 weeks
 - WP-7: SDK hardening (independent, low-risk, do it now)
-- WP-2: Open formal MapX legend conversation
+- WP-2: Validate native legends and seek MapX schema-contract confirmation
 
 **Week 3–4 (once decisions land):**
 
@@ -311,7 +312,7 @@ _Currently zero observability into usage or errors._
 - WP-3: Hosting/deployment (longest lead time, needs IT)
 - WP-8: Accessibility audit (always) + mobile if in scope
 - WP-11: Analytics (once hosting is confirmed)
-- WP-2: Legend integration (if MapX timeline allows)
+- WP-2: Complete representative production-view visual QA
 
 **Ongoing:**
 
@@ -324,7 +325,7 @@ _Currently zero observability into usage or errors._
 A dedicated front-end developer would be needed if:
 
 1. **Mobile layout is required** — the floating sidebar panel is a fundamental UX pattern change at phone width; not a CSS patch.
-2. **MapX legend renderer** — if MapX exposes raw style data rather than a formatted legend, building a colour-ramp renderer from scratch is non-trivial.
+2. **MapX legend edge cases** — the core vector renderer is implemented; specialist front-end help is only a trigger if production QA reveals complex symbol, continuous-ramp, or custom-style requirements beyond the guarded fallback.
 3. **UNDRR SSO integration** — requires a backend component and auth flow work outside the current static-site model.
 4. **Dual map panel** — significant new state management and MapX SDK multi-instance work.
 5. **Workload exceeds bandwidth** — if WP-3 through WP-8 all land simultaneously, a second pair of hands would reduce the critical path.

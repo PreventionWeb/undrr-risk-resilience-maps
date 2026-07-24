@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:edra-contract": "node scripts/check-edra-contract.mjs",
+    "test:mapx-raster-contract": "node scripts/check-mapx-raster-legends.mjs",
     "test:all": "vitest run && playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",

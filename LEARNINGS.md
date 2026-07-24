@@ -268,3 +268,35 @@ See [docs/external-layers.md](docs/external-layers.md) for the exact EDRA entry 
 metadata that does not fit in the 14-column CSV.
 
 **Key implementation detail:** In the JS layer objects, `id:` appears _before_ `key:`. The import script searches _backward_ from the `key:` position to find the enclosing object start, then searches forward within that slice for `id:`. A forward search from `key:` would find the wrong `id:` (from the next object).
+
+---
+
+## MapX legends: guarded structured adapters with image fallback
+
+MapX has two useful but different legend paths:
+
+- `get_view_legend_image` returns the already-rendered PNG used by the previous UI.
+- `get_views` returns the active project catalogue, including vector `data.style` and raster
+  `data.source.legend` metadata.
+
+`src/sdk/legends.js` caches the catalogue per SDK manager, refreshes once on a missing view, and
+converts a conservative subset of vector styles into the provider-neutral model in
+`src/sdk/legend-model.js`. `src/sdk/raster-legends.js` separately supports discrete GeoServer
+`intervals` and `values` for explicitly approved HTTPS providers. GIRI rejects the embedding
+viewer's origin but permits `app.mapx.org`, so the raster adapter retries a network failure or HTTP
+403 through MapX's allowlisted `/get/mirror` route. One timeout covers both attempts and bounded
+body reading.
+
+Do not assume every MapX view can be reconstructed safely. Continuous raster ramps, static or
+unapproved raster providers, sprites, enabled/malformed custom styles, unsafe values, and
+excessive rule sets deliberately return to the MapX image fallback. Never turn the MapX mirror
+into a generic proxy: view metadata is mutable, and mirror destinations require explicit provider
+approval.
+
+The dedicated legend-state/value SDK methods were added to MapX in September 2023, so the general
+capability is not new. The important unresolved question is whether the detailed vector style
+shape returned by `get_views` is a stable, supported contract.
+
+The durable data-flow, trust boundaries, fallback reasons, testing cadence, and retirement path
+are maintained in `docs/legends.md`; the decision rationale is in
+`docs/adr/0001-structured-legends.md`.
