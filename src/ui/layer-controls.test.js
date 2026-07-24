@@ -147,6 +147,7 @@ describe("addLegend", () => {
   });
 
   it("shows and labels the SDK legend image directly when no local legend", async () => {
+    resolveMapXLegend.mockResolvedValue({ legend: null, reason: "raster" });
     getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
     await addLegend({ id: "view-1", type: "rt" }, container);
     const img = container.querySelector(".layer-legend-img");
@@ -156,6 +157,41 @@ describe("addLegend", () => {
     expect(container.querySelector(".legend-image-fallback-label").textContent).toBe(
       "MapX image legend (raster)",
     );
+  });
+
+  it("renders a supported MapX raster legend with a transparent-class marker", async () => {
+    resolveMapXLegend.mockResolvedValue({
+      legend: {
+        title: "cm/s2",
+        entries: [
+          {
+            color: "#808080",
+            label: "0",
+            opacity: 0,
+            geometry: "polygon",
+            size: null,
+            borderColor: null,
+          },
+          {
+            color: "#FFF195",
+            label: "< 100",
+            opacity: 1,
+            geometry: "polygon",
+            size: null,
+            borderColor: null,
+          },
+        ],
+      },
+      reason: null,
+    });
+
+    await addLegend({ id: "view-1", type: "rt" }, container);
+
+    expect(container.querySelector(".html-legend-title").textContent).toBe("cm/s2");
+    expect(container.querySelector(".html-legend").dataset.legendMode).toBe("mapx-raster-structured");
+    expect(container.querySelector(".html-legend-swatch--transparent")).not.toBeNull();
+    expect(container.querySelector("details.legend-diagnostic")).not.toBeNull();
+    expect(getViewLegendImage).not.toHaveBeenCalled();
   });
 
   it("renders structured MapX rules as the default legend", async () => {

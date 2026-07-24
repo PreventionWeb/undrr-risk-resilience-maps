@@ -7,6 +7,7 @@
  * for the parent application's HTML renderer.
  */
 import { getSDK } from "./client.js";
+import { resolveRasterMapXLegend } from "./raster-legends.js";
 
 const MAX_LEGEND_RULES = 500;
 const COLOR_PATTERN = /^(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\([^)]{1,50}\)|[a-z]{1,30})$/i;
@@ -33,7 +34,7 @@ let catalogSDK = null;
  */
 
 /**
- * @typedef {"raster"|"unsupported-view-type"|"catalog-miss"|"custom-style"|"schema-invalid"|"too-many-rules"|"unsupported-style"} LegendFallbackReason
+ * @typedef {"raster"|"raster-json-unavailable"|"raster-json-invalid"|"raster-json-unsupported"|"unsupported-view-type"|"catalog-miss"|"custom-style"|"schema-invalid"|"too-many-rules"|"unsupported-style"} LegendFallbackReason
  */
 
 /**
@@ -232,7 +233,9 @@ export async function resolveMapXLegend(idView, language = "en") {
     views = await getCatalog(true);
     view = views.find((candidate) => candidate?.id === idView);
   }
-  return view ? resolveParsedMapXLegend(view, language) : { legend: null, reason: "catalog-miss" };
+  if (!view) return { legend: null, reason: "catalog-miss" };
+  if (view.type === "rt") return resolveRasterMapXLegend(view, language);
+  return resolveParsedMapXLegend(view, language);
 }
 
 export async function getMapXLegend(idView, language = "en") {

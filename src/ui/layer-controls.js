@@ -10,6 +10,9 @@ import { resolveMapXLegend } from "../sdk/legends.js";
 
 const IMAGE_FALLBACK_LABELS = {
   raster: "MapX image legend (raster)",
+  "raster-json-unavailable": "MapX image legend (raster data unavailable)",
+  "raster-json-invalid": "MapX image legend (invalid raster data)",
+  "raster-json-unsupported": "MapX image legend (unsupported raster style)",
   "catalog-miss": "MapX image legend (view not in project catalogue)",
   "custom-style": "MapX image legend (custom style)",
   "unsupported-view-type": "MapX image legend",
@@ -78,7 +81,7 @@ export async function addOpacitySlider(idView, container) {
  *
  * Priority:
  *   1. A local legend declared by the layer/provider.
- *   2. Structured vector style rules from the MapX project catalogue.
+ *   2. Structured vector rules or supported GeoServer raster colour maps.
  *   3. The server-rendered MapX PNG for unsupported or malformed views.
  *
  * @param {{ id: string, type?: string, geometry?: string, legend?: Array<{color: string, label: string, geometry?: string}> }} layer
@@ -104,12 +107,16 @@ export async function addLegend(layer, container) {
         geometry: item.geometry ?? layer.geometry ?? "polygon",
       })),
     };
-  } else if (layer.type === "vt") {
+  } else if (layer.type === "vt" || layer.type === "rt") {
     try {
       const resolution = await resolveMapXLegend(layer.id);
       if (!isCurrentRequest()) return;
       structuredLegend = resolution.legend;
-      structuredMode = structuredLegend ? "mapx-vector-structured" : null;
+      structuredMode = structuredLegend
+        ? layer.type === "rt"
+          ? "mapx-raster-structured"
+          : "mapx-vector-structured"
+        : null;
       fallbackReason = resolution.reason;
     } catch {
       if (!isCurrentRequest()) return;
@@ -234,7 +241,11 @@ function renderStructuredLegend(definition, container, mode) {
     const geometry = ["point", "line", "polygon"].includes(item.geometry) ? item.geometry : "polygon";
     swatch.className = `html-legend-swatch html-legend-swatch--${geometry}`;
     swatch.style.backgroundColor = item.color || "#ccc";
-    if (Number.isFinite(item.opacity)) swatch.style.opacity = String(item.opacity);
+    if (item.opacity === 0) {
+      swatch.classList.add("html-legend-swatch--transparent");
+    } else if (Number.isFinite(item.opacity)) {
+      swatch.style.opacity = String(item.opacity);
+    }
     if (item.borderColor) swatch.style.borderColor = item.borderColor;
     if (Number.isFinite(item.size)) {
       const size = Math.min(14, Math.max(5, item.size));
