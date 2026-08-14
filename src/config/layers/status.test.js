@@ -43,4 +43,13 @@ describe("layer status helpers", () => {
     expect(getLayerStatus(layer, { id: "MX-SRC" })).toBe("Active");
     expect(getLayerStatus(layer, { id: null })).toBe("Placeholder");
   });
+
+  it("treats a published compound layer with source ids as active", () => {
+    const layer = {
+      id: null,
+      disabled: false,
+      sources: [{ id: "MX-SRC-1" }, { id: "MX-SRC-2" }],
+    };
+    expect(getLayerStatus(layer)).toBe("Active");
+  });
 });

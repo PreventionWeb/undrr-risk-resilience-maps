@@ -6,7 +6,15 @@ vi.mock("../config/layers.js", () => ({
       id: "test-tab",
       label: "Test",
       layers: [
-        { id: "vt-view", key: "vt-layer", label: "VT Layer", type: "vt" },
+        {
+          id: "vt-view",
+          key: "vt-layer",
+          label: "VT Layer",
+          type: "vt",
+          desc: "A readable layer description.",
+          source: "Example source",
+          sourceUrl: "https://example.com/data",
+        },
         { id: "rt-view", key: "rt-layer", label: "RT Layer", type: "rt" },
         {
           id: null,
@@ -122,6 +130,30 @@ describe("layer rows — VT with data", () => {
     expect(html).toContain("125");
   });
 
+  it("shows layer context and source links with inspection values", () => {
+    showSiteInspector({
+      lngLat: { lat: 0, lng: 0 },
+      views: { "vt-view": [{ romnam: "Japan", iso3cd: "JPN" }] },
+      openViewsSnapshot: new Set(["vt-view"]),
+    });
+    const row = document.querySelector(".site-inspector-layer-row");
+    expect(row.querySelector(".site-inspector-layer-desc").textContent).toContain("readable");
+    expect(row.textContent).toContain("Country");
+    expect(row.textContent).toContain("Country code");
+    expect(row.querySelector('a[href="https://example.com/data"]')).not.toBeNull();
+    expect(row.querySelector('a[href="#sources"]')).not.toBeNull();
+  });
+
+  it("formats large numeric values for readability", () => {
+    showSiteInspector({
+      lngLat: { lat: 0, lng: 0 },
+      views: { "vt-view": [{ jo_pml100_households_existingclimate: 35724591030.8 }] },
+      openViewsSnapshot: new Set(["vt-view"]),
+    });
+    expect(document.querySelector(".site-inspector-layers").textContent).toContain("35,724,591,030.8");
+    expect(document.querySelector(".site-inspector-layers").textContent).toContain("PML housing loss");
+  });
+
   it("uses has-data indicator for VT view with hit", () => {
     showSiteInspector({
       lngLat: { lat: 0, lng: 0 },
@@ -222,7 +254,7 @@ describe("layer rows — compound layer", () => {
       openViewsSnapshot: new Set(["compound-src-1"]),
     });
     const text = document.querySelector(".site-inspector-layer-name").textContent;
-    expect(text).toBe("Source B");
+    expect(text).toBe("Compound Layer — Source B");
   });
 });
 

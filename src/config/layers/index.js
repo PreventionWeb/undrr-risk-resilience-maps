@@ -66,11 +66,46 @@ function withR2rGroups(layers) {
 }
 
 export const TABS = [
-  { id: "risk-resilience", label: "Risk", ...withR2rGroups(RISK_LAYERS) },
-  { id: "resilience", label: "Resilience", ...withR2rGroups(RESILIENCE_LAYERS) },
-  { id: "hazard", label: "Hazard", ...withR2rGroups(HAZARD_LAYERS) },
-  { id: "exposure", label: "Exposure", ...withR2rGroups(EXPOSURE_LAYERS) },
-  { id: "vulnerability", label: "Vulnerability", ...withR2rGroups(VULNERABILITY_LAYERS) },
+  {
+    id: "risk-resilience",
+    label: "Risk",
+    description:
+      "Potential disaster losses, shaped by hazard, exposure, vulnerability and the capacity to reduce or manage risk.",
+    definitionUrl: "https://www.undrr.org/terminology/disaster-risk",
+    glossary: "AAL means average annual loss; PML means probable maximum loss.",
+    ...withR2rGroups(RISK_LAYERS),
+  },
+  {
+    id: "resilience",
+    label: "Resilience",
+    description:
+      "The ability of systems and communities to resist, adapt to and recover from hazard impacts in a timely and efficient way.",
+    definitionUrl: "https://www.undrr.org/terminology/resilience",
+    glossary: "DRR means disaster risk reduction.",
+    ...withR2rGroups(RESILIENCE_LAYERS),
+  },
+  {
+    id: "hazard",
+    label: "Hazard",
+    description: "Processes, phenomena or human activities that may cause harm, damage or disruption.",
+    definitionUrl: "https://www.undrr.org/terminology/hazard",
+    ...withR2rGroups(HAZARD_LAYERS),
+  },
+  {
+    id: "exposure",
+    label: "Exposure",
+    description: "People, infrastructure and other tangible assets located in hazard-prone areas.",
+    definitionUrl: "https://www.undrr.org/terminology/exposure",
+    ...withR2rGroups(EXPOSURE_LAYERS),
+  },
+  {
+    id: "vulnerability",
+    label: "Vulnerability",
+    description:
+      "Physical, social, economic and environmental conditions that increase susceptibility to hazard impacts.",
+    definitionUrl: "https://www.undrr.org/terminology/vulnerability",
+    ...withR2rGroups(VULNERABILITY_LAYERS),
+  },
 ];
 
 export const PRIMARY_PROJECT = "MX-2LD-FBB-58N-ROK-8RH";

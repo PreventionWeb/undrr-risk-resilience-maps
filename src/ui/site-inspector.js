@@ -23,6 +23,13 @@ import { makeDraggable, makeResizable } from "../utils/panels.js";
 // MapX internal fields not meaningful for end users
 const SKIP_KEYS = ["gid", "mx_t0", "mx_t1", "geom", "geometry"];
 
+const ATTRIBUTE_LABELS = {
+  GRAY_INDEX: "Pixel Value",
+  iso3cd: "Country code",
+  romnam: "Country",
+  jo_pml100_households_existingclimate: "PML housing loss (1-in-100-year event, current climate)",
+};
+
 // Float32 "no data" sentinel used by raster-as-VT layers (GRAY_INDEX nodata value)
 const FLOAT32_NODATA = -3.4028234663852886e38;
 function isNoData(v) {
@@ -39,6 +46,23 @@ function esc(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function attributeLabel(key) {
+  if (ATTRIBUTE_LABELS[key]) return ATTRIBUTE_LABELS[key];
+  return key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b(?:aal|pml|gdp|iso)\b/gi, (value) => value.toUpperCase())
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function attributeValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(value);
+  }
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return value;
 }
 
 /**
@@ -142,7 +166,12 @@ export function showSiteInspector(result) {
 function buildLayerRow(idView, views) {
   const runtime = getExternalRuntimeByViewId(idView);
   const entry = VIEW_INDEX.get(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
-  const label = entry ? (entry.source?.label ?? entry.layer.label) : idView;
+  const label = entry
+    ? entry.source
+      ? `${entry.layer.label} — ${entry.source.label}`
+      : entry.layer.label
+    : idView;
+  const description = entry?.source?.desc ?? entry?.layer?.desc ?? "";
   const type = entry?.layer.type ?? "vt";
 
   const row = document.createElement("div");
@@ -163,17 +192,26 @@ function buildLayerRow(idView, views) {
     </div>
   `;
 
+  if (description) {
+    html += `<p class="site-inspector-layer-desc">${esc(description)}</p>`;
+  }
+
+  if (entry?.layer) {
+    const links = [];
+    if (entry.layer.sourceUrl && entry.layer.source !== "Source to be confirmed.") {
+      links.push(`<a href="${esc(entry.layer.sourceUrl)}" target="_blank" rel="noopener">Source</a>`);
+    }
+    links.push('<a href="#sources">Citation and methodology details</a>');
+    html += `<p class="site-inspector-layer-links">${links.join(" · ")}</p>`;
+  }
+
   if (hasData) {
     // Render attribute table. "inBatch" beats local type — raster-as-VT layers
     // (GRAY_INDEX) come through here too.
     const entries = Object.entries(props).filter(
       ([k, v]) => !SKIP_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
     );
-    // Remap internal GRAY_INDEX → friendlier label
-    const labelledEntries = entries.map(([k, v]) => [
-      k === "GRAY_INDEX" ? "Pixel Value" : k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-      v,
-    ]);
+    const labelledEntries = entries.map(([key, value]) => [attributeLabel(key), attributeValue(value)]);
     if (labelledEntries.length > 0) {
       html += `<table class="site-inspector-attrs">`;
       for (const [k, v] of labelledEntries) {
