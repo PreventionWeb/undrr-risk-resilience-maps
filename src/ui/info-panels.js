@@ -170,11 +170,24 @@ function buildSourcesTable(layers) {
 
 export function buildSourcesPanel() {
   const categorySections = TABS.map((tab) => {
+    const available = tab.layers.filter((layer) => getLayerStatus(layer) === "Active");
+    const planned = tab.layers.filter((layer) => getLayerStatus(layer) !== "Active");
+    const plannedSection =
+      planned.length > 0
+        ? `
+          <details class="sources-planned">
+            <summary>Metrics under development (${planned.length})</summary>
+            <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
+            ${buildSourcesTable(planned)}
+          </details>`
+        : "";
     return `
       <div class="info-page-section info-page-section--wide">
         <div class="mg-container">
           <h2 class="info-page-section__title">${escHtml(tab.label)} Data</h2>
-          ${buildSourcesTable(tab.layers)}
+          <h3 class="info-source-subtitle">Available data</h3>
+          ${available.length > 0 ? buildSourcesTable(available) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
+          ${plannedSection}
         </div>
       </div>`;
   }).join("");
@@ -198,7 +211,7 @@ export function buildSourcesPanel() {
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
-        <p class="info-page-hero__intro">Full attribution, citation, and licensing information for all datasets configured in this tool. Disabled layers remain listed for transparency during prototype review.</p>
+        <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
         <label class="sources-mapx-toggle">
           <input type="checkbox" id="toggle-mapx-ids">
           Show MapX view IDs

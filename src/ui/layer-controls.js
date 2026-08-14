@@ -132,6 +132,7 @@ export async function addLegend(layer, container) {
   if (structuredLegend) {
     requestMarker.remove();
     renderStructuredLegend(structuredLegend, container, structuredMode, structuredTransport);
+    addLegendNote(layer, container);
     addImageLegendComparison(layer.id, container);
     return;
   }
@@ -146,11 +147,26 @@ export async function addLegend(layer, container) {
       requestMarker.remove();
       return;
     }
-    requestMarker.replaceWith(createImageLegendFallback(legendData, fallbackReason, fallbackDiagnostic));
+    const fallback = createImageLegendFallback(legendData, fallbackReason, fallbackDiagnostic);
+    addLegendNote(layer, fallback);
+    requestMarker.replaceWith(fallback);
   } catch {
     if (isCurrentRequest()) requestMarker.remove();
     // Not all layers have SDK legends
   }
+}
+
+function addLegendNote(layer, container) {
+  if (!layer.legendNote) return;
+  const note = document.createElement("p");
+  note.className = "legend-note";
+  note.textContent = layer.legendNote;
+  container.appendChild(note);
+}
+
+function displayLegendLabel(value) {
+  const label = String(value ?? "").trim();
+  return /^(?:absent|null|no[ _-]?data)$/i.test(label) ? "No data" : label;
 }
 
 function createImageLegendFallback(legendData, reason, diagnostic) {
@@ -264,7 +280,7 @@ function renderStructuredLegend(definition, container, mode, transport) {
 
     const label = document.createElement("span");
     label.className = "html-legend-label";
-    label.textContent = item.label || "";
+    label.textContent = displayLegendLabel(item.label);
     row.appendChild(label);
 
     rules.appendChild(row);

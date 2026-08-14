@@ -131,6 +131,18 @@ describe("addLegend", () => {
     expect(labels).toEqual(["High", "Low"]);
   });
 
+  it("normalizes source-specific absent labels to no data", async () => {
+    getViewLegendImage.mockResolvedValue(null);
+    await addLegend({ id: "v", legend: [{ color: "#fff", label: "Absent" }] }, container);
+    expect(container.querySelector(".html-legend-label").textContent).toBe("No data");
+  });
+
+  it("shows configured legend guidance", async () => {
+    getViewLegendImage.mockResolvedValue(null);
+    await addLegend({ ...simpleLayer, legendNote: "Absent means no data." }, container);
+    expect(container.querySelector(".legend-note").textContent).toBe("Absent means no data.");
+  });
+
   it("sets swatch background color from legend item", async () => {
     getViewLegendImage.mockResolvedValue(null);
     await addLegend(simpleLayer, container);

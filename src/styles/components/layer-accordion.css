@@ -98,6 +98,42 @@
   font-size: 0.7rem;
   color: #666;
   line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.tab-panel-intro {
+  padding: 0.7rem 0.75rem;
+  color: #3f4e5e;
+  background: #f5f8fb;
+  border-bottom: 1px solid #dce5ed;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.tab-panel-intro p {
+  margin: 0 0 0.3rem;
+}
+
+.tab-panel-intro p:last-of-type {
+  margin-bottom: 0.35rem;
+}
+
+.tab-panel-intro a,
+.layer-meta-links a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tab-panel-glossary {
+  color: #5a6876;
+}
+
+.layer-meta-links {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
 /* ── Layer groups (Risk / Resilience subheadings) ─── */

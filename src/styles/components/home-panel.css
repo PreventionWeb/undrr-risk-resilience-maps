@@ -195,6 +195,44 @@
   margin: 0 0 0.75rem;
 }
 
+.info-source-subtitle {
+  margin: 0 0 0.7rem;
+  color: #263746;
+  font-size: 1rem;
+}
+
+.info-source-empty,
+.sources-planned__intro {
+  color: #5f6d7a;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.sources-planned {
+  margin-top: 1.25rem;
+  border: 1px solid #d8e1e9;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+.sources-planned > summary {
+  padding: 0.7rem 0.85rem;
+  color: #40556a;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.sources-planned__intro {
+  margin: 0;
+  padding: 0 0.85rem 0.7rem;
+}
+
+.sources-planned .data-table-wrap {
+  margin: 0 0.85rem 0.85rem;
+  background: #fff;
+}
+
 .info-source-entries {
   border-left: 3px solid #b3cade;
   padding-left: 1rem;
