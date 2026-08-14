@@ -68,7 +68,7 @@ const layerElementMap = new Map();
 const secondaryEyeBtns = new Map();
 // Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
 const toggleInFlight = new Set();
-let showDisabledLayers = true;
+let showDisabledLayers = false;
 
 function setLayerToggleDisabled(layer, eyeBtn, disabled) {
   eyeBtn.disabled = disabled;
@@ -179,6 +179,27 @@ export function buildSidebar() {
     tabPanel.id = `tab-${tab.id}`;
     tabPanel.style.display = "none";
 
+    const intro = document.createElement("div");
+    intro.className = "tab-panel-intro";
+    const introText = document.createElement("p");
+    introText.textContent = tab.description;
+    intro.appendChild(introText);
+    if (tab.glossary) {
+      const glossary = document.createElement("p");
+      glossary.className = "tab-panel-glossary";
+      glossary.textContent = tab.glossary;
+      intro.appendChild(glossary);
+    }
+    if (tab.definitionUrl) {
+      const definitionLink = document.createElement("a");
+      definitionLink.href = tab.definitionUrl;
+      definitionLink.target = "_blank";
+      definitionLink.rel = "noopener";
+      definitionLink.textContent = "UNDRR definition";
+      intro.appendChild(definitionLink);
+    }
+    tabPanel.appendChild(intro);
+
     const publishedLayers = tab.layers.filter(isLayerPublished);
     const empty = document.createElement("p");
     empty.className = "tab-panel-empty mg-form-help";
@@ -254,6 +275,11 @@ export function buildSidebar() {
 
   // Wire nav category links
   for (const link of document.querySelectorAll(".nav-tab-link")) {
+    const tab = TABS.find((candidate) => candidate.id === link.dataset.tab);
+    if (tab?.description) {
+      link.title = tab.description;
+      link.setAttribute("aria-description", tab.description);
+    }
     link.addEventListener("click", (e) => {
       e.preventDefault();
       switchTab(link.dataset.tab);
@@ -539,6 +565,23 @@ function buildLayerAccordion(layer) {
     desc.textContent = layer.desc;
     body.appendChild(desc);
   }
+
+  const metadata = document.createElement("p");
+  metadata.className = "layer-meta-links";
+  if (layer.sourceUrl && layer.source && layer.source !== "Source to be confirmed.") {
+    const sourceLink = document.createElement("a");
+    sourceLink.href = layer.sourceUrl;
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener";
+    sourceLink.textContent = "Source";
+    metadata.appendChild(sourceLink);
+    metadata.append(" · ");
+  }
+  const detailsLink = document.createElement("a");
+  detailsLink.href = "#sources";
+  detailsLink.textContent = "Citation and methodology details";
+  metadata.appendChild(detailsLink);
+  body.appendChild(metadata);
 
   // Widget slot (compound layers render source-switcher here)
   const widgetSlot = document.createElement("div");

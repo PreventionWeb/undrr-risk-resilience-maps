@@ -31,6 +31,10 @@ export function getLayerStatus(layer, source = null) {
 
   if (layer.external) return STATUS_LABELS.active;
 
+  if (!source && Array.isArray(layer.sources) && layer.sources.some((candidate) => candidate.id)) {
+    return STATUS_LABELS.active;
+  }
+
   const viewId = source ? source.id : layer.id;
   return viewId ? STATUS_LABELS.active : STATUS_LABELS.placeholder;
 }
