@@ -73,7 +73,9 @@ const [headerRow, ...dataRows] = parseCSV(csvText);
 const H = {};
 headerRow.forEach((h, i) => (H[h.trim()] = i));
 
-// Build inventory index: key → { subSource → {mapxId, status, layerName, initiative, r2rCategory, rrStep} }
+// Build inventory index: key → { subSource → [rows] }.
+// A sub-source label is not necessarily unique: recovery-speed, for example,
+// repeats each hazard for the poorest and richest household groups.
 const inventory = new Map();
 
 for (const r of dataRows) {
@@ -89,7 +91,9 @@ for (const r of dataRows) {
   if (!key) continue;
 
   if (!inventory.has(key)) inventory.set(key, new Map());
-  inventory.get(key).set(subSource, { mapxId, status, layerName, initiative, r2rCat, rrStep });
+  const subMap = inventory.get(key);
+  if (!subMap.has(subSource)) subMap.set(subSource, []);
+  subMap.get(subSource).push({ mapxId, status, layerName, initiative, r2rCat, rrStep });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -132,9 +136,10 @@ function extractLayerEntries(src, file) {
       let sm;
       while ((sm = subRe2.exec(sourcesBlock)) !== null) {
         const rawId = sm[1].trim();
-        const subLabel = sm[2];
+        const inventoryLabel = /inventoryLabel:\s*["']([^"']+)["']/.exec(sm[0]);
+        const subLabel = inventoryLabel ? inventoryLabel[1] : sm[2];
         const currentId = rawId === "null" ? "" : rawId.replace(/["']/g, "");
-        entries.push({ key, subSource: subLabel, currentId, currentStatus: "", file });
+        entries.push({ key, subSource: subLabel, uiLabel: sm[2], currentId, currentStatus: "", file });
       }
     } else {
       // Simple layer — id: appears BEFORE key: in the object, so search backward.
@@ -147,8 +152,14 @@ function extractLayerEntries(src, file) {
       const currentId = idMatch ? (idMatch[1] === "null" ? "" : idMatch[1].replace(/["']/g, "")) : "";
 
       // Also capture current status for status-change detection
-      const statusMatch = /status:\s*["']([^"']+)["']/.exec(objSrc + forwardBlock.slice(0, 200));
-      const currentStatus = statusMatch ? statusMatch[1] : "published";
+      const statusMatch = /status:\s*(?:["']([^"']+)["']|([A-Z_]+))/.exec(objSrc + forwardBlock);
+      const statusConstants = {
+        AWAITING: "disabled-awaiting-data",
+        PENDING_REMOVAL: "disabled-pending-removal",
+      };
+      const currentStatus = statusMatch
+        ? statusMatch[1] || statusConstants[statusMatch[2]] || statusMatch[2]
+        : "published";
 
       entries.push({ key, subSource: "", currentId, currentStatus, file });
     }
@@ -190,7 +201,7 @@ const idChanges = [];
 const statusChanges = [];
 
 // Track which CSV entries were matched
-const csvMatched = new Set();
+const csvMatched = new Map();
 
 for (const entry of jsEntries) {
   const csvLayer = inventory.get(entry.key);
@@ -199,14 +210,16 @@ for (const entry of jsEntries) {
     continue;
   }
 
-  const csvEntry = csvLayer.get(entry.subSource);
+  const csvEntries = csvLayer.get(entry.subSource);
+  const occurrenceKey = `${entry.key}|${entry.subSource}`;
+  const occurrence = csvMatched.get(occurrenceKey) || 0;
+  const csvEntry = csvEntries?.[occurrence];
   if (!csvEntry) {
     onlyInJS.push(entry);
     continue;
   }
 
-  const matchKey = `${entry.key}|${entry.subSource}`;
-  csvMatched.add(matchKey);
+  csvMatched.set(occurrenceKey, occurrence + 1);
   matched.push({ ...entry, csvEntry });
 
   // Check for MapX ID change
@@ -226,9 +239,10 @@ for (const entry of jsEntries) {
 
 // Find CSV-only entries
 for (const [key, subMap] of inventory) {
-  for (const [subSource, csvEntry] of subMap) {
+  for (const [subSource, csvEntries] of subMap) {
     const matchKey = `${key}|${subSource}`;
-    if (!csvMatched.has(matchKey)) {
+    const matchedCount = csvMatched.get(matchKey) || 0;
+    for (const csvEntry of csvEntries.slice(matchedCount)) {
       onlyInCSV.push({ key, subSource, csvEntry });
     }
   }
@@ -237,7 +251,12 @@ for (const [key, subMap] of inventory) {
 // ── Report ────────────────────────────────────────────────────────────────────
 
 console.log("\n=== Layer Inventory Sync Report ===\n");
-console.log(`CSV rows:    ${[...inventory.values()].reduce((n, m) => n + m.size, 0)}`);
+console.log(
+  `CSV rows:    ${[...inventory.values()].reduce(
+    (n, m) => n + [...m.values()].reduce((sum, rows) => sum + rows.length, 0),
+    0,
+  )}`,
+);
 console.log(`JS entries:  ${jsEntries.length}`);
 console.log(`Matched:     ${matched.length}`);
 
@@ -287,7 +306,11 @@ if (!APPLY) {
 
 // ── Apply ─────────────────────────────────────────────────────────────────────
 
-if (idChanges.length === 0) {
+const applyableStatusChanges = statusChanges.filter(
+  (change) => change.oldStatus !== "published" && change.newStatus !== "published",
+);
+
+if (idChanges.length === 0 && applyableStatusChanges.length === 0) {
   console.log("\n--apply: nothing to change.\n");
   process.exit(0);
 }
@@ -299,6 +322,9 @@ const changesByFile = {};
 for (const change of idChanges) {
   (changesByFile[change.file] ??= []).push(change);
 }
+for (const change of applyableStatusChanges) {
+  changesByFile[change.file] ??= [];
+}
 
 for (const [relPath, changes] of Object.entries(changesByFile)) {
   let src = fileSources[relPath];
@@ -309,12 +335,12 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
 
     // Replace null or old ID for this sub-source within the file.
     // Strategy: find the label string, then patch the nearest id: before it.
-    const labelPattern = c.subSource ? `label: "${c.subSource}"` : null;
+    const labelPattern = c.subSource ? `label: "${c.uiLabel || c.subSource}"` : null;
 
     if (labelPattern) {
       // Compound: find { id: X, label: "subSource" } or { id: X, ..., label: "subSource" }
       const re = new RegExp(
-        `(id:\\s*)(null|"[^"]*")((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`,
+        `(id:\\s*)(null|"[^"]*")((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`,
         "g",
       );
       const replaced = src.replace(re, (m, pre, _id, post) => {
