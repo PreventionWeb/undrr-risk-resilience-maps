@@ -2,7 +2,7 @@
  * Floating layer panel + info page routing.
  *
  * - Data tabs (from layer config): show map + sidebar.
- * - Info tabs (home / guide / sources / downloads): show full-page view, hide map.
+ * - Info tabs (home / sources / about): show full-page view, hide map.
  *
  * Layer definitions come from config/layers.js; this module is purely UI.
  */
@@ -11,7 +11,7 @@ import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
-import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel, buildAboutPanel } from "./info-panels.js";
+import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { parseHash, writeHash } from "../state/hash.js";
@@ -52,7 +52,7 @@ function buildLayerTypeTag(layer) {
   return tag;
 }
 
-const INFO_TABS = ["home", "guide", "sources", "downloads", "about"];
+const INFO_TABS = ["home", "sources", "about"];
 
 // All valid tab IDs for hash routing
 const DATA_TABS = TABS.map((tab) => tab.id);
@@ -172,9 +172,7 @@ export function buildSidebar() {
 
   // Populate info page with all info panels
   infoPage.appendChild(buildHomePanel());
-  infoPage.appendChild(buildGuidePanel());
   infoPage.appendChild(buildSourcesPanel());
-  infoPage.appendChild(buildDownloadsPanel());
   infoPage.appendChild(buildAboutPanel());
 
   // Populate sidebar with layer panels (data tabs only)

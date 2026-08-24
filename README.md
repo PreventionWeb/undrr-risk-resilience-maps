@@ -47,7 +47,7 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 
 ## URL routing
 
-Hash-based routing (`#risk-resilience`, `#hazard`, `#guide`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.
+Hash-based routing (`#risk-resilience`, `#hazard`, `#sources`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.
 
 ## Ecosystem context
 
