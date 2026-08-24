@@ -9,22 +9,6 @@ import { TABS } from "../config/layers/index.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
 
-// Platform-level credits not tied to any specific layer.
-const PLATFORM_CREDITS = [
-  {
-    label: "MapX",
-    url: "https://app.mapx.org/",
-    detailHtml:
-      '<a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> (<a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>) is a core part of this tool\'s data workflow and map interactivity. Most layers are hosted by MapX; selected external prototypes are fetched from their source and rendered as temporary MapX views.',
-  },
-  {
-    label: "GRI Risk Viewer",
-    url: "https://global.infrastructureresilience.org",
-    detailHtml:
-      'This tool is inspired by the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer</a> by <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford OPSIS</a>. Layer inventory and interaction model adapted under attribution.',
-  },
-];
-
 function escHtml(s) {
   if (s == null) return "";
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -113,19 +97,6 @@ export function buildSourcesPanel() {
       </div>`;
   }).join("");
 
-  const platformRows = PLATFORM_CREDITS.map(
-    (e) => `
-    <div class="info-source-entry">
-      <p class="info-source-entry__label">${
-        e.url
-          ? `<a href="${escHtml(e.url)}" target="_blank" rel="noopener">${escHtml(e.label)}</a>`
-          : escHtml(e.label)
-      }</p>
-      <p class="info-source-entry__detail">${e.detailHtml || escHtml(e.detail || "")}</p>
-    </div>
-  `,
-  ).join("");
-
   const panel = buildPanel(
     "tab-sources",
     `
@@ -141,13 +112,6 @@ export function buildSourcesPanel() {
     </div>
 
     ${categorySections}
-
-    <div class="info-page-section info-page-section--grey">
-      <div class="mg-container">
-        <h2 class="info-page-section__title">Platform</h2>
-        <div class="info-source-entries">${platformRows}</div>
-      </div>
-    </div>
 
     <div class="info-page-section">
       <div class="mg-container">

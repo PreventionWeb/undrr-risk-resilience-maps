@@ -56,7 +56,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
-- Removed the low-value Guide and Downloads navigation tabs and their hash routes; inventory download remains available from Sources. Sources tables now use the full content width instead of inheriting the standard prose measure.
+- Removed the low-value Guide and Downloads navigation tabs and their hash routes; inventory download remains available from Sources. Removed the redundant Platform block from Sources and the In progress and Credits blocks from Home. Sources tables now use the full content width instead of inheriting the standard prose measure.
 - Refreshed patch/minor Node dependencies and security resolutions; `yarn audit` now reports zero known vulnerabilities.
 - EDRA value requests now cover all available regions, including the Azores and Madeira; strict schema, duplicate-key, feature/vertex/value-count, and minimum join-coverage checks fail visibly instead of silently rendering a plausible no-data map.
 - EDRA crop colours, thresholds, and no-data styling now come from the live configuration used by the source explorer. The MapX paint expression and HTML legend share that validated definition, preventing independent upstream-style drift.

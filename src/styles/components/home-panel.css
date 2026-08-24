@@ -234,28 +234,6 @@
   background: #fff;
 }
 
-.info-source-entries {
-  border-left: 3px solid #b3cade;
-  padding-left: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.info-source-entry__label {
-  margin: 0 0 0.2rem;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #004f91;
-}
-
-.info-source-entry__detail {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #4d4d4d;
-  line-height: 1.5;
-}
-
 /* ── Data table (Sources page) ── */
 
 .data-table-wrap {
@@ -388,15 +366,4 @@
   gap: 0.5rem;
   font-size: 0.95rem;
   line-height: 1.6;
-}
-
-/* ── Credits ── */
-
-.info-page-credits {
-  font-size: 0.9rem;
-  color: #4d4d4d;
-}
-
-.info-page-credits a {
-  color: #004f91;
 }
