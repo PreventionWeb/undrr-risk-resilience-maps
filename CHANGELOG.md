@@ -8,6 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- Expanding a published layer now activates it automatically; collapsing the accordion leaves the map layer active until its accessible on/off switch is turned off. Eye icons have been replaced with larger, touch-friendly switch controls across primary and cross-tab layer lists.
 - **August 2026 map inventory import**: reconciled 122 programme spreadsheet rows with the runtime registry, including eight World Bank recovery-speed views, PML public infrastructure views, crop placeholders, the ecosystem-loss and early-warning MapX IDs, richer source metadata, new Risk/Resilience placeholders, and explicit pending-removal states. The inventory importer now supports repeated sub-source labels and status-only updates.
 - **External EDRA crop-risk prototype**: the Hazard group can now fetch European Drought Risk Atlas NUTS-2 boundaries and drought-related crop-yield reductions directly from Copernicus CEMS, reproject the source geometry from EPSG:3035, and inject it into MapX as a temporary GeoJSON view. The layer includes barley/maize/wheat and historical/current/+1.5 °C/+2 °C/+3 °C controls, opacity, a local legend, URL restore, and site-inspection attributes.
 - External-layer runtime registry and provider adapter pattern, allowing non-MapX sources to participate in the existing `openViews`, inspection, clear-all, and layer-control workflows without a permanent MapX view ID.
@@ -55,6 +56,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- Refreshed patch/minor Node dependencies and security resolutions; `yarn audit` now reports zero known vulnerabilities.
 - EDRA value requests now cover all available regions, including the Azores and Madeira; strict schema, duplicate-key, feature/vertex/value-count, and minimum join-coverage checks fail visibly instead of silently rendering a plausible no-data map.
 - EDRA crop colours, thresholds, and no-data styling now come from the live configuration used by the source explorer. The MapX paint expression and HTML legend share that validated definition, preventing independent upstream-style drift.
 - External-view deletion failures now keep the prior runtime registration and UI state authoritative; failed replacements clean up the candidate view instead of risking a hidden or duplicated MapX layer.
