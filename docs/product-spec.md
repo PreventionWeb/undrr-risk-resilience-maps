@@ -54,7 +54,7 @@ The following is implemented and tested as of July 2026:
 
 ### Navigation & routing
 
-- Five data tabs (Risk, Resilience, Hazard, Exposure, Vulnerability) plus four info pages (Home, Guide, Sources, Downloads/About)
+- Five data tabs (Risk, Resilience, Hazard, Exposure, Vulnerability) plus three info pages (Home, Sources, About)
 - Hash-based URL routing: active tab and active layers are encoded in the URL, enabling shareable deep links
 - Tab switching via nav bar and keyboard; browser back/forward supported
 
@@ -84,16 +84,14 @@ The following is implemented and tested as of July 2026:
 ### Info pages
 
 - **Home**: five category cards linking to each data tab; hero intro with UNDRR link
-- **Guide**: step-by-step usage instructions
 - **Sources**: per-category attribution tables (source, citation, license, notes); MapX view ID toggle for technical review; layer inventory CSV download
-- **Downloads**: placeholder with links to source data providers
 - **About**: tool description, acknowledgements, further reading
 
 ### Content pipeline
 
 - `data/inventory.csv`: master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata. Runtime external layers have a blank MapX ID and `External runtime` status.
 - `scripts/import-inventory.mjs`: dry-run diff tool and `--apply` mode to patch MapX view IDs and status changes from CSV into JS config
-- CSV export (Downloads / Sources page): generates a timestamped CSV of the current layer inventory
+- CSV export (Sources page): generates a timestamped CSV of the current layer inventory
 - `docs/external-layers.md`: approval, tracker, architecture, performance, and operating requirements for exceptional non-MapX sources
 
 ### Technical
@@ -119,7 +117,7 @@ The following is implemented and tested as of July 2026:
 | Sources attribution table       | Per-layer citation, license, MapX view ID                                                        |
 | Layer inventory CSV export      | Full inventory download                                                                          |
 | Home page with category cards   | Links to each tab                                                                                |
-| Guide and About pages           | Usage instructions and tool background                                                           |
+| About page                      | Tool background                                                                                  |
 | Content pipeline                | CSV import/export round-trip for non-developer updates to MapX IDs and status                    |
 | UNDRR Mangrove branding         | Page header, nav, design tokens                                                                  |
 
@@ -148,18 +146,18 @@ The following are realistic and achievable features, but they represent distinct
 
 These are things the prototype has as placeholders that must be resolved before production:
 
-| Item                         | Current state                                                                                                                                                          | Required state                                                                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Access control**           | 4-digit PIN hardcoded in client JS (`src/pin-gate.js`)                                                                                                                 | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                           |
-| **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                                                   | Final name agreed and applied throughout                                                                                                |
-| **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                                                   | Pinned to a stable version to prevent silent breaking changes                                                                           |
-| **Hosting**                  | GitHub Pages (static, manual deploy)                                                                                                                                   | UNDRR infrastructure — decision needed (see §5)                                                                                         |
-| **Country links**            | Not implemented — was in original PRD scope                                                                                                                            | Country profile URL pattern confirmed by programme team; links added to site inspection panel. _Known gap from original scope._         |
-| **Per-layer download links** | Downloads page is a placeholder; `download_view_source_external` SDK method only works if a download URL is configured per view in MapX                                | Programme team to configure download URLs in MapX for each view, or accept that downloads link to source sites rather than direct files |
-| **Legend coverage**          | Supported MapX vector styles and approved discrete GeoServer rasters render dynamically; other raster, sprite, custom-coded, and unsupported styles use the MapX image | Visual QA against representative production views; approve MapX mirror/privacy/CSP dependency; confirm fallback coverage                |
-| **Social / OG metadata**     | `index.html` has no `<meta property="og:...">` tags                                                                                                                    | Basic social preview metadata added                                                                                                     |
-| **Raster layer inspection**  | Correctly flagged as non-queryable                                                                                                                                     | No change needed — but UX message could be clearer                                                                                      |
-| **Mobile experience**        | Not designed or tested for mobile                                                                                                                                      | Decision: is mobile in scope? If yes, significant layout work required                                                                  |
+| Item                         | Current state                                                                                                                                                          | Required state                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Access control**           | 4-digit PIN hardcoded in client JS (`src/pin-gate.js`)                                                                                                                 | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                                     |
+| **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                                                   | Final name agreed and applied throughout                                                                                                          |
+| **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                                                   | Pinned to a stable version to prevent silent breaking changes                                                                                     |
+| **Hosting**                  | GitHub Pages (static, manual deploy)                                                                                                                                   | UNDRR infrastructure — decision needed (see §5)                                                                                                   |
+| **Country links**            | Not implemented — was in original PRD scope                                                                                                                            | Country profile URL pattern confirmed by programme team; links added to site inspection panel. _Known gap from original scope._                   |
+| **Per-layer download links** | The Sources page provides the inventory export; `download_view_source_external` SDK method only works if a download URL is configured per view in MapX                 | Programme team to configure download URLs in MapX for each view, or accept that per-layer downloads link to source sites rather than direct files |
+| **Legend coverage**          | Supported MapX vector styles and approved discrete GeoServer rasters render dynamically; other raster, sprite, custom-coded, and unsupported styles use the MapX image | Visual QA against representative production views; approve MapX mirror/privacy/CSP dependency; confirm fallback coverage                          |
+| **Social / OG metadata**     | `index.html` has no `<meta property="og:...">` tags                                                                                                                    | Basic social preview metadata added                                                                                                               |
+| **Raster layer inspection**  | Correctly flagged as non-queryable                                                                                                                                     | No change needed — but UX message could be clearer                                                                                                |
+| **Mobile experience**        | Not designed or tested for mobile                                                                                                                                      | Decision: is mobile in scope? If yes, significant layout work required                                                                            |
 
 ---
 
@@ -170,7 +168,7 @@ These must be answered before the resourcing plan can be finalised:
 1. **Hosting path** — standalone subdomain, embedded in Drupal/CMS, or content syndication iframe? Determines nav/auth/routing architecture.
 2. **MapX legend contract stability** — can UNEP/GRID-Geneva confirm the consumed `get_views` fields and `/get/mirror` behavior, limits, and change communication? Until then, retain and monitor the MapX image fallback.
 3. **Country profile URL pattern** — what is the URL structure for UNDRR country profile pages? Needed to implement click-through (a known gap from original PRD scope).
-4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, what does the Downloads page link to?
+4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, should Sources link to provider sites?
 5. **Final tool name** — needed before any branding/copy work proceeds.
 6. **Access control model** — who is this tool for, and how is access managed in production?
 7. **Mobile scope** — required at launch, or desktop-first?
@@ -193,7 +191,7 @@ Browser
             ├── src/ui/                 DOM-building UI modules
             │    ├── sidebar.js         Nav + layer panel + tab routing
             │    ├── home.js            Home page cards
-            │    ├── info-panels.js     Guide / Sources / Downloads / About
+            │    ├── info-panels.js     Sources / About
             │    ├── site-inspector.js  Click-to-inspect + Site Details panel
             │    └── widgets/           Compound layer widgets (stepped-slider, sub-tabs)
             ├── src/sdk/                MapX SDK wrappers

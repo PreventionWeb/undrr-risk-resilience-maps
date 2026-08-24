@@ -1,5 +1,5 @@
 /**
- * Info pages (Home, Guide, Sources, Downloads, About) — full-page layouts
+ * Info pages (Home, Sources, About) — full-page layouts
  * using UNDRR Mangrove design system conventions.
  */
 
@@ -67,12 +67,13 @@
   background-color: #f2f5f8;
 }
 
-.info-page-section--wide .mg-container {
-  max-width: 1100px;
-}
-
 .info-page-section .mg-container {
   max-width: 900px;
+}
+
+.info-page-section.info-page-section--wide .mg-container {
+  width: 100%;
+  max-width: none;
 }
 
 .info-page-section__title {
@@ -265,6 +266,7 @@
 
 .data-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.82rem;
   line-height: 1.45;
@@ -304,8 +306,25 @@
   min-width: 120px;
 }
 
+.data-table th:nth-child(1),
+.data-table td:nth-child(1) {
+  width: 15%;
+}
+
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+  width: 18%;
+}
+
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+  width: 22%;
+}
+
 .data-table .data-table__license {
-  white-space: nowrap;
+  width: 16%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .data-table__row--planned td {

@@ -51,7 +51,7 @@ undrr-risk-resilience-maps/
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
 │   │   ├── external-controls.js # Provider-neutral external-layer controls
 │   │   ├── home.js             # Home page cards
-│   │   ├── info-panels.js      # Guide, Sources, Downloads, About full-page views
+│   │   ├── info-panels.js      # Sources and About full-page views
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
 │   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel
 │   │   └── widgets/            # Source-switching widgets (registry pattern)
@@ -85,7 +85,7 @@ undrr-risk-resilience-maps/
 
 The app initialises in two phases to keep the UI responsive even if the MapX SDK is slow to load:
 
-1. **Immediate** — `validateLayers()` runs first and throws on config errors. `buildSidebar()` follows: nav links are wired, info pages are built, and layer accordions are rendered. The user can read the home/guide/sources/downloads pages without waiting for the map.
+1. **Immediate** — `validateLayers()` runs first and throws on config errors. `buildSidebar()` follows: nav links are wired, info pages are built, and layer accordions are rendered. The user can read the home, Sources, and About pages without waiting for the map.
 2. **On SDK ready** — once `mapx.on("ready")` fires, `setSDKReady(true)` unlocks layer toggles, vector highlight is enabled, and any layers in the URL hash are restored.
 
 Layer toggle buttons check `isSDKReady()` before calling SDK methods, so clicking a layer before the map has loaded produces a console warning rather than a silent failure.
@@ -155,7 +155,7 @@ programme tracker row, operational risks, and migration triggers.
 
 ### Navigation and layer panel
 
-Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Info tabs (Home, Guide, Sources, Downloads) appear alongside them.
+Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Home, Sources, and About provide the remaining informational views.
 
 **Two routing modes driven by `switchTab()`:**
 
