@@ -1,45 +1,126 @@
 import { ECO_DRR } from "./projects.js";
 
 const AWAITING = "disabled-awaiting-data";
+const PENDING_REMOVAL = "disabled-pending-removal";
 const SOURCE_TBC = "Source to be confirmed.";
 const CITATION_TBC = "Source to be confirmed.";
 const LICENSE_TBC = "TBD";
 const NOTE_PENDING = "Awaiting data — MapX view not yet available.";
 
+const CDRI_SOURCE = "Coalition for Disaster Resilient Infrastructure (CDRI)";
+const CDRI_CITATION =
+  "Coalition for Disaster Resilient Infrastructure. (2026). Global Infrastructure Resilience: Capturing the resilience dividend. New Delhi: CDRI.";
+const CDRI_LICENSE =
+  "CC BY 3.0 IGO. Source data derived from the Global Infrastructure Risk Model and Resilience Index (GIRI), commissioned by CDRI. Processed by UNDRR for the Risk to Resilience Metrics initiative.";
+const RECOVERY_SOURCE =
+  "World Bank Unbreakable / Global Socio-Economic Resilience to Natural Disasters data. Indicator calculated and processed by UNDRR for the Risk to Resilience Metrics initiative.";
+const RECOVERY_CITATION =
+  "Middelanis, R.; Jafino, B. A.; Hill, R.; Nguyen, M. C.; Hallegatte, S. 2025. Reproducibility package for Global Socio-Economic Resilience To Natural Disasters. World Bank Reproducible Research Repository.";
+const RECOVERY_LICENSE =
+  "Modified BSD 3-Clause. Source data derived from the World Bank Reproducibility Package for Global Socio-Economic Resilience To Natural Disasters. Indicator calculated and processed by UNDRR.";
+
 const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
 const STEP_PRIORITIZE = "PRIORITIZE CURRENT AND FUTURE INVESTMENT";
 const STEP_CONSIDER = "CONSIDER POTENTIAL RESILIENCE OPTIONS";
 
-const HAZARD_SOURCES = [
-  { id: null, label: "Earthquake", desc: "Earthquake hazard." },
-  { id: null, label: "Landslides", desc: "Landslide hazard." },
-  { id: null, label: "Tropical Cyclones", desc: "Tropical cyclone hazard." },
-  { id: null, label: "Floods", desc: "Flood hazard." },
-  { id: null, label: "Tsunamis", desc: "Tsunami hazard." },
-];
-
 export const RISK_LAYERS = [
+  {
+    id: null,
+    key: "multiple-hazards",
+    label: "Multiple Hazards",
+    type: "vt",
+    geometry: "point",
+    desc: "Estimates how multiple hazards or shocks could jointly affect people, assets, services or welfare, highlighting risks that may be underestimated when shocks are assessed separately.",
+    source: SOURCE_TBC,
+    citation: CITATION_TBC,
+    license: LICENSE_TBC,
+    project: ECO_DRR,
+    initiative: "Impact of multiple hazards",
+    r2rCategory: "Societies",
+    rrStep: STEP_LINK,
+    status: AWAITING,
+    note: NOTE_PENDING,
+  },
+  {
+    id: null,
+    key: "years-lost",
+    label: "Life Years Lost",
+    type: "vt",
+    geometry: "point",
+    desc: "Estimates the potential loss of human life and remaining life expectancy associated with disaster impacts, helping show how risk affects people across generations.",
+    source: SOURCE_TBC,
+    citation: CITATION_TBC,
+    license: LICENSE_TBC,
+    project: ECO_DRR,
+    initiative: "Life years lost due to disasters",
+    r2rCategory: "Societies",
+    rrStep: STEP_LINK,
+    status: AWAITING,
+    note: NOTE_PENDING,
+  },
   {
     id: null,
     key: "recovery-speed",
     label: "Recovery Speed",
     type: "vt",
     geometry: "point",
-    desc: "Recovery speed of consumption levels after a 1:100 event, by hazard type.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    desc: "Recovery speed of consumption levels after a 1:100 event, by income group and hazard type.",
+    source: RECOVERY_SOURCE,
+    citation: RECOVERY_CITATION,
+    license: RECOVERY_LICENSE,
     project: ECO_DRR,
-    initiative: "Recovery speed top/bottom quintile for an AAL/ PML",
+    initiative: "Recovery speed of top/bottom income groups from a 1-in-100 year event",
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
-    status: AWAITING,
-    note: NOTE_PENDING,
     sources: [
-      { id: null, label: "Earthquake", desc: "Recovery speed after a 1:100 earthquake event." },
-      { id: null, label: "Flood", desc: "Recovery speed after a 1:100 flood event." },
-      { id: null, label: "Storm", desc: "Recovery speed after a 1:100 storm event." },
-      { id: null, label: "Tsunami", desc: "Recovery speed after a 1:100 tsunami event." },
+      {
+        id: "MX-VCP83-3E2TG-PJWFJ",
+        label: "Poorest — Earthquake",
+        inventoryLabel: "Earthquake",
+        desc: "Poorest households - 1:100 earthquake event.",
+      },
+      {
+        id: "MX-YBWIB-YLHIV-WKG2H",
+        label: "Poorest — Flood",
+        inventoryLabel: "Flood",
+        desc: "Poorest households - 1:100 flood event.",
+      },
+      {
+        id: "MX-RTJQZ-WHX2B-SI4HB",
+        label: "Poorest — Storm",
+        inventoryLabel: "Storm",
+        desc: "Poorest households - 1:100 storm event.",
+      },
+      {
+        id: "MX-DMKUU-PAPIT-W4EMP",
+        label: "Poorest — Tsunami",
+        inventoryLabel: "Tsunami",
+        desc: "Poorest households - 1:100 tsunami event.",
+      },
+      {
+        id: "MX-HHA9G-4VUF9-CREXQ",
+        label: "Richest — Earthquake",
+        inventoryLabel: "Earthquake",
+        desc: "Richest households - 1:100 earthquake event.",
+      },
+      {
+        id: "MX-MDFMH-34XOD-EU9HN",
+        label: "Richest — Flood",
+        inventoryLabel: "Flood",
+        desc: "Richest households - 1:100 flood event.",
+      },
+      {
+        id: "MX-PZYN0-UQZTF-J6I8N",
+        label: "Richest — Storm",
+        inventoryLabel: "Storm",
+        desc: "Richest households - 1:100 storm event.",
+      },
+      {
+        id: "MX-O4I9O-FHOJD-EHNNA",
+        label: "Richest — Tsunami",
+        inventoryLabel: "Tsunami",
+        desc: "Richest households - 1:100 tsunami event.",
+      },
     ],
     widget: { type: "sub-tabs", label: "Hazard" },
   },
@@ -50,9 +131,9 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss for public assets under current and future climate scenarios.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    source: CDRI_SOURCE,
+    citation: CDRI_CITATION,
+    license: CDRI_LICENSE,
     project: ECO_DRR,
     initiative: "AAL to public infrastructure",
     r2rCategory: "Societies",
@@ -66,25 +147,43 @@ export const RISK_LAYERS = [
   },
   {
     id: null,
-    key: "edra-crop-yield-reduction",
-    label: "Drought impact on crop yields (EDRA)",
+    key: "pml-public",
+    label: "PML — Public Assets",
     type: "vt",
-    geometry: "polygon",
-    desc: "Experimental external source. Average annual crop yield reduction due to drought at NUTS-2 level. Compare barley, maize, and wheat across historical, current, and global-warming scenarios.",
-    source: "Copernicus Emergency Management Service — European Drought Risk Atlas",
-    sourceUrl: "https://drought.emergency.copernicus.eu/tumbo/edra/explore",
-    citation:
-      "Rossi, L. et al. (2023), European Drought Risk Atlas, Publications Office of the European Union, EUR 31682 EN, doi:10.2760/608737. Contains modified Copernicus Emergency Management Service information 2026.",
-    license: "Copernicus CEMS terms and conditions",
-    licenseUrl: "https://drought.emergency.copernicus.eu/terms%26conditions/",
-    initiative: "EDRA drought-related crop yield reduction",
-    r2rCategory: "Environment",
+    geometry: "point",
+    desc: "Direct probable maximum losses to public infrastructure, by hazard.",
+    source: CDRI_SOURCE,
+    citation: CDRI_CITATION,
+    license: CDRI_LICENSE,
+    project: ECO_DRR,
+    initiative: "Direct Probable Maximum Losses to public infrastructure",
+    r2rCategory: "Societies",
     rrStep: STEP_LINK,
-    external: {
-      provider: "edra-agriculture",
-      defaults: { crop: "WHEAT", scenario: "20" },
-    },
-    note: "Prototype: fetched from EDRA at runtime and injected into MapX as a temporary GeoJSON view.",
+    status: AWAITING,
+    note: "In development — MapX views are present but not yet approved for publication.",
+    sources: [
+      {
+        id: "MX-2V1JX-EV4WL-AQKZV",
+        label: "Earthquake",
+        desc: "Direct probable maximum losses to public infrastructure - earthquake.",
+      },
+      {
+        id: "MX-241F9-QO6FA-T9BU6",
+        label: "Flood",
+        desc: "Direct probable maximum losses to public infrastructure - flood.",
+      },
+      {
+        id: "MX-T29Z1-M34D1-JUOCG",
+        label: "Storm",
+        desc: "Direct probable maximum losses to public infrastructure - storm.",
+      },
+      {
+        id: "MX-IW2XA-WEITA-ROOG4",
+        label: "Tsunami",
+        desc: "Direct probable maximum losses to public infrastructure - tsunami.",
+      },
+    ],
+    widget: { type: "sub-tabs", label: "Hazard" },
   },
   {
     id: null,
@@ -93,7 +192,7 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss for crops.",
-    source: SOURCE_TBC,
+    source: "UNDRR, JRC and CIMA Foundation",
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
@@ -102,6 +201,13 @@ export const RISK_LAYERS = [
     rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
+    sources: [
+      { id: null, label: "Wheat", desc: "Average annual loss for wheat." },
+      { id: null, label: "Maize", desc: "Average annual loss for maize." },
+      { id: null, label: "Rice", desc: "Average annual loss for rice." },
+      { id: null, label: "Soybean", desc: "Average annual loss for soybean." },
+    ],
+    widget: { type: "sub-tabs", label: "Crop" },
   },
   {
     id: null,
@@ -110,7 +216,7 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Probable maximum loss for crops.",
-    source: SOURCE_TBC,
+    source: "UNDRR, JRC and CIMA Foundation",
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
@@ -119,6 +225,13 @@ export const RISK_LAYERS = [
     rrStep: STEP_LINK,
     status: AWAITING,
     note: NOTE_PENDING,
+    sources: [
+      { id: null, label: "Wheat", desc: "Probable maximum loss for wheat." },
+      { id: null, label: "Maize", desc: "Probable maximum loss for maize." },
+      { id: null, label: "Rice", desc: "Probable maximum loss for rice." },
+      { id: null, label: "Soybean", desc: "Probable maximum loss for soybean." },
+    ],
+    widget: { type: "sub-tabs", label: "Crop" },
   },
   {
     id: null,
@@ -127,9 +240,9 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss and probable maximum loss for housing stock under current and future climate scenarios.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    source: CDRI_SOURCE,
+    citation: CDRI_CITATION,
+    license: CDRI_LICENSE,
     project: ECO_DRR,
     initiative: "AAL/PML housing",
     r2rCategory: "Societies",
@@ -145,7 +258,7 @@ export const RISK_LAYERS = [
     widget: { type: "sub-tabs", label: "Metric / Scenario" },
   },
   {
-    id: null,
+    id: "MX-FCU2W-1CCYO-NFZB9",
     key: "ecosystem-loss",
     label: "Ecosystem Loss",
     type: "vt",
@@ -168,11 +281,11 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss as a share of GDP (2025 baseline), by hazard.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    source: CDRI_SOURCE,
+    citation: CDRI_CITATION,
+    license: CDRI_LICENSE,
     project: ECO_DRR,
-    initiative: "AAL to GDP now and 2050",
+    initiative: "Average Annual Losses of real GDP now and 2050",
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     sources: [
@@ -195,11 +308,11 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Probable maximum loss as a share of GDP (2025 baseline), by hazard.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    source: CDRI_SOURCE,
+    citation: CDRI_CITATION,
+    license: CDRI_LICENSE,
     project: ECO_DRR,
-    initiative: "PML to GDP now and in 2050",
+    initiative: "Probable Maximum Losses of real GDP",
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     sources: [
@@ -222,16 +335,22 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss as a share of GDP (2050 projection), by hazard.",
-    source: SOURCE_TBC,
+    source: "Taking this layer off the R&R metrics.",
     citation: CITATION_TBC,
     license: LICENSE_TBC,
     project: ECO_DRR,
     initiative: "AAL to GDP now and 2050",
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
-    status: AWAITING,
-    note: NOTE_PENDING,
-    sources: HAZARD_SOURCES.map((s) => ({ ...s, desc: `AAL to GDP 2050 — ${s.label.toLowerCase()}.` })),
+    status: PENDING_REMOVAL,
+    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
+    sources: [
+      { id: null, label: "Earthquake", desc: "AAL to GDP 2050 — earthquake." },
+      { id: null, label: "Landslides", desc: "AAL to GDP 2050 — landslides." },
+      { id: null, label: "Tropical Cyclones", desc: "AAL to GDP 2050 — tropical cyclones." },
+      { id: null, label: "Floods", desc: "AAL to GDP 2050 — floods." },
+      { id: null, label: "Tsunamis", desc: "AAL to GDP 2050 — tsunamis." },
+    ],
     widget: { type: "sub-tabs", label: "Hazard" },
   },
   {
@@ -248,9 +367,15 @@ export const RISK_LAYERS = [
     initiative: "PML to GDP now and in 2050",
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
-    status: AWAITING,
-    note: NOTE_PENDING,
-    sources: HAZARD_SOURCES.map((s) => ({ ...s, desc: `PML to GDP 2050 — ${s.label.toLowerCase()}.` })),
+    status: PENDING_REMOVAL,
+    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
+    sources: [
+      { id: null, label: "Earthquake", desc: "PML to GDP 2050 — earthquake." },
+      { id: null, label: "Landslides", desc: "PML to GDP 2050 — landslides." },
+      { id: null, label: "Tropical Cyclones", desc: "PML to GDP 2050 — tropical cyclones." },
+      { id: null, label: "Floods", desc: "PML to GDP 2050 — floods." },
+      { id: null, label: "Tsunamis", desc: "PML to GDP 2050 — tsunamis." },
+    ],
     widget: { type: "sub-tabs", label: "Hazard" },
   },
   {
@@ -260,11 +385,12 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Current fiscal gap (cost of uninsured disaster losses) by hazard.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
+    source: "IIASA",
+    citation:
+      'Hochrainer-Stigler, S., Mechler, R., Pflug, G., & Linnerooth-Bayer, J. (2014/2015). Funding practices and fiscal disaster risk management. Initial applications defining the "fiscal resource gap year event" metric as a measure of sovereign fiscal resilience',
+    license: "Creative Commons Attribution 4.0 International (CC BY 4.0)",
     project: ECO_DRR,
-    initiative: "Current fiscal gap",
+    initiative: "Chance of a disaster exceeding public financing capacity (Fiscal gap)",
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     sources: [
@@ -379,7 +505,7 @@ export const RISK_LAYERS = [
       "Based on a layered financing approach, matrix of potential project types that could be explored to accelerate resilience",
     r2rCategory: "Economy",
     rrStep: STEP_CONSIDER,
-    status: AWAITING,
-    note: NOTE_PENDING,
+    status: PENDING_REMOVAL,
+    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
   },
 ];
