@@ -92,22 +92,6 @@ export function buildHomePanel() {
       </div>
     </div>
 
-    <div class="info-page-section info-page-section--grey">
-      <div class="mg-container">
-        <div class="mg-highlight-box mg-highlight-box--secondary">
-          <h3>In progress</h3>
-          <p>This prototype is currently focused on building out the interaction layer. Right now, the main goal is to support clear switching and comparison across multiple map layers while the source inventory is still being confirmed.</p>
-          <p>Next steps may include pulling related maps across category boundaries, such as showing a risk layer while reviewing vulnerability context, or introducing simple data visualisation patterns that help compare risk and vulnerability together. The exact mechanics are still to be determined, but first the priority is to lock down the map sources.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="info-page-section">
-      <div class="mg-container info-page-credits">
-        <h2 class="info-page-section__title">Credits</h2>
-        <p>Built on the interaction model of the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer</a> by Oxford OPSIS. Map data hosted on <a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a> by UNEP/GRID&#8209;Geneva.</p>
-      </div>
-    </div>
   `;
 
   // Wire category card buttons to navigate to the matching data tab

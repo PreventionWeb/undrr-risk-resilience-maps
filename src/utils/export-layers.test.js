@@ -82,10 +82,12 @@ describe("generateLayerInventoryCSV", () => {
     expect(coralLines[0]).toContain("Pending removal");
   });
 
-  it("includes risk placeholders with In development status", () => {
+  it("includes newly uploaded recovery-speed views", () => {
     const riskLines = lines.filter((l) => l.includes("recovery-speed"));
     expect(riskLines.length).toBeGreaterThan(0);
-    expect(riskLines[0]).toContain("In development");
+    expect(riskLines).toHaveLength(8);
+    expect(riskLines[0]).toContain("Uploaded");
+    expect(riskLines[0]).toContain("MX-VCP83-3E2TG-PJWFJ");
   });
 
   it("marks published layers as Uploaded", () => {

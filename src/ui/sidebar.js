@@ -2,7 +2,7 @@
  * Floating layer panel + info page routing.
  *
  * - Data tabs (from layer config): show map + sidebar.
- * - Info tabs (home / guide / sources / downloads): show full-page view, hide map.
+ * - Info tabs (home / sources / about): show full-page view, hide map.
  *
  * Layer definitions come from config/layers.js; this module is purely UI.
  */
@@ -11,7 +11,7 @@ import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
-import { buildGuidePanel, buildSourcesPanel, buildDownloadsPanel, buildAboutPanel } from "./info-panels.js";
+import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { parseHash, writeHash } from "../state/hash.js";
@@ -42,8 +42,6 @@ function layerBadgeLabel(layer) {
   return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
 }
 
-const EYE_ICON_SVG = `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-
 /** Build the type/geometry badge shown next to a layer label. */
 function buildLayerTypeTag(layer) {
   const tag = document.createElement("span");
@@ -54,7 +52,7 @@ function buildLayerTypeTag(layer) {
   return tag;
 }
 
-const INFO_TABS = ["home", "guide", "sources", "downloads", "about"];
+const INFO_TABS = ["home", "sources", "about"];
 
 // All valid tab IDs for hash routing
 const DATA_TABS = TABS.map((tab) => tab.id);
@@ -75,6 +73,13 @@ function setLayerToggleDisabled(layer, eyeBtn, disabled) {
   for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
     btn.disabled = disabled;
   }
+}
+
+function setLayerToggleState(layer, button, active) {
+  button.classList.toggle("is-active", active);
+  button.setAttribute("aria-checked", String(active));
+  button.setAttribute("aria-label", `${active ? "Turn off" : "Turn on"} ${layer.label}`);
+  button.title = active ? "Turn layer off" : "Turn layer on";
 }
 
 function externalSettingsMatch(left, right) {
@@ -167,9 +172,7 @@ export function buildSidebar() {
 
   // Populate info page with all info panels
   infoPage.appendChild(buildHomePanel());
-  infoPage.appendChild(buildGuidePanel());
   infoPage.appendChild(buildSourcesPanel());
-  infoPage.appendChild(buildDownloadsPanel());
   infoPage.appendChild(buildAboutPanel());
 
   // Populate sidebar with layer panels (data tabs only)
@@ -514,7 +517,7 @@ async function reconcileLayersFromHash(hashLayers) {
   }
 }
 
-function buildLayerAccordion(layer) {
+export function buildLayerAccordion(layer) {
   const published = isLayerPublished(layer);
 
   const wrapper = document.createElement("div");
@@ -541,10 +544,8 @@ function buildLayerAccordion(layer) {
   if (published) {
     eyeBtn = document.createElement("button");
     eyeBtn.className = "layer-eye";
-    eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
-    eyeBtn.setAttribute("aria-pressed", "false");
-    eyeBtn.innerHTML = EYE_ICON_SVG;
-    eyeBtn.title = "Toggle layer";
+    eyeBtn.setAttribute("role", "switch");
+    setLayerToggleState(layer, eyeBtn, false);
     eyeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       toggleLayer(layer, eyeBtn, wrapper);
@@ -610,6 +611,12 @@ function buildLayerAccordion(layer) {
     body.style.display = open ? "none" : "block";
     arrow.textContent = open ? "\u25B6" : "\u25BC"; // ▶ / ▼
     header.setAttribute("aria-expanded", String(!open));
+
+    // Expanding a published layer is an activation intent. Collapsing only
+    // hides its controls; the layer remains on until its switch is turned off.
+    if (!open && eyeBtn && !eyeBtn.classList.contains("is-active")) {
+      toggleLayer(layer, eyeBtn, wrapper, null, false);
+    }
   };
 
   header.addEventListener("click", toggleAccordion);
@@ -623,7 +630,7 @@ function buildLayerAccordion(layer) {
   return { wrapper, eyeBtn };
 }
 
-async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null) {
+async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null, expandOnActivate = true) {
   // Guard: SDK must be ready before attempting map operations
   if (!isSDKReady()) {
     const label = wrapper.querySelector(".layer-label");
@@ -681,21 +688,28 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         }
         store.openViews.delete(removeId);
       }
-      eyeBtn.classList.remove("is-active");
-      eyeBtn.setAttribute("aria-pressed", "false");
+      setLayerToggleState(layer, eyeBtn, false);
       for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
-        btn.classList.remove("is-active");
-        btn.setAttribute("aria-pressed", "false");
+        setLayerToggleState(layer, btn, false);
       }
       wrapper.classList.remove("layer-active");
       widgetSlot.innerHTML = "";
       sliderSlot.innerHTML = "";
       legendSlot.innerHTML = "";
+
+      // Turning a layer off ends the interaction and returns the row to its
+      // compact state. Collapsing alone still leaves an active layer on.
+      const body = wrapper.querySelector(".layer-body");
+      const header = wrapper.querySelector(".layer-header");
+      const arrow = wrapper.querySelector(".layer-arrow");
+      body.style.display = "none";
+      arrow.textContent = "\u25B6";
+      header.setAttribute("aria-expanded", "false");
       syncHashFromState();
     } else {
       // Turn on
       let externalStatus = null;
-      if (external) {
+      if (external && expandOnActivate) {
         const body = wrapper.querySelector(".layer-body");
         const header = wrapper.querySelector(".layer-header");
         const arrow = wrapper.querySelector(".layer-arrow");
@@ -727,24 +741,25 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         return;
       }
       store.openViews.add(activeViewId);
-      eyeBtn.classList.add("is-active");
-      eyeBtn.setAttribute("aria-pressed", "true");
+      setLayerToggleState(layer, eyeBtn, true);
       for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
-        btn.classList.add("is-active");
-        btn.setAttribute("aria-pressed", "true");
+        setLayerToggleState(layer, btn, true);
         // Auto-expand the cross-tab section containing this button
         const section = btn.closest("details.cross-tab-section");
         if (section) section.open = true;
       }
       wrapper.classList.add("layer-active");
 
-      // Expand accordion
-      const body = wrapper.querySelector(".layer-body");
-      const header = wrapper.querySelector(".layer-header");
-      const arrow = wrapper.querySelector(".layer-arrow");
-      body.style.display = "block";
-      arrow.textContent = "\u25BC";
-      header.setAttribute("aria-expanded", "true");
+      // Direct switch activation reveals controls. Header activation already
+      // manages expansion and must not reopen after a slow MapX response.
+      if (expandOnActivate) {
+        const body = wrapper.querySelector(".layer-body");
+        const header = wrapper.querySelector(".layer-header");
+        const arrow = wrapper.querySelector(".layer-arrow");
+        body.style.display = "block";
+        arrow.textContent = "\u25BC";
+        header.setAttribute("aria-expanded", "true");
+      }
 
       // Build source-switching widget for compound layers
       if (compound && layer.widget) {
@@ -896,10 +911,9 @@ function buildCrossTabRow(layer) {
 
   const eyeBtn = document.createElement("button");
   eyeBtn.className = "layer-eye";
-  eyeBtn.setAttribute("aria-label", `Toggle ${layer.label}`);
-  eyeBtn.setAttribute("aria-pressed", "false");
-  eyeBtn.innerHTML = EYE_ICON_SVG;
-  eyeBtn.title = "Toggle layer — switch to tab for sub-source controls";
+  eyeBtn.setAttribute("role", "switch");
+  setLayerToggleState(layer, eyeBtn, false);
+  eyeBtn.title += " — switch to tab for sub-source controls";
   eyeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     layerElementMap.get(layer.key)?.eyeBtn.click();

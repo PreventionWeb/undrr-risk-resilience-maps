@@ -1,5 +1,5 @@
 /**
- * Info pages (Home, Guide, Sources, Downloads, About) — full-page layouts
+ * Info pages (Home, Sources, About) — full-page layouts
  * using UNDRR Mangrove design system conventions.
  */
 
@@ -67,12 +67,13 @@
   background-color: #f2f5f8;
 }
 
-.info-page-section--wide .mg-container {
-  max-width: 1100px;
-}
-
 .info-page-section .mg-container {
   max-width: 900px;
+}
+
+.info-page-section.info-page-section--wide .mg-container {
+  width: 100%;
+  max-width: none;
 }
 
 .info-page-section__title {
@@ -233,28 +234,6 @@
   background: #fff;
 }
 
-.info-source-entries {
-  border-left: 3px solid #b3cade;
-  padding-left: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.info-source-entry__label {
-  margin: 0 0 0.2rem;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #004f91;
-}
-
-.info-source-entry__detail {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #4d4d4d;
-  line-height: 1.5;
-}
-
 /* ── Data table (Sources page) ── */
 
 .data-table-wrap {
@@ -265,6 +244,7 @@
 
 .data-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.82rem;
   line-height: 1.45;
@@ -304,8 +284,25 @@
   min-width: 120px;
 }
 
+.data-table th:nth-child(1),
+.data-table td:nth-child(1) {
+  width: 15%;
+}
+
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+  width: 18%;
+}
+
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+  width: 22%;
+}
+
 .data-table .data-table__license {
-  white-space: nowrap;
+  width: 16%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .data-table__row--planned td {
@@ -369,15 +366,4 @@
   gap: 0.5rem;
   font-size: 0.95rem;
   line-height: 1.6;
-}
-
-/* ── Credits ── */
-
-.info-page-credits {
-  font-size: 0.9rem;
-  color: #4d4d4d;
-}
-
-.info-page-credits a {
-  color: #004f91;
 }
