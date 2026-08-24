@@ -698,6 +698,15 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       widgetSlot.innerHTML = "";
       sliderSlot.innerHTML = "";
       legendSlot.innerHTML = "";
+
+      // Turning a layer off ends the interaction and returns the row to its
+      // compact state. Collapsing alone still leaves an active layer on.
+      const body = wrapper.querySelector(".layer-body");
+      const header = wrapper.querySelector(".layer-header");
+      const arrow = wrapper.querySelector(".layer-arrow");
+      body.style.display = "none";
+      arrow.textContent = "\u25B6";
+      header.setAttribute("aria-expanded", "false");
       syncHashFromState();
     } else {
       // Turn on

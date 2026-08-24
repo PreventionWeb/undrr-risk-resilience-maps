@@ -51,8 +51,15 @@ describe("layer accordion activation", () => {
     expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
     expect(store.openViews.has(layer.id)).toBe(true);
 
+    header.click();
+    expect(body.style.display).toBe("block");
+    expect(viewAdd).toHaveBeenCalledTimes(1);
+
     eyeBtn.click();
     await vi.waitFor(() => expect(viewRemove).toHaveBeenCalledWith(layer.id));
+    expect(body.style.display).toBe("none");
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(wrapper.querySelector(".layer-arrow").textContent).toBe("\u25B6");
     expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
     expect(store.openViews.has(layer.id)).toBe(false);
   });
