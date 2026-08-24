@@ -8,7 +8,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
-- **External EDRA crop-risk prototype**: the Risk → Environment group can now fetch European Drought Risk Atlas NUTS-2 boundaries and drought-related crop-yield reductions directly from Copernicus CEMS, reproject the source geometry from EPSG:3035, and inject it into MapX as a temporary GeoJSON view. The layer includes barley/maize/wheat and historical/current/+1.5 °C/+2 °C/+3 °C controls, opacity, a local legend, URL restore, and site-inspection attributes.
+- Expanding a published layer now activates it automatically; collapsing the accordion leaves the map layer active, while turning its accessible on/off switch off also folds the details closed. Eye icons have been replaced with larger, touch-friendly switch controls across primary and cross-tab layer lists, whose headings now share the panel's standard content inset.
+- **August 2026 map inventory import**: reconciled 122 programme spreadsheet rows with the runtime registry, including eight World Bank recovery-speed views, PML public infrastructure views, crop placeholders, the ecosystem-loss and early-warning MapX IDs, richer source metadata, new Risk/Resilience placeholders, and explicit pending-removal states. The inventory importer now supports repeated sub-source labels and status-only updates.
+- **External EDRA crop-risk prototype**: the Hazard group can now fetch European Drought Risk Atlas NUTS-2 boundaries and drought-related crop-yield reductions directly from Copernicus CEMS, reproject the source geometry from EPSG:3035, and inject it into MapX as a temporary GeoJSON view. The layer includes barley/maize/wheat and historical/current/+1.5 °C/+2 °C/+3 °C controls, opacity, a local legend, URL restore, and site-inspection attributes.
 - External-layer runtime registry and provider adapter pattern, allowing non-MapX sources to participate in the existing `openViews`, inspection, clear-all, and layer-control workflows without a permanent MapX view ID.
 - External-runtime governance guide covering the programme source-tracker row, ownership workflow, measured EDRA payload/reprojection costs, reliability and privacy dependencies, production trade-offs, and migration triggers.
 - **Drag + resize for panels**: both the layer panel and the Site Details panel are now draggable (drag by their header bar) and resizable (bottom-right grip). Inline dimensions are cleared on collapse and restored on expand so the layer panel's collapsed state is not broken by a prior resize. Implemented in `src/utils/panels.js` (`makeDraggable`, `makeResizable`, `onPanelCollapse`, `onPanelExpand`) and `src/styles/components/panels.css`.
@@ -54,6 +56,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- Removed the low-value Guide and Downloads navigation tabs and their hash routes; inventory download remains available from Sources. Removed the redundant Platform block from Sources and the In progress and Credits blocks from Home. Sources tables now use the full content width instead of inheriting the standard prose measure.
+- Refreshed patch/minor Node dependencies and security resolutions; `yarn audit` now reports zero known vulnerabilities.
 - EDRA value requests now cover all available regions, including the Azores and Madeira; strict schema, duplicate-key, feature/vertex/value-count, and minimum join-coverage checks fail visibly instead of silently rendering a plausible no-data map.
 - EDRA crop colours, thresholds, and no-data styling now come from the live configuration used by the source explorer. The MapX paint expression and HTML legend share that validated definition, preventing independent upstream-style drift.
 - External-view deletion failures now keep the prior runtime registration and UI state authoritative; failed replacements clean up the candidate view instead of risking a hidden or duplicated MapX layer.

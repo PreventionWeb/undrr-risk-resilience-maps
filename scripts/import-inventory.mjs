@@ -73,7 +73,9 @@ const [headerRow, ...dataRows] = parseCSV(csvText);
 const H = {};
 headerRow.forEach((h, i) => (H[h.trim()] = i));
 
-// Build inventory index: key → { subSource → {mapxId, status, layerName, initiative, r2rCategory, rrStep} }
+// Build inventory index: key → { subSource → [rows] }.
+// A sub-source label is not necessarily unique: recovery-speed, for example,
+// repeats each hazard for the poorest and richest household groups.
 const inventory = new Map();
 
 for (const r of dataRows) {
@@ -89,7 +91,9 @@ for (const r of dataRows) {
   if (!key) continue;
 
   if (!inventory.has(key)) inventory.set(key, new Map());
-  inventory.get(key).set(subSource, { mapxId, status, layerName, initiative, r2rCat, rrStep });
+  const subMap = inventory.get(key);
+  if (!subMap.has(subSource)) subMap.set(subSource, []);
+  subMap.get(subSource).push({ mapxId, status, layerName, initiative, r2rCat, rrStep });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -132,9 +136,10 @@ function extractLayerEntries(src, file) {
       let sm;
       while ((sm = subRe2.exec(sourcesBlock)) !== null) {
         const rawId = sm[1].trim();
-        const subLabel = sm[2];
+        const inventoryLabel = /inventoryLabel:\s*["']([^"']+)["']/.exec(sm[0]);
+        const subLabel = inventoryLabel ? inventoryLabel[1] : sm[2];
         const currentId = rawId === "null" ? "" : rawId.replace(/["']/g, "");
-        entries.push({ key, subSource: subLabel, currentId, currentStatus: "", file });
+        entries.push({ key, subSource: subLabel, uiLabel: sm[2], currentId, currentStatus: "", file });
       }
     } else {
       // Simple layer — id: appears BEFORE key: in the object, so search backward.
@@ -147,8 +152,14 @@ function extractLayerEntries(src, file) {
       const currentId = idMatch ? (idMatch[1] === "null" ? "" : idMatch[1].replace(/["']/g, "")) : "";
 
       // Also capture current status for status-change detection
-      const statusMatch = /status:\s*["']([^"']+)["']/.exec(objSrc + forwardBlock.slice(0, 200));
-      const currentStatus = statusMatch ? statusMatch[1] : "published";
+      const statusMatch = /status:\s*(?:["']([^"']+)["']|([A-Z_]+))/.exec(objSrc + forwardBlock);
+      const statusConstants = {
+        AWAITING: "disabled-awaiting-data",
+        PENDING_REMOVAL: "disabled-pending-removal",
+      };
+      const currentStatus = statusMatch
+        ? statusMatch[1] || statusConstants[statusMatch[2]] || statusMatch[2]
+        : "published";
 
       entries.push({ key, subSource: "", currentId, currentStatus, file });
     }
@@ -190,7 +201,7 @@ const idChanges = [];
 const statusChanges = [];
 
 // Track which CSV entries were matched
-const csvMatched = new Set();
+const csvMatched = new Map();
 
 for (const entry of jsEntries) {
   const csvLayer = inventory.get(entry.key);
@@ -199,14 +210,16 @@ for (const entry of jsEntries) {
     continue;
   }
 
-  const csvEntry = csvLayer.get(entry.subSource);
+  const csvEntries = csvLayer.get(entry.subSource);
+  const occurrenceKey = `${entry.key}|${entry.subSource}`;
+  const occurrence = csvMatched.get(occurrenceKey) || 0;
+  const csvEntry = csvEntries?.[occurrence];
   if (!csvEntry) {
     onlyInJS.push(entry);
     continue;
   }
 
-  const matchKey = `${entry.key}|${entry.subSource}`;
-  csvMatched.add(matchKey);
+  csvMatched.set(occurrenceKey, occurrence + 1);
   matched.push({ ...entry, csvEntry });
 
   // Check for MapX ID change
@@ -226,9 +239,10 @@ for (const entry of jsEntries) {
 
 // Find CSV-only entries
 for (const [key, subMap] of inventory) {
-  for (const [subSource, csvEntry] of subMap) {
+  for (const [subSource, csvEntries] of subMap) {
     const matchKey = `${key}|${subSource}`;
-    if (!csvMatched.has(matchKey)) {
+    const matchedCount = csvMatched.get(matchKey) || 0;
+    for (const csvEntry of csvEntries.slice(matchedCount)) {
       onlyInCSV.push({ key, subSource, csvEntry });
     }
   }
@@ -237,7 +251,12 @@ for (const [key, subMap] of inventory) {
 // ── Report ────────────────────────────────────────────────────────────────────
 
 console.log("\n=== Layer Inventory Sync Report ===\n");
-console.log(`CSV rows:    ${[...inventory.values()].reduce((n, m) => n + m.size, 0)}`);
+console.log(
+  `CSV rows:    ${[...inventory.values()].reduce(
+    (n, m) => n + [...m.values()].reduce((sum, rows) => sum + rows.length, 0),
+    0,
+  )}`,
+);
 console.log(`JS entries:  ${jsEntries.length}`);
 console.log(`Matched:     ${matched.length}`);
 
@@ -287,7 +306,11 @@ if (!APPLY) {
 
 // ── Apply ─────────────────────────────────────────────────────────────────────
 
-if (idChanges.length === 0) {
+const applyableStatusChanges = statusChanges.filter(
+  (change) => change.oldStatus !== "published" && change.newStatus !== "published",
+);
+
+if (idChanges.length === 0 && applyableStatusChanges.length === 0) {
   console.log("\n--apply: nothing to change.\n");
   process.exit(0);
 }
@@ -299,6 +322,9 @@ const changesByFile = {};
 for (const change of idChanges) {
   (changesByFile[change.file] ??= []).push(change);
 }
+for (const change of applyableStatusChanges) {
+  changesByFile[change.file] ??= [];
+}
 
 for (const [relPath, changes] of Object.entries(changesByFile)) {
   let src = fileSources[relPath];
@@ -307,38 +333,32 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
   for (const c of changes) {
     if (!c.newId) continue;
 
-    // Replace null or old ID for this sub-source within the file.
-    // Strategy: find the label string, then patch the nearest id: before it.
-    const labelPattern = c.subSource ? `label: "${c.subSource}"` : null;
-
-    if (labelPattern) {
-      // Compound: find { id: X, label: "subSource" } or { id: X, ..., label: "subSource" }
-      const re = new RegExp(
-        `(id:\\s*)(null|"[^"]*")((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`,
-        "g",
-      );
-      const replaced = src.replace(re, (m, pre, _id, post) => {
+    if (c.currentId) {
+      // Existing IDs are globally unique by config contract, making the old
+      // ID the safest target when spreadsheet labels are repeated.
+      const re = new RegExp(`(id:\\s*)"${escapeRe(c.currentId)}"`);
+      const replaced = src.replace(re, `$1"${c.newId}"`);
+      if (replaced !== src) {
+        src = replaced;
         modified = true;
-        return `${pre}"${c.newId}"${post}`;
-      });
-      if (replaced !== src) src = replaced;
-    } else {
-      // Simple layer: id: appears BEFORE key: in the JS object.
-      // Find the key: position, then look backward to the enclosing object's id:.
-      const keyMatch = new RegExp(`key:\\s*"${escapeRe(c.key)}"`).exec(src);
-      if (keyMatch) {
-        const before = src.slice(0, keyMatch.index);
-        const objStart = before.lastIndexOf("  {\n");
-        if (objStart >= 0) {
-          const objHead = before.slice(objStart);
-          const idMatch = /(id:\s*)(null|"[^"]*")/.exec(objHead);
-          if (idMatch) {
-            const absPos = objStart + idMatch.index;
-            src = src.slice(0, absPos) + idMatch[1] + `"${c.newId}"` + src.slice(absPos + idMatch[0].length);
-            modified = true;
-          }
-        }
       }
+    } else if (c.subSource) {
+      // New compound IDs are scoped to their layer block. UI labels must be
+      // unique even when inventoryLabel intentionally repeats.
+      const result = replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(
+          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`),
+          `$1"${c.newId}"$2`,
+        ),
+      );
+      src = result.src;
+      modified ||= result.modified;
+    } else {
+      const result = replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(/(id:\s*)null/, `$1"${c.newId}"`),
+      );
+      src = result.src;
+      modified ||= result.modified;
     }
   }
 
@@ -347,12 +367,11 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
     (c) => c.file === relPath && c.oldStatus !== "published" && c.newStatus !== "published",
   );
   for (const c of fileStatusChanges) {
-    const re = new RegExp(`(status:\\s*")${escapeRe(c.oldStatus)}(")`);
-    const replaced = src.replace(re, (m, pre, post) => {
-      modified = true;
-      return `${pre}${c.newStatus}${post}`;
-    });
-    if (replaced !== src) src = replaced;
+    const result = replaceInLayerBlock(src, c.key, (block) =>
+      block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, `status: "${c.newStatus}"`),
+    );
+    src = result.src;
+    modified ||= result.modified;
   }
 
   if (modified) {
@@ -366,4 +385,21 @@ console.log("\nDone. Review the changes with: git diff src/config/layers/\n");
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceInLayerBlock(src, key, transform) {
+  const keyMatch = new RegExp(`key:\\s*"${escapeRe(key)}"`).exec(src);
+  if (!keyMatch) return { src, modified: false };
+
+  const start = src.lastIndexOf("  {\n", keyMatch.index);
+  if (start < 0) return { src, modified: false };
+
+  const next = src.indexOf("\n  {", keyMatch.index);
+  const end = next < 0 ? src.lastIndexOf("\n];") : next;
+  if (end < 0) return { src, modified: false };
+
+  const block = src.slice(start, end);
+  const replaced = transform(block);
+  if (replaced === block) return { src, modified: false };
+  return { src: src.slice(0, start) + replaced + src.slice(end), modified: true };
 }
