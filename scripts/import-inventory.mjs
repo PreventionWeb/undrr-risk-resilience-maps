@@ -333,38 +333,32 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
   for (const c of changes) {
     if (!c.newId) continue;
 
-    // Replace null or old ID for this sub-source within the file.
-    // Strategy: find the label string, then patch the nearest id: before it.
-    const labelPattern = c.subSource ? `label: "${c.uiLabel || c.subSource}"` : null;
-
-    if (labelPattern) {
-      // Compound: find { id: X, label: "subSource" } or { id: X, ..., label: "subSource" }
-      const re = new RegExp(
-        `(id:\\s*)(null|"[^"]*")((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`,
-        "g",
-      );
-      const replaced = src.replace(re, (m, pre, _id, post) => {
+    if (c.currentId) {
+      // Existing IDs are globally unique by config contract, making the old
+      // ID the safest target when spreadsheet labels are repeated.
+      const re = new RegExp(`(id:\\s*)"${escapeRe(c.currentId)}"`);
+      const replaced = src.replace(re, `$1"${c.newId}"`);
+      if (replaced !== src) {
+        src = replaced;
         modified = true;
-        return `${pre}"${c.newId}"${post}`;
-      });
-      if (replaced !== src) src = replaced;
-    } else {
-      // Simple layer: id: appears BEFORE key: in the JS object.
-      // Find the key: position, then look backward to the enclosing object's id:.
-      const keyMatch = new RegExp(`key:\\s*"${escapeRe(c.key)}"`).exec(src);
-      if (keyMatch) {
-        const before = src.slice(0, keyMatch.index);
-        const objStart = before.lastIndexOf("  {\n");
-        if (objStart >= 0) {
-          const objHead = before.slice(objStart);
-          const idMatch = /(id:\s*)(null|"[^"]*")/.exec(objHead);
-          if (idMatch) {
-            const absPos = objStart + idMatch.index;
-            src = src.slice(0, absPos) + idMatch[1] + `"${c.newId}"` + src.slice(absPos + idMatch[0].length);
-            modified = true;
-          }
-        }
       }
+    } else if (c.subSource) {
+      // New compound IDs are scoped to their layer block. UI labels must be
+      // unique even when inventoryLabel intentionally repeats.
+      const result = replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(
+          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`),
+          `$1"${c.newId}"$2`,
+        ),
+      );
+      src = result.src;
+      modified ||= result.modified;
+    } else {
+      const result = replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(/(id:\s*)null/, `$1"${c.newId}"`),
+      );
+      src = result.src;
+      modified ||= result.modified;
     }
   }
 
@@ -373,12 +367,11 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
     (c) => c.file === relPath && c.oldStatus !== "published" && c.newStatus !== "published",
   );
   for (const c of fileStatusChanges) {
-    const re = new RegExp(`(status:\\s*")${escapeRe(c.oldStatus)}(")`);
-    const replaced = src.replace(re, (m, pre, post) => {
-      modified = true;
-      return `${pre}${c.newStatus}${post}`;
-    });
-    if (replaced !== src) src = replaced;
+    const result = replaceInLayerBlock(src, c.key, (block) =>
+      block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, `status: "${c.newStatus}"`),
+    );
+    src = result.src;
+    modified ||= result.modified;
   }
 
   if (modified) {
@@ -392,4 +385,21 @@ console.log("\nDone. Review the changes with: git diff src/config/layers/\n");
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceInLayerBlock(src, key, transform) {
+  const keyMatch = new RegExp(`key:\\s*"${escapeRe(key)}"`).exec(src);
+  if (!keyMatch) return { src, modified: false };
+
+  const start = src.lastIndexOf("  {\n", keyMatch.index);
+  if (start < 0) return { src, modified: false };
+
+  const next = src.indexOf("\n  {", keyMatch.index);
+  const end = next < 0 ? src.lastIndexOf("\n];") : next;
+  if (end < 0) return { src, modified: false };
+
+  const block = src.slice(start, end);
+  const replaced = transform(block);
+  if (replaced === block) return { src, modified: false };
+  return { src: src.slice(0, start) + replaced + src.slice(end), modified: true };
 }
