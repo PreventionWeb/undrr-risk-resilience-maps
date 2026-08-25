@@ -22,6 +22,7 @@ const layer = {
   type: "vt",
   geometry: "polygon",
   desc: "Test description.",
+  initiative: "Test R-R initiative",
 };
 
 describe("layer accordion activation", () => {
@@ -85,5 +86,13 @@ describe("layer accordion activation", () => {
     await vi.waitFor(() => expect(eyeBtn.getAttribute("aria-checked")).toBe("true"));
     expect(body.style.display).toBe("none");
     expect(store.openViews.has(layer.id)).toBe(true);
+  });
+
+  it("shows the R-R initiative before the layer description", () => {
+    const { wrapper } = buildLayerAccordion(layer);
+
+    expect(wrapper.querySelector(".layer-desc").textContent).toBe(
+      "Test R-R initiative. Test description.",
+    );
   });
 });

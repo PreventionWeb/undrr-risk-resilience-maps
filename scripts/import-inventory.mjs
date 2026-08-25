@@ -4,7 +4,8 @@
  *
  * Usage:
  *   node scripts/import-inventory.mjs              # dry-run: report only
- *   node scripts/import-inventory.mjs --apply      # apply MapX ID + status changes
+ *   node scripts/import-inventory.mjs --input file.csv
+ *   node scripts/import-inventory.mjs --apply      # sync supported inventory fields
  *
  * The canonical inventory CSV lives at data/inventory.csv and matches the
  * column structure of the master spreadsheet held by colleagues:
@@ -12,16 +13,21 @@
  *
  * When colleagues send an updated CSV, replace data/inventory.csv then run:
  *   node scripts/import-inventory.mjs
- * Review the report, then run with --apply to patch MapX view IDs and statuses.
+ * Review the report, then run with --apply to sync MapX view IDs, display copy,
+ * and supported statuses.
+ * Rows whose layer keys appear in data/removed-layer-keys.txt are ignored, so
+ * retired entries in an upstream spreadsheet cannot be reintroduced.
  *
  * What --apply changes:
  *   - mapxViewId   (id field on simple layers; id on each sub-source for compound)
+ *   - label        (from Layer name)
+ *   - desc         (from Description, including compound sub-sources)
  *   - Inventory status changes between disabled variants:
  *       "disabled-awaiting-data" ↔ "disabled-pending-removal"
  *
  * What --apply does NOT change (review manually):
  *   - Published ↔ disabled transitions (adding/removing the status field entirely)
- *   - source, citation, license, desc, legend, widget, sourceUrl, geometry, note
+ *   - source, citation, license, legend, widget, sourceUrl, geometry, note
  *   - external provider definitions (external rows intentionally have no MapX ID)
  */
 
@@ -31,9 +37,20 @@ import { fileURLToPath } from "node:url";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, "..");
-const CSV_PATH = resolve(ROOT, "data/inventory.csv");
+const inputIndex = process.argv.indexOf("--input");
+const inputPath = inputIndex >= 0 ? process.argv[inputIndex + 1] : null;
+if (inputIndex >= 0 && !inputPath) throw new Error("--input requires a CSV path");
+const CSV_PATH = inputPath ? resolve(process.cwd(), inputPath) : resolve(ROOT, "data/inventory.csv");
+const REMOVED_KEYS_PATH = resolve(ROOT, "data/removed-layer-keys.txt");
 
 const APPLY = process.argv.includes("--apply");
+
+const removedKeys = new Set(
+  readFileSync(REMOVED_KEYS_PATH, "utf-8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
+);
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -70,6 +87,28 @@ function parseCSV(text) {
 const csvText = readFileSync(CSV_PATH, "utf-8").replace(/^\uFEFF/, "");
 const [headerRow, ...dataRows] = parseCSV(csvText);
 
+const REQUIRED_HEADERS = [
+  "Variable R-R Initiative",
+  "Category",
+  "R2R category",
+  "R&R Step",
+  "Layer key",
+  "Layer name",
+  "Sub-source",
+  "Type",
+  "Description",
+  "MapX view ID",
+  "Source",
+  "Citation",
+  "License",
+  "Inventory status",
+];
+const providedHeaders = new Set((headerRow || []).map((header) => header.trim()));
+const missingHeaders = REQUIRED_HEADERS.filter((header) => !providedHeaders.has(header));
+if (missingHeaders.length) {
+  throw new Error(`Inventory CSV missing required header(s): ${missingHeaders.join(", ")}`);
+}
+
 const H = {};
 headerRow.forEach((h, i) => (H[h.trim()] = i));
 
@@ -77,6 +116,7 @@ headerRow.forEach((h, i) => (H[h.trim()] = i));
 // A sub-source label is not necessarily unique: recovery-speed, for example,
 // repeats each hazard for the poorest and richest household groups.
 const inventory = new Map();
+const ignoredRemovedRows = [];
 
 for (const r of dataRows) {
   const key = (r[H["Layer key"]] || "").trim();
@@ -89,11 +129,16 @@ for (const r of dataRows) {
   const rrStep = (r[H["R&R Step"]] || "").trim();
 
   if (!key) continue;
+  if (removedKeys.has(key)) {
+    ignoredRemovedRows.push({ key, layerName, subSource });
+    continue;
+  }
 
   if (!inventory.has(key)) inventory.set(key, new Map());
   const subMap = inventory.get(key);
   if (!subMap.has(subSource)) subMap.set(subSource, []);
-  subMap.get(subSource).push({ mapxId, status, layerName, initiative, r2rCat, rrStep });
+  const desc = (r[H["Description"]] || "").trim();
+  subMap.get(subSource).push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -129,6 +174,8 @@ function extractLayerEntries(src, file) {
     const forwardBlock = nextLayerIdx > 0 ? rest.slice(0, nextLayerIdx) : rest.slice(0, 3000);
 
     const sourcesMatch = /sources:\s*\[/.exec(forwardBlock);
+    const layerLabelMatch = /label:\s*"((?:\\.|[^"\\])*)"/.exec(forwardBlock);
+    const currentLayerLabel = layerLabelMatch ? decodeJsString(layerLabelMatch[1]) : "";
     if (sourcesMatch) {
       // Compound layer — extract sub-source labels and IDs from the sources array
       const sourcesBlock = forwardBlock.slice(sourcesMatch.index);
@@ -136,10 +183,17 @@ function extractLayerEntries(src, file) {
       let sm;
       while ((sm = subRe2.exec(sourcesBlock)) !== null) {
         const rawId = sm[1].trim();
-        const inventoryLabel = /inventoryLabel:\s*["']([^"']+)["']/.exec(sm[0]);
-        const subLabel = inventoryLabel ? inventoryLabel[1] : sm[2];
         const currentId = rawId === "null" ? "" : rawId.replace(/["']/g, "");
-        entries.push({ key, subSource: subLabel, uiLabel: sm[2], currentId, currentStatus: "", file });
+        const descMatch = /desc:\s*"((?:\\.|[^"\\])*)"/.exec(sm[0]);
+        entries.push({
+          key,
+          subSource: sm[2],
+          currentId,
+          currentStatus: "",
+          currentLayerLabel,
+          currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
+          file,
+        });
       }
     } else {
       // Simple layer — id: appears BEFORE key: in the object, so search backward.
@@ -161,7 +215,16 @@ function extractLayerEntries(src, file) {
         ? statusMatch[1] || statusConstants[statusMatch[2]] || statusMatch[2]
         : "published";
 
-      entries.push({ key, subSource: "", currentId, currentStatus, file });
+      const descMatch = /desc:\s*"((?:\\.|[^"\\])*)"/.exec(objSrc + forwardBlock);
+      entries.push({
+        key,
+        subSource: "",
+        currentId,
+        currentStatus,
+        currentLayerLabel,
+        currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
+        file,
+      });
     }
   }
   return entries;
@@ -199,6 +262,8 @@ const onlyInJS = [];
 const onlyInCSV = [];
 const idChanges = [];
 const statusChanges = [];
+const labelChanges = new Map();
+const descChanges = [];
 
 // Track which CSV entries were matched
 const csvMatched = new Map();
@@ -210,8 +275,14 @@ for (const entry of jsEntries) {
     continue;
   }
 
-  const csvEntries = csvLayer.get(entry.subSource);
-  const occurrenceKey = `${entry.key}|${entry.subSource}`;
+  let matchedSubSource = entry.subSource;
+  let csvEntries = csvLayer.get(matchedSubSource);
+  // A simple layer may gain a descriptive sub-source in a colleague export.
+  // It remains unambiguous when that layer key has exactly one CSV row.
+  if (!entry.subSource && !csvEntries && csvLayer.size === 1) {
+    [matchedSubSource, csvEntries] = csvLayer.entries().next().value;
+  }
+  const occurrenceKey = `${entry.key}|${matchedSubSource}`;
   const occurrence = csvMatched.get(occurrenceKey) || 0;
   const csvEntry = csvEntries?.[occurrence];
   if (!csvEntry) {
@@ -226,6 +297,22 @@ for (const entry of jsEntries) {
   const csvId = csvEntry.mapxId.startsWith("MX-") ? csvEntry.mapxId : "";
   if (csvId && csvId !== entry.currentId) {
     idChanges.push({ ...entry, newId: csvId, oldId: entry.currentId });
+  }
+
+  if (csvEntry.layerName && csvEntry.layerName !== entry.currentLayerLabel) {
+    const existing = labelChanges.get(entry.key);
+    if (existing && existing.newLabel !== csvEntry.layerName) {
+      throw new Error(`Conflicting Layer name values for "${entry.key}" in inventory CSV`);
+    }
+    labelChanges.set(entry.key, {
+      ...entry,
+      oldLabel: entry.currentLayerLabel,
+      newLabel: csvEntry.layerName,
+    });
+  }
+
+  if (csvEntry.desc && csvEntry.desc !== entry.currentDesc) {
+    descChanges.push({ ...entry, oldDesc: entry.currentDesc, newDesc: csvEntry.desc });
   }
 
   // Check for status change (simple layers only; sub-sources don't carry status)
@@ -251,6 +338,7 @@ for (const [key, subMap] of inventory) {
 // ── Report ────────────────────────────────────────────────────────────────────
 
 console.log("\n=== Layer Inventory Sync Report ===\n");
+console.log(`Input:       ${CSV_PATH}`);
 console.log(
   `CSV rows:    ${[...inventory.values()].reduce(
     (n, m) => n + [...m.values()].reduce((sum, rows) => sum + rows.length, 0),
@@ -259,6 +347,13 @@ console.log(
 );
 console.log(`JS entries:  ${jsEntries.length}`);
 console.log(`Matched:     ${matched.length}`);
+
+if (ignoredRemovedRows.length) {
+  const ignoredKeys = [...new Set(ignoredRemovedRows.map((row) => row.key))];
+  console.log(
+    `Ignored:     ${ignoredRemovedRows.length} retired row(s) across ${ignoredKeys.length} layer key(s): ${ignoredKeys.join(", ")}`,
+  );
+}
 
 if (idChanges.length) {
   console.log(`\n── MapX ID updates (${idChanges.length}) ──`);
@@ -271,6 +366,21 @@ if (idChanges.length) {
   }
 } else {
   console.log("\n── No MapX ID changes detected ──");
+}
+
+if (labelChanges.size) {
+  console.log(`\n── Layer name updates (${labelChanges.size}) ──`);
+  for (const change of labelChanges.values()) {
+    console.log(`  ${change.key}: "${change.oldLabel}" → "${change.newLabel}"`);
+  }
+}
+
+if (descChanges.length) {
+  console.log(`\n── Description updates (${descChanges.length}) ──`);
+  for (const change of descChanges) {
+    const sub = change.subSource ? ` [${change.subSource}]` : "";
+    console.log(`  ${change.key}${sub}`);
+  }
 }
 
 if (onlyInJS.length) {
@@ -300,7 +410,7 @@ if (onlyInCSV.length) {
 }
 
 if (!APPLY) {
-  console.log("\nDry-run complete. Pass --apply to write ID and status changes to JS files.\n");
+console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
   process.exit(0);
 }
 
@@ -310,7 +420,12 @@ const applyableStatusChanges = statusChanges.filter(
   (change) => change.oldStatus !== "published" && change.newStatus !== "published",
 );
 
-if (idChanges.length === 0 && applyableStatusChanges.length === 0) {
+if (
+  idChanges.length === 0 &&
+  labelChanges.size === 0 &&
+  descChanges.length === 0 &&
+  applyableStatusChanges.length === 0
+) {
   console.log("\n--apply: nothing to change.\n");
   process.exit(0);
 }
@@ -321,6 +436,12 @@ console.log("\n--apply: writing changes...");
 const changesByFile = {};
 for (const change of idChanges) {
   (changesByFile[change.file] ??= []).push(change);
+}
+for (const change of labelChanges.values()) {
+  changesByFile[change.file] ??= [];
+}
+for (const change of descChanges) {
+  changesByFile[change.file] ??= [];
 }
 for (const change of applyableStatusChanges) {
   changesByFile[change.file] ??= [];
@@ -343,11 +464,11 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         modified = true;
       }
     } else if (c.subSource) {
-      // New compound IDs are scoped to their layer block. UI labels must be
-      // unique even when inventoryLabel intentionally repeats.
+      // New compound IDs are scoped to their layer block. Source labels match
+      // the inventory Sub-source values and must be unique within a layer.
       const result = replaceInLayerBlock(src, c.key, (block) =>
         block.replace(
-          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`),
+          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`),
           `$1"${c.newId}"$2`,
         ),
       );
@@ -360,6 +481,41 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
       src = result.src;
       modified ||= result.modified;
     }
+  }
+
+  for (const c of labelChanges.values()) {
+    if (c.file !== relPath) continue;
+    const result = replaceInLayerBlock(src, c.key, (block) =>
+      block.replace(/(\n\s+label:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newLabel)}`),
+    );
+    src = result.src;
+    modified ||= result.modified;
+  }
+
+  for (const c of descChanges) {
+    if (c.file !== relPath) continue;
+    const result = replaceInLayerBlock(src, c.key, (block) => {
+      if (!c.subSource) {
+        const replaced = block.replace(
+          /(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/,
+          `$1${JSON.stringify(c.newDesc)}`,
+        );
+        return replaced !== block
+          ? replaced
+          : block.replace(/(\n\s+type:\s*"[^"]+",)/, `$1\n    desc: ${JSON.stringify(c.newDesc)},`);
+      }
+      const sourcePattern = new RegExp(
+        `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?desc:\\s*)"(?:\\\\.|[^"\\\\])*"`,
+      );
+      const replaced = block.replace(sourcePattern, `$1${JSON.stringify(c.newDesc)}`);
+      if (replaced !== block) return replaced;
+      const sourceWithoutDesc = new RegExp(
+        `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`,
+      );
+      return block.replace(sourceWithoutDesc, `$1, desc: ${JSON.stringify(c.newDesc)}$2`);
+    });
+    src = result.src;
+    modified ||= result.modified;
   }
 
   // Apply status changes (disabled ↔ disabled transitions only)
@@ -385,6 +541,10 @@ console.log("\nDone. Review the changes with: git diff src/config/layers/\n");
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function decodeJsString(value) {
+  return JSON.parse(`"${value}"`);
 }
 
 function replaceInLayerBlock(src, key, transform) {

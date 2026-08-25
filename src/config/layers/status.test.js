@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getLayerPublicationState, getLayerStatus, isLayerPublished } from "./status.js";
+import { getLayerPublicationState, getLayerStatus, isLayerAvailable, isLayerPublished } from "./status.js";
 
 describe("layer status helpers", () => {
   it("treats legacy disabled layers as unpublished", () => {
@@ -13,6 +13,45 @@ describe("layer status helpers", () => {
     const layer = { id: null, status: "disabled-awaiting-data" };
     expect(getLayerStatus(layer)).toBe("Awaiting data");
     expect(isLayerPublished(layer)).toBe(false);
+  });
+
+  it("makes an in-development layer available without changing its editorial status", () => {
+    const layer = { id: "MX-1", status: "disabled-awaiting-data" };
+
+    expect(getLayerPublicationState(layer)).toBe("disabled-awaiting-data");
+    expect(getLayerStatus(layer)).toBe("Awaiting data");
+    expect(isLayerPublished(layer)).toBe(false);
+    expect(isLayerAvailable(layer)).toBe(true);
+  });
+
+  it("publishes an in-development compound layer when every sub-map is available", () => {
+    const layer = {
+      id: null,
+      status: "disabled-awaiting-data",
+      sources: [{ id: "MX-1" }, { id: "MX-2" }],
+    };
+
+    expect(isLayerAvailable(layer)).toBe(true);
+  });
+
+  it("keeps an incomplete in-development compound layer unpublished", () => {
+    const layer = {
+      id: null,
+      status: "disabled-awaiting-data",
+      sources: [{ id: null }, { id: "MX-1" }],
+    };
+
+    expect(isLayerAvailable(layer)).toBe(false);
+  });
+
+  it("publishes an in-development layer from another MapX project", () => {
+    const layer = {
+      id: "MX-1",
+      project: "MX-OTHER",
+      status: "disabled-awaiting-data",
+    };
+
+    expect(isLayerAvailable(layer)).toBe(true);
   });
 
   it("returns Pending removal for unpublished layers under review for removal", () => {

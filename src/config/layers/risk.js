@@ -1,7 +1,6 @@
 import { ECO_DRR } from "./projects.js";
 
 const AWAITING = "disabled-awaiting-data";
-const PENDING_REMOVAL = "disabled-pending-removal";
 const SOURCE_TBC = "Source to be confirmed.";
 const CITATION_TBC = "Source to be confirmed.";
 const LICENSE_TBC = "TBD";
@@ -21,7 +20,6 @@ const RECOVERY_LICENSE =
 
 const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
 const STEP_PRIORITIZE = "PRIORITIZE CURRENT AND FUTURE INVESTMENT";
-const STEP_CONSIDER = "CONSIDER POTENTIAL RESILIENCE OPTIONS";
 
 export const RISK_LAYERS = [
   {
@@ -30,7 +28,7 @@ export const RISK_LAYERS = [
     label: "Multiple Hazards",
     type: "vt",
     geometry: "point",
-    desc: "Estimates how multiple hazards or shocks could jointly affect people, assets, services or welfare, highlighting risks that may be underestimated when shocks are assessed separately.",
+    desc: "Estimates how multiple hazards or shocks could jointly affect people, assets, services or welfare, highlighting risks that may be underestimated when shocks are assessed separately",
     source: SOURCE_TBC,
     citation: CITATION_TBC,
     license: LICENSE_TBC,
@@ -44,10 +42,10 @@ export const RISK_LAYERS = [
   {
     id: null,
     key: "years-lost",
-    label: "Life Years Lost",
+    label: "Life year lost",
     type: "vt",
     geometry: "point",
-    desc: "Estimates the potential loss of human life and remaining life expectancy associated with disaster impacts, helping show how risk affects people across generations.",
+    desc: "Estimates the potential loss of human life and remaining life expectancy associated with disaster impacts, helping show how risk affects people across generations",
     source: SOURCE_TBC,
     citation: CITATION_TBC,
     license: LICENSE_TBC,
@@ -75,51 +73,43 @@ export const RISK_LAYERS = [
     sources: [
       {
         id: "MX-VCP83-3E2TG-PJWFJ",
-        label: "Poorest — Earthquake",
-        inventoryLabel: "Earthquake",
+        label: "Poorest: Earthquake",
         desc: "Poorest households - 1:100 earthquake event.",
       },
       {
         id: "MX-YBWIB-YLHIV-WKG2H",
-        label: "Poorest — Flood",
-        inventoryLabel: "Flood",
+        label: "Poorest: Flood",
         desc: "Poorest households - 1:100 flood event.",
       },
       {
         id: "MX-RTJQZ-WHX2B-SI4HB",
-        label: "Poorest — Storm",
-        inventoryLabel: "Storm",
+        label: "Poorest: Storm",
         desc: "Poorest households - 1:100 storm event.",
       },
       {
         id: "MX-DMKUU-PAPIT-W4EMP",
-        label: "Poorest — Tsunami",
-        inventoryLabel: "Tsunami",
+        label: "Poorest: Tsunami",
         desc: "Poorest households - 1:100 tsunami event.",
       },
       {
         id: "MX-HHA9G-4VUF9-CREXQ",
-        label: "Richest — Earthquake",
-        inventoryLabel: "Earthquake",
+        label: "Richest: Earthquake",
         desc: "Richest households - 1:100 earthquake event.",
       },
       {
         id: "MX-MDFMH-34XOD-EU9HN",
-        label: "Richest — Flood",
-        inventoryLabel: "Flood",
-        desc: "Richest households - 1:100 flood event.",
+        label: "Richest: Flood",
+        desc: "Richest households -  1:100 flood event.",
       },
       {
         id: "MX-PZYN0-UQZTF-J6I8N",
-        label: "Richest — Storm",
-        inventoryLabel: "Storm",
-        desc: "Richest households - 1:100 storm event.",
+        label: "Richest: Storm",
+        desc: "Richest households -  1:100 storm event.",
       },
       {
         id: "MX-O4I9O-FHOJD-EHNNA",
-        label: "Richest — Tsunami",
-        inventoryLabel: "Tsunami",
-        desc: "Richest households - 1:100 tsunami event.",
+        label: "Richest: Tsunami",
+        desc: "Richest households -  1:100 tsunami event.",
       },
     ],
     widget: { type: "sub-tabs", label: "Hazard" },
@@ -127,7 +117,7 @@ export const RISK_LAYERS = [
   {
     id: null,
     key: "aal-public",
-    label: "AAL — Public Assets",
+    label: "AAL to Public Assets",
     type: "vt",
     geometry: "point",
     desc: "Average annual loss for public assets under current and future climate scenarios.",
@@ -148,7 +138,7 @@ export const RISK_LAYERS = [
   {
     id: null,
     key: "pml-public",
-    label: "PML — Public Assets",
+    label: "PML to Public Assets",
     type: "vt",
     geometry: "point",
     desc: "Direct probable maximum losses to public infrastructure, by hazard.",
@@ -165,22 +155,22 @@ export const RISK_LAYERS = [
       {
         id: "MX-2V1JX-EV4WL-AQKZV",
         label: "Earthquake",
-        desc: "Direct probable maximum losses to public infrastructure - earthquake.",
+        desc: "PML to public infrastructure - Earthquake",
       },
       {
         id: "MX-241F9-QO6FA-T9BU6",
         label: "Flood",
-        desc: "Direct probable maximum losses to public infrastructure - flood.",
+        desc: "PML to public infrastructure - Flood",
       },
       {
         id: "MX-T29Z1-M34D1-JUOCG",
         label: "Storm",
-        desc: "Direct probable maximum losses to public infrastructure - storm.",
+        desc: "PML to public infrastructure - Storm",
       },
       {
         id: "MX-IW2XA-WEITA-ROOG4",
         label: "Tsunami",
-        desc: "Direct probable maximum losses to public infrastructure - tsunami.",
+        desc: "PML to public infrastructure - Tsunami",
       },
     ],
     widget: { type: "sub-tabs", label: "Hazard" },
@@ -188,7 +178,7 @@ export const RISK_LAYERS = [
   {
     id: null,
     key: "aal-crops",
-    label: "AAL — Crops",
+    label: "AAL to Crops",
     type: "vt",
     geometry: "point",
     desc: "Average annual loss for crops.",
@@ -202,17 +192,17 @@ export const RISK_LAYERS = [
     status: AWAITING,
     note: NOTE_PENDING,
     sources: [
-      { id: null, label: "Wheat", desc: "Average annual loss for wheat." },
-      { id: null, label: "Maize", desc: "Average annual loss for maize." },
-      { id: null, label: "Rice", desc: "Average annual loss for rice." },
-      { id: null, label: "Soybean", desc: "Average annual loss for soybean." },
+      { id: null, label: "Wheat", desc: "Average annual loss for crops." },
+      { id: null, label: "Maize", desc: "Average annual loss for crops." },
+      { id: null, label: "Rice", desc: "Average annual loss for crops." },
+      { id: null, label: "Soybean", desc: "Average annual loss for crops." },
     ],
     widget: { type: "sub-tabs", label: "Crop" },
   },
   {
     id: null,
     key: "pml-crops",
-    label: "PML — Crops",
+    label: "PML to Crops",
     type: "vt",
     geometry: "point",
     desc: "Probable maximum loss for crops.",
@@ -226,17 +216,17 @@ export const RISK_LAYERS = [
     status: AWAITING,
     note: NOTE_PENDING,
     sources: [
-      { id: null, label: "Wheat", desc: "Probable maximum loss for wheat." },
-      { id: null, label: "Maize", desc: "Probable maximum loss for maize." },
-      { id: null, label: "Rice", desc: "Probable maximum loss for rice." },
-      { id: null, label: "Soybean", desc: "Probable maximum loss for soybean." },
+      { id: null, label: "Wheat", desc: "Probable maximum loss for crops." },
+      { id: null, label: "Maize", desc: "Probable maximum loss for crops." },
+      { id: null, label: "Rice", desc: "Probable maximum loss for crops." },
+      { id: null, label: "Soybean", desc: "Probable maximum loss for crops." },
     ],
     widget: { type: "sub-tabs", label: "Crop" },
   },
   {
     id: null,
     key: "aal-pml-housing",
-    label: "AAL / PML — Housing",
+    label: "Losses to housing",
     type: "vt",
     geometry: "point",
     desc: "Average annual loss and probable maximum loss for housing stock under current and future climate scenarios.",
@@ -260,7 +250,7 @@ export const RISK_LAYERS = [
   {
     id: "MX-FCU2W-1CCYO-NFZB9",
     key: "ecosystem-loss",
-    label: "Ecosystem Loss",
+    label: "Losses to ecosystem",
     type: "vt",
     geometry: "point",
     desc: "Ecosystem loss resulting from disaster events.",
@@ -330,58 +320,8 @@ export const RISK_LAYERS = [
   },
   {
     id: null,
-    key: "aal-to-gdp-2050",
-    label: "AAL to GDP (2050)",
-    type: "vt",
-    geometry: "point",
-    desc: "Average annual loss as a share of GDP (2050 projection), by hazard.",
-    source: "Taking this layer off the R&R metrics.",
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative: "AAL to GDP now and 2050",
-    r2rCategory: "Economy",
-    rrStep: STEP_LINK,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
-    sources: [
-      { id: null, label: "Earthquake", desc: "AAL to GDP 2050 — earthquake." },
-      { id: null, label: "Landslides", desc: "AAL to GDP 2050 — landslides." },
-      { id: null, label: "Tropical Cyclones", desc: "AAL to GDP 2050 — tropical cyclones." },
-      { id: null, label: "Floods", desc: "AAL to GDP 2050 — floods." },
-      { id: null, label: "Tsunamis", desc: "AAL to GDP 2050 — tsunamis." },
-    ],
-    widget: { type: "sub-tabs", label: "Hazard" },
-  },
-  {
-    id: null,
-    key: "pml-to-gdp-2050",
-    label: "PML to GDP (2050)",
-    type: "vt",
-    geometry: "point",
-    desc: "Probable maximum loss as a share of GDP (2050 projection), by hazard.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative: "PML to GDP now and in 2050",
-    r2rCategory: "Economy",
-    rrStep: STEP_LINK,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
-    sources: [
-      { id: null, label: "Earthquake", desc: "PML to GDP 2050 — earthquake." },
-      { id: null, label: "Landslides", desc: "PML to GDP 2050 — landslides." },
-      { id: null, label: "Tropical Cyclones", desc: "PML to GDP 2050 — tropical cyclones." },
-      { id: null, label: "Floods", desc: "PML to GDP 2050 — floods." },
-      { id: null, label: "Tsunamis", desc: "PML to GDP 2050 — tsunamis." },
-    ],
-    widget: { type: "sub-tabs", label: "Hazard" },
-  },
-  {
-    id: null,
     key: "current-fiscal-gap",
-    label: "Current Fiscal Gap",
+    label: "Fiscal Gap",
     type: "vt",
     geometry: "point",
     desc: "Current fiscal gap (cost of uninsured disaster losses) by hazard.",
@@ -409,7 +349,7 @@ export const RISK_LAYERS = [
   {
     id: null,
     key: "cost-supply-chain-disruption",
-    label: "Cost of Supply Chain Disruption",
+    label: "Supply Chain Disruption",
     type: "vt",
     geometry: "point",
     desc: "Economic cost of disaster-induced supply chain disruption.",
@@ -490,22 +430,5 @@ export const RISK_LAYERS = [
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
     note: NOTE_PENDING,
-  },
-  {
-    id: null,
-    key: "layered-financing-matrix",
-    label: "Layered Financing Matrix",
-    type: "vt",
-    desc: "Matrix of potential project types to accelerate resilience based on a layered financing approach.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative:
-      "Based on a layered financing approach, matrix of potential project types that could be explored to accelerate resilience",
-    r2rCategory: "Economy",
-    rrStep: STEP_CONSIDER,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
   },
 ];
