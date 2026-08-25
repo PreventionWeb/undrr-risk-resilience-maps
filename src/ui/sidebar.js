@@ -560,10 +560,10 @@ export function buildLayerAccordion(layer) {
   body.className = "layer-body";
   body.style.display = "none";
 
-  if (layer.desc) {
+  if (layer.initiative || layer.desc) {
     const desc = document.createElement("p");
     desc.className = "layer-desc mg-form-help";
-    desc.textContent = layer.desc;
+    setLayerDescription(desc, layer, layer.desc);
     body.appendChild(desc);
   }
 
@@ -770,8 +770,8 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         if (widgetEl) widgetSlot.appendChild(widgetEl);
 
         // Show the active source's description instead of the parent's
-        if (descEl && layer.sources[activeIdx].desc) {
-          descEl.textContent = layer.sources[activeIdx].desc;
+        if (descEl) {
+          setLayerDescription(descEl, layer, layer.sources[activeIdx].desc || layer.desc);
         }
       }
 
@@ -832,8 +832,8 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   syncHashFromState();
 
   // Update description to the new source's text
-  if (descEl && layer.sources[newIdx].desc) {
-    descEl.textContent = layer.sources[newIdx].desc;
+  if (descEl) {
+    setLayerDescription(descEl, layer, layer.sources[newIdx].desc || layer.desc);
   }
 
   // Rebuild opacity slider and legend for the new source
@@ -843,6 +843,16 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   legendSlot.innerHTML = "";
   const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
   addLegend(legendLayer, legendSlot);
+}
+
+function setLayerDescription(element, layer, description) {
+  const initiative = layer.initiative?.trim();
+  const initiativeSentence = initiative
+    ? /[.!?]$/.test(initiative)
+      ? initiative
+      : `${initiative}.`
+    : "";
+  element.textContent = [initiativeSentence, description?.trim()].filter(Boolean).join(" ");
 }
 
 /**

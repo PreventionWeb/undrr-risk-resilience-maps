@@ -6,6 +6,7 @@
  */
 
 :root {
+  --build-info-height: 1.625rem;
   --header-height: 3.5rem;
   --nav-height: 2.75rem;
   --color-primary: #004f91;

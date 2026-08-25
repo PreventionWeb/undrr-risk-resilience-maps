@@ -17,7 +17,19 @@ const STATUS_LABELS = {
 
 const UNPUBLISHED_STATUSES = new Set(["disabled", "disabled-awaiting-data", "disabled-pending-removal"]);
 
+function hasCompleteMapxViews(layer) {
+  if (Array.isArray(layer.sources) && layer.sources.length > 0) {
+    return layer.sources.every((source) => Boolean(source.id));
+  }
+  return Boolean(layer.id);
+}
+
 export function getLayerPublicationState(layer) {
+  // An inventory row may still say "In development" after its MapX view has
+  // arrived. Public views can be added across projects by ID.
+  if (layer.status === "disabled-awaiting-data" && hasCompleteMapxViews(layer)) {
+    return "active";
+  }
   if (layer.status) return layer.status;
   if (layer.disabled) return "disabled";
   return "active";

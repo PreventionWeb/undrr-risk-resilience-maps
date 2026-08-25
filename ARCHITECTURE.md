@@ -109,7 +109,7 @@ Browser tab
         └── communicates via postMessage ↕
 ```
 
-**Single-project constraint:** the SDK connects to one MapX project at a time (`PRIMARY_PROJECT = ECO_DRR`). All enabled, pre-built MapX layers must belong to this project. `validateLayers()` enforces this at startup — any enabled layer with a different `project` value throws an error. Layers that belong to other projects (e.g. `HOME`) are marked `disabled: true` with a TODO comment until data is consolidated. Runtime external layers are exempt because they create temporary views within the connected project.
+**Primary project and cross-project views:** the SDK connects to one primary MapX project (`PRIMARY_PROJECT = ECO_DRR`). Public views from other MapX projects can currently be added by ID with `view_add`, so validation warns about these dependencies without blocking startup. This behavior is not guaranteed by the SDK contract; consolidating permanent views into the primary project remains the preferred long-term setup. Runtime external layers create temporary views within the connected project.
 
 ### Runtime external layers
 

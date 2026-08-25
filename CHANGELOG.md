@@ -8,8 +8,11 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- A compact global build-freshness footer now shows the latest Git commit as a dynamically updating relative time and links to the project repository.
+- Layer summaries now lead with the programme inventory's R-R Initiative before the layer-specific description, including while switching compound-map variants.
+- In-development layers automatically become available when all required MapX view IDs exist; public cross-project views are allowed with a startup warning rather than blocking the application.
 - Expanding a published layer now activates it automatically; collapsing the accordion leaves the map layer active, while turning its accessible on/off switch off also folds the details closed. Eye icons have been replaced with larger, touch-friendly switch controls across primary and cross-tab layer lists, whose headings now share the panel's standard content inset.
-- **August 2026 map inventory import**: reconciled 122 programme spreadsheet rows with the runtime registry, including eight World Bank recovery-speed views, PML public infrastructure views, crop placeholders, the ecosystem-loss and early-warning MapX IDs, richer source metadata, new Risk/Resilience placeholders, and explicit pending-removal states. The inventory importer now supports repeated sub-source labels and status-only updates.
+- **August 2026 map inventory import**: reconciled 103 retained programme spreadsheet rows with the runtime registry, including eight World Bank recovery-speed views, PML public infrastructure views, crop placeholders, the ecosystem-loss and early-warning MapX IDs, richer source metadata, and new Risk/Resilience placeholders. Entries marked for removal were deleted from both sources. The inventory importer now supports repeated sub-source labels and status-only updates.
 - **External EDRA crop-risk prototype**: the Hazard group can now fetch European Drought Risk Atlas NUTS-2 boundaries and drought-related crop-yield reductions directly from Copernicus CEMS, reproject the source geometry from EPSG:3035, and inject it into MapX as a temporary GeoJSON view. The layer includes barley/maize/wheat and historical/current/+1.5 °C/+2 °C/+3 °C controls, opacity, a local legend, URL restore, and site-inspection attributes.
 - External-layer runtime registry and provider adapter pattern, allowing non-MapX sources to participate in the existing `openViews`, inspection, clear-all, and layer-control workflows without a permanent MapX view ID.
 - External-runtime governance guide covering the programme source-tracker row, ownership workflow, measured EDRA payload/reprojection costs, reliability and privacy dependencies, production trade-offs, and migration triggers.
@@ -64,7 +67,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - `buildLayerAccordion` was checking `!layer.disabled` (legacy flag) for the eye toggle, so layers with `status: "disabled-awaiting-data"` would receive an eye button that called `viewAdd(null)`; now uses `isLayerPublished()` consistently
 - Config validator was requiring non-null source IDs for all compound layers regardless of publication state; unpublished compound layers may now have `null` source IDs (IDs are assigned once views are uploaded)
 - Duplicate MapX view IDs between hazard and risk layers caused incorrect layer state; affected risk layers temporarily disabled with TODOs
-- Cross-project layer (Land Cover from HOME project) silently failing; disabled until a unified UNDRR MapX project is set up
+- Cross-project public views such as Land Cover no longer fail startup validation; they can be added by ID while project consolidation remains the preferred long-term setup
 - Hash `sourceIdx` out-of-bounds read crashing compound layer restore on back/forward navigation
 - Back/forward navigation not reconciling which layers to turn off (only turned layers on)
 - UI built inside the SDK `ready` handler, so sidebar appeared blank until the map loaded
@@ -81,6 +84,6 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Layer toggles guarded by SDK readiness flag so they cannot fire before the map is connected
 - Unpublished prototype layers now support richer states such as Awaiting data and Pending removal while remaining hidden from the sidebar by default and retained in Sources/CSV
 - Primary category order now leads with Risk and Resilience
-- Coral Reefs moved to disabled/unpublished status while category scope is reviewed
+- Entries explicitly marked Pending removal, including Coral Reefs and Well-being, were removed from the application configuration and canonical inventory
 - Terminology updated from "risk to resilience" to "risk and resilience" throughout the project
 - Disabled layer accordions are now expandable so descriptions and metadata remain readable during review (previously `pointer-events: none` blocked interaction)

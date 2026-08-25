@@ -15,6 +15,44 @@ describe("layer status helpers", () => {
     expect(isLayerPublished(layer)).toBe(false);
   });
 
+  it("publishes an in-development layer once it has a MapX id", () => {
+    const layer = { id: "MX-1", status: "disabled-awaiting-data" };
+
+    expect(getLayerPublicationState(layer)).toBe("active");
+    expect(getLayerStatus(layer)).toBe("Active");
+    expect(isLayerPublished(layer)).toBe(true);
+  });
+
+  it("publishes an in-development compound layer when every sub-map is available", () => {
+    const layer = {
+      id: null,
+      status: "disabled-awaiting-data",
+      sources: [{ id: "MX-1" }, { id: "MX-2" }],
+    };
+
+    expect(isLayerPublished(layer)).toBe(true);
+  });
+
+  it("keeps an incomplete in-development compound layer unpublished", () => {
+    const layer = {
+      id: null,
+      status: "disabled-awaiting-data",
+      sources: [{ id: null }, { id: "MX-1" }],
+    };
+
+    expect(isLayerPublished(layer)).toBe(false);
+  });
+
+  it("publishes an in-development layer from another MapX project", () => {
+    const layer = {
+      id: "MX-1",
+      project: "MX-OTHER",
+      status: "disabled-awaiting-data",
+    };
+
+    expect(isLayerPublished(layer)).toBe(true);
+  });
+
   it("returns Pending removal for unpublished layers under review for removal", () => {
     const layer = { id: "MX-1", status: "disabled-pending-removal" };
     expect(getLayerStatus(layer)).toBe("Pending removal");

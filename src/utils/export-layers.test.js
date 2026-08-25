@@ -70,16 +70,28 @@ describe("generateLayerInventoryCSV", () => {
     expect(csv).toContain("UNDERSTAND YOUR HAZARD PROFILE");
   });
 
-  it("marks disabled-awaiting-data layers as In development", () => {
-    const landCoverLines = lines.filter((l) => l.includes("land-cover"));
-    expect(landCoverLines.length).toBeGreaterThan(0);
-    expect(landCoverLines[0]).toContain("In development");
+  it("marks awaiting layers without MapX IDs as In development", () => {
+    const recoveryLines = lines.filter((l) => l.includes("recovery-consumption"));
+    expect(recoveryLines.length).toBeGreaterThan(0);
+    expect(recoveryLines[0]).toContain("In development");
   });
 
-  it("marks coral reefs as Pending removal", () => {
-    const coralLines = lines.filter((l) => l.includes("coral-reefs"));
-    expect(coralLines.length).toBeGreaterThan(0);
-    expect(coralLines[0]).toContain("Pending removal");
+  it("marks compatible in-development layers with MapX IDs as Uploaded", () => {
+    const ecosystemLines = lines.filter((l) => l.includes("ecosystem-loss"));
+    expect(ecosystemLines.length).toBeGreaterThan(0);
+    expect(ecosystemLines[0]).toContain("Uploaded");
+  });
+
+  it("marks cross-project MapX views with IDs as Uploaded", () => {
+    const landCoverLines = lines.filter((l) => l.includes("land-cover"));
+    expect(landCoverLines.length).toBeGreaterThan(0);
+    expect(landCoverLines[0]).toContain("Uploaded");
+  });
+
+  it("excludes layers removed from the inventory", () => {
+    expect(csv).not.toContain("coral-reefs");
+    expect(csv).not.toContain("wellbeing");
+    expect(csv).not.toContain("aal-to-gdp-2050");
   });
 
   it("includes newly uploaded recovery-speed views", () => {

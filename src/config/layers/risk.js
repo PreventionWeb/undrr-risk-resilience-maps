@@ -1,7 +1,6 @@
 import { ECO_DRR } from "./projects.js";
 
 const AWAITING = "disabled-awaiting-data";
-const PENDING_REMOVAL = "disabled-pending-removal";
 const SOURCE_TBC = "Source to be confirmed.";
 const CITATION_TBC = "Source to be confirmed.";
 const LICENSE_TBC = "TBD";
@@ -21,7 +20,6 @@ const RECOVERY_LICENSE =
 
 const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
 const STEP_PRIORITIZE = "PRIORITIZE CURRENT AND FUTURE INVESTMENT";
-const STEP_CONSIDER = "CONSIDER POTENTIAL RESILIENCE OPTIONS";
 
 export const RISK_LAYERS = [
   {
@@ -330,56 +328,6 @@ export const RISK_LAYERS = [
   },
   {
     id: null,
-    key: "aal-to-gdp-2050",
-    label: "AAL to GDP (2050)",
-    type: "vt",
-    geometry: "point",
-    desc: "Average annual loss as a share of GDP (2050 projection), by hazard.",
-    source: "Taking this layer off the R&R metrics.",
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative: "AAL to GDP now and 2050",
-    r2rCategory: "Economy",
-    rrStep: STEP_LINK,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
-    sources: [
-      { id: null, label: "Earthquake", desc: "AAL to GDP 2050 — earthquake." },
-      { id: null, label: "Landslides", desc: "AAL to GDP 2050 — landslides." },
-      { id: null, label: "Tropical Cyclones", desc: "AAL to GDP 2050 — tropical cyclones." },
-      { id: null, label: "Floods", desc: "AAL to GDP 2050 — floods." },
-      { id: null, label: "Tsunamis", desc: "AAL to GDP 2050 — tsunamis." },
-    ],
-    widget: { type: "sub-tabs", label: "Hazard" },
-  },
-  {
-    id: null,
-    key: "pml-to-gdp-2050",
-    label: "PML to GDP (2050)",
-    type: "vt",
-    geometry: "point",
-    desc: "Probable maximum loss as a share of GDP (2050 projection), by hazard.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative: "PML to GDP now and in 2050",
-    r2rCategory: "Economy",
-    rrStep: STEP_LINK,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
-    sources: [
-      { id: null, label: "Earthquake", desc: "PML to GDP 2050 — earthquake." },
-      { id: null, label: "Landslides", desc: "PML to GDP 2050 — landslides." },
-      { id: null, label: "Tropical Cyclones", desc: "PML to GDP 2050 — tropical cyclones." },
-      { id: null, label: "Floods", desc: "PML to GDP 2050 — floods." },
-      { id: null, label: "Tsunamis", desc: "PML to GDP 2050 — tsunamis." },
-    ],
-    widget: { type: "sub-tabs", label: "Hazard" },
-  },
-  {
-    id: null,
     key: "current-fiscal-gap",
     label: "Current Fiscal Gap",
     type: "vt",
@@ -490,22 +438,5 @@ export const RISK_LAYERS = [
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
     note: NOTE_PENDING,
-  },
-  {
-    id: null,
-    key: "layered-financing-matrix",
-    label: "Layered Financing Matrix",
-    type: "vt",
-    desc: "Matrix of potential project types to accelerate resilience based on a layered financing approach.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative:
-      "Based on a layered financing approach, matrix of potential project types that could be explored to accelerate resilience",
-    r2rCategory: "Economy",
-    rrStep: STEP_CONSIDER,
-    status: PENDING_REMOVAL,
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
   },
 ];

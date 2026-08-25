@@ -54,10 +54,11 @@ export function validateLayers(tabs, primaryProject) {
         seenKeys.add(layer.key);
       }
 
-      // Enabled layers must belong to the primary project (SDK is single-project)
+      // Public MapX views can currently be added by ID across projects. Keep a
+      // warning because this behavior is not guaranteed by the SDK contract.
       if (!external && published && primaryProject && layer.project && layer.project !== primaryProject) {
-        errors.push(
-          `${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`,
+        warnings.push(
+          `${ctx} -- layer belongs to project "${layer.project}" while the SDK loads "${primaryProject}"; cross-project loading requires a public view.`,
         );
       }
 
