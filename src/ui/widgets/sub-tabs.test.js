@@ -78,4 +78,31 @@ describe("buildSubTabs", () => {
       expect(btn.getAttribute("role")).toBe("tab");
     }
   });
+
+  it("uses a select when there are more than three sources", () => {
+    const sources = [...SOURCES, { id: "d", label: "Delta" }];
+    const el = buildSubTabs(sources, 2, () => {}, CONFIG);
+    const select = el.querySelector(".widget-source-select");
+
+    expect(el.querySelector(".widget-sub-tabs-bar")).toBeNull();
+    expect(select.options).toHaveLength(4);
+    expect(select.value).toBe("2");
+    expect(Array.from(select.options, (option) => option.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+      "Delta",
+    ]);
+  });
+
+  it("fires the callback when a source is selected", () => {
+    const onChange = vi.fn();
+    const sources = [...SOURCES, { id: "d", label: "Delta" }];
+    const el = buildSubTabs(sources, 0, onChange, CONFIG);
+    const select = el.querySelector(".widget-source-select");
+
+    select.value = "3";
+    select.dispatchEvent(new Event("change"));
+    expect(onChange).toHaveBeenCalledWith(3);
+  });
 });

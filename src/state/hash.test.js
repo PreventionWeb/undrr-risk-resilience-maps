@@ -172,7 +172,7 @@ describe("getTabForLayerKey", () => {
   });
 
   it("returns 'resilience' for a resilience layer key", () => {
-    expect(getTabForLayerKey("wellbeing")).toBe("resilience");
+    expect(getTabForLayerKey("change-fiscal-gap")).toBe("resilience");
   });
 
   it("returns undefined for an unknown key", () => {

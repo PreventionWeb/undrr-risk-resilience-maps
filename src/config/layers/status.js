@@ -17,6 +17,13 @@ const STATUS_LABELS = {
 
 const UNPUBLISHED_STATUSES = new Set(["disabled", "disabled-awaiting-data", "disabled-pending-removal"]);
 
+function hasCompleteMapxViews(layer) {
+  if (Array.isArray(layer.sources) && layer.sources.length > 0) {
+    return layer.sources.every((source) => Boolean(source.id));
+  }
+  return Boolean(layer.id);
+}
+
 export function getLayerPublicationState(layer) {
   if (layer.status) return layer.status;
   if (layer.disabled) return "disabled";
@@ -41,4 +48,13 @@ export function getLayerStatus(layer, source = null) {
 
 export function isLayerPublished(layer) {
   return !UNPUBLISHED_STATUSES.has(getLayerPublicationState(layer));
+}
+
+/** Whether the prototype can offer this layer in the map explorer. */
+export function isLayerAvailable(layer) {
+  const publicationState = getLayerPublicationState(layer);
+  if (publicationState === "disabled-awaiting-data") return hasCompleteMapxViews(layer);
+  if (UNPUBLISHED_STATUSES.has(publicationState)) return false;
+  if (layer.external) return true;
+  return hasCompleteMapxViews(layer);
 }

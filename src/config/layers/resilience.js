@@ -9,60 +9,8 @@ const NOTE_PENDING = "Awaiting data — MapX view not yet available.";
 const STEP_UNDERSTAND = "UNDERSTAND YOUR HAZARD PROFILE";
 const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
 const STEP_PRIORITIZE = "PRIORITIZE CURRENT AND FUTURE INVESTMENT";
-const STEP_CONSIDER = "CONSIDER POTENTIAL RESILIENCE OPTIONS";
 
 export const RESILIENCE_LAYERS = [
-  {
-    id: null,
-    key: "wellbeing",
-    label: "Well-being",
-    type: "vt",
-    geometry: "point",
-    desc: "Well-being impacts of disaster risk, with and without adaptation measures.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative:
-      "Change in well being (recovery of consumption) and asset ownership by the poorest households with or without reslient investment",
-    r2rCategory: "Societies",
-    rrStep: STEP_LINK,
-    status: "disabled-pending-removal",
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
-    sources: [
-      {
-        id: "MX-836KR-C0OWG-2OGU2",
-        label: "Assets w/o adaptation",
-        desc: "Asset value without adaptation measures.",
-      },
-      {
-        id: "MX-NYKLB-MQNML-D4583",
-        label: "Assets w/ adaptation",
-        desc: "Asset value with adaptation measures.",
-      },
-      {
-        id: "MX-G1G8E-MGLJL-Z9JEU",
-        label: "Wellbeing w/o adaptation",
-        desc: "Well-being index without adaptation measures.",
-      },
-      {
-        id: "MX-P8K9H-PUNT8-SEH10",
-        label: "Wellbeing w/ adaptation",
-        desc: "Well-being index with adaptation measures.",
-      },
-      {
-        id: "MX-B5EX7-UCSAR-CQUNJ",
-        label: "Change in assets",
-        desc: "Change in assets attributable to adaptation.",
-      },
-      {
-        id: "MX-3S4X6-9YXCI-MOI3L",
-        label: "Change in wellbeing",
-        desc: "Change in well-being attributable to adaptation.",
-      },
-    ],
-    widget: { type: "sub-tabs", label: "Metric" },
-  },
   {
     id: null,
     key: "change-fiscal-gap",
@@ -94,10 +42,10 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "recovery-consumption",
-    label: "Recovery Consumption",
+    label: "Recovery consumption",
     type: "vt",
     geometry: "point",
-    desc: "Post-disaster well-being, consumption recovery and asset ownership for the poorest households with and without resilient investment.",
+    desc: "Post-disaster well-being, consumption recovery and asset ownership for the poorest households with and without resilient investment",
     source: SOURCE_TBC,
     citation: CITATION_TBC,
     license: LICENSE_TBC,
@@ -111,7 +59,7 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "adaptation",
-    label: "Adaptation",
+    label: "Adaptation in Infrastructure losses",
     type: "vt",
     geometry: "point",
     desc: "Spatial distribution of adaptation measures and resilience interventions.",
@@ -161,7 +109,7 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "life-years-adaptation-benefit",
-    label: "Adaptation Benefit to Life Years Lost",
+    label: "Reduction in life years lost",
     type: "vt",
     desc: "Adaptation benefit in relation to life years lost from disasters.",
     source: SOURCE_TBC,
@@ -369,21 +317,5 @@ export const RESILIENCE_LAYERS = [
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
     note: NOTE_PENDING,
-  },
-  {
-    id: null,
-    key: "resilience-cobenefit",
-    label: "Co-Benefits of Resilience Options",
-    type: "vt",
-    desc: "Co-benefits of resilience options with climate and energy transitions.",
-    source: SOURCE_TBC,
-    citation: CITATION_TBC,
-    license: LICENSE_TBC,
-    project: ECO_DRR,
-    initiative: "Co benefits of resilience options with climate and energy tranistions",
-    r2rCategory: "Environment",
-    rrStep: STEP_CONSIDER,
-    status: "disabled-pending-removal",
-    note: "Pending removal from the R&R metrics, as indicated by the August 2026 inventory.",
   },
 ];

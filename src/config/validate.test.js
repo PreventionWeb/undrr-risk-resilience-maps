@@ -115,10 +115,13 @@ describe("validateLayers", () => {
     warn.mockRestore();
   });
 
-  it("throws when an enabled layer belongs to a non-primary project", () => {
+  it("warns but does not throw when an enabled layer belongs to a non-primary project", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(() =>
       validateLayers([makeTab("hazard", [makeSimpleLayer({ project: OTHER })])], PRIMARY),
-    ).toThrow();
+    ).not.toThrow();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("cross-project loading"));
+    warn.mockRestore();
   });
 
   it("throws when an enabled simple layer has a null id", () => {

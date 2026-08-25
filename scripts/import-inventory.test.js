@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -16,6 +16,7 @@ function makeFixture() {
   cpSync(join(ROOT, "scripts/import-inventory.mjs"), join(fixture, "scripts/import-inventory.mjs"));
   cpSync(join(ROOT, "src/config/layers"), join(fixture, "src/config/layers"), { recursive: true });
   cpSync(join(ROOT, "data/inventory.csv"), join(fixture, "data/inventory.csv"));
+  cpSync(join(ROOT, "data/removed-layer-keys.txt"), join(fixture, "data/removed-layer-keys.txt"));
   return fixture;
 }
 
@@ -24,6 +25,97 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("applies spreadsheet layer names and descriptions", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8")
+      .replace(",population,Population,", ",population,People,")
+      .replace(
+        "Direct Probable Maximum Losses to public infrastructure - Earthquake",
+        "PML to public infrastructure - Earthquake",
+      );
+    writeFileSync(csvPath, csv);
+
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+
+    const exposure = readFileSync(join(fixture, "src/config/layers/exposure.js"), "utf8");
+    expect(exposure).toMatch(/key: "population",\n\s+label: "People"/);
+    const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
+    expect(risk).toContain('desc: "PML to public infrastructure - Earthquake"');
+  });
+
+  it("fails fast when required CSV headers are missing", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    writeFileSync(malformed, readFileSync(source, "utf8").replace("R&R Step", "state"));
+
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Inventory CSV missing required header(s): R&R Step");
+  });
+
+  it("accepts an explicit CSV input path", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const alternate = join(fixture, "alternate.csv");
+    cpSync(source, alternate);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", alternate],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(report).toContain(`Input:       ${alternate}`);
+    expect(report).toContain("Matched:     103");
+  });
+
+  it("matches a simple layer with one newly labelled sub-source", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const alternate = join(fixture, "alternate.csv");
+    const csv = readFileSync(source, "utf8").replace(
+      /,ecosystem-loss,Ecosystem Loss,,Vector,/,
+      ",ecosystem-loss,Ecosystem Loss,Agriculture,Vector,",
+    );
+    writeFileSync(alternate, csv);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", alternate],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(report).toContain("Matched:     103");
+    expect(report).not.toContain("In CSV but NOT in JS config");
+  });
+
+  it("ignores rows whose layer keys are explicitly retired", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8");
+    writeFileSync(
+      csvPath,
+      `${csv.trimEnd()}\nRetired initiative,Exposure,Environment,other,coral-reefs,Coral Reefs,,Raster,Retired layer,MX-RETIRED-VIEW,Source,Citation,License,Uploaded\n`,
+    );
+
+    const report = execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+
+    expect(report).toContain("Ignored:     1 retired row(s)");
+    expect(report).not.toContain("In CSV but NOT in JS config");
+  });
+
   it("targets one repeated sub-source and the requested layer status only", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");

@@ -8,7 +8,33 @@ body {
 
 .app-map {
   position: relative;
-  height: calc(100vh - var(--header-height) - var(--nav-height));
+  height: calc(100vh - var(--header-height) - var(--nav-height) - var(--build-info-height));
+}
+
+.build-info {
+  display: flex;
+  min-height: var(--build-info-height);
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.2rem 0.75rem;
+  background: #fff;
+  color: #666;
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.build-info__link {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+.build-info__link:hover,
+.build-info__link:focus-visible {
+  color: var(--color-primary, #004f91);
+  text-decoration: underline;
 }
 
 /* Visually hidden until keyboard-focused, then shown as a floating pill. */
@@ -101,7 +127,7 @@ body {
 #info-page {
   display: none;
   width: 100%;
-  min-height: calc(100vh - var(--header-height) - var(--nav-height));
+  min-height: calc(100vh - var(--header-height) - var(--nav-height) - var(--build-info-height));
   overflow-y: auto;
   background: #fff;
   box-sizing: border-box;

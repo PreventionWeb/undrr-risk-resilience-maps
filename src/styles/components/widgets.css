@@ -57,6 +57,25 @@
   outline-offset: -2px;
 }
 
+.widget-source-select {
+  display: block;
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.45rem 2rem 0.45rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.widget-source-select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* ── Stepped slider ───────────────────────────────── */
 
 .widget-stepped-slider {

@@ -105,7 +105,7 @@ export function generateLayerInventoryCSV() {
               rrStep,
               layer.key,
               layer.label,
-              src.inventoryLabel || src.label,
+              src.label,
               type,
               src.desc || layer.desc || "",
               src.id || "",

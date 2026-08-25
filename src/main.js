@@ -19,6 +19,7 @@ import {
   handleClickEvent,
 } from "./sdk/inspect.js";
 import { buildSiteInspectorPanel, showSiteInspector, hideSiteInspector } from "./ui/site-inspector.js";
+import { initBuildInfo } from "./ui/build-info.js";
 import * as store from "./state/store.js";
 import "./styles/shared.css";
 
@@ -29,6 +30,7 @@ validateLayers(TABS, PRIMARY_PROJECT);
 // require the SDK to be ready.
 buildSidebar();
 buildSiteInspectorPanel();
+initBuildInfo();
 
 const mapx = initSDK(document.getElementById("mapx"), PRIMARY_PROJECT);
 

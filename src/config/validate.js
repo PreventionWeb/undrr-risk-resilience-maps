@@ -6,7 +6,7 @@
  * errors so they show up immediately in the console.
  */
 
-import { isLayerPublished } from "./layers/status.js";
+import { isLayerAvailable, isLayerPublished } from "./layers/status.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
@@ -27,6 +27,7 @@ export function validateLayers(tabs, primaryProject) {
       const ctx = `[${tab.id}] "${layer.label || "(no label)"}"`;
       const compound = Array.isArray(layer.sources) && layer.sources.length > 0;
       const published = isLayerPublished(layer);
+      const available = isLayerAvailable(layer);
       const external = Boolean(layer.external);
 
       if (!layer.label) {
@@ -54,10 +55,11 @@ export function validateLayers(tabs, primaryProject) {
         seenKeys.add(layer.key);
       }
 
-      // Enabled layers must belong to the primary project (SDK is single-project)
-      if (!external && published && primaryProject && layer.project && layer.project !== primaryProject) {
-        errors.push(
-          `${ctx} -- enabled layer belongs to project "${layer.project}" but SDK only loads "${primaryProject}". Set status to an unpublished value until data is consolidated.`,
+      // Public MapX views can currently be added by ID across projects. Keep a
+      // warning because this behavior is not guaranteed by the SDK contract.
+      if (!external && available && primaryProject && layer.project && layer.project !== primaryProject) {
+        warnings.push(
+          `${ctx} -- layer belongs to project "${layer.project}" while the SDK loads "${primaryProject}"; cross-project loading requires a public view.`,
         );
       }
 
@@ -83,7 +85,7 @@ export function validateLayers(tabs, primaryProject) {
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
           }
-          if (published) {
+          if (published || available) {
             // Published compound layers require valid string IDs on every source
             if (!src.id || typeof src.id !== "string") {
               errors.push(`${ctx} -- sources[${s}] missing id`);
@@ -101,7 +103,7 @@ export function validateLayers(tabs, primaryProject) {
         }
       } else {
         // Simple layer: must have a string ID (unless disabled)
-        if (isLayerPublished(layer) && (typeof layer.id !== "string" || !layer.id)) {
+        if (published && (typeof layer.id !== "string" || !layer.id)) {
           errors.push(`${ctx} -- enabled layer missing id`);
         }
       }

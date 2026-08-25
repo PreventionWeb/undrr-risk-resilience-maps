@@ -1,0 +1,8 @@
+# Layer keys intentionally retired from the R-R map inventory.
+# The importer ignores these even when they remain in a colleague export.
+aal-to-gdp-2050
+pml-to-gdp-2050
+layered-financing-matrix
+wellbeing
+resilience-cobenefit
+coral-reefs
