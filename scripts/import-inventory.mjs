@@ -155,10 +155,8 @@ function extractLayerEntries(src, file) {
       let sm;
       while ((sm = subRe2.exec(sourcesBlock)) !== null) {
         const rawId = sm[1].trim();
-        const inventoryLabel = /inventoryLabel:\s*["']([^"']+)["']/.exec(sm[0]);
-        const subLabel = inventoryLabel ? inventoryLabel[1] : sm[2];
         const currentId = rawId === "null" ? "" : rawId.replace(/["']/g, "");
-        entries.push({ key, subSource: subLabel, uiLabel: sm[2], currentId, currentStatus: "", file });
+        entries.push({ key, subSource: sm[2], currentId, currentStatus: "", file });
       }
     } else {
       // Simple layer — id: appears BEFORE key: in the object, so search backward.
@@ -376,11 +374,11 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         modified = true;
       }
     } else if (c.subSource) {
-      // New compound IDs are scoped to their layer block. UI labels must be
-      // unique even when inventoryLabel intentionally repeats.
+      // New compound IDs are scoped to their layer block. Source labels match
+      // the inventory Sub-source values and must be unique within a layer.
       const result = replaceInLayerBlock(src, c.key, (block) =>
         block.replace(
-          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.uiLabel || c.subSource)}")`),
+          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`),
           `$1"${c.newId}"$2`,
         ),
       );

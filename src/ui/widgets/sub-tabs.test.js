@@ -18,13 +18,6 @@ describe("buildSubTabs", () => {
     expect(buttons[2].textContent).toBe("Gamma");
   });
 
-  it("prefers the inventory sub-source label when provided", () => {
-    const sources = [{ id: "a", label: "Code label", inventoryLabel: "Spreadsheet sub-source" }];
-    const el = buildSubTabs(sources, 0, () => {}, CONFIG);
-
-    expect(el.querySelector(".widget-sub-tab").textContent).toBe("Spreadsheet sub-source");
-  });
-
   it("marks only the initial index as active", () => {
     const el = buildSubTabs(SOURCES, 1, () => {}, CONFIG);
     const buttons = el.querySelectorAll(".widget-sub-tab");

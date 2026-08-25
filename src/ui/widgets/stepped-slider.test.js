@@ -10,13 +10,6 @@ const CONFIG = { type: "stepped-slider", label: "Return period" };
 const DEBOUNCE_MS = 200;
 
 describe("buildSteppedSlider", () => {
-  it("prefers the inventory sub-source label for ticks", () => {
-    const sources = [{ id: "a", label: "Code label", inventoryLabel: "Spreadsheet sub-source" }];
-    const el = buildSteppedSlider(sources, 0, () => {}, CONFIG);
-
-    expect(el.querySelector(".widget-slider-ticks span").textContent).toBe("Spreadsheet sub-source");
-  });
-
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
