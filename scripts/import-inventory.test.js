@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -25,6 +25,22 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("fails fast when required CSV headers are missing", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    writeFileSync(malformed, readFileSync(source, "utf8").replace("R&R Step", "state"));
+
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Inventory CSV missing required header(s): R&R Step");
+  });
+
   it("accepts an explicit CSV input path", () => {
     const fixture = makeFixture();
     const source = join(fixture, "data/inventory.csv");

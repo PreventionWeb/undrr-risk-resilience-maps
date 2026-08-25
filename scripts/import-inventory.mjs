@@ -84,6 +84,28 @@ function parseCSV(text) {
 const csvText = readFileSync(CSV_PATH, "utf-8").replace(/^\uFEFF/, "");
 const [headerRow, ...dataRows] = parseCSV(csvText);
 
+const REQUIRED_HEADERS = [
+  "Variable R-R Initiative",
+  "Category",
+  "R2R category",
+  "R&R Step",
+  "Layer key",
+  "Layer name",
+  "Sub-source",
+  "Type",
+  "Description",
+  "MapX view ID",
+  "Source",
+  "Citation",
+  "License",
+  "Inventory status",
+];
+const providedHeaders = new Set((headerRow || []).map((header) => header.trim()));
+const missingHeaders = REQUIRED_HEADERS.filter((header) => !providedHeaders.has(header));
+if (missingHeaders.length) {
+  throw new Error(`Inventory CSV missing required header(s): ${missingHeaders.join(", ")}`);
+}
+
 const H = {};
 headerRow.forEach((h, i) => (H[h.trim()] = i));
 

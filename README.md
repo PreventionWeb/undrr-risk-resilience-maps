@@ -46,6 +46,8 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 | [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                         |
 | [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns |
 
+The inventory importer requires the repository's exact 14-column CSV header and fails fast when columns are missing or renamed. Colleague `.xlsx` files must currently be exported or converted to that CSV shape before import.
+
 ## URL routing
 
 Hash-based routing (`#risk-resilience`, `#hazard`, `#sources`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.

@@ -12,7 +12,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Layer summaries now lead with the programme inventory's R-R Initiative before the layer-specific description, including while switching compound-map variants.
 - Compound-layer source labels now mirror the inventory Sub-source value directly, removing the competing inventory-label override from selectors and exports.
 - Compound layers use compact tabs for up to three sources and automatically switch to a full-width select control for larger option sets, preventing hidden or clipped choices in narrow panels.
-- In-development layers automatically become available when all required MapX view IDs exist; public cross-project views are allowed with a startup warning rather than blocking the application.
+- In-development layers automatically become available when all required MapX view IDs exist while retaining their editorial status in Sources and exports; public cross-project views are allowed with a startup warning rather than blocking the application.
 - Inventory imports now filter a durable retired-layer key list, preventing obsolete rows retained in colleague exports from being reintroduced.
 - Expanding a published layer now activates it automatically; collapsing the accordion leaves the map layer active, while turning its accessible on/off switch off also folds the details closed. Eye icons have been replaced with larger, touch-friendly switch controls across primary and cross-tab layer lists, whose headings now share the panel's standard content inset.
 - **August 2026 map inventory import**: reconciled 103 retained programme spreadsheet rows with the runtime registry, including eight World Bank recovery-speed views, PML public infrastructure views, crop placeholders, the ecosystem-loss and early-warning MapX IDs, richer source metadata, and new Risk/Resilience placeholders. Entries marked for removal were deleted from both sources. The inventory importer now supports repeated sub-source labels and status-only updates.
@@ -26,9 +26,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - `closeInfobox()` exported from `src/ui/infobox.js` so the infobox can be explicitly dismissed when entering inspection mode.
 
 - Cross-tab layer sections: each tab panel now shows collapsed `<details>` sections for all other tabs, letting users toggle layers from any category without switching tabs. Secondary eye buttons delegate to the canonical toggle; state (active indicator, auto-expand) stays in sync. Rapid/concurrent clicks are guarded by an in-flight Set per layer key.
-- Risk & Resilience layers now active: MapX view IDs wired for AAL Public, AAL/PML Housing, AAL/PML to GDP 2025, PML to GDP 2025, Current Fiscal Gap (all 5 hazards including Floods), Well-being, and Change in Fiscal Gap — sourced from the confirmed inventory spreadsheet.
+- Risk & Resilience MapX view IDs wired for AAL Public, AAL/PML Housing, AAL/PML to GDP 2025, PML to GDP 2025, Current Fiscal Gap (all five hazards including Floods), and Change in Fiscal Gap.
 - Risk & Resilience tab now renders Risk Maps and Resilience Maps as distinct labelled subgroups in the sidebar; group headings hide automatically when disabled layers are not shown
-- Canonical Risk and Resilience layer inventory sourced from the planning spreadsheet: 16 Risk layers (AAL/PML by hazard, fiscal gap, recovery speed, ecosystem loss, supply-chain disruption, bank solvency, sovereign debt, DRR financing, humanitarian vs. prevention expenditure) and 3 Resilience layers (wellbeing, change in fiscal gap, adaptation) — all marked `disabled-awaiting-data` pending MapX view ID assignment
+- Canonical Risk and Resilience layer inventory sourced from the programme planning spreadsheet, with incomplete entries retained as development placeholders.
 - Config validator now checks for duplicate layer `key` values (previously only checked view IDs)
 - Resilience tab with planned placeholder entries for future resilience-linked content
 - Broader CDRI risk placeholders (AAL and 1:100 PML review entries) added to the Risk inventory
@@ -47,7 +47,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Preview PIN gate for prototype access control
 - Hash-based URL routing: active layers and active tab encoded in the URL so links are shareable and browser back/forward works
 - GitHub Actions workflow for GitHub Pages deployment
-- Startup config validation (catches typos, missing IDs, bad legend entries, duplicate view IDs, cross-project layers)
+- Startup config validation catches typos, missing IDs, bad legend entries, and duplicate view IDs, and warns about cross-project dependencies.
 - Mangrove `mg-mega-topbar` navigation bar with category tabs and info links
 - Floating layer panel over full-width map (collapsible, scrollable)
 - Accordion layer items with expand arrow, type tags, and eye toggle
@@ -85,7 +85,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Layout from fixed sidebar to floating panel over full-width map
 - Hazard layers reorganised into compound layers where data pairs exist
 - Layer toggles guarded by SDK readiness flag so they cannot fire before the map is connected
-- Unpublished prototype layers now support richer states such as Awaiting data and Pending removal while remaining hidden from the sidebar by default and retained in Sources/CSV
+- Inventory lifecycle status is preserved independently from prototype availability; awaiting-data layers with complete IDs can be reviewed on the map without being exported as Uploaded.
 - Primary category order now leads with Risk and Resilience
 - Entries explicitly marked Pending removal, including Coral Reefs and Well-being, were removed from the application configuration and canonical inventory
 - Terminology updated from "risk to resilience" to "risk and resilience" throughout the project

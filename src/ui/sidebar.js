@@ -17,7 +17,7 @@ import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "..
 import { parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
-import { isLayerPublished } from "../config/layers/status.js";
+import { isLayerAvailable } from "../config/layers/status.js";
 import {
   closeExternalLayer,
   getExternalLayerDefinition,
@@ -203,7 +203,7 @@ export function buildSidebar() {
     }
     tabPanel.appendChild(intro);
 
-    const publishedLayers = tab.layers.filter(isLayerPublished);
+    const publishedLayers = tab.layers.filter(isLayerAvailable);
     const empty = document.createElement("p");
     empty.className = "tab-panel-empty mg-form-help";
     empty.textContent =
@@ -214,7 +214,7 @@ export function buildSidebar() {
     const addLayersToContainer = (layers, container) => {
       for (const layer of layers) {
         const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-        if (!isLayerPublished(layer)) {
+        if (!isLayerAvailable(layer)) {
           wrapper.hidden = !showDisabledLayers;
           wrapper.dataset.layerDisabled = "true";
           wrapper.classList.add("layer-disabled");
@@ -376,7 +376,7 @@ function updateDisabledLayerVisibility() {
       groupEl.hidden = !Array.from(items.children).some((el) => !el.hidden);
     }
 
-    const hasPublishedLayers = tab.layers.some(isLayerPublished);
+    const hasPublishedLayers = tab.layers.some(isLayerAvailable);
     const empty = tabPanel.querySelector(".tab-panel-empty");
     if (empty) empty.hidden = hasPublishedLayers || showDisabledLayers;
   }
@@ -518,7 +518,7 @@ async function reconcileLayersFromHash(hashLayers) {
 }
 
 export function buildLayerAccordion(layer) {
-  const published = isLayerPublished(layer);
+  const published = isLayerAvailable(layer);
 
   const wrapper = document.createElement("div");
   wrapper.className = "layer-item";
@@ -867,7 +867,7 @@ function buildCrossTabSections(currentTab) {
   for (const tab of TABS) {
     if (tab.id === currentTab.id) continue;
 
-    const publishedLayers = tab.layers.filter((l) => isLayerPublished(l) && l.key);
+    const publishedLayers = tab.layers.filter((l) => isLayerAvailable(l) && l.key);
     if (publishedLayers.length === 0) continue;
 
     const details = document.createElement("details");
@@ -880,7 +880,7 @@ function buildCrossTabSections(currentTab) {
 
     if (tab.groups) {
       for (const group of tab.groups) {
-        const groupLayers = group.layers.filter((l) => isLayerPublished(l) && l.key);
+        const groupLayers = group.layers.filter((l) => isLayerAvailable(l) && l.key);
         if (groupLayers.length === 0) continue;
 
         const groupHeading = document.createElement("p");

@@ -25,11 +25,6 @@ function hasCompleteMapxViews(layer) {
 }
 
 export function getLayerPublicationState(layer) {
-  // An inventory row may still say "In development" after its MapX view has
-  // arrived. Public views can be added across projects by ID.
-  if (layer.status === "disabled-awaiting-data" && hasCompleteMapxViews(layer)) {
-    return "active";
-  }
   if (layer.status) return layer.status;
   if (layer.disabled) return "disabled";
   return "active";
@@ -53,4 +48,13 @@ export function getLayerStatus(layer, source = null) {
 
 export function isLayerPublished(layer) {
   return !UNPUBLISHED_STATUSES.has(getLayerPublicationState(layer));
+}
+
+/** Whether the prototype can offer this layer in the map explorer. */
+export function isLayerAvailable(layer) {
+  const publicationState = getLayerPublicationState(layer);
+  if (publicationState === "disabled-awaiting-data") return hasCompleteMapxViews(layer);
+  if (UNPUBLISHED_STATUSES.has(publicationState)) return false;
+  if (layer.external) return true;
+  return hasCompleteMapxViews(layer);
 }

@@ -76,16 +76,16 @@ describe("generateLayerInventoryCSV", () => {
     expect(recoveryLines[0]).toContain("In development");
   });
 
-  it("marks compatible in-development layers with MapX IDs as Uploaded", () => {
+  it("preserves In development status for available layers with MapX IDs", () => {
     const ecosystemLines = lines.filter((l) => l.includes("ecosystem-loss"));
     expect(ecosystemLines.length).toBeGreaterThan(0);
-    expect(ecosystemLines[0]).toContain("Uploaded");
+    expect(ecosystemLines[0]).toContain("In development");
   });
 
-  it("marks cross-project MapX views with IDs as Uploaded", () => {
+  it("preserves In development status for cross-project MapX views", () => {
     const landCoverLines = lines.filter((l) => l.includes("land-cover"));
     expect(landCoverLines.length).toBeGreaterThan(0);
-    expect(landCoverLines[0]).toContain("Uploaded");
+    expect(landCoverLines[0]).toContain("In development");
   });
 
   it("excludes layers removed from the inventory", () => {

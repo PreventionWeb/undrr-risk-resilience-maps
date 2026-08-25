@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getLayerPublicationState, getLayerStatus, isLayerPublished } from "./status.js";
+import { getLayerPublicationState, getLayerStatus, isLayerAvailable, isLayerPublished } from "./status.js";
 
 describe("layer status helpers", () => {
   it("treats legacy disabled layers as unpublished", () => {
@@ -15,12 +15,13 @@ describe("layer status helpers", () => {
     expect(isLayerPublished(layer)).toBe(false);
   });
 
-  it("publishes an in-development layer once it has a MapX id", () => {
+  it("makes an in-development layer available without changing its editorial status", () => {
     const layer = { id: "MX-1", status: "disabled-awaiting-data" };
 
-    expect(getLayerPublicationState(layer)).toBe("active");
-    expect(getLayerStatus(layer)).toBe("Active");
-    expect(isLayerPublished(layer)).toBe(true);
+    expect(getLayerPublicationState(layer)).toBe("disabled-awaiting-data");
+    expect(getLayerStatus(layer)).toBe("Awaiting data");
+    expect(isLayerPublished(layer)).toBe(false);
+    expect(isLayerAvailable(layer)).toBe(true);
   });
 
   it("publishes an in-development compound layer when every sub-map is available", () => {
@@ -30,7 +31,7 @@ describe("layer status helpers", () => {
       sources: [{ id: "MX-1" }, { id: "MX-2" }],
     };
 
-    expect(isLayerPublished(layer)).toBe(true);
+    expect(isLayerAvailable(layer)).toBe(true);
   });
 
   it("keeps an incomplete in-development compound layer unpublished", () => {
@@ -40,7 +41,7 @@ describe("layer status helpers", () => {
       sources: [{ id: null }, { id: "MX-1" }],
     };
 
-    expect(isLayerPublished(layer)).toBe(false);
+    expect(isLayerAvailable(layer)).toBe(false);
   });
 
   it("publishes an in-development layer from another MapX project", () => {
@@ -50,7 +51,7 @@ describe("layer status helpers", () => {
       status: "disabled-awaiting-data",
     };
 
-    expect(isLayerPublished(layer)).toBe(true);
+    expect(isLayerAvailable(layer)).toBe(true);
   });
 
   it("returns Pending removal for unpublished layers under review for removal", () => {

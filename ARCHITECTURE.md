@@ -168,7 +168,7 @@ The active tab and open layers are encoded in the URL hash (format: `#tab?layers
 
 The current repository owns the **map registry** only: tab structure, layer metadata, MapX view IDs, legends, and map interaction. Future resilience indicators or chart-based content are expected to live in a separate system and be cross-linked from this app when appropriate. To keep that future path open, placeholder resilience entries can exist here before their final delivery format is settled.
 
-Layer configs may also be retained in unpublished review states such as **disabled**, **disabled-awaiting-data**, or **disabled-pending-removal**. These layers are hidden from the sidebar by default, but can be revealed with a review toggle in the layer panel header. They still appear in the Sources page and layer inventory export so content decisions remain visible and reversible.
+Layer lifecycle status and prototype availability are separate. An **In development** layer remains in that editorial state in Sources and inventory exports, but becomes available in the map explorer once every required MapX view ID exists. Layers without complete IDs stay hidden by default and can be revealed with the review toggle. Explicitly retired keys live in `data/removed-layer-keys.txt` and are excluded from both configuration and future imports.
 
 ### Simple vs compound layers
 
@@ -192,7 +192,7 @@ A **simple layer** maps to one permanent MapX view ID. A **compound layer** grou
 
 | Type             | UI                           | Use case                                                      |
 | ---------------- | ---------------------------- | ------------------------------------------------------------- |
-| `sub-tabs`       | Button bar                   | Switching between data metrics (depth / frequency / exposure) |
+| `sub-tabs`       | Button bar for ≤3 sources; select for larger sets | Switching between named data variants |
 | `stepped-slider` | Range input with tick labels | Selecting return periods or thresholds                        |
 
 To add a new widget type: create a factory function in `src/ui/widgets/`, register it in the index. No changes to `sidebar.js` needed.
