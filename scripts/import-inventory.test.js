@@ -25,6 +25,42 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("accepts an explicit CSV input path", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const alternate = join(fixture, "alternate.csv");
+    cpSync(source, alternate);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", alternate],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(report).toContain(`Input:       ${alternate}`);
+    expect(report).toContain("Matched:     103");
+  });
+
+  it("matches a simple layer with one newly labelled sub-source", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const alternate = join(fixture, "alternate.csv");
+    const csv = readFileSync(source, "utf8").replace(
+      /,ecosystem-loss,Ecosystem Loss,,Vector,/,
+      ",ecosystem-loss,Ecosystem Loss,Agriculture,Vector,",
+    );
+    writeFileSync(alternate, csv);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", alternate],
+      { cwd: fixture, encoding: "utf8" },
+    );
+
+    expect(report).toContain("Matched:     103");
+    expect(report).not.toContain("In CSV but NOT in JS config");
+  });
+
   it("ignores rows whose layer keys are explicitly retired", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");

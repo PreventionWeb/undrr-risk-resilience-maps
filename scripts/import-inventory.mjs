@@ -4,6 +4,7 @@
  *
  * Usage:
  *   node scripts/import-inventory.mjs              # dry-run: report only
+ *   node scripts/import-inventory.mjs --input file.csv
  *   node scripts/import-inventory.mjs --apply      # apply MapX ID + status changes
  *
  * The canonical inventory CSV lives at data/inventory.csv and matches the
@@ -33,7 +34,10 @@ import { fileURLToPath } from "node:url";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, "..");
-const CSV_PATH = resolve(ROOT, "data/inventory.csv");
+const inputIndex = process.argv.indexOf("--input");
+const inputPath = inputIndex >= 0 ? process.argv[inputIndex + 1] : null;
+if (inputIndex >= 0 && !inputPath) throw new Error("--input requires a CSV path");
+const CSV_PATH = inputPath ? resolve(process.cwd(), inputPath) : resolve(ROOT, "data/inventory.csv");
 const REMOVED_KEYS_PATH = resolve(ROOT, "data/removed-layer-keys.txt");
 
 const APPLY = process.argv.includes("--apply");
@@ -225,8 +229,14 @@ for (const entry of jsEntries) {
     continue;
   }
 
-  const csvEntries = csvLayer.get(entry.subSource);
-  const occurrenceKey = `${entry.key}|${entry.subSource}`;
+  let matchedSubSource = entry.subSource;
+  let csvEntries = csvLayer.get(matchedSubSource);
+  // A simple layer may gain a descriptive sub-source in a colleague export.
+  // It remains unambiguous when that layer key has exactly one CSV row.
+  if (!entry.subSource && !csvEntries && csvLayer.size === 1) {
+    [matchedSubSource, csvEntries] = csvLayer.entries().next().value;
+  }
+  const occurrenceKey = `${entry.key}|${matchedSubSource}`;
   const occurrence = csvMatched.get(occurrenceKey) || 0;
   const csvEntry = csvEntries?.[occurrence];
   if (!csvEntry) {
@@ -266,6 +276,7 @@ for (const [key, subMap] of inventory) {
 // ── Report ────────────────────────────────────────────────────────────────────
 
 console.log("\n=== Layer Inventory Sync Report ===\n");
+console.log(`Input:       ${CSV_PATH}`);
 console.log(
   `CSV rows:    ${[...inventory.values()].reduce(
     (n, m) => n + [...m.values()].reduce((sum, rows) => sum + rows.length, 0),
