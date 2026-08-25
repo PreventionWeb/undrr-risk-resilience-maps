@@ -25,7 +25,7 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
     btn.className = "widget-sub-tab";
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", String(i === initialIndex));
-    btn.textContent = sources[i].label;
+    btn.textContent = sources[i].inventoryLabel || sources[i].label;
     if (i === initialIndex) btn.classList.add("is-active");
 
     btn.addEventListener("click", () => {

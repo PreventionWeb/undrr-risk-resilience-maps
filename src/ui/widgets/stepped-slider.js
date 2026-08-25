@@ -33,7 +33,7 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
   ticks.className = "widget-slider-ticks";
   for (const src of sources) {
     const tick = document.createElement("span");
-    tick.textContent = src.label;
+    tick.textContent = src.inventoryLabel || src.label;
     ticks.appendChild(tick);
   }
 

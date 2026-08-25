@@ -10,6 +10,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 - A compact global build-freshness footer now shows the latest Git commit as a dynamically updating relative time and links to the project repository.
 - Layer summaries now lead with the programme inventory's R-R Initiative before the layer-specific description, including while switching compound-map variants.
+- Compound-layer selectors now use the inventory Sub-source value as their visible label, falling back to the code-level source label when no inventory label is defined.
 - In-development layers automatically become available when all required MapX view IDs exist; public cross-project views are allowed with a startup warning rather than blocking the application.
 - Inventory imports now filter a durable retired-layer key list, preventing obsolete rows retained in colleague exports from being reintroduced.
 - Expanding a published layer now activates it automatically; collapsing the accordion leaves the map layer active, while turning its accessible on/off switch off also folds the details closed. Eye icons have been replaced with larger, touch-friendly switch controls across primary and cross-tab layer lists, whose headings now share the panel's standard content inset.
