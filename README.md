@@ -42,6 +42,7 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 | [METHODOLOGY.md](METHODOLOGY.md)                             | MapX view ID discovery approach and API research                          |
 | [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes                                                           |
 | [data/inventory.csv](data/inventory.csv)                     | Master inventory — metadata, delivery status, and permanent MapX view IDs |
+| [data/removed-layer-keys.txt](data/removed-layer-keys.txt)   | Durable exclusion list for retired layers still present in upstream exports |
 | [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                         |
 | [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns |
 

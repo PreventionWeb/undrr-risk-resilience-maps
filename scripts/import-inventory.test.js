@@ -16,6 +16,7 @@ function makeFixture() {
   cpSync(join(ROOT, "scripts/import-inventory.mjs"), join(fixture, "scripts/import-inventory.mjs"));
   cpSync(join(ROOT, "src/config/layers"), join(fixture, "src/config/layers"), { recursive: true });
   cpSync(join(ROOT, "data/inventory.csv"), join(fixture, "data/inventory.csv"));
+  cpSync(join(ROOT, "data/removed-layer-keys.txt"), join(fixture, "data/removed-layer-keys.txt"));
   return fixture;
 }
 
@@ -24,6 +25,24 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("ignores rows whose layer keys are explicitly retired", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8");
+    writeFileSync(
+      csvPath,
+      `${csv.trimEnd()}\nRetired initiative,Exposure,Environment,other,coral-reefs,Coral Reefs,,Raster,Retired layer,MX-RETIRED-VIEW,Source,Citation,License,Uploaded\n`,
+    );
+
+    const report = execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+
+    expect(report).toContain("Ignored:     1 retired row(s)");
+    expect(report).not.toContain("In CSV but NOT in JS config");
+  });
+
   it("targets one repeated sub-source and the requested layer status only", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");

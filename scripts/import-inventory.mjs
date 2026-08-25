@@ -13,6 +13,8 @@
  * When colleagues send an updated CSV, replace data/inventory.csv then run:
  *   node scripts/import-inventory.mjs
  * Review the report, then run with --apply to patch MapX view IDs and statuses.
+ * Rows whose layer keys appear in data/removed-layer-keys.txt are ignored, so
+ * retired entries in an upstream spreadsheet cannot be reintroduced.
  *
  * What --apply changes:
  *   - mapxViewId   (id field on simple layers; id on each sub-source for compound)
@@ -32,8 +34,16 @@ import { fileURLToPath } from "node:url";
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, "..");
 const CSV_PATH = resolve(ROOT, "data/inventory.csv");
+const REMOVED_KEYS_PATH = resolve(ROOT, "data/removed-layer-keys.txt");
 
 const APPLY = process.argv.includes("--apply");
+
+const removedKeys = new Set(
+  readFileSync(REMOVED_KEYS_PATH, "utf-8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
+);
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -77,6 +87,7 @@ headerRow.forEach((h, i) => (H[h.trim()] = i));
 // A sub-source label is not necessarily unique: recovery-speed, for example,
 // repeats each hazard for the poorest and richest household groups.
 const inventory = new Map();
+const ignoredRemovedRows = [];
 
 for (const r of dataRows) {
   const key = (r[H["Layer key"]] || "").trim();
@@ -89,6 +100,10 @@ for (const r of dataRows) {
   const rrStep = (r[H["R&R Step"]] || "").trim();
 
   if (!key) continue;
+  if (removedKeys.has(key)) {
+    ignoredRemovedRows.push({ key, layerName, subSource });
+    continue;
+  }
 
   if (!inventory.has(key)) inventory.set(key, new Map());
   const subMap = inventory.get(key);
@@ -259,6 +274,13 @@ console.log(
 );
 console.log(`JS entries:  ${jsEntries.length}`);
 console.log(`Matched:     ${matched.length}`);
+
+if (ignoredRemovedRows.length) {
+  const ignoredKeys = [...new Set(ignoredRemovedRows.map((row) => row.key))];
+  console.log(
+    `Ignored:     ${ignoredRemovedRows.length} retired row(s) across ${ignoredKeys.length} layer key(s): ${ignoredKeys.join(", ")}`,
+  );
+}
 
 if (idChanges.length) {
   console.log(`\n── MapX ID updates (${idChanges.length}) ──`);
