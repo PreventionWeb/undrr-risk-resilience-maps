@@ -42,10 +42,10 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "recovery-consumption",
-    label: "Recovery Consumption",
+    label: "Recovery consumption",
     type: "vt",
     geometry: "point",
-    desc: "Post-disaster well-being, consumption recovery and asset ownership for the poorest households with and without resilient investment.",
+    desc: "Post-disaster well-being, consumption recovery and asset ownership for the poorest households with and without resilient investment",
     source: SOURCE_TBC,
     citation: CITATION_TBC,
     license: LICENSE_TBC,
@@ -59,7 +59,7 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "adaptation",
-    label: "Adaptation",
+    label: "Adaptation in Infrastructure losses",
     type: "vt",
     geometry: "point",
     desc: "Spatial distribution of adaptation measures and resilience interventions.",
@@ -109,7 +109,7 @@ export const RESILIENCE_LAYERS = [
   {
     id: null,
     key: "life-years-adaptation-benefit",
-    label: "Adaptation Benefit to Life Years Lost",
+    label: "Reduction in life years lost",
     type: "vt",
     desc: "Adaptation benefit in relation to life years lost from disasters.",
     source: SOURCE_TBC,

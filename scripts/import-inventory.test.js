@@ -25,6 +25,27 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("applies spreadsheet layer names and descriptions", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8")
+      .replace(",population,Population,", ",population,People,")
+      .replace(
+        "Direct Probable Maximum Losses to public infrastructure - Earthquake",
+        "PML to public infrastructure - Earthquake",
+      );
+    writeFileSync(csvPath, csv);
+
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+
+    const exposure = readFileSync(join(fixture, "src/config/layers/exposure.js"), "utf8");
+    expect(exposure).toMatch(/key: "population",\n\s+label: "People"/);
+    const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
+    expect(risk).toContain('desc: "PML to public infrastructure - Earthquake"');
+  });
+
   it("fails fast when required CSV headers are missing", () => {
     const fixture = makeFixture();
     const source = join(fixture, "data/inventory.csv");
