@@ -83,10 +83,11 @@ undrr-risk-resilience-maps/
 
 ### Startup sequence
 
-The app initialises in two phases to keep the UI responsive even if the MapX SDK is slow to load:
+The app initialises in three phases to keep the UI responsive even if the MapX SDK is slow to load:
 
 1. **Immediate** — `validateLayers()` runs first and throws on config errors. `buildSidebar()` follows: nav links are wired, info pages are built, and layer accordions are rendered. The user can read the home, Sources, and About pages without waiting for the map.
-2. **On SDK ready** — once `mapx.on("ready")` fires, `setSDKReady(true)` unlocks layer toggles, vector highlight is enabled, and any layers in the URL hash are restored.
+2. **SDK availability** — `src/sdk/availability.js` loads the remote SDK with a 15-second limit. After the manager starts, a separate 30-second limit waits for its `ready` event. A failed request, invalid SDK response, manager-construction error, or stalled MapX iframe reveals an in-page service notice with manual retry and MapX availability links; the non-map pages remain usable. A visible 60-second countdown then reloads the current URL automatically, preserving its tab and layer hash while checking whether the service has recovered. The countdown pauses while the browser tab is hidden or an information page is active so it does not interrupt reading.
+3. **On SDK ready** — once `mapx.on("ready")` fires, `setSDKReady(true)` unlocks layer toggles, vector highlight is enabled, and any layers in the URL hash are restored.
 
 Layer toggle buttons check `isSDKReady()` before calling SDK methods, so clicking a layer before the map has loaded produces a console warning rather than a silent failure.
 

@@ -8,6 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
+- MapX startup failures now produce an accessible in-page service notice with manual retry, a visible 60-second automatic-retry countdown, and an availability link. Separate bounded checks cover SDK download or construction failures and an embedded map that never becomes ready. Countdown updates are silent to screen readers and pause while the tab is hidden or an information page is active, leaving non-map content usable without disruptive reloads.
 - A compact global build-freshness footer now shows the latest Git commit as a dynamically updating relative time and links to the project repository.
 - Layer summaries now lead with the programme inventory's R-R Initiative before the layer-specific description, including while switching compound-map variants.
 - Compound-layer source labels now mirror the inventory Sub-source value directly, removing the competing inventory-label override from selectors and exports.

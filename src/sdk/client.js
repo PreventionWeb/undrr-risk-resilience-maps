@@ -10,8 +10,8 @@ let _mapx = null;
 let _sdkReady = false;
 
 export function initSDK(container, projectId) {
-  /* global mxsdk */
-  _mapx = new mxsdk.Manager({
+  if (!window.mxsdk?.Manager) throw new Error("MapX SDK is unavailable");
+  _mapx = new window.mxsdk.Manager({
     container,
     url: `https://app.mapx.org/?project=${projectId}`,
     params: {

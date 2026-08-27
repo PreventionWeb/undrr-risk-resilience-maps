@@ -152,6 +152,43 @@
     <div class="app-map" id="app-map">
       <div id="mapx" style="width: 100%; height: 100%"></div>
 
+      <section id="map-service-notice" class="map-service-notice" role="alert" hidden>
+        <div class="map-service-notice__card">
+          <svg
+            class="map-service-notice__icon"
+            aria-hidden="true"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <div>
+            <h2 class="map-service-notice__title">The map is temporarily unavailable</h2>
+            <p class="map-service-notice__body">
+              This site is powered by MapX, which could not be reached. The rest of this site remains
+              available while the map service recovers.
+            </p>
+            <p id="map-service-countdown" class="map-service-notice__countdown" aria-live="off">
+              Retrying in 60 seconds
+            </p>
+            <div class="map-service-notice__actions">
+              <button id="map-service-retry" class="map-service-notice__retry" type="button">
+                Try again
+              </button>
+              <a href="https://app.mapx.org/" target="_blank" rel="noopener">Check MapX availability</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Floating layer panel -->
       <div class="layer-panel" id="sidebar">
         <div class="layer-panel-header">
@@ -240,8 +277,6 @@
       </a>
     </footer>
 
-    <!-- MapX SDK must load before module script -->
-    <script src="https://app.mapx.org/sdk/mxsdk.umd.js"></script>
     <script type="module" src="/src/pin-gate.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
