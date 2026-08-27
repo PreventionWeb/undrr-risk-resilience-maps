@@ -1,0 +1,108 @@
+.map-service-notice {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1.5rem 1.5rem 22rem;
+  background: #f3f6f8;
+}
+
+.map-service-notice[hidden] {
+  display: none;
+}
+
+.map-service-notice__card {
+  display: flex;
+  width: min(100%, 32rem);
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-radius: 0.25rem;
+  background: #fff;
+  color: var(--color-text);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.map-service-notice__icon {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+}
+
+.map-service-notice__title {
+  margin: 0 0 0.4rem;
+  color: var(--color-text);
+  font-size: 1.125rem;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.map-service-notice__body {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.map-service-notice__countdown {
+  margin: 0.6rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.map-service-notice__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+}
+
+.map-service-notice__actions a {
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  text-underline-offset: 2px;
+}
+
+.map-service-notice__retry {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.9rem;
+  border: 0;
+  border-radius: 0.1875rem;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition-property: transform, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.map-service-notice__retry:hover {
+  background: #003f75;
+}
+
+.map-service-notice__retry:active {
+  transform: scale(0.96);
+}
+
+.map-service-notice__retry:focus-visible,
+.map-service-notice__actions a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .map-service-notice {
+    align-items: flex-end;
+    padding: 1rem;
+  }
+}
