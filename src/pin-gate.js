@@ -6,7 +6,7 @@
  * hardcoded because this is a preview gate, not access control.
  */
 const STORAGE_KEY = "undrr_preview_auth";
-const CORRECT_PIN = "5498";
+const CORRECT_PIN = "0403";
 
 const gate = document.getElementById("pin-gate");
 const input = document.getElementById("pin-input");
