@@ -300,3 +300,36 @@ shape returned by `get_views` is a stable, supported contract.
 The durable data-flow, trust boundaries, fallback reasons, testing cadence, and retirement path
 are maintained in `docs/legends.md`; the decision rationale is in
 `docs/adr/0001-structured-legends.md`.
+
+---
+
+## UNDRR global footer: syndication is behind a bot challenge
+
+The footer uses Mangrove's documented `publish.preventionweb.net/widget.js`
+embed. It works in a real browser, but **cannot be verified from automated
+tooling**: `widget-body.php` sits behind a Cloudflare bot challenge and returns
+a 403 "Security check" page to curl and to headless Chrome alike. The widget
+only calls `PW_Widget.get_data()` — the function that retrieves the footer
+content — inside that response's `.then()`, so when the challenge blocks the
+request the footer silently stays empty.
+
+Practical consequence: do not conclude the footer is broken because a headless
+check shows an empty container. Verify it in an ordinary browser session.
+
+## Mangrove tabs need `min-width: 0` for wide content
+
+`js/tabs.js` renders each panel as a grid item inside `.mg-tabs-content`. Grid
+items default to `min-width: auto`, so they refuse to shrink below their content
+— a wide table stretches the whole panel past the viewport instead of scrolling
+inside its own `overflow-x` wrapper. Any wide content placed in a Mangrove tab
+needs `min-width: 0` on `.mg-tabs__section` (see `home-panel.css`).
+
+## Mangrove component classes can be silently overridden
+
+The home page cards carry `mg-card__icon--bordered`, which supplies a 2px border
+in the colour passed as `--mg-card-border`, plus padding. A `<button>` reset in
+`home-panel.css` was setting `border: none; padding: 0`, quietly cancelling both.
+Under 1.8.0 this merely looked borderless; Mangrove 2.0 added a card shadow, so
+the same override produced a box with content flush against its edge. When
+adopting a Mangrove variant, check the local CSS is not resetting the properties
+that variant exists to set.

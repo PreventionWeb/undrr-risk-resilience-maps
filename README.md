@@ -7,7 +7,7 @@ See [docs/product-spec.md](docs/product-spec.md) for the V1 scope and [docs/reso
 
 ## Preview access
 
-The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate stores auth state in `sessionStorage` so it only prompts once per browser tab. It will be replaced with production access control before launch (see `src/pin-gate.js`).
+The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. It will be replaced with production access control before launch.
 
 ## Developing
 
@@ -29,22 +29,22 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 
 ## Project documentation
 
-| File                                                         | Purpose                                                                   |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| [docs/product-spec.md](docs/product-spec.md)                 | V1 scope definition — what's in, what's deferred, pre-launch requirements |
-| [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                            |
-| [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs  |
-| [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide  |
-| [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                  |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                     |
-| [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                     |
-| [TODO.md](TODO.md)                                           | Deferred technical items                                                  |
-| [METHODOLOGY.md](METHODOLOGY.md)                             | MapX view ID discovery approach and API research                          |
-| [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes                                                           |
-| [data/inventory.csv](data/inventory.csv)                     | Master inventory — metadata, delivery status, and permanent MapX view IDs |
+| File                                                         | Purpose                                                                     |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| [docs/product-spec.md](docs/product-spec.md)                 | V1 scope definition — what's in, what's deferred, pre-launch requirements   |
+| [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                              |
+| [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs    |
+| [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide    |
+| [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                    |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                       |
+| [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                       |
+| [TODO.md](TODO.md)                                           | Deferred technical items                                                    |
+| [METHODOLOGY.md](METHODOLOGY.md)                             | MapX view ID discovery approach and API research                            |
+| [CHANGELOG.md](CHANGELOG.md)                                 | Notable changes                                                             |
+| [data/inventory.csv](data/inventory.csv)                     | Master inventory — metadata, delivery status, and permanent MapX view IDs   |
 | [data/removed-layer-keys.txt](data/removed-layer-keys.txt)   | Durable exclusion list for retired layers still present in upstream exports |
-| [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                         |
-| [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns |
+| [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                           |
+| [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns   |
 
 The inventory importer requires the repository's exact 14-column CSV header and fails fast when columns are missing or renamed. Colleague `.xlsx` files must currently be exported or converted to that CSV shape before import.
 

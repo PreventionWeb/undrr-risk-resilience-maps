@@ -56,13 +56,13 @@ body {
 
 /* ── Navigation bar overrides ─────────────────────── */
 
-.mg-mega-wrapper,
+nav.mg-container,
 .mg-mega-topbar.mg-container-full-width {
   box-sizing: border-box;
   max-width: 100%;
 }
 
-.mg-mega-wrapper {
+nav.mg-container {
   overflow-x: clip;
 }
 
@@ -111,7 +111,7 @@ body {
 }
 
 @media (max-width: 900px) {
-  .mg-mega-wrapper {
+  nav.mg-container {
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: thin;

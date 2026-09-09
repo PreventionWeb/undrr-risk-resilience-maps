@@ -18,7 +18,7 @@
 .opacity-row input[type="range"] {
   flex: 1;
   height: 3px;
-  accent-color: #004f91;
+  accent-color: var(--color-primary);
 }
 
 .opacity-value {

@@ -97,7 +97,7 @@ The following is implemented and tested as of July 2026:
 ### Technical
 
 - Vite build system with a comprehensive unit-test suite
-- UNDRR Mangrove design system v1.8.0
+- UNDRR Mangrove design system v2.0.0-alpha.4
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
 - PIN gate (prototype access control; see §4)
 - Deployable as a static site (GitHub Pages / any static host)
@@ -148,7 +148,7 @@ These are things the prototype has as placeholders that must be resolved before 
 
 | Item                         | Current state                                                                                                                                                          | Required state                                                                                                                                    |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Access control**           | 4-digit PIN hardcoded in client JS (`src/pin-gate.js`)                                                                                                                 | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                                     |
+| **Access control**           | 4-digit PIN in `data-mg-preview-pin` on the gate element in `index.html`                                                                                               | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                                     |
 | **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                                                   | Final name agreed and applied throughout                                                                                                          |
 | **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                                                   | Pinned to a stable version to prevent silent breaking changes                                                                                     |
 | **Hosting**                  | GitHub Pages (static, manual deploy)                                                                                                                                   | UNDRR infrastructure — decision needed (see §5)                                                                                                   |
