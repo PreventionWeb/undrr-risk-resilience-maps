@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
-- The UNDRR global footer now appears on the content pages (Home, Sources, About), syndicated from PreventionWeb so it stays current centrally. The map view stays full-bleed without it. Mangrove's documented `widget.js` embed cannot be used: it chains its content request inside a `widget-body.php` fetch that returns 403 to every origin, so we call the same syndication endpoint directly. If syndication is unavailable the footer area stays empty and nothing else is affected.
+- The UNDRR global footer now appears on the content pages (Home, Sources, About), syndicated from PreventionWeb via Mangrove's documented Footer embed so it stays current centrally. The map view stays full-bleed without it.
 - The Sources page groups its five data categories into Mangrove 2.0 horizontal tabs, which collapse into stacked disclosures below 480px. This loads Mangrove's `js/tabs.js` behaviour script — the first JavaScript we take from the library. Without it the panels render in sequence, as before.
 
 - MapX startup failures now produce an accessible in-page service notice with manual retry, a visible 60-second automatic-retry countdown, and an availability link. Separate bounded checks cover SDK download or construction failures and an embedded map that never becomes ready. Countdown updates are silent to screen readers and pause while the tab is hidden or an information page is active, leaving non-map content usable without disruptive reloads.

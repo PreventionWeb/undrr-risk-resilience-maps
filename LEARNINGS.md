@@ -312,25 +312,18 @@ Mangrove's own `llms.txt` documents it. The bare
 file for every version, and the `style.css` it returns is byte-identical to the
 published npm tarball. Use the bare prefix.
 
-## UNDRR global footer: the documented widget does not work
+## UNDRR global footer: syndication is behind a bot challenge
 
-Mangrove's Footer component documents a `publish.preventionweb.net/widget.js`
-embed. That script fetches `widget-body.php` first and only calls
-`PW_Widget.get_data()` — the function that actually retrieves footer content —
-inside that response's `.then()`. `widget-body.php` currently returns **403 to
-every origin**, so the documented embed silently injects nothing.
+The footer uses Mangrove's documented `publish.preventionweb.net/widget.js`
+embed. It works in a real browser, but **cannot be verified from automated
+tooling**: `widget-body.php` sits behind a Cloudflare bot challenge and returns
+a 403 "Security check" page to curl and to headless Chrome alike. The widget
+only calls `PW_Widget.get_data()` — the function that retrieves the footer
+content — inside that response's `.then()`, so when the challenge blocks the
+request the footer silently stays empty.
 
-The content itself is reachable and CORS-open
-(`Access-Control-Allow-Origin: *`) at:
-
-```
-https://www.undrr.org/api/v2/content/landingpage?id=83835&suffixid=footer
-```
-
-`results[0].body` is a complete `<footer class="mg-footer">`. `src/ui/global-footer.js`
-fetches that directly. Re-test the official widget when Mangrove 2.0 goes
-stable; if `widget-body.php` is fixed, switching back is preferable because it
-is the supported path.
+Practical consequence: do not conclude the footer is broken because a headless
+check shows an empty container. Verify it in an ordinary browser session.
 
 ## Mangrove tabs need `min-width: 0` for wide content
 

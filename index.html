@@ -246,8 +246,24 @@
       </div>
     </div>
 
-    <!-- UNDRR global footer, syndicated from PreventionWeb. Content pages only. -->
-    <div id="global-footer" hidden></div>
+    <!-- UNDRR global footer, syndicated from PreventionWeb. Content pages only;
+         src/ui/global-footer.js toggles it. Markup follows Mangrove's Footer
+         component embed exactly -- the structure is a branding requirement. -->
+    <div id="global-footer" hidden>
+      <footer class="mg-footer">
+        <div class="pw-widget-footer"></div>
+      </footer>
+    </div>
+    <script src="https://publish.preventionweb.net/widget.js"></script>
+    <script>
+      new PW_Widget.initialize({
+        contenttype: "landingpage",
+        pageid: "83835",
+        includecss: false,
+        suffixID: "footer",
+        activedomain: "www.undrr.org",
+      });
+    </script>
 
     <footer class="build-info" aria-label="Application version">
       <a id="build-info-link" class="build-info__link" target="_blank" rel="noopener">

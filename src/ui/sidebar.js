@@ -12,7 +12,7 @@ import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
-import { initGlobalFooter, setGlobalFooterVisible } from "./global-footer.js";
+import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
@@ -344,10 +344,8 @@ function switchTab(tabId, { syncHash = true } = {}) {
   infoPage.style.display = isInfoTab ? "block" : "none";
 
   // The UNDRR global footer belongs to the content pages; the map view is
-  // full-bleed. Syndication is fetched lazily on the first content page and
-  // is decorative, so its promise is deliberately not awaited here.
+  // full-bleed. The syndication widget populates it independently.
   setGlobalFooterVisible(isInfoTab);
-  if (isInfoTab) void initGlobalFooter();
 
   // Active state on all nav links
   for (const link of document.querySelectorAll(".nav-tab-link")) {

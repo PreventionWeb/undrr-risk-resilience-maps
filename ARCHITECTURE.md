@@ -250,16 +250,18 @@ the PIN is public in the markup by design.
 ### UNDRR global footer
 
 Content pages (Home, Sources, About) carry the UNDRR global footer; the map view
-is full-bleed and omits it. Mangrove documents a `publish.preventionweb.net/widget.js`
-embed for this, but that script chains its content request inside a
-`widget-body.php` fetch which currently returns 403 to every origin, so the
-documented embed injects nothing. `src/ui/global-footer.js` therefore calls the
-same syndication endpoint the widget would ultimately have reached
-(`www.undrr.org/api/v2/content/landingpage?id=83835`), which sends
-`Access-Control-Allow-Origin: *`. The response body is a complete
-`<footer class="mg-footer">` and is injected verbatim — the footer structure is
-a UNDRR branding requirement and must not be reshaped locally. Failure leaves
-the container empty rather than blocking the page.
+is full-bleed and omits it. The footer is Mangrove's documented Footer embed —
+`<footer class="mg-footer">` wrapping a `pw-widget-footer` container, plus the
+PreventionWeb syndication widget, all in `index.html`. The widget fetches and
+injects the global footer content itself; `src/ui/global-footer.js` only toggles
+visibility per view. The footer structure is a UNDRR branding requirement and
+must not be reshaped locally.
+
+Syndication cannot be verified from automated tooling: the widget's
+`widget-body.php` request sits behind a Cloudflare bot challenge that returns
+403 to curl and headless browsers, and the widget only retrieves the footer
+content inside that response's callback. An empty footer in a headless check is
+expected — verify in an ordinary browser.
 
 Mangrove 2.0 notes that affect this app: colour tokens are sRGB channel triples
 and must be wrapped — `rgb(var(--mg-color-focus-ring))`; z-index 10-22 is frozen
