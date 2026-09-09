@@ -49,17 +49,17 @@ export function buildHomePanel() {
   el.id = "tab-home";
 
   el.innerHTML = `
+    <!--
     <div class="info-page-breadcrumb">
-      <div class="mg-container">
-        <nav aria-label="breadcrumbs" class="mg-breadcrumb">
-          <ul>
-            <li><a href="https://www.undrr.org" target="_blank" rel="noopener">UNDRR.org</a></li>
-            <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience</a></li>
-            <li aria-current="page">Global Risk Analytics &amp; Resilience Map Viewer</li>
-          </ul>
-        </nav>
-      </div>
+      <nav aria-label="breadcrumbs" class="mg-breadcrumb">
+        <ul>
+          <li><a href="https://www.undrr.org" target="_blank" rel="noopener">UNDRR.org</a></li>
+          <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience</a></li>
+          <li aria-current="page">Global Risk Analytics &amp; Resilience Map Viewer</li>
+        </ul>
+      </nav>
     </div>
+    -->
 
     <div class="info-page-hero">
       <div class="mg-container">

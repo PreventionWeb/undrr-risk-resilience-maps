@@ -4,50 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link rel="stylesheet" href="https://assets.undrr.org/static/mangrove/1.8.0/css/style.css" />
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-alpha.4/css/style.css" />
   </head>
   <body>
     <a href="#app-map" class="skip-to-content">Skip to map</a>
 
-    <!-- Preview PIN gate overlay -->
-    <div id="pin-gate" class="pin-gate" role="dialog" aria-modal="true" aria-labelledby="pin-gate-title">
-      <div class="pin-gate__card">
-        <img
-          src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
-          alt="UNDRR"
-          class="pin-gate__logo"
-          width="180"
-          height="26"
-          onerror="this.style.display = 'none'"
-        />
-        <h1 class="pin-gate__title" id="pin-gate-title">GRAR Metrics Facility Map Viewer</h1>
-        <p class="pin-gate__desc">
-          This is a prototype for interaction and review only. It does not reflect actual data or final look
-          and feel. It is shared for early feedback purposes only.
-        </p>
-        <div class="pin-gate__input-row">
-          <label class="pin-gate__label" for="pin-input">Enter the PIN for access.</label>
-          <div class="pin-gate__controls">
-            <input
-              id="pin-input"
-              class="pin-gate__input"
-              type="password"
-              inputmode="numeric"
-              maxlength="4"
-              placeholder="••••"
-              autocomplete="one-time-code"
-              aria-describedby="pin-error"
-            />
-          </div>
-        </div>
-        <p id="pin-error" class="pin-gate__error" aria-live="polite" hidden>
-          Incorrect PIN. Please try again.
-        </p>
-      </div>
-    </div>
+    <!-- Preview access gate (Mangrove). The runtime builds the overlay from
+         these attributes and persists the unlock in sessionStorage. Soft
+         barrier for the prototype, not access control -- the PIN is public in
+         the markup by design. -->
+    <div
+      data-mg-preview-access
+      data-mg-preview-id="grar-map-viewer"
+      data-mg-preview-pin="0403"
+      data-mg-preview-title="GRAR Metrics Facility Map Viewer"
+      data-mg-preview-message="This is a prototype for interaction and review only. It does not reflect actual data or final look and feel. It is shared for early feedback purposes only."
+      data-mg-preview-pin-label="Enter the PIN for access."
+    ></div>
 
     <!-- UNDRR page header -->
-    <header class="mg-page-header mg-page-header--default">
+    <header class="mg-page-header">
       <div class="mg-page-header__decoration">
         <div></div>
         <div></div>
@@ -74,8 +50,8 @@
     </header>
 
     <!-- Category navigation bar -->
-    <nav class="mg-mega-wrapper" aria-label="Map navigation">
-      <ul class="mg-mega-topbar | mg-container-full-width" role="menubar" aria-label="Map category menu">
+    <nav class="mg-container" aria-label="Map navigation">
+      <ul class="mg-mega-topbar" role="menubar" aria-label="Map category menu">
         <li class="mg-mega-topbar__item" role="none">
           <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
             Risk &amp; Resilience Metrics
@@ -270,6 +246,9 @@
       </div>
     </div>
 
+    <!-- UNDRR global footer, syndicated from PreventionWeb. Content pages only. -->
+    <div id="global-footer" hidden></div>
+
     <footer class="build-info" aria-label="Application version">
       <a id="build-info-link" class="build-info__link" target="_blank" rel="noopener">
         <time id="build-updated-at">Updated recently</time>
@@ -277,7 +256,7 @@
       </a>
     </footer>
 
-    <script type="module" src="/src/pin-gate.js"></script>
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-alpha.4/js/preview-access.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

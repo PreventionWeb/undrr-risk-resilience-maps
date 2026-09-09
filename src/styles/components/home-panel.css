@@ -15,7 +15,7 @@
 /* ── Hero header band ── */
 
 .info-page-hero {
-  background-color: #004f91;
+  background-color: var(--color-primary);
   color: #fff;
   padding: 3rem 1rem 2.5rem;
 }
@@ -36,12 +36,10 @@
   margin: 0 0 0.5rem;
 }
 
+/* Mangrove's h1 already sets size, weight and line height. */
 .info-page-hero__title {
-  font-size: 2rem;
-  font-weight: 700;
   color: #fff;
   margin: 0 0 0.75rem;
-  line-height: 1.2;
 }
 
 .info-page-hero__intro {
@@ -54,6 +52,21 @@
 
 .info-page-hero a {
   color: #fff;
+}
+
+/* Body links in the hero keep an underline for contrast on the blue ground;
+   the title link does not — an underlined page heading reads as decoration
+   rather than as a link. */
+.info-page-hero p a {
+  text-decoration: underline;
+}
+
+.info-page-hero__title a {
+  text-decoration: none;
+}
+
+.info-page-hero__title a:hover,
+.info-page-hero__title a:focus-visible {
   text-decoration: underline;
 }
 
@@ -76,27 +89,23 @@
   max-width: none;
 }
 
+/* Size and weight come from Mangrove's own h2 rules; only the UNDRR blue and
+   the spacing below are ours. */
 .info-page-section__title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: #004f91;
+  color: var(--color-primary);
   margin: 0 0 1.5rem;
-  border-bottom: 2px solid #004f91;
-  padding-bottom: 0.4rem;
 }
 
 /* ── Category cards grid ── */
 
+/* Three across, so the five categories wrap to two rows (3 + 2). One row of
+   five leaves each card too narrow, which forces the summary text into a tall
+   ragged column. Cards stretch to a shared row height. */
 .info-category-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
-}
-
-@media (max-width: 1100px) {
-  .info-category-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  align-items: stretch;
 }
 
 @media (max-width: 700px) {
@@ -113,11 +122,12 @@
 
 .info-category-card {
   max-width: none !important;
-  /* Reset <button> defaults so it renders as a card */
+  /* Reset <button> defaults so it renders as a card. Deliberately does NOT
+     reset background, border or padding: `mg-card__icon--bordered` supplies
+     the 2px border in the per-category colour passed as `--mg-card-border`,
+     plus the card's internal padding. Overriding those leaves content flush
+     against the edge of the box shadow Mangrove 2.0 adds to `mg-card`. */
   appearance: none;
-  background: none;
-  border: none;
-  padding: 0;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -126,7 +136,7 @@
 
 .info-category-card:hover,
 .info-category-card:focus-visible {
-  outline: 2px solid var(--mg-card-border, #004f91);
+  outline: 2px solid var(--mg-card-border, var(--color-primary));
   outline-offset: 2px;
 }
 
@@ -164,7 +174,7 @@
 .info-step__num {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #004f91;
+  color: var(--color-primary);
   min-width: 2.5rem;
   flex-shrink: 0;
   line-height: 1;
@@ -234,6 +244,14 @@
   background: #fff;
 }
 
+/* Mangrove renders each tab panel as a grid item, which defaults to
+   `min-width: auto` and therefore refuses to shrink below its content. A wide
+   sources table would stretch the panel past the viewport instead of scrolling
+   inside `.data-table-wrap`, so opt the panel out of that floor. */
+.info-page-panel .mg-tabs__section {
+  min-width: 0;
+}
+
 /* ── Data table (Sources page) ── */
 
 .data-table-wrap {
@@ -244,6 +262,10 @@
 
 .data-table {
   width: 100%;
+  /* Six columns of citation and licence prose need room. Without a floor the
+     fixed layout squeezes them to a character per line on a phone; this lets
+     the table overflow so `.data-table-wrap` scrolls it instead. */
+  min-width: 46rem;
   table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.82rem;
@@ -251,7 +273,7 @@
 }
 
 .data-table th {
-  background-color: #004f91;
+  background-color: var(--color-primary);
   color: #fff;
   font-weight: 600;
   text-align: left;
@@ -275,7 +297,7 @@
 }
 
 .data-table a {
-  color: #004f91;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
@@ -322,7 +344,7 @@
   padding: 0.1em 0.45em;
   border-radius: 3px;
   background-color: #e8f0f9;
-  color: #004f91;
+  color: var(--color-primary);
   margin-right: 0.35rem;
   vertical-align: middle;
   white-space: nowrap;

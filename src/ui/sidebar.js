@@ -12,6 +12,8 @@ import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
+import { initGlobalFooter, setGlobalFooterVisible } from "./global-footer.js";
+import { initMangroveTabs } from "./mangrove-tabs.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { parseHash, writeHash } from "../state/hash.js";
@@ -175,6 +177,11 @@ export function buildSidebar() {
   infoPage.appendChild(buildSourcesPanel());
   infoPage.appendChild(buildAboutPanel());
 
+  // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which has
+  // already fired by the time these panels exist. Enhancement is optional, so
+  // the promise is not awaited.
+  void initMangroveTabs(infoPage);
+
   // Populate sidebar with layer panels (data tabs only)
   for (const tab of TABS) {
     const tabPanel = document.createElement("div");
@@ -335,6 +342,12 @@ function switchTab(tabId, { syncHash = true } = {}) {
   // Toggle map vs full-page info view
   appMap.style.display = isInfoTab ? "none" : "";
   infoPage.style.display = isInfoTab ? "block" : "none";
+
+  // The UNDRR global footer belongs to the content pages; the map view is
+  // full-bleed. Syndication is fetched lazily on the first content page and
+  // is decorative, so its promise is deliberately not awaited here.
+  setGlobalFooterVisible(isInfoTab);
+  if (isInfoTab) void initGlobalFooter();
 
   // Active state on all nav links
   for (const link of document.querySelectorAll(".nav-tab-link")) {
@@ -847,11 +860,7 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
 
 function setLayerDescription(element, layer, description) {
   const initiative = layer.initiative?.trim();
-  const initiativeSentence = initiative
-    ? /[.!?]$/.test(initiative)
-      ? initiative
-      : `${initiative}.`
-    : "";
+  const initiativeSentence = initiative ? (/[.!?]$/.test(initiative) ? initiative : `${initiative}.`) : "";
   element.textContent = [initiativeSentence, description?.trim()].filter(Boolean).join(" ");
 }
 

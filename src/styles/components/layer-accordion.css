@@ -28,7 +28,7 @@
 }
 
 .layer-header:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: -2px;
 }
 
@@ -104,7 +104,7 @@
 }
 
 .layer-eye:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: 2px;
 }
 

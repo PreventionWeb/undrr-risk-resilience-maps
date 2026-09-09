@@ -74,7 +74,21 @@ function buildSourcesTable(layers) {
 }
 
 export function buildSourcesPanel() {
-  const categorySections = TABS.map((tab) => {
+  // One tab per layer category. Mangrove's tabs script progressively enhances
+  // this markup: it wires up ARIA, keyboard navigation and deep linking, and
+  // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
+  // disclosures below 480px. Without the script the panels simply render in
+  // sequence, which is the pre-tabs behaviour.
+  const tabItems = TABS.map((tab, i) => {
+    const sectionId = `mg-tabs__section-sources-${i + 1}`;
+    return `
+      <li class="mg-tabs__item" role="presentation">
+        <a class="mg-tabs__link" href="#${sectionId}" id="${sectionId}--trigger" data-tabs__item="${sectionId}" aria-controls="${sectionId}" role="tab">${escHtml(tab.label)}</a>
+      </li>`;
+  }).join("");
+
+  const tabPanels = TABS.map((tab, i) => {
+    const sectionId = `mg-tabs__section-sources-${i + 1}`;
     const available = tab.layers.filter((layer) => getLayerStatus(layer) === "Active");
     const planned = tab.layers.filter((layer) => getLayerStatus(layer) !== "Active");
     const plannedSection =
@@ -87,15 +101,35 @@ export function buildSourcesPanel() {
           </details>`
         : "";
     return `
-      <div class="info-page-section info-page-section--wide">
-        <div class="mg-container">
+      <div class="mg-tabs-content" data-mg-js-tabs-content="true">
+        <section class="mg-tabs__section" id="${sectionId}" role="tabpanel" aria-labelledby="${sectionId}--trigger" tabindex="-1">
           <h2 class="info-page-section__title">${escHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
           ${available.length > 0 ? buildSourcesTable(available) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
-        </div>
+        </section>
       </div>`;
   }).join("");
+
+  const categorySections = `
+    <div class="info-page-section info-page-section--wide">
+      <div class="mg-container">
+        <article
+          class="mg-tabs mg-tabs--horizontal"
+          data-mg-js-tabs="true"
+          data-mg-js-tabs-variant="horizontal"
+          data-mg-js-tabs-stack-on-mobile
+          data-mg-js-tabs-label="Data categories"
+        >
+          <div class="mg-tabs__rail">
+            <div class="mg-tabs__scroll">
+              <ul class="mg-tabs__list" role="tablist" aria-label="Data categories">${tabItems}</ul>
+            </div>
+          </div>
+          <div class="mg-tabs__panels">${tabPanels}</div>
+        </article>
+      </div>
+    </div>`;
 
   const panel = buildPanel(
     "tab-sources",

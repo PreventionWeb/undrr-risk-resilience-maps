@@ -7,7 +7,6 @@
  */
 @import "./tokens.css";
 @import "./components/layout.css";
-@import "./components/pin-gate.css";
 @import "./components/layer-panel.css";
 @import "./components/layer-accordion.css";
 @import "./components/opacity-slider.css";

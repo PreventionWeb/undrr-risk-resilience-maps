@@ -4,9 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## [Unreleased]
+## [0.0.1] - 2026-09-09
 
 ### Added
+
+- The UNDRR global footer now appears on the content pages (Home, Sources, About), syndicated from PreventionWeb so it stays current centrally. The map view stays full-bleed without it. Mangrove's documented `widget.js` embed cannot be used: it chains its content request inside a `widget-body.php` fetch that returns 403 to every origin, so we call the same syndication endpoint directly. If syndication is unavailable the footer area stays empty and nothing else is affected.
+- The Sources page groups its five data categories into Mangrove 2.0 horizontal tabs, which collapse into stacked disclosures below 480px. This loads Mangrove's `js/tabs.js` behaviour script — the first JavaScript we take from the library. Without it the panels render in sequence, as before.
 
 - MapX startup failures now produce an accessible in-page service notice with manual retry, a visible 60-second automatic-retry countdown, and an availability link. Separate bounded checks cover SDK download or construction failures and an embedded map that never becomes ready. Countdown updates are silent to screen readers and pause while the tab is hidden or an information page is active, leaving non-map content usable without disruptive reloads.
 - A compact global build-freshness footer now shows the latest Git commit as a dynamically updating relative time and links to the project repository.
@@ -81,6 +84,14 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Home page category cards now render with their per-category coloured border and internal padding. The markup always asked for this via `mg-card__icon--bordered` and `--mg-card-border`, but a `<button>` reset was overriding the border and padding; Mangrove 2.0 added a card shadow, which exposed the result as content flush against a box edge.
+- The home page category grid is three across, so the five categories wrap to two rows instead of one row of narrow, tall cards.
+- Sources tables now keep a minimum width and scroll inside their container on narrow screens instead of collapsing to roughly one character per line.
+
+- Upgraded the UNDRR Mangrove component library from v1.8.0 to v2.0.0-alpha.4, and dropped the `/static/` segment from the CDN path — under that prefix `style.css` 404s for this release, while the bare `assets.undrr.org/mangrove/<version>/css/` prefix serves every file for every version. Mangrove 2.0 restyles `mg-card` with a background, radius, shadow and padding, so the home page category cards now render as bordered cards.
+- App chrome z-index moved out of Mangrove 2.0's frozen navigation band (10-22): `--z-panel` 10 → 30 and `--z-infobox` 20 → 40, so the site header can no longer paint over the layer panel or infobox.
+- Focus rings now use Mangrove's tokens (`rgb(var(--mg-color-focus-ring))` at `--mg-focus-ring-width`) in place of a hand-rolled `2px solid var(--color-primary)` repeated across eleven declarations, and the site inspector's coordinate readout uses the `--mg-font-family-code` role token instead of a bare `monospace`.
+- Removed the no-op `mg-page-header--default` modifier, which matched no rules in either Mangrove version.
 - EDRA geometry, crop, and style-configuration responses are cached per page session, failed requests remain retryable, and source requests now time out after 30 seconds. Scenario switches no longer repeat the values request.
 - External crop/scenario settings are encoded in shared URLs and reconciled on browser back/forward navigation.
 - Layer inventory distinguishes externally delivered layers with a blank MapX ID and `External runtime` status instead of describing them as MapX uploads.
@@ -92,3 +103,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Entries explicitly marked Pending removal, including Coral Reefs and Well-being, were removed from the application configuration and canonical inventory
 - Terminology updated from "risk to resilience" to "risk and resilience" throughout the project
 - Disabled layer accordions are now expandable so descriptions and metadata remain readable during review (previously `pointer-events: none` blocked interaction)
+
+### Removed
+
+- The custom preview PIN gate (`src/pin-gate.js`, `pin-gate.css` and its markup) in favour of Mangrove's `preview-access` component, which is configured entirely from `data-mg-preview-*` attributes. Behaviour is unchanged: same PIN, same soft barrier, unlock still persisted in `sessionStorage`.
+- Custom underlines beneath section and hero titles, and the duplicated font size and weight declarations on those headings — Mangrove's own `h1`/`h2` rules now supply them.
+- The `mg-mega-wrapper` class on the category navigation, replaced by `mg-container`.

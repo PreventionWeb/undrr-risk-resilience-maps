@@ -300,3 +300,52 @@ shape returned by `get_views` is a stable, supported contract.
 The durable data-flow, trust boundaries, fallback reasons, testing cadence, and retirement path
 are maintained in `docs/legends.md`; the decision rationale is in
 `docs/adr/0001-structured-legends.md`.
+
+---
+
+## Mangrove 2.0 CDN paths
+
+`assets.undrr.org/static/mangrove/<version>/css/style.css` returns 404 for
+`2.0.0-alpha.4`, even though every theme bundle resolves under that prefix and
+Mangrove's own `llms.txt` documents it. The bare
+`assets.undrr.org/mangrove/<version>/css/` prefix (no `/static/`) serves every
+file for every version, and the `style.css` it returns is byte-identical to the
+published npm tarball. Use the bare prefix.
+
+## UNDRR global footer: the documented widget does not work
+
+Mangrove's Footer component documents a `publish.preventionweb.net/widget.js`
+embed. That script fetches `widget-body.php` first and only calls
+`PW_Widget.get_data()` — the function that actually retrieves footer content —
+inside that response's `.then()`. `widget-body.php` currently returns **403 to
+every origin**, so the documented embed silently injects nothing.
+
+The content itself is reachable and CORS-open
+(`Access-Control-Allow-Origin: *`) at:
+
+```
+https://www.undrr.org/api/v2/content/landingpage?id=83835&suffixid=footer
+```
+
+`results[0].body` is a complete `<footer class="mg-footer">`. `src/ui/global-footer.js`
+fetches that directly. Re-test the official widget when Mangrove 2.0 goes
+stable; if `widget-body.php` is fixed, switching back is preferable because it
+is the supported path.
+
+## Mangrove tabs need `min-width: 0` for wide content
+
+`js/tabs.js` renders each panel as a grid item inside `.mg-tabs-content`. Grid
+items default to `min-width: auto`, so they refuse to shrink below their content
+— a wide table stretches the whole panel past the viewport instead of scrolling
+inside its own `overflow-x` wrapper. Any wide content placed in a Mangrove tab
+needs `min-width: 0` on `.mg-tabs__section` (see `home-panel.css`).
+
+## Mangrove component classes can be silently overridden
+
+The home page cards carry `mg-card__icon--bordered`, which supplies a 2px border
+in the colour passed as `--mg-card-border`, plus padding. A `<button>` reset in
+`home-panel.css` was setting `border: none; padding: 0`, quietly cancelling both.
+Under 1.8.0 this merely looked borderless; Mangrove 2.0 added a card shadow, so
+the same override produced a box with content flush against its edge. When
+adopting a Mangrove variant, check the local CSS is not resetting the properties
+that variant exists to set.
