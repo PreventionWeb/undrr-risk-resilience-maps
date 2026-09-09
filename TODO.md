@@ -76,5 +76,3 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
   ships, and re-check the breaking changes listed in Mangrove's `llms.txt`
   (notably the `--sendai-*` colour tokens, which are scheduled for removal in
   2.1 — we do not use them today).
-- Report to the Mangrove team: the `/static/` CDN prefix 404s for
-  `style.css` on `2.0.0-alpha.4`, and `llms.txt` documents that broken prefix.

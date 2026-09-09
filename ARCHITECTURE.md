@@ -223,13 +223,6 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-footer` — UNDRR global footer, syndicated from PreventionWeb
 - `mg-preview-access` — preview PIN gate, configured from `data-mg-preview-*` attributes
 
-Note the CDN path has no `/static/` segment. Mangrove's own `llms.txt` documents
-the pattern as `assets.undrr.org/static/mangrove/<version>/css/`, but under that
-prefix `style.css` 404s for `2.0.0-alpha.4` while the theme bundles resolve. The
-bare `assets.undrr.org/mangrove/<version>/css/` prefix serves every file for
-every version, and the `style.css` it returns is byte-identical to the published
-npm tarball, so we use it.
-
 ### Mangrove JavaScript
 
 Mangrove ships vanilla behaviour scripts alongside the CSS. We load

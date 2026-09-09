@@ -303,15 +303,6 @@ are maintained in `docs/legends.md`; the decision rationale is in
 
 ---
 
-## Mangrove 2.0 CDN paths
-
-`assets.undrr.org/static/mangrove/<version>/css/style.css` returns 404 for
-`2.0.0-alpha.4`, even though every theme bundle resolves under that prefix and
-Mangrove's own `llms.txt` documents it. The bare
-`assets.undrr.org/mangrove/<version>/css/` prefix (no `/static/`) serves every
-file for every version, and the `style.css` it returns is byte-identical to the
-published npm tarball. Use the bare prefix.
-
 ## UNDRR global footer: syndication is behind a bot challenge
 
 The footer uses Mangrove's documented `publish.preventionweb.net/widget.js`

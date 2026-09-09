@@ -88,7 +88,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - The home page category grid is three across, so the five categories wrap to two rows instead of one row of narrow, tall cards.
 - Sources tables now keep a minimum width and scroll inside their container on narrow screens instead of collapsing to roughly one character per line.
 
-- Upgraded the UNDRR Mangrove component library from v1.8.0 to v2.0.0-alpha.4, and dropped the `/static/` segment from the CDN path — under that prefix `style.css` 404s for this release, while the bare `assets.undrr.org/mangrove/<version>/css/` prefix serves every file for every version. Mangrove 2.0 restyles `mg-card` with a background, radius, shadow and padding, so the home page category cards now render as bordered cards.
+- Upgraded the UNDRR Mangrove component library from v1.8.0 to v2.0.0-alpha.4. Mangrove 2.0 restyles `mg-card` with a background, radius, shadow and padding, so the home page category cards now render as bordered cards.
 - App chrome z-index moved out of Mangrove 2.0's frozen navigation band (10-22): `--z-panel` 10 → 30 and `--z-infobox` 20 → 40, so the site header can no longer paint over the layer panel or infobox.
 - Focus rings now use Mangrove's tokens (`rgb(var(--mg-color-focus-ring))` at `--mg-focus-ring-width`) in place of a hand-rolled `2px solid var(--color-primary)` repeated across eleven declarations, and the site inspector's coordinate readout uses the `--mg-font-family-code` role token instead of a bare `monospace`.
 - Removed the no-op `mg-page-header--default` modifier, which matched no rules in either Mangrove version.
