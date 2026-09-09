@@ -9,15 +9,20 @@
   --build-info-height: 1.625rem;
   --header-height: 3.5rem;
   --nav-height: 2.75rem;
-  --color-primary: #004f91;
+  /* Derived from Mangrove rather than duplicated: --mg-color-blue-900 is the
+     same UNDRR blue. Colour tokens are sRGB channel triples in Mangrove 2.0,
+     so they must be wrapped in rgb(). */
+  --color-primary: rgb(var(--mg-color-blue-900));
   --color-primary-light: #f0f6fc;
   --color-text: #333;
   --color-text-muted: #666;
   --color-border: #ddd;
   --color-border-light: #eee;
-  --z-panel: 10;
-  --z-infobox: 20;
-  --z-pin-gate: 9999;
+  /* Mangrove 2.0 freezes z-index 10-22 for its navigation zone
+     (--mg-z-index-nav: 10 ... --mg-z-index-header: 22). App chrome must
+     sit above that band so panels are not painted over by the site header. */
+  --z-panel: 30;
+  --z-infobox: 40;
 }
 
 /* ── Reduced motion ───────────────────────────────── */

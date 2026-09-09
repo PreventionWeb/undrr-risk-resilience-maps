@@ -122,7 +122,7 @@ _Replace the hardcoded 4-digit PIN with production-appropriate access control._
 
 **Options:**
 
-1. _Public URL_ — remove `src/pin-gate.js` and the gate overlay. Simplest.
+1. _Public URL_ — remove the `[data-mg-preview-access]` element and its script from `index.html`. Simplest.
 2. _IP allowlist_ — handled at the CDN/proxy layer; no app code change.
 3. _UNDRR SSO_ — requires backend token validation; significant new work and a backend component, which breaks the current static-site architecture.
 

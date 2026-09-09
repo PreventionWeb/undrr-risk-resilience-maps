@@ -6,7 +6,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v1.8.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-alpha.4). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -18,7 +18,6 @@ undrr-risk-resilience-maps/
 ├── scripts/
 │   └── import-inventory.mjs    # CSV → JS config import tool (dry-run + --apply)
 ├── src/
-│   ├── pin-gate.js             # Preview PIN gate (sessionStorage auth)
 │   ├── main.js                 # App bootstrap: validates config, builds UI, inits SDK
 │   ├── config/
 │   │   ├── layers/             # Per-category layer definitions
@@ -63,7 +62,6 @@ undrr-risk-resilience-maps/
 │       ├── tokens.css          # Design tokens (custom properties)
 │       └── components/         # Per-component CSS files
 │           ├── layout.css      # App shell, nav, info-page containers
-│           ├── pin-gate.css    # PIN gate overlay
 │           ├── layer-panel.css # Floating sidebar panel
 │           ├── layer-accordion.css # Layer items + R2R group headings
 │           ├── opacity-slider.css
@@ -191,10 +189,10 @@ A **simple layer** maps to one permanent MapX view ID. A **compound layer** grou
 
 **Widget types** are registered in `src/ui/widgets/index.js`:
 
-| Type             | UI                           | Use case                                                      |
-| ---------------- | ---------------------------- | ------------------------------------------------------------- |
-| `sub-tabs`       | Button bar for ≤3 sources; select for larger sets | Switching between named data variants |
-| `stepped-slider` | Range input with tick labels | Selecting return periods or thresholds                        |
+| Type             | UI                                                | Use case                               |
+| ---------------- | ------------------------------------------------- | -------------------------------------- |
+| `sub-tabs`       | Button bar for ≤3 sources; select for larger sets | Switching between named data variants  |
+| `stepped-slider` | Range input with tick labels                      | Selecting return periods or thresholds |
 
 To add a new widget type: create a factory function in `src/ui/widgets/`, register it in the index. No changes to `sidebar.js` needed.
 
@@ -212,7 +210,7 @@ Plain ES module exports with setter functions, no framework.
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/static/mangrove/1.8.0/css/style.css) (v1.8.0). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-alpha.4/css/style.css) (v2.0.0-alpha.4). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
@@ -221,6 +219,48 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-button` / `mg-tag` — interactive controls and layer type badges
 - `mg-container` — centred layout
 - `mg-table` — feature attribute table in the infobox
+- `mg-tabs` — category tabs on the Sources page, stacking below 480px
+- `mg-footer` — UNDRR global footer, syndicated from PreventionWeb
+- `mg-preview-access` — preview PIN gate, configured from `data-mg-preview-*` attributes
+
+### Mangrove JavaScript
+
+Mangrove ships vanilla behaviour scripts alongside the CSS. We load
+`js/tabs.js` for the Sources page tabs. It auto-initialises `[data-mg-js-tabs]`
+containers on `DOMContentLoaded`, but our info panels are built from JavaScript
+after that event, so `src/ui/mangrove-tabs.js` imports the module from the CDN
+and calls `mgTabs()` once the markup is in the document. Enhancement is
+optional — without it the panels render in sequence.
+
+### Preview access gate
+
+The prototype sits behind Mangrove's `preview-access` component: a
+`<div data-mg-preview-access>` in `index.html` plus `js/preview-access.js` from
+the CDN, which builds the overlay and persists the unlock in `sessionStorage`.
+It replaced a hand-rolled gate. This is a soft barrier, not access control —
+the PIN is public in the markup by design.
+
+### UNDRR global footer
+
+Content pages (Home, Sources, About) carry the UNDRR global footer; the map view
+is full-bleed and omits it. The footer is Mangrove's documented Footer embed —
+`<footer class="mg-footer">` wrapping a `pw-widget-footer` container, plus the
+PreventionWeb syndication widget, all in `index.html`. The widget fetches and
+injects the global footer content itself; `src/ui/global-footer.js` only toggles
+visibility per view. The footer structure is a UNDRR branding requirement and
+must not be reshaped locally.
+
+Syndication cannot be verified from automated tooling: the widget's
+`widget-body.php` request sits behind a Cloudflare bot challenge that returns
+403 to curl and headless browsers, and the widget only retrieves the footer
+content inside that response's callback. An empty footer in a headless check is
+expected — verify in an ordinary browser.
+
+Mangrove 2.0 notes that affect this app: colour tokens are sRGB channel triples
+and must be wrapped — `rgb(var(--mg-color-focus-ring))`; z-index 10-22 is frozen
+for Mangrove's navigation zone, so app chrome uses 30+ (see `tokens.css`); and
+fonts come from role tokens (`--mg-font-family-code` and friends) rather than
+per-component typeface declarations.
 
 ### Layer panel controls
 
