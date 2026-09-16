@@ -6,7 +6,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-beta.3). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-rc.1). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -210,13 +210,17 @@ Plain ES module exports with setter functions, no framework.
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-beta.3/css/style.css) (v2.0.0-beta.3). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css) (v2.0.0-rc.1). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
 - `mg-card`, `mg-card__icon--bordered` — interactive category cards on the home page
 - `mg-highlight-box` — callout boxes on info pages
-- `mg-button` / `mg-tag` — interactive controls and layer type badges
+- `mg-button` / `mg-button--icon` / `mg-tag` — interactive controls, icon tools, and layer type badges
+- `mg-switch` — toggle switch controls for data options and layer activations
+- `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
+- `mg-badge`, `mg-badge--code` — status indicators and monospace dataset IDs
+- `mg-details` — expandable diagnostic and planning sections
 - `mg-container` — centred layout
 - `mg-skip-link` — accessible skip navigation link revealing on keyboard focus
 - `mg-table`, `mg-table-scroll-region` — feature attribute table in the infobox and accessible scroll region for wide data tables

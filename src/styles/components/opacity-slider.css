@@ -15,10 +15,10 @@
   flex-shrink: 0;
 }
 
+.opacity-row .mg-range,
 .opacity-row input[type="range"] {
   flex: 1;
-  height: 3px;
-  accent-color: var(--color-primary);
+  margin-block: 0;
 }
 
 .opacity-value {

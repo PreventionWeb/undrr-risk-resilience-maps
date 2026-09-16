@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-beta.3/css/style.css" />
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css" />
   </head>
   <body>
     <a href="#app-map" class="mg-skip-link">Skip to map</a>
@@ -188,7 +188,11 @@
             >
               Clear all
             </button>
-            <button class="layer-panel-toggle" id="panel-toggle" aria-label="Collapse panel">
+            <button
+              class="layer-panel-toggle mg-button mg-button--icon mg-button--icon--small"
+              id="panel-toggle"
+              aria-label="Collapse panel"
+            >
               <svg
                 aria-hidden="true"
                 width="16"
@@ -210,7 +214,7 @@
 
       <!-- Inspect toggle — floats as an icon tool to the right of the layer panel -->
       <button
-        class="inspect-toggle-btn"
+        class="inspect-toggle-btn mg-button mg-button--icon"
         id="inspect-toggle"
         type="button"
         aria-pressed="false"
@@ -272,7 +276,7 @@
       </a>
     </footer>
 
-    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-beta.3/js/preview-access.js"></script>
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.1/js/preview-access.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
