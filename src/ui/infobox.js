@@ -65,7 +65,7 @@ export function showInfobox(data) {
     let html = '<table class="mg-table mg-table--small">';
     for (const [key, value] of entries) {
       const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      html += `<tr><td>${esc(label)}</td><td>${esc(value)}</td></tr>`;
+      html += `<tr><th scope="row">${esc(label)}</th><td>${esc(value)}</td></tr>`;
     }
     html += "</table>";
     body.innerHTML = html;

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.0-alpha.4` to `2.0.0-beta.3` across the stylesheet, `preview-access.js`, and `tabs.js` modules.
+- Replaced custom `.skip-to-content` CSS with Mangrove's `.mg-skip-link` utility component, targeting `#app-map` with `tabindex="-1"`.
+- Aligned Sources data table with Mangrove's accessible scroll pattern using `.mg-table-scroll-region` with `role="region"`, `aria-label="Dataset sources table"`, and `tabindex="0"`.
+- Enhanced feature infobox attribute table with `<th scope="row">` for semantic key-value accessibility under `mg-table`.
+- Derived local neutral tokens (`--color-text`, `--color-text-muted`, `--color-border`, `--color-border-light`) directly from Mangrove's `--mg-color-neutral-*` channels.
+- Aligned layer panel focus rings and hover/active states with Mangrove tokens (`--mg-color-focus-ring`, `--mg-focus-ring-width`, and `rgb(var(--mg-color-blue-900) / 0.08)`).
+- Separated hover and focus-visible states on Home category cards so focus outlines use Mangrove's high-contrast `--mg-color-focus-ring`.
+
 ## [0.0.1] - 2026-09-09
 
 ### Added

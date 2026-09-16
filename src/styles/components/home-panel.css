@@ -134,9 +134,13 @@
   width: 100%;
 }
 
-.info-category-card:hover,
-.info-category-card:focus-visible {
+.info-category-card:hover {
   outline: 2px solid var(--mg-card-border, var(--color-primary));
+  outline-offset: 2px;
+}
+
+.info-category-card:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: 2px;
 }
 

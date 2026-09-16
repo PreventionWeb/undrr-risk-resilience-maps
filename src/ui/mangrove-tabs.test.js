@@ -3,7 +3,7 @@ import { initMangroveTabs, TABS_MODULE_URL } from "./mangrove-tabs.js";
 
 describe("TABS_MODULE_URL", () => {
   it("points at the same Mangrove release as the stylesheet", () => {
-    expect(TABS_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.0-alpha.4/js/tabs.js");
+    expect(TABS_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.0-beta.3/js/tabs.js");
   });
 });
 

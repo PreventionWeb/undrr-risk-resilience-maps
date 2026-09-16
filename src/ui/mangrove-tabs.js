@@ -15,7 +15,7 @@
  * hiding content.
  */
 
-const MANGROVE_VERSION = "2.0.0-alpha.4";
+const MANGROVE_VERSION = "2.0.0-beta.3";
 const TABS_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/tabs.js`;
 
 let modulePromise = null;
