@@ -21,6 +21,7 @@
   height: 14px;
   cursor: nwse-resize;
   touch-action: none;
+  /* Local stacking within the panel container; sits above internal panel content */
   z-index: 10;
   /* Classic diagonal-stripe resize indicator */
   background: linear-gradient(

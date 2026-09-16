@@ -6,7 +6,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-alpha.4). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-beta.3). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -210,7 +210,7 @@ Plain ES module exports with setter functions, no framework.
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-alpha.4/css/style.css) (v2.0.0-alpha.4). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-beta.3/css/style.css) (v2.0.0-beta.3). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
@@ -218,7 +218,8 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-highlight-box` — callout boxes on info pages
 - `mg-button` / `mg-tag` — interactive controls and layer type badges
 - `mg-container` — centred layout
-- `mg-table` — feature attribute table in the infobox
+- `mg-skip-link` — accessible skip navigation link revealing on keyboard focus
+- `mg-table`, `mg-table-scroll-region` — feature attribute table in the infobox and accessible scroll region for wide data tables
 - `mg-tabs` — category tabs on the Sources page, stacking below 480px
 - `mg-footer` — UNDRR global footer, syndicated from PreventionWeb
 - `mg-preview-access` — preview PIN gate, configured from `data-mg-preview-*` attributes

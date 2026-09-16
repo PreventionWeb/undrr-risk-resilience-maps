@@ -14,10 +14,10 @@
      so they must be wrapped in rgb(). */
   --color-primary: rgb(var(--mg-color-blue-900));
   --color-primary-light: #f0f6fc;
-  --color-text: #333;
-  --color-text-muted: #666;
-  --color-border: #ddd;
-  --color-border-light: #eee;
+  --color-text: rgb(var(--mg-color-neutral-700));
+  --color-text-muted: rgb(var(--mg-color-neutral-500));
+  --color-border: rgb(var(--mg-color-neutral-100));
+  --color-border-light: rgb(var(--mg-color-neutral-50));
   /* Mangrove 2.0 freezes z-index 10-22 for its navigation zone
      (--mg-z-index-nav: 10 ... --mg-z-index-header: 22). App chrome must
      sit above that band so panels are not painted over by the site header. */
