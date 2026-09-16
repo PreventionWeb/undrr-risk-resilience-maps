@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-alpha.4/css/style.css" />
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-beta.3/css/style.css" />
   </head>
   <body>
-    <a href="#app-map" class="skip-to-content">Skip to map</a>
+    <a href="#app-map" class="mg-skip-link">Skip to map</a>
 
     <!-- Preview access gate (Mangrove). The runtime builds the overlay from
          these attributes and persists the unlock in sessionStorage. Soft
@@ -125,7 +125,7 @@
     <div id="info-page"><!-- populated by JS --></div>
 
     <!-- App layout: full-width map with floating layer panel -->
-    <div class="app-map" id="app-map">
+    <div class="app-map" id="app-map" tabindex="-1">
       <div id="mapx" style="width: 100%; height: 100%"></div>
 
       <section id="map-service-notice" class="map-service-notice" role="alert" hidden>
@@ -272,7 +272,7 @@
       </a>
     </footer>
 
-    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-alpha.4/js/preview-access.js"></script>
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-beta.3/js/preview-access.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

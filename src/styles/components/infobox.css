@@ -60,13 +60,15 @@
   width: 100%;
 }
 
+.infobox-body th,
 .infobox-body td {
   padding: 0.2rem 0.3rem;
   vertical-align: top;
 }
 
-.infobox-body td:first-child {
+.infobox-body th {
   font-weight: 500;
   white-space: nowrap;
-  color: #666;
+  color: rgb(var(--mg-color-neutral-500));
+  text-align: left;
 }

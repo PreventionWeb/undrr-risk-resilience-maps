@@ -56,8 +56,8 @@ function buildSourcesTable(layers) {
     .join("");
 
   return `
-    <div class="data-table-wrap">
-      <table class="data-table">
+    <div class="data-table-wrap mg-table-scroll-region" role="region" aria-label="Dataset sources table" tabindex="0">
+      <table class="data-table mg-table">
         <thead>
           <tr>
             <th scope="col">Dataset</th>
