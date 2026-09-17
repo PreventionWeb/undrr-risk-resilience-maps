@@ -60,31 +60,18 @@
   gap: 0.25rem;
 }
 
+/* Mangrove outline button (mg-button-primary mg-button-outline) owns colour,
+   hover and focus; compact sizing keeps it in the panel header. */
 .layer-review-btn {
+  min-block-size: 1.75rem;
+  padding: 0 0.5rem;
   font-size: 0.72rem;
-  color: #666;
-  background: transparent;
-  border: 1px solid #ccc;
-  padding: 0.2rem 0.45rem;
-  cursor: pointer;
-  border-radius: 3px;
   white-space: nowrap;
 }
 
-.layer-review-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
 .layer-review-btn[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgb(var(--mg-color-blue-900) / 0.08);
-}
-
-.layer-review-btn:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
+  background-color: var(--mg-color-button-background);
+  color: rgb(var(--mg-color-button));
 }
 
 .layer-clear-btn {
@@ -114,30 +101,6 @@
 
 .layer-panel.is-collapsed .layer-review-btn {
   display: none;
-}
-
-.layer-panel-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  background: transparent;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  cursor: pointer;
-  color: #666;
-}
-
-.layer-panel-toggle:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.layer-panel-toggle:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
 }
 
 .layer-panel-toggle svg {

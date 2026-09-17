@@ -21,7 +21,7 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
 
   const slider = document.createElement("input");
   slider.type = "range";
-  slider.className = "widget-slider-input";
+  slider.className = "widget-slider-input mg-range";
   slider.min = "0";
   slider.max = String(sources.length - 1);
   slider.step = "1";
@@ -30,7 +30,7 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
 
   // Tick labels
   const ticks = document.createElement("div");
-  ticks.className = "widget-slider-ticks";
+  ticks.className = "widget-slider-ticks mg-range__ticks";
   for (const src of sources) {
     const tick = document.createElement("span");
     tick.textContent = src.label;

@@ -72,29 +72,8 @@
 
 .map-service-notice__retry {
   min-height: 2.5rem;
-  padding: 0.45rem 0.9rem;
-  border: 0;
-  border-radius: 0.1875rem;
-  background: var(--color-primary);
-  color: #fff;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  transition-property: transform, background-color;
-  transition-duration: 120ms;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.map-service-notice__retry:hover {
-  background: #003f75;
-}
-
-.map-service-notice__retry:active {
-  transform: scale(0.96);
-}
-
-.map-service-notice__retry:focus-visible,
 .map-service-notice__actions a:focus-visible {
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: 3px;

@@ -41,6 +41,7 @@ export async function addOpacitySlider(idView, container) {
 
   const slider = document.createElement("input");
   slider.type = "range";
+  slider.className = "mg-range";
   slider.min = "0";
   slider.max = "100";
   slider.value = "100";

@@ -14,6 +14,16 @@ function escHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+const STATUS_LABEL_MODIFIERS = {
+  "Awaiting data": "waiting-information",
+  "Pending removal": "negative",
+};
+
+function statusLabel(status) {
+  const modifier = STATUS_LABEL_MODIFIERS[status] || "draft";
+  return `<span class="data-table__badge mg-status-label mg-status-label--${modifier}"><span class="mg-status-label__indicator" aria-hidden="true"></span>${escHtml(status)}</span> `;
+}
+
 function sourceCell(source, url) {
   if (!source) return "";
   return url
@@ -35,7 +45,7 @@ function buildSourcesTable(layers) {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
-      const statusBadge = isTrackedOnly ? `<span class="data-table__badge">${escHtml(status)}</span> ` : "";
+      const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
       const idCell = ids.includes("\n")
         ? ids
@@ -94,7 +104,7 @@ export function buildSourcesPanel() {
     const plannedSection =
       planned.length > 0
         ? `
-          <details class="sources-planned">
+          <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
             <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
             ${buildSourcesTable(planned)}
@@ -138,9 +148,12 @@ export function buildSourcesPanel() {
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
         <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
-        <label class="sources-mapx-toggle">
-          <input type="checkbox" id="toggle-mapx-ids">
-          Show MapX view IDs
+        <label class="sources-mapx-toggle mg-switch">
+          <input type="checkbox" id="toggle-mapx-ids" class="mg-switch__input">
+          <span class="mg-switch__track">
+            <span class="mg-switch__thumb"></span>
+          </span>
+          <span class="mg-switch__label">Show MapX view IDs</span>
         </label>
       </div>
     </div>

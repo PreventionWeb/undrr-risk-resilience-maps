@@ -340,17 +340,14 @@
   color: #4d5f75;
 }
 
+/* Status label (mg-status-label) sits on its own line above the dataset name,
+   sized down to stay secondary to it. Mangrove supplies the indicator colour. */
 .data-table__badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  padding: 0.1em 0.45em;
-  border-radius: 3px;
-  background-color: #e8f0f9;
-  color: var(--color-primary);
-  margin-right: 0.35rem;
-  vertical-align: middle;
+  --mg-status-label-font-size: 0.78rem;
+  --mg-status-label-color: #4d5f75;
+  display: flex;
+  margin-bottom: 0.25rem;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -368,18 +365,30 @@
 }
 
 .sources-mapx-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
   margin-top: 1rem;
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  user-select: none;
 }
 
-.sources-mapx-toggle input {
-  cursor: pointer;
+.sources-mapx-toggle .mg-switch__label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sources-mapx-toggle .mg-switch__track {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* The hero is mid-blue, so Mangrove's default checked track (interactive blue)
+   and focus ring (dark gold) both fall below 3:1. Invert them for this surface. */
+.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track {
+  background-color: rgb(var(--mg-color-neutral-0));
+}
+
+.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
+  background-color: rgb(var(--mg-color-interactive));
+}
+
+.sources-mapx-toggle .mg-switch__input:focus-visible + .mg-switch__track {
+  box-shadow: none;
+  outline-color: rgb(var(--mg-color-focus-ring-inverse));
 }
 
 /* ── Downloads / plain lists ── */
