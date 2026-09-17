@@ -24,6 +24,71 @@ describe("createLayersStore", () => {
     expect(layers.all()).toEqual([]);
   });
 
+  it("returns the same frozen off record for an unknown key every time", () => {
+    const layers = createLayersStore();
+    const off = layers.get("pop");
+    expect(Object.isFrozen(off)).toBe(true);
+    expect(layers.get("pop")).toBe(off);
+    expect(layers.get("flood")).not.toBe(off);
+
+    const fn = vi.fn();
+    layers.subscribe(fn);
+    layers.set("pop", { applied: true });
+    // The first write's `prev` is that same default.
+    expect(fn.mock.calls[0][2]).toBe(off);
+  });
+
+  it("does not store or notify a first write equal to the defaults", () => {
+    const layers = createLayersStore();
+    const fn = vi.fn();
+    layers.subscribe(fn);
+
+    const record = layers.set("pop", { desired: false, status: "idle", settings: null });
+
+    expect(record).toBe(layers.get("pop"));
+    expect(layers.all()).toEqual([]);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("ignores unknown patch fields with a warning", () => {
+    const layers = createLayersStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    layers.set("pop", { applied: true, visible: true });
+    const unchanged = layers.set("pop", { visible: false });
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls[0][0]).toMatch(/unknown field "visible"/);
+    warn.mockRestore();
+    expect(layers.get("pop")).toEqual({ key: "pop", ...OFF, applied: true });
+    expect(unchanged).toBe(layers.get("pop"));
+  });
+
+  it("stores settings as a frozen copy and keeps it for equal contents", () => {
+    const layers = createLayersStore();
+    const settings = { crop: "WHEAT", scenario: "20", extra: { years: [2030] } };
+    const fn = vi.fn();
+    layers.subscribe(fn);
+
+    const stored = layers.set("crops", { settings }).settings;
+    settings.crop = "MAIZE";
+    settings.extra.years.push(2050);
+
+    expect(stored).not.toBe(settings);
+    expect(stored).toEqual({ crop: "WHEAT", scenario: "20", extra: { years: [2030] } });
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored.extra.years)).toBe(true);
+
+    // Equal contents in a new object: not a change.
+    layers.set("crops", { settings: { crop: "WHEAT", scenario: "20", extra: { years: [2030] } } });
+    expect(layers.get("crops").settings).toBe(stored);
+    expect(fn).toHaveBeenCalledTimes(1);
+
+    layers.set("crops", { settings: { crop: "MAIZE", scenario: "20" } });
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(layers.get("crops").settings).toEqual({ crop: "MAIZE", scenario: "20" });
+  });
+
   it("merges patches into the stored record", () => {
     const layers = createLayersStore();
     layers.set("flood", { desired: true, status: "loading" });
@@ -212,12 +277,32 @@ describe("toUrlLayers", () => {
     layers.set("flood", { applied: true, viewId: "MX-F100", sourceIdx: 1 });
     layers.set("recovery", { desired: true, status: "loading" });
     layers.set("unknown", { applied: true, viewId: "MX-X" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(toUrlLayers(layers.all(), ["recovery", "flood", "crops", "pop"])).toEqual([
       { key: "flood", sourceIdx: 1 },
       { key: "crops", sourceIdx: 0, settings: { crop: "WHEAT" } },
       { key: "pop", sourceIdx: 0 },
     ]);
+    warn.mockRestore();
+  });
+
+  it("requires a key order", () => {
+    expect(() => toUrlLayers([], undefined)).toThrow(TypeError);
+  });
+
+  it("leaves out a layer missing from the key order and warns once per key", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    layers.set("stray-layer", { applied: true, viewId: "MX-STRAY" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(toUrlLayers(layers.all(), ["pop"])).toEqual([{ key: "pop", sourceIdx: 0 }]);
+    expect(toUrlLayers(layers.all(), ["pop"])).toEqual([{ key: "pop", sourceIdx: 0 }]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/"stray-layer"/);
+    warn.mockRestore();
   });
 
   it("leaves out a layer mid source-switch, as the openViews walk did", () => {
