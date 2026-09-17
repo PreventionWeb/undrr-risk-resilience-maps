@@ -6,7 +6,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-rc.1). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.0-rc.2). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -356,7 +356,7 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css) (v2.0.0-rc.1). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.2/css/style.css) (v2.0.0-rc.2). Components used:
 
 - `mg-page-header` — UNDRR branding bar with Sendai stripe
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
