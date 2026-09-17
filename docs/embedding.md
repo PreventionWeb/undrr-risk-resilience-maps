@@ -1,0 +1,340 @@
+# Embedding the map viewer in other sites
+
+- Status: Proposed (design only; nothing here is built yet)
+- Date: 2026-09-17
+- Tracker: unisdr/undrr-risk-resilience-maps#14
+- Related: [docs/product-spec.md](product-spec.md) open question 1 ("Hosting path"),
+  [docs/external-layers.md](external-layers.md), [docs/legends.md](legends.md)
+
+## Context
+
+UNDRR properties (PreventionWeb, undrr.org), partner sites and Drupal Gutenberg pages will want to
+place the viewer inside their own pages. Today the app assumes it owns the whole document: one
+`index.html`, fixed ids, a URL hash router, module singletons, global Mangrove CSS, a PIN overlay and
+a syndicated footer.
+
+We are not building embedding yet. This document fixes the target so the layer-state refactor
+(`layers-store`, `layer-controller`, render-from-state rows, the `sidebar.js` split) moves toward it
+instead of away from it. Line references are to `main` at the time of writing.
+
+## Decision summary
+
+1. **Phase 1: iframe embed of the hosted app** (`/embed?…`), with URL config, no PIN, no footer,
+   no history writes, and a small versioned `postMessage` API. It is cheap, isolates CSS and globals
+   completely, and keeps every network request on our origin.
+2. **Phase 2 (only if a host needs it): a web component `<undrr-risk-map>` over a
+   `createRiskMap(root, options)` factory**, rendering into a Shadow DOM and distributed as a
+   versioned ESM bundle. A bare script embed without Shadow DOM is not offered.
+3. **Now:** the refactor PRs follow the [constraints checklist](#6-constraints-for-the-refactor-prs)
+   so the app becomes an instantiable module. The standalone `index.html` becomes the first consumer
+   of `createRiskMap()`, and the iframe embed becomes the second.
+
+## 1. Embed modes compared
+
+| Concern             | (a) iframe of hosted app                                                                                        | (b) script embed, light DOM                                                           | (c) web component, Shadow DOM, over (b)                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| CSS isolation       | Complete                                                                                                        | None. Mangrove 2.0.0-rc.1, `body {}` and `:root` tokens leak both ways                | Good. Mangrove CSS must load inside the shadow root; inherited properties and fonts still leak |
+| JS/global isolation | Complete                                                                                                        | Shares `window.mxsdk`, `document` listeners, `location`                               | Same as (b); Shadow DOM does not isolate JS                                                    |
+| Nesting             | Host → our app → MapX (two iframes)                                                                             | Host → MapX (one iframe)                                                              | Host → MapX (one iframe)                                                                       |
+| Security            | Strongest; host can't touch our DOM. Needs a `frame-ancestors` policy and origin-checked messages               | Our code runs with host privileges, and the host must trust our CDN (SRI, CSP)        | Same as (b)                                                                                    |
+| Network origin      | Our origin (unchanged from today)                                                                               | Host origin. Host CSP must allow MapX, EDRA and the mirror                            | Same as (b)                                                                                    |
+| Performance         | Extra document, and a second copy of Mangrove CSS/JS if the host also uses it. The app is small; MapX dominates | Can reuse host Mangrove only if versions match                                        | Mangrove CSS parsed per shadow root (can share via constructable stylesheets)                  |
+| Sizing              | Host must set a height; no auto-resize without our `resize` message                                             | Flows with the page                                                                   | Flows with the page                                                                            |
+| SEO                 | Content not attributed to host. The map is not indexable in any mode                                            | Info pages indexable only if rendered, and they are JS-built today                    | Same as (b)                                                                                    |
+| a11y                | Needs `title`, and focus moves between documents. Escape handlers stay inside the frame                         | Our `document` keydown handlers see host keystrokes; ids can collide with host ids    | Ids scoped by shadow root; still needs care with focus and landmarks                           |
+| Host effort         | Paste one `<iframe>`; a CMS block is trivial                                                                    | Load CSS and JS, provide a sized element, match CSP                                   | One `<script type="module">` plus one tag, and CSP                                             |
+| Versioning/caching  | Always latest unless we publish versioned embed paths; our cache headers apply                                  | Host pins a version (`/embed/1.2.3/`) and can use SRI; we must keep old versions live | Same as (b)                                                                                    |
+| Upgrade risk        | Low; we control both sides                                                                                      | High; every host page is a new CSS/JS environment we don't test                       | Medium                                                                                         |
+
+**MapX is itself an iframe.** The MapX SDK creates it (`document.createElement("iframe")` in
+`mxsdk.umd.js`) inside the element we pass to `initSDK` (`src/sdk/client.js:14`). It posts
+messages with `targetOrigin "*"` and filters incoming messages by a per-manager `sdkToken`, not by
+origin. Several managers on one page therefore work, and `Manager.destroy()` removes the iframe and
+its listener. Nesting it inside our iframe adds no new cross-origin rules because each hop is its own
+`postMessage` channel.
+
+**Recommendation:** phased, iframe first. The iframe covers every known host (Drupal pages, partner
+sites) with near-zero host effort and no CSS or CSP negotiation. Its costs (fixed height, double
+iframe, history coupling) have known fixes. A script or web-component embed only pays off if a host
+needs tight integration: flowing layout, host-driven filters without messaging, or several maps per
+page sharing one bundle. Build (c), never (b) alone, because Mangrove class names (`mg-*`) and our
+generic ids (`#sidebar`, `#infobox`) would collide with PreventionWeb and undrr.org, which already
+load Mangrove.
+
+## 2. Current blockers inventory
+
+Severity per mode: **H** must fix before shipping that mode, **M** visible defect or risk, **L**
+cosmetic or edge case, **–** not applicable.
+
+| #   | Blocker                                                                                                                                                                                                                                                                                                                                                                                                    | iframe | script (b)            | web comp. (c) |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------- | ------------- |
+| B1  | Import-time side effects: `validateLayers()`, `buildSidebar()`, `buildSiteInspectorPanel()`, `initBuildInfo()`, `initMapServiceRetry()`, `startMapX()` all run on import (`src/main.js:35-42,141`)                                                                                                                                                                                                         | –      | H                     | H             |
+| B2  | Markup lives in `index.html` (nav, `#app-map`, `#sidebar`, `#infobox`, `#map-service-notice`), and code finds it with global `document.getElementById`/`querySelector` (`src/ui/sidebar.js:213-218,349,354-371,407,424-478,535`; `src/main.js:55,74,84`; `src/ui/infobox.js:15,85`; `src/ui/site-inspector.js:85,109,115,230,239`; `src/sdk/availability.js:49,54,59,70,72`; `src/ui/build-info.js:31-32`) | –      | H                     | H             |
+| B3  | Document-wide queries that cross instances: slider sync `document.querySelectorAll("input.mg-range[data-view-id]")` (`src/ui/layer-controls.js:93`)                                                                                                                                                                                                                                                        | –      | M                     | M             |
+| B4  | `hashchange` listener on `window` (`src/ui/sidebar.js:395-399`). A host anchor link (e.g. Drupal `#main-content`) parses as zero layers and `reconcileLayersFromHash` turns every layer off (`sidebar.js:586-600`). Never removed                                                                                                                                                                          | –      | H                     | H             |
+| B5  | History writes: `history.pushState`/`replaceState` and `location.hash` reads (`src/state/hash.js:43,106-110`). In an iframe, pushes join the **host tab's** joint session history, so host Back steps through map states first                                                                                                                                                                             | M      | H                     | H             |
+| B6  | `navigate-tab` CustomEvent on `document` (`src/ui/home.js:100`, `src/ui/sidebar.js:402`); Escape `keydown` on `document` (`src/ui/infobox.js:80`, `src/ui/site-inspector.js:153`)                                                                                                                                                                                                                          | –      | M                     | M             |
+| B7  | `location.reload()` for MapX retry and countdown (`src/sdk/availability.js:60,87`) reloads the **host page**                                                                                                                                                                                                                                                                                               | L      | H                     | H             |
+| B8  | Global SDK: `window.mxsdk` loaded by script injection into `document.head` (`src/sdk/availability.js:11,31-39`), required by `client.js:13`. A host that loads another SDK version shares the global                                                                                                                                                                                                       | –      | M                     | M             |
+| B9  | Single-instance module state: `store.js:2-15`; `client.js:9-10`; `inspect.js:18-24`; `external/index.js:24-25`; `sidebar.js:34,66-83`; `infobox.js:12`; `site-inspector.js:81`; `legends.js:21-22`; `views.js:21`                                                                                                                                                                                          | –      | M (one map) / H (two) | M / H         |
+| B10 | Global CSS: Mangrove stylesheet `<link>` (`index.html:7`), CDN tabs module (`src/ui/mangrove-tabs.js:19,36`), `body {}` rule (`src/styles/components/layout.css:5`), tokens on `:root` (`src/styles/tokens.css:8`)                                                                                                                                                                                         | –      | H                     | M             |
+| B11 | PIN gate: Mangrove `preview-access.js` (`index.html:16-23,283`) overlays `document.body`, makes siblings inert, and stores the unlock in `sessionStorage`                                                                                                                                                                                                                                                  | H      | H                     | H             |
+| B12 | Syndicated footer: `PW_Widget` global script (`index.html:257-274`), toggled by `src/ui/global-footer.js:15`. Duplicates the host footer                                                                                                                                                                                                                                                                   | M      | H                     | H             |
+| B13 | Page chrome and layout: UNDRR header and nav in `index.html:26-122`; map height `calc(100vh - header - nav - build-info)` (`layout.css:11,113`); build-info footer (`index.html:276-281`)                                                                                                                                                                                                                  | M      | H                     | H             |
+| B14 | Hard-coded config: MapX URL, `language: "en"`, `theme` (`src/sdk/client.js:16-20`); `PRIMARY_PROJECT` import (`main.js:9`); nav tabs duplicated in HTML and `TABS` (tracker F6)                                                                                                                                                                                                                            | M      | M                     | M             |
+| B15 | `document.body` fallbacks for drag and download (`src/utils/panels.js:31,88`, `src/utils/export-layers.js:167`)                                                                                                                                                                                                                                                                                            | –      | L                     | L             |
+| B16 | Storage: no `localStorage` in `src/`. The only storage is the PIN gate's `sessionStorage` (B11)                                                                                                                                                                                                                                                                                                            | L      | L                     | L             |
+
+The iframe column is short: B5, B11, B12, B13 and B14 are handled by an embed profile of the same
+build, and the iframe needs no instance boundary. The script modes need all of it.
+
+## 3. Target instantiation architecture
+
+### App-instance boundary
+
+```js
+import { createRiskMap } from "@undrr/risk-map"; // or /embed/1/risk-map.js
+
+const map = createRiskMap(rootElement, {
+  tab: "hazard", // initial tab
+  layers: [{ key: "earthquake-pga", sourceIdx: 2 }], // initial layers
+  tabs: ["hazard", "exposure"], // visible tabs (default: all)
+  layerAllowlist: null, // optional Set of layer keys
+  chrome: "nav", // "full" | "nav" | "none"  (header/footer/nav)
+  language: "en",
+  theme: "color_light",
+  mapxProject: PRIMARY_PROJECT,
+  stateAdapter: memoryAdapter(), // see below
+  baseUrl: new URL(".", import.meta.url), // assets and lazy chunks
+  previewGate: false,
+});
+
+map.setLayers([{ key: "population" }]); // desired state; controller reconciles
+map.setTab("exposure");
+const off = map.on("layers-changed", (state) => {});
+map.getState(); // { tab, layers: [{ key, sourceIdx, settings, status }] }
+map.destroy(); // removes listeners, MapX iframe, DOM, timers
+```
+
+`createRiskMap` is the only place allowed to touch `document` and `window`, and only through the
+`root` it was given, `root.ownerDocument`, and the injected adapter. `main.js` shrinks to
+`createRiskMap(document.getElementById("app"), { stateAdapter: hashAdapter(), chrome: "full", previewGate: true })`.
+
+### State adapter
+
+```ts
+/** @typedef {{ tab: string|null, layers: Array<{key, sourceIdx, settings?}> }} UrlState */
+interface StateAdapter {
+  read(): UrlState; // initial state
+  write(state: UrlState, { replace: boolean }): void; // after a user action or batch
+  subscribe(fn: (state: UrlState) => void): () => void; // external navigation (back, host command)
+  destroy(): void;
+}
+```
+
+| Adapter              | Use                               | Behaviour                                                                                                                |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `hashAdapter`        | Standalone site                   | Today's `hash.js` format; `pushState`/`replaceState`; `hashchange` ignores hashes whose tab isn't one of ours (fixes B4) |
+| `memoryAdapter`      | Script/web-component default      | Never touches `location` or `history`                                                                                    |
+| `postMessageAdapter` | Inside the iframe embed           | `read` from the embed URL; `write` posts `state` to the parent; `subscribe` to host `set-state` commands                 |
+| `queryParamAdapter`  | Host wants deep links on its page | Owns a single namespaced param (`?riskmap=hazard;earthquake-pga:2`) via `replaceState`, and leaves other params alone    |
+
+The iframe embed defaults to `postMessageAdapter` with `write` using replace semantics, so the host
+tab's history is never touched (B5). A host that wants shareable URLs mirrors `state` messages into
+its own URL.
+
+### How the refactor plugs in
+
+```
+createRiskMap(root, options)
+ ├─ registry      = shared, immutable (TABS index: byKey / byViewId / tabOf)
+ ├─ sdk           = createMapxClient(root.querySelector("[data-mapx]"), options)   per instance
+ ├─ store         = createLayersStore(registry)                                    per instance
+ ├─ controller    = createLayerController({ store, sdk, external: createExternalRegistry(sdk) })
+ ├─ router        = createRouter({ store, adapter: options.stateAdapter })         store subscriber
+ ├─ ui            = mountNav / mountLayerPanel / mountSiteInspector (root-scoped)  store subscribers
+ └─ disposers[]   → destroy()
+```
+
+The router is the only module that talks to the adapter. The UI never writes the hash; it sets
+desired state, and the router serialises `applied` state once a batch settles.
+
+### Multiple instances: what may stay module-level
+
+| State                                                                         | Scope                  | Reason                                                                                                                 |
+| ----------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `TABS` config and layer registry                                              | Module, shared         | Immutable                                                                                                              |
+| EDRA geometry, values and config promises (`edra-agriculture.js:33-35`)       | Module, shared         | Pure HTTP data keyed by URL; failures already evicted                                                                  |
+| Raster legend resolution cache (`raster-legends.js:59`)                       | Module, shared         | Keyed by provider URL                                                                                                  |
+| MapX `get_views` catalogue (`legends.js:21-22`)                               | Shared **per project** | Today keyed by SDK manager. Key by `mapxProject`; keep per-instance refresh-on-miss for `view_add` cross-project views |
+| Legend images (`views.js:21`)                                                 | Shared by `idView`     | Style is static per view; the fetch must use the calling instance's SDK                                                |
+| Mangrove tabs module promise (`mangrove-tabs.js:21`)                          | Module, shared         | Idempotent loader                                                                                                      |
+| Store, `openViews`, `activeSourceIndex`, router, UI maps (`sidebar.js:66-83`) | Per instance           | User state                                                                                                             |
+| SDK manager and ready flag (`client.js:9-10`)                                 | Per instance           | One MapX iframe each                                                                                                   |
+| External runtime registry (`external/index.js:24-25`)                         | Per instance           | `MX-GJ-*` view ids exist only in one MapX iframe                                                                       |
+| Inspection batch and generation (`inspect.js:18-24`), Escape handlers         | Per instance           | Tied to one map and one panel                                                                                          |
+
+### Host ↔ iframe message schema (v1)
+
+Every message is an object `{ type: "undrr-risk-map", v: 1, id?, instance, name, payload }`.
+`instance` is an opaque id from the embed URL (`?instance=`), so a page with two iframes can route
+replies.
+
+| Direction    | `name`      | Payload                                       |
+| ------------ | ----------- | --------------------------------------------- |
+| embed → host | `ready`     | `{ version, tabs, layers }`                   |
+| embed → host | `state`     | `{ tab, layers }` after each settled change   |
+| embed → host | `resize`    | `{ height }` (optional auto-height)           |
+| embed → host | `error`     | `{ code, message }` (e.g. `mapx-unavailable`) |
+| host → embed | `set-state` | `{ tab?, layers? }`                           |
+| host → embed | `get-state` | `{}`; reply is `state` with the same `id`     |
+
+Rules: the embed posts only to `document.referrer`'s origin after checking it against the embed
+allowlist, never `"*"`. It accepts messages only when `event.source === window.parent` and
+`event.origin` is in that allowlist. Unknown `v` gets an `error` with `code: "unsupported-version"`.
+Payloads are validated like hash input today (unknown keys dropped, source indices clamped). The
+same names become DOM `CustomEvent`s on the web component (`riskmap:state`), so both modes share a
+vocabulary.
+
+## 4. Cross-origin and security
+
+**Where requests run.** In iframe mode every `fetch` runs from our origin, exactly as today. In
+script mode it runs from the host origin. Headers checked with `curl -I` and
+`Origin: https://www.preventionweb.net` on 2026-09-17:
+
+| Request                                  | Code                        | CORS today                                     | Script-embed impact                                                       |
+| ---------------------------------------- | --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| MapX SDK `app.mapx.org/sdk/mxsdk.umd.js` | `availability.js:1`         | `Access-Control-Allow-Origin: *`               | None (CSP `script-src`)                                                   |
+| MapX app iframe `app.mapx.org`           | `client.js:16`              | No `X-Frame-Options`/`frame-ancestors` seen    | Frameable from any origin today; **unknown** whether MapX guarantees this |
+| EDRA WFS, values, config (Copernicus)    | `edra-agriculture.js:15-19` | `ACAO: *`                                      | Works; host CSP `connect-src` must list it                                |
+| GIRI GeoServer legend JSON               | `raster-legends.js:32-57`   | `ACAO: *` but **HTTP 403** to non-MapX origins | Same as today: falls back through the mirror                              |
+| MapX mirror `api.mapx.org/get/mirror`    | `raster-legends.js:21`      | `ACAO: *`                                      | Works; host CSP `connect-src`                                             |
+| PreventionWeb footer widget              | `index.html:265`            | `ACAO: *`, but Cloudflare challenge            | Not loaded in embeds                                                      |
+
+**No proxy is needed for any mode today.** A proxy would be justified only if Copernicus narrows its
+CORS policy or a new provider denies browser origins without an approved mirror path. That is
+already a migration trigger in `docs/external-layers.md`.
+
+**CSP a script-embed host must allow:** `script-src` our CDN, `app.mapx.org` and
+`assets.undrr.org`; `frame-src https://app.mapx.org`; `connect-src drought.emergency.copernicus.eu
+giri.unepgrid.ch api.mapx.org`; `img-src data:` (legend PNGs arrive as base64); and `style-src` our
+CDN plus Mangrove. For the iframe embed the host only needs `frame-src <our embed origin>`. We should
+also ship our own CSP on the embed page with the same list.
+
+**Framing policy.** Production is GitHub Pages (`.github/workflows/deploy.yml`), which cannot set
+response headers. `server.js:38-40` sets only `Content-Type`. The viewer is therefore frameable by
+any site, and `<meta http-equiv>` cannot set `frame-ancestors`. Clickjacking impact is low (no
+login, no state-changing actions), but an allowlisted embed needs a host that sets
+`Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net …`
+on `/embed`, for example a CDN or Cloudflare in front of Pages. Keep the standalone app framable only
+by `'self'` once headers are possible.
+
+**`postMessage`.** MapX's SDK uses `"*"` and token filtering (above), which we can't change and which
+is acceptable because it carries only map state. Our host API must use explicit `targetOrigin` and
+origin checks (section 3).
+
+**Permissions-Policy.** Coordinate copy uses `navigator.clipboard.writeText`
+(`src/ui/site-inspector.js:131`), which needs `allow="clipboard-write"` on the host iframe; it already
+fails silently. Recommend `allow="fullscreen; clipboard-write"`. The SDK creates the MapX iframe
+without an `allow` attribute, so geolocation and fullscreen inside MapX are unavailable in any mode.
+Immersive mode hides those controls anyway.
+
+**Storage partitioning.** Browsers partition storage and cookies in third-party iframes by top-level
+site. The app stores nothing itself (B16). MapX in a nested frame works anonymously for public views
+today (the standalone app is already a third-party context for MapX). **Unknown:** whether any MapX
+feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
+it will break in every embed mode and needs the Storage Access API or a MapX token.
+
+**PIN gate.** Embeds never render the preview gate. It would lock the host page in script mode,
+and in an iframe it prompts per host site. Until production access control exists, the embed route
+should be undeployed or restricted with `frame-ancestors` to review hosts.
+
+**Subresource Integrity.** Exact-version paths (`/embed/1.2.3/risk-map.js`) publish an SRI hash.
+SRI covers only the entry file: lazy chunks (EDRA and `proj4`) are loaded by `import()` and can't
+carry host-supplied integrity. Mitigate with content-hashed, immutable chunk filenames on the same
+versioned path. Major aliases (`/embed/1/`) are unpinned and documented as such.
+
+## 5. Build and distribution
+
+- **Iframe embed:** a second Vite HTML entry, `embed.html`, next to `index.html`
+  (`vite.config.js:32-34`). Both call `createRiskMap` with different options. It uses the same bundle
+  and cache headers, with no extra pipeline.
+- **Library build (phase 2):** Vite `build.lib` with `formats: ["es"]`, entry `src/embed/index.js`
+  exporting `createRiskMap` and defining `<undrr-risk-map>`. CSS is emitted as a file and adopted
+  into the shadow root (`?inline` import or constructable stylesheet). Relative dynamic `import()`
+  in an ES module resolves against the importing module's URL, so the lazy EDRA chunk loads from the
+  CDN path, not the host. The CDN must send `Access-Control-Allow-Origin` because module scripts are
+  CORS requests. Non-JS assets use `new URL(…, import.meta.url)` or `options.baseUrl`, never the
+  root-relative `base` used for Pages (`vite.config.js:19`).
+- **Versioned paths:** `https://assets.undrr.org/risk-map/<semver>/` (immutable, long cache, SRI)
+  and `/risk-map/<major>/` (short cache). Mangrove stays on its own versioned CDN path. The embed
+  pins the Mangrove version it was tested with rather than inheriting the host's.
+- **Drupal Gutenberg block:** a `undrr/risk-map` block whose attributes are `tab`, `layers`,
+  `tabs`, `height` and `mode`. `save()` outputs either an `<iframe src="…/embed.html?tab=…&layers=…"
+title="…" loading="lazy" allow="fullscreen; clipboard-write">` or, in phase 2,
+  `<undrr-risk-map tab="…" layers="…">` with the script registered as a library in the module's
+  `*.libraries.yml`. The editor preview can be the live iframe. Keeping iframe output in phase 1 means
+  no CSP change on Drupal sites.
+- **Embed-code generator:** an "Embed this map" action in the standalone app that serialises the
+  current `getState()` into the embed URL and shows copyable iframe (and later web component)
+  snippets, with a height field. It reuses the adapter serialisers, so embed URLs and share links
+  can't drift.
+
+## 6. Constraints for the refactor PRs
+
+Every PR in the layer-state refactor is reviewed against this list. A deviation must be named in the
+PR description with its reason and the follow-up issue.
+
+- [ ] **No new globals or import-time side effects.** New modules export functions or factories;
+      nothing runs on import except constant definitions. No new `window.*` or `document`-level
+      custom events.
+- [ ] **Store and controller are instantiable.** `createLayersStore()` and `createLayerController()`
+      are factories taking their dependencies (registry, SDK client, external registry). A module
+      singleton wrapper for the standalone app is acceptable for now if the factory exists and tests
+      use it.
+- [ ] **Router/state adapter is injectable.** Hash reading and writing live behind the
+      `read/write/subscribe/destroy` adapter. The store and controller never import `hash.js`.
+- [ ] **DOM queries are scoped to a root.** New or moved UI code receives a root element or
+      component elements and uses `root.querySelector`. No new `document.getElementById`, no
+      `document.querySelectorAll` across instances, no new hard-coded ids (use `data-` hooks or
+      classes).
+- [ ] **Listeners are `destroy()`-able.** Every `addEventListener`, `subscribe`, `setInterval` or SDK
+      `on` registered outside a disposable element returns or records a disposer that a `destroy()`
+      path calls. Prefer `AbortController` signals.
+- [ ] **No reliance on `location` or `history` outside the hash adapter.** This includes
+      `location.reload()` (pass a `reload` callback instead).
+- [ ] **Shared caches are keyed, not implicit.** A module-level cache must key by project, view id or
+      URL (see the table in section 3), never by "the current SDK".
+
+## 7. Roadmap and open questions
+
+| Phase | Work                                                                                                                                   | Rough effort                   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                                | Included in #14                |
+| 1a    | `createRiskMap` boundary: markup moves from `index.html` into mount functions; per-instance SDK client, store and inspect; `destroy()` | 1–1.5 weeks                    |
+| 1b    | `embed.html` with `chrome`, `tabs`, `layers` URL params, `postMessageAdapter`, v1 message API, no PIN or footer                        | 3–5 days                       |
+| 1c    | Hosting with headers (`frame-ancestors`, CSP) and a Gutenberg block emitting the iframe                                                | 2–4 days, plus infra lead time |
+| 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                                 | 1.5–2 weeks                    |
+| 2b    | Two maps on one page (shared caches keyed per section 3); ties in with side-by-side panels (`TODO.md`)                                 | 3–5 days                       |
+
+Open questions for the maintainer:
+
+1. **Target hosts.** Which sites embed first (PreventionWeb, undrr.org country pages, partner
+   sites), and do any forbid third-party iframes or allow only their own CSP?
+2. **Is the script embed truly needed?** Is there a concrete host requirement (auto-height, host
+   filters, several maps per page) that the iframe plus messages can't meet? If not, stop at
+   phase 1.
+3. **Access control in embeds.** Is embedding allowed before the PIN gate is replaced, and what
+   replaces it? Is a `frame-ancestors` allowlist acceptable as the prototype barrier?
+4. **Hosting.** Will production stay on GitHub Pages (no response headers) or move behind UNDRR
+   infrastructure or a CDN that can set CSP?
+5. **Chrome and branding.** Must embeds keep the UNDRR header or attribution link when placed on
+   partner sites? Should the info pages (Home, Sources, About) exist in embeds?
+6. **Deep links.** Should embedded map state appear in the host URL (`queryParamAdapter`), or is
+   an "open full viewer" link enough?
+7. **Analytics.** Whose analytics count embed usage: host events via `state` messages, our own
+   tracking inside the iframe (consent implications on host sites), or both?
+8. **Language.** Is a `language` option needed in the first embed (MapX supports it; our UI strings
+   are English-only today)?
+9. **MapX terms.** Does UNEP/GRID-Geneva have any policy or rate limit on MapX being framed inside a
+   third-party iframe at scale? This is unverified; the response headers currently allow it.
