@@ -1,0 +1,134 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TABS } from "../config/layers.js";
+import { isLayerAvailable } from "../config/layers/status.js";
+import { createHashAdapter } from "./hash-adapter.js";
+import { createLayersStore, toUrlLayers } from "./layers-store.js";
+
+beforeEach(() => {
+  history.replaceState(null, "", "#");
+});
+
+describe("createHashAdapter", () => {
+  it("reads the current hash as URL state", () => {
+    history.replaceState(null, "", "#hazard?layers=earthquake-pga:2,landslides");
+    expect(createHashAdapter().read()).toEqual({
+      tab: "hazard",
+      layers: [
+        { key: "earthquake-pga", sourceIdx: 2 },
+        { key: "landslides", sourceIdx: 0 },
+      ],
+    });
+  });
+
+  it("pushes by default and replaces on request", () => {
+    const adapter = createHashAdapter();
+    const lengthBefore = history.length;
+
+    adapter.write({ tab: "exposure", layers: [{ key: "population", sourceIdx: 0 }] });
+    expect(location.hash).toBe("#exposure?layers=population");
+    expect(history.length).toBe(lengthBefore + 1);
+
+    adapter.write({ tab: "exposure", layers: [] }, { replace: true });
+    expect(location.hash).toBe("#exposure");
+    expect(history.length).toBe(lengthBefore + 1);
+  });
+
+  it("does not add an entry when the hash is already current", () => {
+    const adapter = createHashAdapter();
+    adapter.write({ tab: "hazard", layers: [] });
+    const lengthBefore = history.length;
+
+    adapter.write({ tab: "hazard", layers: [] });
+
+    expect(history.length).toBe(lengthBefore);
+  });
+
+  it("calls subscribers with the parsed state on hashchange until unsubscribed", () => {
+    const target = new EventTarget();
+    const adapter = createHashAdapter({ target });
+    const fn = vi.fn();
+    const unsubscribe = adapter.subscribe(fn);
+
+    history.replaceState(null, "", "#risk?layers=aal-public:1");
+    target.dispatchEvent(new Event("hashchange"));
+    expect(fn).toHaveBeenCalledWith({ tab: "risk", layers: [{ key: "aal-public", sourceIdx: 1 }] });
+
+    unsubscribe();
+    target.dispatchEvent(new Event("hashchange"));
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes every listener on destroy", () => {
+    const target = new EventTarget();
+    const adapter = createHashAdapter({ target });
+    const first = vi.fn();
+    const second = vi.fn();
+    adapter.subscribe(first);
+    adapter.subscribe(second);
+
+    adapter.destroy();
+    target.dispatchEvent(new Event("hashchange"));
+
+    expect(first).not.toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it("listens on window by default", () => {
+    const adapter = createHashAdapter();
+    const fn = vi.fn();
+    adapter.subscribe(fn);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    adapter.destroy();
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Published, keyed layers in config order: the order the sidebar serialises in.
+const CONFIG_ORDER = TABS.flatMap((tab) => tab.layers)
+  .filter((layer) => layer.key && isLayerAvailable(layer))
+  .map((layer) => layer.key);
+
+const EDRA_VARIANTS = encodeURIComponent(
+  JSON.stringify({ "edra-crop-yield-reduction": { crop: "MAIZE", scenario: "30" } }),
+);
+
+// Shared links must survive a read → store → write cycle byte for byte, so
+// links already in circulation keep working after the store refactor.
+describe("shared-link round trip through the layers store", () => {
+  it.each([
+    ["compound and simple hazard layers", "#hazard?layers=river-flooding:1,earthquake-pga:2,landslides"],
+    [
+      "an EDRA layer with variants",
+      "#hazard?layers=edra-crop-yield-reduction,river-flooding:2&variants=%7B%22edra-crop-yield-reduction%22%3A%7B%22crop%22%3A%22MAIZE%22%2C%22scenario%22%3A%2230%22%7D%7D",
+    ],
+    ["layers from several tabs", "#exposure?layers=recovery-speed:3,population,hdi"],
+  ])("keeps %s unchanged", (_name, link) => {
+    history.replaceState(null, "", link);
+    const adapter = createHashAdapter();
+    const lengthBefore = history.length;
+
+    // What restore does: apply each layer, recording the view that carries it.
+    const { tab, layers } = adapter.read();
+    const store = createLayersStore();
+    for (const { key, sourceIdx, settings } of layers) {
+      store.set(key, {
+        desired: true,
+        applied: true,
+        viewId: `MX-${key}-${sourceIdx}`,
+        sourceIdx,
+        settings: settings ?? null,
+      });
+    }
+    adapter.write({ tab, layers: toUrlLayers(store.all(), CONFIG_ORDER) }, { replace: true });
+
+    expect(location.hash).toBe(link);
+    expect(history.length).toBe(lengthBefore);
+  });
+
+  it("uses the encoded EDRA variants the fixture expects", () => {
+    expect(EDRA_VARIANTS).toBe(
+      "%7B%22edra-crop-yield-reduction%22%3A%7B%22crop%22%3A%22MAIZE%22%2C%22scenario%22%3A%2230%22%7D%7D",
+    );
+  });
+});

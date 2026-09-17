@@ -43,7 +43,9 @@ undrr-risk-resilience-maps/
 │   │   ├── edra-agriculture-controls.js # EDRA crop/scenario options (loaded eagerly)
 │   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── state/
-│   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
+│   │   ├── store.js            # openViews Set (derived), activeTab, activeSourceIndex Map
+│   │   ├── layers-store.js     # createLayersStore(): per-layer records + subscribers
+│   │   ├── hash-adapter.js     # createHashAdapter(): read/write/subscribe/destroy over hash.js
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
 │   │   ├── sidebar.js          # Nav routing, layer panel, accordions, clear-all
@@ -208,6 +210,16 @@ Plain ES module exports with setter functions, no framework.
 - `activeTab` (string) — currently selected tab ID
 - `activeSourceIndex` (Map) — for compound layers, tracks which source is selected
 
+**Layers store (refactor step 1, unisdr/undrr-risk-resilience-maps#14).** `createLayersStore()` in `src/state/layers-store.js` holds one immutable record per layer key: `{ key, desired, applied, sourceIdx, settings, viewId, status, error }`. `applied` means MapX confirmed the layer is on; `viewId` is the view carrying it, and is `null` while off and in the gap of a source switch. `set(key, patch)` notifies subscribers with `(key, next, prev)`; `get`, `all` and `openViewIds` read.
+
+- The sidebar writes records in `toggleLayer`, `switchSource` and `updateExternalVariant`, and answers "is this layer on?" (clear-all, restore, reconcile, accordion expand, deferred turn-off) from `applied`, not from the switch's `.is-active` class.
+- `store.openViews` stays as a compatibility Set for `main.js` and `sdk/inspect.js`. The sidebar no longer mutates it: `mirrorOpenViews()` updates it incrementally from `viewId` changes, which keeps its insertion order.
+- The URL hash is a store subscriber. When `applied`, `sourceIdx` or `settings` change, `toUrlLayers()` serialises the records that are on, in config order (the order the hash has always used), and writes through the state adapter. Tab switches and batch ends still write directly.
+- The in-flight sets (`toggleInFlight`, `sourceSwitchInFlight`, `pendingToggleOff`) and the cross-tab mirrors (`secondaryRows`, `secondaryState`) are unchanged; a later layer controller replaces them.
+- The store instance is created by `buildSidebar()` (or on first use) and exposed through `getLayersStore()`; `destroySidebar()` removes its subscriptions and the URL listener.
+
+**State adapter.** `createHashAdapter()` in `src/state/hash-adapter.js` is the only path from the UI to `location`/`history`: `read()` parses the hash, `write(state, { replace })` pushes or replaces, `subscribe(fn)` watches `hashchange`, `destroy()` removes its listeners. `buildSidebar({ stateAdapter })` accepts another adapter with the same contract (see the embedding design in unisdr/undrr-risk-resilience-maps#14).
+
 ### UI layer (Mangrove)
 
 All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css) (v2.0.0-rc.1). Components used:
@@ -312,6 +324,8 @@ Test files cover pure and near-pure modules:
 | File                                      | What it tests                                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                             |
+| `src/state/layers-store.test.js`          | Store set/get/all, subscribers, `openViewIds`, order, openViews mirror, URL serialisation         |
+| `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy; real shared links round-trip byte for byte via the store    |
 | `src/config/validate.test.js`             | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
 | `src/ui/widgets/sub-tabs.test.js`         | DOM construction, initial state, callbacks, aria roles, revert on rejected switch                 |
 | `src/ui/widgets/source-selection.test.js` | Confirmed/in-flight index when switches are rejected or fail                                      |
@@ -325,7 +339,7 @@ Test files cover pure and near-pure modules:
 | `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                          |
 | `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
-`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all, back/forward history entries, rapid double toggles, `viewRemove` failures and non-app hashes. Known bugs left for the layer state refactor (clear-all while a layer is loading, cancelling an external layer mid-load) are recorded as `it.fails` / `it.todo` (see the tracker, unisdr/undrr-risk-resilience-maps#14).
+`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all, back/forward history entries, rapid double toggles, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward. Known bugs left for the layer state refactor (clear-all while a layer is loading, cancelling an external layer mid-load) are recorded as `it.fails` / `it.todo` (see the tracker, unisdr/undrr-risk-resilience-maps#14).
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser

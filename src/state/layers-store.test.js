@@ -1,0 +1,191 @@
+import { describe, expect, it, vi } from "vitest";
+import { changesUrlState, createLayersStore, mirrorOpenViews, toUrlLayers } from "./layers-store.js";
+
+const OFF = {
+  desired: false,
+  applied: false,
+  sourceIdx: 0,
+  settings: null,
+  viewId: null,
+  status: "idle",
+  error: null,
+};
+
+describe("createLayersStore", () => {
+  it("returns an off record for unknown keys without storing it", () => {
+    const layers = createLayersStore();
+    expect(layers.get("pop")).toEqual({ key: "pop", ...OFF });
+    expect(layers.all()).toEqual([]);
+  });
+
+  it("merges patches into the stored record", () => {
+    const layers = createLayersStore();
+    layers.set("flood", { desired: true, status: "loading" });
+    layers.set("flood", { applied: true, viewId: "MX-F100", sourceIdx: 1, status: "idle" });
+
+    expect(layers.get("flood")).toEqual({
+      ...OFF,
+      key: "flood",
+      desired: true,
+      applied: true,
+      viewId: "MX-F100",
+      sourceIdx: 1,
+    });
+    expect(layers.all()).toEqual([layers.get("flood")]);
+  });
+
+  it("stores immutable snapshots", () => {
+    const layers = createLayersStore();
+    const record = layers.set("pop", { applied: true });
+    expect(Object.isFrozen(record)).toBe(true);
+    layers.set("pop", { applied: false });
+    expect(record.applied).toBe(true);
+  });
+
+  it("keeps the key even if a patch tries to change it", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { key: "other", applied: true });
+    expect(layers.get("pop").key).toBe("pop");
+    expect(layers.get("other").applied).toBe(false);
+  });
+
+  it("notifies subscribers with the key, next and previous record", () => {
+    const layers = createLayersStore();
+    const fn = vi.fn();
+    layers.subscribe(fn);
+
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    layers.set("pop", { applied: false, viewId: null });
+
+    expect(fn).toHaveBeenCalledTimes(2);
+    const [key, next, prev] = fn.mock.calls[0];
+    expect(key).toBe("pop");
+    expect(prev).toEqual({ key: "pop", ...OFF });
+    expect(next).toMatchObject({ applied: true, viewId: "MX-POP" });
+    expect(fn.mock.calls[1][2]).toBe(next);
+  });
+
+  it("does not notify for a patch that changes nothing", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { status: "idle" });
+    const fn = vi.fn();
+    layers.subscribe(fn);
+
+    layers.set("pop", { status: "idle", applied: false });
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("stops notifying after unsubscribe", () => {
+    const layers = createLayersStore();
+    const kept = vi.fn();
+    const dropped = vi.fn();
+    layers.subscribe(kept);
+    const unsubscribe = layers.subscribe(dropped);
+
+    unsubscribe();
+    layers.set("pop", { applied: true });
+
+    expect(kept).toHaveBeenCalledTimes(1);
+    expect(dropped).not.toHaveBeenCalled();
+  });
+
+  it("lists view ids of layers that are on and carry a view", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    layers.set("recovery", { desired: true, status: "loading" });
+    layers.set("flood", { applied: true, viewId: null, status: "switching" });
+    layers.set("ews", { applied: false, viewId: "MX-EWS" });
+
+    expect(layers.openViewIds()).toEqual(["MX-POP"]);
+  });
+
+  it("keeps first-write order when a record is updated", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    layers.set("recovery", { applied: true, viewId: "MX-REC" });
+    layers.set("pop", { applied: false, viewId: null });
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+
+    expect(layers.all().map((record) => record.key)).toEqual(["pop", "recovery"]);
+    expect(layers.openViewIds()).toEqual(["MX-POP", "MX-REC"]);
+  });
+
+  it("creates independent instances", () => {
+    const a = createLayersStore();
+    const b = createLayersStore();
+    a.set("pop", { applied: true });
+    expect(b.get("pop").applied).toBe(false);
+  });
+});
+
+describe("mirrorOpenViews", () => {
+  it("adds and removes views in the order they change", () => {
+    const layers = createLayersStore();
+    const openViews = new Set();
+    mirrorOpenViews(layers, openViews);
+
+    layers.set("flood", { applied: true, viewId: "MX-F10" });
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    // Source switch: the old view leaves first, the new one joins at the end.
+    layers.set("flood", { viewId: null });
+    expect([...openViews]).toEqual(["MX-POP"]);
+    layers.set("flood", { viewId: "MX-F100", sourceIdx: 1 });
+    expect([...openViews]).toEqual(["MX-POP", "MX-F100"]);
+
+    layers.set("pop", { applied: false, viewId: null });
+    expect([...openViews]).toEqual(["MX-F100"]);
+  });
+
+  it("ignores status-only changes and stops after unsubscribe", () => {
+    const layers = createLayersStore();
+    const openViews = new Set(["MX-OTHER"]);
+    const unsubscribe = mirrorOpenViews(layers, openViews);
+
+    layers.set("pop", { desired: true, status: "loading" });
+    expect([...openViews]).toEqual(["MX-OTHER"]);
+
+    unsubscribe();
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    expect([...openViews]).toEqual(["MX-OTHER"]);
+  });
+});
+
+describe("changesUrlState", () => {
+  const on = { key: "flood", ...OFF, applied: true, viewId: "MX-F10" };
+
+  it("is true when on/off, source or settings change", () => {
+    expect(changesUrlState(on, { ...on, applied: false })).toBe(true);
+    expect(changesUrlState({ ...on, sourceIdx: 1 }, on)).toBe(true);
+    expect(changesUrlState({ ...on, settings: { crop: "MAIZE" } }, on)).toBe(true);
+  });
+
+  it("is false for status, desired and the transient view gap of a source switch", () => {
+    expect(changesUrlState({ ...on, status: "switching" }, on)).toBe(false);
+    expect(changesUrlState({ ...on, desired: false }, on)).toBe(false);
+    expect(changesUrlState({ ...on, viewId: null }, on)).toBe(false);
+  });
+});
+
+describe("toUrlLayers", () => {
+  it("lists layers that are on, in config order, with settings only when set", () => {
+    const layers = createLayersStore();
+    layers.set("pop", { applied: true, viewId: "MX-POP" });
+    layers.set("crops", { applied: true, viewId: "MX-GJ-1", settings: { crop: "WHEAT" } });
+    layers.set("flood", { applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    layers.set("recovery", { desired: true, status: "loading" });
+    layers.set("unknown", { applied: true, viewId: "MX-X" });
+
+    expect(toUrlLayers(layers.all(), ["recovery", "flood", "crops", "pop"])).toEqual([
+      { key: "flood", sourceIdx: 1 },
+      { key: "crops", sourceIdx: 0, settings: { crop: "WHEAT" } },
+      { key: "pop", sourceIdx: 0 },
+    ]);
+  });
+
+  it("leaves out a layer mid source-switch, as the openViews walk did", () => {
+    const layers = createLayersStore();
+    layers.set("flood", { applied: true, viewId: null, sourceIdx: 1 });
+    expect(toUrlLayers(layers.all(), ["flood"])).toEqual([]);
+  });
+});

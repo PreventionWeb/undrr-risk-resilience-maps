@@ -72,7 +72,7 @@ vi.mock("../external/index.js", () => ({
   getExternalLayerRuntime: () => null,
 }));
 
-import { buildSidebar, restoreLayersFromHash } from "./sidebar.js";
+import { buildSidebar, destroySidebar, getLayersStore, restoreLayersFromHash } from "./sidebar.js";
 import * as store from "../state/store.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -437,5 +437,155 @@ describe("layer state consistency", () => {
       expect(store.activeTab).toBe("exposure");
       expect(location.hash).toBe("#exposure");
     });
+  });
+});
+
+// Step 1 of the layer state refactor: the layers store is written alongside
+// the existing state, so its records must agree with what the UI shows.
+describe("layers store", () => {
+  beforeEach(() => {
+    window.location.hash = "";
+    document.body.innerHTML = `
+      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
+      <button id="panel-toggle"></button>
+      <button id="layer-clear-btn" hidden></button>
+      <div id="app-map"></div>
+      <div id="info-page"></div>`;
+    store.openViews.clear();
+    // activeSourceIndex outlives buildSidebar(); earlier tests leave Flood on 100y.
+    store.setActiveSource("flood", 0);
+    for (const fn of Object.values(mocks)) fn.mockReset();
+    mocks.viewAdd.mockResolvedValue(undefined);
+    mocks.viewRemove.mockResolvedValue(undefined);
+    mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
+    mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    buildSidebar();
+    showTab("resilience");
+  });
+
+  /** Hash entries as `key` or `key:idx`, as written. */
+  function hashSegments() {
+    const layers = new URLSearchParams(location.hash.split("?")[1] ?? "").get("layers");
+    return layers ? layers.split(",") : [];
+  }
+
+  /** Every layer's record agrees with its switches, openViews and the hash. */
+  function expectStoreMatchesUi() {
+    const layersStore = getLayersStore();
+    for (const layer of [RECOVERY, FLOOD, POP]) {
+      const record = layersStore.get(layer.key);
+      const on = String(record.applied);
+      expect(
+        homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").getAttribute("aria-checked"),
+      ).toBe(on);
+      expect(
+        crossRow("resilience", layer.label).querySelector(".layer-eye").getAttribute("aria-checked"),
+      ).toBe(on);
+      expect(hashLayerKeys().includes(layer.key)).toBe(record.applied);
+      expect(record.status).toBe("idle");
+      if (record.applied) {
+        expect(record.desired).toBe(true);
+        expect(layer.viewIds).toContain(record.viewId);
+        expect(store.openViews.has(record.viewId)).toBe(true);
+      } else {
+        expect(record.viewId).toBeNull();
+        expect(layer.viewIds.some((id) => store.openViews.has(id))).toBe(false);
+      }
+    }
+    expect(new Set(layersStore.openViewIds())).toEqual(store.openViews);
+  }
+
+  it("matches the UI after toggling on and off", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    crossRow("resilience", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery", "flood"]));
+    expectStoreMatchesUi();
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    expectStoreMatchesUi();
+  });
+
+  it("matches the UI after a source switch", async () => {
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    const lengthBefore = history.length;
+
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood:1"]));
+    await tick();
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    // One entry for the switch; the transient gap between views writes nothing.
+    expect(history.length).toBe(lengthBefore + 1);
+    showTab("resilience");
+    expectStoreMatchesUi();
+  });
+
+  it("records a failed load as an error and leaves the layer off", async () => {
+    const failure = new Error("offline");
+    mocks.viewAdd.mockRejectedValueOnce(failure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    crossRow("resilience", POP.label).querySelector(".layer-eye").click();
+
+    await vi.waitFor(() => expect(getLayersStore().get("pop").status).toBe("error"));
+    warn.mockRestore();
+    expect(getLayersStore().get("pop")).toMatchObject({ desired: false, applied: false, error: failure });
+    expect(location.hash).toBe("#resilience");
+  });
+
+  it("matches the UI after clear-all", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    crossRow("resilience", POP.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery", "pop"]));
+
+    document.getElementById("layer-clear-btn").click();
+
+    await vi.waitFor(() => expect(location.hash).toBe("#resilience"));
+    expectStoreMatchesUi();
+    expect(getLayersStore().openViewIds()).toEqual([]);
+  });
+
+  it("matches the UI after restoring a shared link", async () => {
+    history.replaceState(null, "", "#resilience?layers=flood:1,pop");
+
+    await restoreLayersFromHash();
+
+    expect(location.hash).toBe("#resilience?layers=flood:1,pop");
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    expectStoreMatchesUi();
+  });
+
+  it("matches the UI after back/forward", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+
+    // Forward to an entry with other layers, then back to the first one.
+    history.pushState(null, "", "#exposure?layers=flood:1,pop");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await vi.waitFor(() => expect(getLayersStore().openViewIds().sort()).toEqual(["MX-F100", "MX-POP"]));
+    await tick();
+    expect(location.hash).toBe("#exposure?layers=flood:1,pop");
+    expectStoreMatchesUi();
+
+    history.pushState(null, "", "#resilience?layers=recovery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await vi.waitFor(() => expect(getLayersStore().openViewIds()).toEqual(["MX-REC"]));
+    await tick();
+    expect(location.hash).toBe("#resilience?layers=recovery");
+    expectStoreMatchesUi();
+  });
+
+  it("stops following the hash once destroyed", async () => {
+    destroySidebar();
+    history.pushState(null, "", "#exposure?layers=pop");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(store.activeTab).toBe("resilience");
   });
 });
