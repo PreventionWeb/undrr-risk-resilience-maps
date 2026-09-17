@@ -5,6 +5,30 @@ const { viewAdd, viewRemove } = vi.hoisted(() => ({
   viewRemove: vi.fn().mockResolvedValue(undefined),
 }));
 
+// The controller looks layers up in the config registry, so the rows built
+// here must be in the config: the shared test layer and one fresh layer per
+// keyboard test.
+const testLayers = vi.hoisted(() => {
+  const layer = {
+    id: "MX-TEST-LAYER",
+    key: "test-layer",
+    label: "Test Layer",
+    type: "vt",
+    geometry: "polygon",
+    desc: "Test description.",
+    initiative: "Test R-R initiative",
+  };
+  const fresh = Array.from({ length: 6 }, (_, i) => ({
+    ...layer,
+    key: `fresh-layer-${i + 1}`,
+    id: `MX-FRESH-${i + 1}`,
+  }));
+  return { layer, fresh };
+});
+vi.mock("../config/layers.js", () => ({
+  TABS: [{ id: "test", label: "Test", layers: [testLayers.layer, ...testLayers.fresh] }],
+}));
+
 vi.mock("../sdk/views.js", () => ({ viewAdd, viewRemove }));
 vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
 vi.mock("./layer-controls.js", () => ({
@@ -23,15 +47,7 @@ vi.mock("./layer-controls.js", () => ({
 import * as store from "../state/store.js";
 import { buildLayerAccordion, getLayersStore } from "./sidebar.js";
 
-const layer = {
-  id: "MX-TEST-LAYER",
-  key: "test-layer",
-  label: "Test Layer",
-  type: "vt",
-  geometry: "polygon",
-  desc: "Test description.",
-  initiative: "Test R-R initiative",
-};
+const { layer } = testLayers;
 
 describe("layer accordion activation", () => {
   beforeEach(() => {
@@ -77,6 +93,29 @@ describe("layer accordion activation", () => {
     expect(store.openViews.has(layer.id)).toBe(false);
   });
 
+  it("warns and leaves the switch off for a layer that is not in the config", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const unknown = { ...layer, key: "not-in-config", id: "MX-NOT-IN-CONFIG" };
+      const { wrapper, eyeBtn } = buildLayerAccordion(unknown);
+      document.body.appendChild(wrapper);
+      expect(warn.mock.calls.some(([message]) => String(message).includes("not-in-config"))).toBe(true);
+
+      eyeBtn.click();
+
+      await vi.waitFor(() => expect(getLayersStore().get(unknown.key).status).toBe("error"));
+      expect(getLayersStore().get(unknown.key)).toMatchObject({ desired: false, applied: false });
+      expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+      expect(eyeBtn.getAttribute("aria-busy")).toBe("false");
+      expect(wrapper.querySelector(".layer-announcer").textContent).toBe(
+        "Could not load Test Layer. It is off.",
+      );
+      expect(viewAdd).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("does not reopen controls when collapsed during a slow activation", async () => {
     let finishAdd;
     viewAdd.mockImplementationOnce(
@@ -115,10 +154,7 @@ describe("layer accordion activation", () => {
 
   /** A layer of its own, so rows built by earlier tests don't share its record. */
   let layerCount = 0;
-  const freshLayer = () => {
-    layerCount++;
-    return { ...layer, key: `fresh-layer-${layerCount}`, id: `MX-FRESH-${layerCount}` };
-  };
+  const freshLayer = () => testLayers.fresh[layerCount++];
 
   it.each(["Enter", " "])("toggles the layer, not the accordion, on %j on the switch", async (key) => {
     const layer = freshLayer();

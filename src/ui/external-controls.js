@@ -1,5 +1,8 @@
-/** Build generic select controls declared by an external layer provider. */
-export function buildExternalControls(definition, initialSettings, onChange) {
+/**
+ * Build generic select controls declared by an external layer provider.
+ * @param {{ signal?: AbortSignal }} [options] - aborting the signal removes the controls' listeners
+ */
+export function buildExternalControls(definition, initialSettings, onChange, { signal } = {}) {
   const fieldset = document.createElement("fieldset");
   fieldset.className = "external-layer-controls";
 
@@ -38,32 +41,36 @@ export function buildExternalControls(definition, initialSettings, onChange) {
   fieldset.appendChild(status);
 
   for (const [key, select] of selects) {
-    select.addEventListener("change", async () => {
-      const previous = { ...current };
-      const next = { ...current, [key]: select.value };
-      for (const input of selects.values()) input.disabled = true;
-      status.classList.remove("is-error");
-      status.textContent = "Updating external layer…";
+    select.addEventListener(
+      "change",
+      async () => {
+        const previous = { ...current };
+        const next = { ...current, [key]: select.value };
+        for (const input of selects.values()) input.disabled = true;
+        status.classList.remove("is-error");
+        status.textContent = "Updating external layer…";
 
-      try {
-        const result = await onChange(next);
-        current = { ...(result?.settings ?? next) };
-        for (const [controlKey, input] of selects) {
-          input.value = current[controlKey];
+        try {
+          const result = await onChange(next);
+          current = { ...(result?.settings ?? next) };
+          for (const [controlKey, input] of selects) {
+            input.value = current[controlKey];
+          }
+          status.textContent = "";
+        } catch (error) {
+          current = previous;
+          for (const [controlKey, input] of selects) {
+            input.value = current[controlKey];
+          }
+          status.classList.add("is-error");
+          status.textContent = "Could not update the external layer. Please try again.";
+          console.warn("Failed to update external layer:", error);
+        } finally {
+          for (const input of selects.values()) input.disabled = false;
         }
-        status.textContent = "";
-      } catch (error) {
-        current = previous;
-        for (const [controlKey, input] of selects) {
-          input.value = current[controlKey];
-        }
-        status.classList.add("is-error");
-        status.textContent = "Could not update the external layer. Please try again.";
-        console.warn("Failed to update external layer:", error);
-      } finally {
-        for (const input of selects.values()) input.disabled = false;
-      }
-    });
+      },
+      { signal },
+    );
   }
 
   return fieldset;

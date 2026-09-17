@@ -16,7 +16,7 @@
  *   - Other layer not in batch          → "No data returned."
  */
 
-import { TABS } from "../config/layers.js";
+import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
 import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
@@ -54,29 +54,6 @@ function attributeValue(value) {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return value;
 }
-
-/**
- * Build a flat index from MapX view ID → { tab, layer, source }.
- * Compound layers register all source IDs.
- */
-function buildViewIndex(tabs) {
-  const map = new Map();
-  for (const tab of tabs) {
-    for (const layer of tab.layers) {
-      if (layer.id) {
-        map.set(layer.id, { tab, layer, source: null });
-      }
-      for (const src of layer.sources ?? []) {
-        if (src.id) {
-          map.set(src.id, { tab, layer, source: src });
-        }
-      }
-    }
-  }
-  return map;
-}
-
-const VIEW_INDEX = buildViewIndex(TABS);
 
 let _escHandler = null;
 
@@ -155,7 +132,8 @@ export function showSiteInspector(result) {
 
 function buildLayerRow(idView, views) {
   const runtime = getExternalRuntimeByViewId(idView);
-  const entry = VIEW_INDEX.get(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
+  const entry =
+    getLayerRegistry().byViewId(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
   const label = entry
     ? entry.source
       ? `${entry.layer.label} — ${entry.source.label}`

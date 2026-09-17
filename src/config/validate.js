@@ -55,7 +55,7 @@ export function validateLayers(tabs, primaryProject) {
 
       if (layer.key) {
         if (seenKeys.has(layer.key)) {
-          errors.push(`${ctx} -- duplicate key "${layer.key}" (breaks hash routing and layerElementMap)`);
+          errors.push(`${ctx} -- duplicate key "${layer.key}" (breaks hash routing and the layer registry)`);
         }
         seenKeys.add(layer.key);
       }

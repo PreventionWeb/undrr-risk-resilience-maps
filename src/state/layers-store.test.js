@@ -3,8 +3,8 @@ import {
   changesUrlState,
   createLayersStore,
   mirrorOpenViews,
+  offRecord,
   toUrlLayers,
-  urlKeyOrder,
 } from "./layers-store.js";
 
 const OFF = {
@@ -18,6 +18,14 @@ const OFF = {
   status: "idle",
   error: null,
 };
+
+describe("offRecord", () => {
+  it("is the frozen off record the store returns for a key with no record", () => {
+    expect(offRecord("pop")).toEqual({ key: "pop", ...OFF });
+    expect(offRecord("pop")).toEqual(createLayersStore().get("pop"));
+    expect(Object.isFrozen(offRecord("pop"))).toBe(true);
+  });
+});
 
 describe("createLayersStore", () => {
   it("returns an off record for unknown keys without storing it", () => {
@@ -329,23 +337,5 @@ describe("toUrlLayers", () => {
     const layers = createLayersStore();
     layers.set("flood", { applied: true, viewId: null, appliedSourceIdx: 1 });
     expect(toUrlLayers(layers.all(), ["flood"])).toEqual([]);
-  });
-});
-
-describe("urlKeyOrder", () => {
-  it("lists published, keyed layers tab by tab in config order, ignoring groups", () => {
-    const econ = { key: "econ", id: "MX-ECON" };
-    const soc = { key: "soc", id: "MX-SOC" };
-    const tabs = [
-      { layers: [econ, soc], groups: [{ layers: [soc] }, { layers: [econ] }] },
-      {
-        layers: [
-          { key: "draft", id: "MX-D", status: "disabled" },
-          { id: "MX-NOKEY" },
-          { key: "pop", id: "MX-POP" },
-        ],
-      },
-    ];
-    expect(urlKeyOrder(tabs)).toEqual(["econ", "soc", "pop"]);
   });
 });

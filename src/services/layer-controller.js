@@ -63,7 +63,8 @@ const isRuntime = (runtime) =>
 /**
  * @param {object} deps
  * @param {ReturnType<import("../state/layers-store.js").createLayersStore>} deps.store
- * @param {(key: string) => object|undefined} deps.getLayer - layer config by key
+ * @param {(key: string) => object|undefined} deps.getLayer - layer config by key. Intent for
+ *   a key it does not know is reset with `status: "error"` (and a one-time warning per key)
  * @param {{ add: (id: string) => Promise<unknown>, remove: (id: string) => Promise<unknown> }} deps.views
  * @param {{
  *   isExternal: (layer: object) => boolean,
@@ -81,6 +82,8 @@ export function createLayerController({ store, getLayer, views, external, onErro
   const dirty = new Set();
   /** key → count of intent changes written, to tell whether intent changed during a call */
   const versions = new Map();
+  /** keys `getLayer` did not know, already warned about */
+  const unknownKeysWarned = new Set();
   let destroyed = false;
 
   // Once destroyed, store writes and error reports are dropped, and no new MapX
@@ -212,9 +215,26 @@ export function createLayerController({ store, getLayer, views, external, onErro
 
   async function reconcile(key, run) {
     const layer = getLayer(key);
-    if (!layer) return;
+    if (!layer) return rejectUnknown(key, run);
     if (external.isExternal(layer)) return reconcileExternal(key, layer, run);
     return reconcileView(key, layer, run);
+  }
+
+  /**
+   * `getLayer` does not know the key (not in the config, or unpublished): no
+   * MapX call can be made. Rather than leave intent the UI shows as on, reset
+   * it to what MapX shows and record an error, warning once per key.
+   */
+  function rejectUnknown(key, run) {
+    const error = new Error(`Layer "${key}" is not in the layer config; nothing was changed on the map`);
+    if (!unknownKeysWarned.has(key)) {
+      unknownKeysWarned.add(key);
+      console.warn(`Layer controller: ${error.message}`);
+    }
+    const record = store.get(key);
+    run.touched = true;
+    run.error = error;
+    write(key, { desired: record.applied, sourceIdx: record.appliedSourceIdx });
   }
 
   /** Simple (one view) and compound (one view per source) MapX layers. */

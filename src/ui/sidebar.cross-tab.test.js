@@ -180,17 +180,21 @@ describe("cross-tab layer rows", () => {
     expect(body.querySelector(".html-legend")).toBeNull();
   });
 
-  it("renders cross-tab controls only in the visible tab", async () => {
+  it("renders layer controls only in the visible tab", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
 
-    // Home accordion + the visible Resilience row; not the hidden Exposure row.
-    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
+    // Only the visible Resilience row: not the hidden Exposure row, and not the
+    // home accordion in the hidden Risk tab.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(1);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(true);
 
     showTab("exposure");
-    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(false);
+
+    showTab("risk");
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
 
     // Rows keep their rendered controls while their tab is hidden, so switching
     // tabs does not re-request them.
@@ -198,6 +202,75 @@ describe("cross-tab layer rows", () => {
     showTab("risk");
     showTab("exposure");
     expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders the hidden home row's slider and legend once, when its tab is shown", async () => {
+    const home = homeItem("risk", "Recovery Speed");
+    const inHome = (mock) => mock.mock.calls.filter(([, container]) => home.contains(container)).length;
+
+    crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+    await tick();
+
+    // Activating from a cross-tab row renders nothing into the hidden home accordion.
+    expect(inHome(mocks.addLegend)).toBe(0);
+    expect(inHome(mocks.addOpacitySlider)).toBe(0);
+    expect(home.querySelector(".html-legend")).toBeNull();
+    // The accordion still opens and shows the switch state.
+    expect(home.classList.contains("layer-active")).toBe(true);
+    expect(home.querySelector(".layer-body").style.display).toBe("block");
+
+    showTab("risk");
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+
+    for (const tab of ["resilience", "risk", "exposure", "risk", "resilience"]) showTab(tab);
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    // Resilience and Exposure rows once each, plus the home row.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addOpacitySlider).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders no slider or legend when a link is restored on an info tab, then one per row shown", async () => {
+    showTab("sources");
+    history.replaceState(null, "", "#sources?layers=recovery,pop");
+
+    await restoreLayersFromHash();
+    await tick();
+
+    expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
+
+    /** How many times each rendered row received a slider or legend. */
+    const perRow = (mock) => {
+      const counts = new Map();
+      for (const [, container] of mock.mock.calls) {
+        const row = container.closest(".layer-item, .cross-tab-item");
+        counts.set(row, (counts.get(row) ?? 0) + 1);
+      }
+      return counts;
+    };
+    const resilienceRows = [crossRow("resilience", "Recovery Speed"), crossRow("resilience", "Population")];
+
+    showTab("resilience");
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      expect([...perRow(mock).keys()]).toEqual(expect.arrayContaining(resilienceRows));
+      expect([...perRow(mock).values()]).toEqual([1, 1]);
+    }
+
+    showTab("exposure");
+    const exposureRows = [homeItem("exposure", "Population"), crossRow("exposure", "Recovery Speed")];
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      const counts = perRow(mock);
+      expect([...counts.keys()]).toEqual(expect.arrayContaining([...resilienceRows, ...exposureRows]));
+      expect([...counts.values()]).toEqual([1, 1, 1, 1]);
+    }
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll("#tab-exposure .layer-legend-slot .html-legend")).toHaveLength(2),
+    );
   });
 
   it("shows an external layer's load error in the cross-tab row", async () => {
@@ -530,6 +603,36 @@ describe("layer state consistency", () => {
     expect(item.querySelectorAll(".widget-sub-tab")[1].classList.contains("is-active")).toBe(false);
     expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
     expect(location.hash).toBe("#risk?layers=flood");
+  });
+
+  it("keeps a row collapsed when back/forward asks for the layer its header is loading", async () => {
+    // The header started the activation and the user collapsed the row; a
+    // history entry asking for the same layer is not a new activation, so it
+    // does not reopen the row (ARCHITECTURE.md, "Expand rules").
+    showTab("risk");
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const item = homeItem("risk", RECOVERY.label);
+    const header = item.querySelector(".layer-header");
+    header.click();
+    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
+    header.click();
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+
+    history.pushState(null, "", "#risk?layers=recovery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    slowAdd.resolve();
+
+    await vi.waitFor(() =>
+      expect(getLayersStore().get("recovery")).toMatchObject({ applied: true, status: "idle" }),
+    );
+    await tick();
+    expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(item.querySelector(".layer-body").style.display).toBe("none");
+    expect(item.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(location.hash).toBe("#risk?layers=recovery");
   });
 
   it("updates the source widget on back/forward", async () => {
@@ -957,7 +1060,9 @@ describe("layers store", () => {
     const home = homeItem("risk", RECOVERY.label);
     expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
     expect(home.classList.contains("layer-active")).toBe(true);
-    expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+    // The home row's legend renders once its tab is shown.
+    showTab("risk");
+    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
     expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
   });
 

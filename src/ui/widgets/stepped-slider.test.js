@@ -98,4 +98,22 @@ describe("buildSteppedSlider", () => {
     const slider = el.querySelector("input[type=range]");
     expect(slider.getAttribute("aria-label")).toBeTruthy();
   });
+
+  it("removes its listener and drops a debounced pick when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const el = buildSteppedSlider(SOURCES, 0, onChange, CONFIG, { signal: controller.signal });
+    const slider = el.querySelector("input[type=range]");
+
+    slider.value = "1";
+    slider.dispatchEvent(new Event("input"));
+    controller.abort();
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(onChange).not.toHaveBeenCalled();
+
+    slider.value = "2";
+    slider.dispatchEvent(new Event("input"));
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

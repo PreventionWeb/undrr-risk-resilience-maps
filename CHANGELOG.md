@@ -16,12 +16,14 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - "Clear all" now also turns off layers that are still loading, and is shown as soon as a layer starts loading.
 - Enter and Space on a layer's switch in the layer list now turn the layer on or off. Before, the key press opened or closed the layer's row instead, so keyboard users could not turn a layer off from its switch.
 - Screen readers now hear when a layer fails to load, turn off or change source, and a switch whose layer is still loading is announced as busy ("Loading …").
+- Moving a layer's opacity slider while the same layer's slider in another tab is still loading no longer gets overwritten when that slider finishes loading.
 
 ### Changed
 
 - An external layer such as EDRA now reopens with the crop or scenario it last showed when it is turned back on, as compound layers keep their last source. It used to reset to the provider defaults.
 - Load the EDRA external-layer adapter and its `proj4` dependency only when an EDRA layer is turned on, cutting the initial JavaScript from 242 KB to 105 KB (77.5 KB to 31.4 KB gzipped).
 - Request each MapX legend image once per view, and keep cross-tab row controls rendered while their tab is hidden instead of re-requesting them on every tab switch.
+- Turning a layer on from another tab's section of the layer panel no longer also loads its opacity and legend into its hidden home tab. They load when that tab is opened, saving a MapX transparency and legend request per activation.
 
 ## [0.0.3] - 2026-09-17
 

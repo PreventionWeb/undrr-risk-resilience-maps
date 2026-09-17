@@ -107,6 +107,34 @@ describe("addOpacitySlider", () => {
     expect(container.querySelector("input[type=range]")).toBeNull();
   });
 
+  it("keeps a slider moved while another slider's transparency was loading", async () => {
+    getViewLayerTransparency.mockResolvedValue(0);
+    const other = document.createElement("div");
+    document.body.append(container, other);
+    await addOpacitySlider("view-sync-race", container);
+    const first = container.querySelector("input[type=range]");
+
+    let finish;
+    getViewLayerTransparency.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const pending = addOpacitySlider("view-sync-race", other);
+    first.value = "40";
+    first.dispatchEvent(new Event("input"));
+    // The read started before the drag and returns the old transparency.
+    finish(0);
+    await pending;
+
+    expect(other.querySelector("input[type=range]").value).toBe("40");
+    expect(other.querySelector(".opacity-value").textContent).toBe("40%");
+
+    // A later read with no drag meanwhile uses the SDK value.
+    const third = document.createElement("div");
+    getViewLayerTransparency.mockResolvedValue(25);
+    await addOpacitySlider("view-sync-race", third);
+    expect(third.querySelector("input[type=range]").value).toBe("75");
+    container.remove();
+    other.remove();
+  });
+
   it("keeps sliders for the same view in sync", async () => {
     getViewLayerTransparency.mockResolvedValue(0);
     const other = document.createElement("div");
