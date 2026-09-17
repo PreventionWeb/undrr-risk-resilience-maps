@@ -1038,6 +1038,9 @@ export function buildLayerAccordion(layer) {
 
   header.addEventListener("click", toggleAccordion);
   header.addEventListener("keydown", (e) => {
+    // Only keys on the header itself. Enter/Space on the switch inside it must
+    // keep their default, which activates the switch.
+    if (e.target !== header) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       toggleAccordion();
