@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  changesUrlState,
-  createLayersStore,
-  mirrorOpenViews,
-  toUrlLayers,
-  urlKeyOrder,
-} from "./layers-store.js";
+import { changesUrlState, createLayersStore, mirrorOpenViews, toUrlLayers } from "./layers-store.js";
 
 const OFF = {
   desired: false,
@@ -329,23 +323,5 @@ describe("toUrlLayers", () => {
     const layers = createLayersStore();
     layers.set("flood", { applied: true, viewId: null, appliedSourceIdx: 1 });
     expect(toUrlLayers(layers.all(), ["flood"])).toEqual([]);
-  });
-});
-
-describe("urlKeyOrder", () => {
-  it("lists published, keyed layers tab by tab in config order, ignoring groups", () => {
-    const econ = { key: "econ", id: "MX-ECON" };
-    const soc = { key: "soc", id: "MX-SOC" };
-    const tabs = [
-      { layers: [econ, soc], groups: [{ layers: [soc] }, { layers: [econ] }] },
-      {
-        layers: [
-          { key: "draft", id: "MX-D", status: "disabled" },
-          { id: "MX-NOKEY" },
-          { key: "pop", id: "MX-POP" },
-        ],
-      },
-    ];
-    expect(urlKeyOrder(tabs)).toEqual(["econ", "soc", "pop"]);
   });
 });

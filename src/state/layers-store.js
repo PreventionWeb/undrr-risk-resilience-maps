@@ -13,8 +13,6 @@
  *
  * Nothing here touches the DOM, the URL or the SDK, and nothing runs on import.
  */
-import { isLayerAvailable } from "../config/layers/status.js";
-
 /**
  * @typedef {object} LayerRecord
  * @property {string} key - stable layer config key
@@ -211,29 +209,13 @@ export function changesUrlState(next, prev) {
   );
 }
 
-/**
- * The order layers are listed in the URL hash: published, keyed layers in
- * config order (`tab.layers` of each tab in turn). This is the walk the hash
- * was always built from. It is not the sidebar's row order, which regroups a
- * tab's layers by R2R category (see `withR2rGroups`), so it must not be
- * derived from the rendered rows.
- * @param {Array<{ layers: object[] }>} tabs - `TABS` from the layer config
- * @returns {string[]}
- */
-export function urlKeyOrder(tabs) {
-  return tabs
-    .flatMap((tab) => tab.layers)
-    .filter((layer) => layer.key && isLayerAvailable(layer))
-    .map((layer) => layer.key);
-}
-
 /** Keys toUrlLayers has already warned about, so each is reported once. */
 const unorderedKeysWarned = new Set();
 
 /**
  * The layers that are on, as URL state entries built from their applied source
  * and settings (what MapX shows, not intent still loading), ordered by
- * `keyOrder` (config order, see urlKeyOrder). A layer mid source-switch (no
+ * `keyOrder` (config order, see `urlKeyOrder` in config/registry.js). A layer mid source-switch (no
  * view on the map) is left out, as it was when the hash was built from openViews.
  *
  * `keyOrder` is required. A layer that is on but whose key is not in it is
@@ -245,7 +227,7 @@ const unorderedKeysWarned = new Set();
  */
 export function toUrlLayers(records, keyOrder) {
   if (!Array.isArray(keyOrder)) {
-    throw new TypeError("toUrlLayers: keyOrder is required (see urlKeyOrder)");
+    throw new TypeError("toUrlLayers: keyOrder is required (see urlKeyOrder in config/registry.js)");
   }
   const rank = new Map(keyOrder.map((key, index) => [key, index]));
   const on = records.filter((record) => record.applied && record.viewId);

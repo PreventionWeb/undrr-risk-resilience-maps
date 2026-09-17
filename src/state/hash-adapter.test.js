@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TABS } from "../config/layers.js";
 import { createHashAdapter } from "./hash-adapter.js";
-import { createLayersStore, toUrlLayers, urlKeyOrder } from "./layers-store.js";
+import { urlKeyOrder } from "../config/registry.js";
+import { createLayersStore, toUrlLayers } from "./layers-store.js";
 
 beforeEach(() => {
   history.replaceState(null, "", "#");

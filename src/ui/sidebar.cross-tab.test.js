@@ -180,17 +180,21 @@ describe("cross-tab layer rows", () => {
     expect(body.querySelector(".html-legend")).toBeNull();
   });
 
-  it("renders cross-tab controls only in the visible tab", async () => {
+  it("renders layer controls only in the visible tab", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
 
-    // Home accordion + the visible Resilience row; not the hidden Exposure row.
-    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
+    // Only the visible Resilience row: not the hidden Exposure row, and not the
+    // home accordion in the hidden Risk tab.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(1);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(true);
 
     showTab("exposure");
-    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(false);
+
+    showTab("risk");
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
 
     // Rows keep their rendered controls while their tab is hidden, so switching
     // tabs does not re-request them.
@@ -198,6 +202,35 @@ describe("cross-tab layer rows", () => {
     showTab("risk");
     showTab("exposure");
     expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders the hidden home row's slider and legend once, when its tab is shown", async () => {
+    const home = homeItem("risk", "Recovery Speed");
+    const inHome = (mock) => mock.mock.calls.filter(([, container]) => home.contains(container)).length;
+
+    crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+    await tick();
+
+    // Activating from a cross-tab row renders nothing into the hidden home accordion.
+    expect(inHome(mocks.addLegend)).toBe(0);
+    expect(inHome(mocks.addOpacitySlider)).toBe(0);
+    expect(home.querySelector(".html-legend")).toBeNull();
+    // The accordion still opens and shows the switch state.
+    expect(home.classList.contains("layer-active")).toBe(true);
+    expect(home.querySelector(".layer-body").style.display).toBe("block");
+
+    showTab("risk");
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+
+    for (const tab of ["resilience", "risk", "exposure", "risk", "resilience"]) showTab(tab);
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    // Resilience and Exposure rows once each, plus the home row.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addOpacitySlider).toHaveBeenCalledTimes(3);
   });
 
   it("shows an external layer's load error in the cross-tab row", async () => {
@@ -957,7 +990,9 @@ describe("layers store", () => {
     const home = homeItem("risk", RECOVERY.label);
     expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
     expect(home.classList.contains("layer-active")).toBe(true);
-    expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+    // The home row's legend renders once its tab is shown.
+    showTab("risk");
+    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
     expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
   });
 
