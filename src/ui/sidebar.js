@@ -508,8 +508,10 @@ export function createSidebar(
 
     // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which
     // has already fired by the time these panels exist. Enhancement is
-    // optional, so the promise is not awaited.
-    void initMangroveTabs(infoPage);
+    // optional, so the promise is not awaited. Aborting the signal runs
+    // Mangrove's destroy, which removes its window and font listeners; destroy()
+    // aborts before removing the panels, so Mangrove still finds its containers.
+    void initMangroveTabs(infoPage, { signal });
   }
 
   // Populate sidebar with layer panels (data tabs only)

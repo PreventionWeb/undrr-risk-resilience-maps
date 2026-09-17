@@ -41,6 +41,7 @@ vi.mock("../external/index.js", () => ({
 
 import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
+import { initMangroveTabs } from "./mangrove-tabs.js";
 
 /** The page as index.html has it, reduced to what the sidebar uses. */
 const PAGE = `
@@ -134,6 +135,24 @@ describe("createSidebar", () => {
     expect($("#tab-home").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(false);
+  });
+
+  it("hands the Mangrove tabs its signal, so destroy removes their listeners", () => {
+    initMangroveTabs.mockClear();
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    expect(initMangroveTabs).toHaveBeenCalledTimes(1);
+    const [scope, options] = initMangroveTabs.mock.calls[0];
+    expect(scope).toBe($("#info-page"));
+    expect(options?.signal?.aborted).toBe(false);
+    // Mangrove's destroy looks its containers up under the scope, so the signal
+    // must abort while the info pages are still in the page.
+    let panelsOnAbort = null;
+    options.signal.addEventListener("abort", () => {
+      panelsOnAbort = scope.querySelectorAll(".info-page-panel").length;
+    });
+    sidebar.destroy();
+    expect(options.signal.aborted).toBe(true);
+    expect(panelsOnAbort).toBe(3);
   });
 
   it("requires a panel body under the root", () => {
