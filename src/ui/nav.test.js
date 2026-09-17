@@ -146,6 +146,19 @@ describe("createNav", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("builds and wires nothing when the signal is already aborted", () => {
+    const onSelect = vi.fn();
+    const nav = createNav(root, { tabs: TABS, onSelect, signal: AbortSignal.abort() });
+
+    expect(tabLinks()).toEqual([]);
+    click(root.querySelector(".nav-home-link"));
+    click(root.querySelector("[data-panel='sources']"));
+    expect(onSelect).not.toHaveBeenCalled();
+    nav.setActive("sources");
+    expect(root.querySelectorAll(".is-active")).toHaveLength(0);
+    expect(() => nav.destroy()).not.toThrow();
+  });
+
   it("can be created again after destroy without duplicating links or handlers", () => {
     createNav(root, { tabs: TABS, onSelect: vi.fn() }).destroy();
     const onSelect = vi.fn();

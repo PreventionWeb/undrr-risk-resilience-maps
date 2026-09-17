@@ -55,6 +55,8 @@ export function buildNavTabItem(tab) {
  * @returns {{ setActive(tabId: string): void, destroy(): void }}
  */
 export function createNav(root, { tabs, onSelect, signal }) {
+  // Already destroyed by the caller: build and wire nothing (as panels.js does).
+  if (signal?.aborted) return { setActive() {}, destroy() {} };
   const controller = new AbortController();
   const listen = { signal: controller.signal };
   signal?.addEventListener("abort", () => destroy(), { once: true, signal: controller.signal });
