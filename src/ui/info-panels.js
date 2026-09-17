@@ -79,7 +79,11 @@ function buildSourcesTable(layers) {
     </div>`;
 }
 
-export function buildSourcesPanel() {
+/**
+ * Build the Sources page.
+ * @param {{ signal?: AbortSignal }} [options] - removes the page's listeners
+ */
+export function buildSourcesPanel({ signal } = {}) {
   // One tab per layer category. Mangrove's tabs script progressively enhances
   // this markup: it wires up ARIA, keyboard navigation and deep linking, and
   // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
@@ -170,11 +174,17 @@ export function buildSourcesPanel() {
   `,
   );
 
-  panel.querySelector("#btn-download-inventory").addEventListener("click", downloadLayerInventory);
+  panel
+    .querySelector("#btn-download-inventory")
+    .addEventListener("click", downloadLayerInventory, { signal });
 
-  panel.querySelector("#toggle-mapx-ids").addEventListener("change", (e) => {
-    panel.classList.toggle("show-mapx-ids", e.target.checked);
-  });
+  panel.querySelector("#toggle-mapx-ids").addEventListener(
+    "change",
+    (e) => {
+      panel.classList.toggle("show-mapx-ids", e.target.checked);
+    },
+    { signal },
+  );
 
   return panel;
 }

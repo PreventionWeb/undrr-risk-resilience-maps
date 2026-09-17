@@ -51,7 +51,7 @@
 
     <!-- Category navigation bar -->
     <nav class="mg-container" aria-label="Map navigation">
-      <ul class="mg-mega-topbar" role="menubar" aria-label="Map category menu">
+      <ul class="mg-mega-topbar" role="menubar" aria-label="Map category menu" data-ui="nav">
         <li class="mg-mega-topbar__item" role="none">
           <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
             Risk &amp; Resilience Metrics
@@ -122,10 +122,10 @@
     </nav>
 
     <!-- Info pages (home, sources, about) — full-page, map hidden -->
-    <div id="info-page"><!-- populated by JS --></div>
+    <div id="info-page" data-ui="info-page"><!-- populated by JS --></div>
 
     <!-- App layout: full-width map with floating layer panel -->
-    <div class="app-map" id="app-map" tabindex="-1">
+    <div class="app-map" id="app-map" data-ui="app-map" tabindex="-1">
       <div id="mapx" style="width: 100%; height: 100%"></div>
 
       <section id="map-service-notice" class="map-service-notice" role="alert" hidden>
@@ -170,13 +170,14 @@
       </section>
 
       <!-- Floating layer panel -->
-      <div class="layer-panel" id="sidebar">
+      <div class="layer-panel" id="sidebar" data-ui="layer-panel">
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
           <div class="layer-panel-actions">
             <button
               class="layer-review-btn mg-button mg-button-primary mg-button-outline"
               id="layer-disabled-toggle"
+              data-ui="show-disabled"
               type="button"
               aria-pressed="false"
               title="Show disabled layers for review"
@@ -186,6 +187,7 @@
             <button
               class="layer-clear-btn"
               id="layer-clear-btn"
+              data-ui="clear-layers"
               aria-label="Turn off all layers"
               title="Turn off all layers"
               hidden
@@ -195,6 +197,7 @@
             <button
               class="layer-panel-toggle mg-button mg-button-primary mg-button-outline mg-button--icon mg-button--icon--small"
               id="panel-toggle"
+              data-ui="panel-toggle"
               aria-label="Collapse panel"
             >
               <svg
@@ -213,7 +216,7 @@
             </button>
           </div>
         </div>
-        <div class="layer-panel-body" id="panel-body" aria-live="polite"></div>
+        <div class="layer-panel-body" id="panel-body" data-ui="panel-body" aria-live="polite"></div>
       </div>
 
       <!-- Inspect toggle — floats as an icon tool to the right of the layer panel -->
@@ -257,7 +260,7 @@
     <!-- UNDRR global footer, syndicated from PreventionWeb. Content pages only;
          src/ui/global-footer.js toggles it. Markup follows Mangrove's Footer
          component embed exactly -- the structure is a branding requirement. -->
-    <div id="global-footer" hidden>
+    <div id="global-footer" data-ui="global-footer" hidden>
       <footer class="mg-footer">
         <div class="pw-widget-footer"></div>
       </footer>
