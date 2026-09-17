@@ -226,6 +226,38 @@ describe("createLayerController", () => {
       await expect(controller.setOn("pop", true)).resolves.toMatchObject({ status: "idle", error: null });
     });
 
+    it("does not retry a failing add for a redundant intent that arrives during it", async () => {
+      const { store, views, controller } = setup();
+      const add = views.hold("add", "MX-POP");
+      views.failNext("add", "MX-POP");
+
+      const first = controller.setOn("pop", true);
+      // Same intent again (e.g. restore asking for a layer already wanted).
+      const again = controller.intend("pop", { desired: true });
+      add.resolve();
+      const [a, b] = await Promise.all([first, again]);
+
+      expect(views.log).toEqual(["add MX-POP"]);
+      expect(a).toBe(b);
+      expect(store.get("pop")).toMatchObject({ desired: false, applied: false, status: "error" });
+    });
+
+    it("ignores non-intent fields passed to intend, with a warning", async () => {
+      const { store, views, controller } = setup();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const record = await controller.intend("pop", { applied: true, viewId: "MX-FAKE", status: "idle" });
+
+      expect(warn).toHaveBeenCalledTimes(3);
+      warn.mockRestore();
+      expect(record).toBe(store.get("pop"));
+      expect(store.all()).toEqual([]);
+      expect(views.log).toEqual([]);
+
+      await controller.intend("pop", { desired: true, viewId: "MX-FAKE" });
+      expect(store.get("pop")).toMatchObject({ applied: true, viewId: "MX-POP" });
+    });
+
     it("keeps a layer on when its removal fails", async () => {
       const { store, views, controller } = setup();
       await controller.setOn("pop", true);
@@ -430,6 +462,50 @@ describe("createLayerController", () => {
       expect(views.shown.size).toBe(0);
     });
 
+    it("tries a newer source instead of rolling back when a switch's add fails", async () => {
+      const { store, views, onError, controller } = setup();
+      await controller.setOn("flood", true);
+      const add = views.hold("add", "MX-F100");
+      views.failNext("add", "MX-F100");
+
+      controller.setSource("flood", 1);
+      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
+      const last = controller.setSource("flood", 2);
+      add.resolve();
+      const record = await last;
+
+      // No rollback to MX-F10: the newer pick is added straight away.
+      expect(views.log).toEqual(["add MX-F10", "remove MX-F10", "add MX-F100", "add MX-F500"]);
+      expect(onError).toHaveBeenCalledWith("flood", expect.any(Error), "add");
+      expect(record).toMatchObject({
+        applied: true,
+        viewId: "MX-F500",
+        sourceIdx: 2,
+        appliedSourceIdx: 2,
+        status: "idle",
+        error: null,
+      });
+      expect(expectSettled(store, views, "flood")).toBe(record);
+    });
+
+    it("reports pending intent until a source switch is applied", async () => {
+      const { views, controller } = setup();
+      await controller.setOn("flood", true);
+      expect(controller.hasPendingIntent("flood")).toBe(false);
+      const add = views.hold("add", "MX-F100");
+
+      const switched = controller.setSource("flood", 1);
+      expect(controller.hasPendingIntent("flood")).toBe(true);
+      add.resolve();
+      await switched;
+
+      expect(controller.hasPendingIntent("flood")).toBe(false);
+      // An out-of-range source is clamped, so it is not pending once source 0 is shown.
+      await controller.setSource("flood", 0);
+      await controller.setSource("flood", 9);
+      expect(controller.hasPendingIntent("flood")).toBe(false);
+    });
+
     it("keeps the old source when its removal fails during a switch", async () => {
       const { views, controller } = setup();
       await controller.setOn("flood", true);
@@ -511,6 +587,56 @@ describe("createLayerController", () => {
       });
     });
 
+    it("records a replacement that resolves without a runtime as an error, keeping the registry's view", async () => {
+      const { store, external, onError, controller } = setup();
+      await controller.setOn("crops", true);
+      external.replace.mockImplementationOnce(async () => ({}));
+
+      const record = await controller.setSettings("crops", { crop: "RICE" });
+
+      expect(onError).toHaveBeenCalledWith("crops", expect.any(TypeError), "switch");
+      expect(record.error).toBeInstanceOf(TypeError);
+      expect(record.error.message).toMatch(/no runtime view/);
+      expect(record).toMatchObject({
+        applied: true,
+        viewId: "GJ-1",
+        settings: { crop: "MAIZE" },
+        appliedSettings: { crop: "MAIZE" },
+        status: "error",
+      });
+      expect(store.get("crops").viewId).toBe(external.runtimes.get("crops").idView);
+    });
+
+    it("follows the registry when a replacement without a runtime still swapped the view", async () => {
+      const { external, controller } = setup();
+      await controller.setOn("crops", true);
+      external.replace.mockImplementationOnce(async (layer) => {
+        external.runtimes.set(layer.key, { idView: "GJ-9", settings: { crop: "RICE" } });
+        return { runtime: null };
+      });
+
+      const record = await controller.setSettings("crops", { crop: "RICE" });
+
+      expect(record).toMatchObject({
+        applied: true,
+        viewId: "GJ-9",
+        settings: { crop: "RICE" },
+        appliedSettings: { crop: "RICE" },
+        status: "error",
+      });
+    });
+
+    it("reopens with the last settings when turned off and on again", async () => {
+      const { external, controller } = setup();
+      await controller.intend("crops", { desired: true, settings: { crop: "WHEAT" } });
+      await controller.setOn("crops", false);
+
+      const record = await controller.setOn("crops", true);
+
+      expect(external.open).toHaveBeenLastCalledWith(LAYERS.crops, { crop: "WHEAT" });
+      expect(record).toMatchObject({ applied: true, appliedSettings: { crop: "WHEAT" } });
+    });
+
     it("keeps an external layer on when closing it fails", async () => {
       const { external, controller } = setup();
       await controller.setOn("crops", true);
@@ -569,7 +695,7 @@ describe("createLayerController", () => {
 
       expect(store.get("recovery").applied).toBe(true);
       expect(store.get("pop").status).toBe("loading");
-      expect(controller.isBusy("pop")).toBe(true);
+      expect(controller.hasPendingIntent("pop")).toBe(true);
     });
 
     it("ignores keys with no layer config", async () => {
@@ -673,7 +799,7 @@ describe("createLayerController", () => {
 
         expect(a).toBe(b);
         expect(a).toMatchObject({ applied: true, status: "error" });
-        expect(controller.isBusy("pop")).toBe(false);
+        expect(controller.hasPendingIntent("pop")).toBe(false);
         await expect(controller.setOn("pop", false)).resolves.toMatchObject({
           applied: false,
           status: "idle",
@@ -704,7 +830,6 @@ describe("createLayerController", () => {
       expect(store.get("pop")).toBe(before);
       expect(views.log).toEqual(["add MX-POP"]);
       expect(onError).not.toHaveBeenCalled();
-      expect(controller.isBusy("pop")).toBe(false);
     });
 
     it("drops a failure that settles after destroy without rolling back", async () => {

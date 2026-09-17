@@ -38,6 +38,28 @@ export function settingsMatch(actual, wanted) {
   return Object.keys(wanted).every((field) => actual[field] === wanted[field]);
 }
 
+/** Whether a layer has switchable sources (a compound layer). */
+const hasSources = (layer) => Array.isArray(layer?.sources) && layer.sources.length > 0;
+
+/**
+ * Clamp a source index (from the URL or a widget) to the layer's sources: an
+ * integer in range, otherwise 0. Always 0 for a layer without sources.
+ * @param {object} layer
+ * @param {unknown} sourceIdx
+ * @returns {number}
+ */
+export function clampSourceIdx(layer, sourceIdx) {
+  if (!hasSources(layer)) return 0;
+  return Number.isInteger(sourceIdx) && sourceIdx >= 0 && sourceIdx < layer.sources.length ? sourceIdx : 0;
+}
+
+/** Record fields callers may set: intent. Everything else is written by the controller. */
+const INTENT_FIELDS = new Set(["desired", "sourceIdx", "settings"]);
+
+/** A provider runtime the controller can record: it names a view. */
+const isRuntime = (runtime) =>
+  Boolean(runtime) && typeof runtime.idView === "string" && runtime.idView !== "";
+
 /**
  * @param {object} deps
  * @param {ReturnType<import("../state/layers-store.js").createLayersStore>} deps.store
@@ -57,7 +79,7 @@ export function createLayerController({ store, getLayer, views, external, onErro
   const running = new Map();
   /** keys whose intent changed while their reconciliation was running */
   const dirty = new Set();
-  /** key → count of intents written, to tell whether intent changed during a call */
+  /** key → count of intent changes written, to tell whether intent changed during a call */
   const versions = new Map();
   let destroyed = false;
 
@@ -82,19 +104,36 @@ export function createLayerController({ store, getLayer, views, external, onErro
     }
   }
 
-  /** Record intent and reconcile. Resolves with the settled record. */
+  /**
+   * Record intent and reconcile. Resolves with the settled record.
+   * Only intent fields (`desired`, `sourceIdx`, `settings`) are accepted; any
+   * other field is ignored with a console warning.
+   */
   function intend(key, patch) {
     if (destroyed) return Promise.resolve(store.get(key));
-    versions.set(key, (versions.get(key) ?? 0) + 1);
-    store.set(key, patch);
-    return apply(key);
+    const intent = {};
+    for (const [field, value] of Object.entries(patch ?? {})) {
+      if (INTENT_FIELDS.has(field)) intent[field] = value;
+      else console.warn(`Layer controller: ignoring non-intent field "${field}" for "${key}"`);
+    }
+    const before = store.get(key);
+    const changed = store.set(key, intent) !== before;
+    // Only a real change is newer intent. Intent equal to the record joins the
+    // running reconciliation without marking it dirty, so it neither retries a
+    // failed call nor stops a failure from resetting intent.
+    if (changed) versions.set(key, (versions.get(key) ?? 0) + 1);
+    return reconcileKey(key, changed);
   }
 
-  /** Reconcile one key. Joins the running reconciliation if there is one. */
-  function apply(key) {
+  /**
+   * Reconcile one key, or join the reconciliation already running for it.
+   * `changed` means new intent was written, which a running reconciliation
+   * must plan again for (the key is marked dirty).
+   */
+  function reconcileKey(key, changed) {
     if (destroyed) return Promise.resolve(store.get(key));
     if (running.has(key)) {
-      dirty.add(key);
+      if (changed) dirty.add(key);
       return running.get(key);
     }
     let settle;
@@ -180,14 +219,11 @@ export function createLayerController({ store, getLayer, views, external, onErro
 
   /** Simple (one view) and compound (one view per source) MapX layers. */
   async function reconcileView(key, layer, run) {
-    const sources = Array.isArray(layer.sources) && layer.sources.length > 0 ? layer.sources : null;
-    const clampIdx = (idx) =>
-      sources && Number.isInteger(idx) && idx >= 0 && idx < sources.length ? idx : 0;
-    const viewFor = (idx) => (sources ? sources[clampIdx(idx)].id : layer.id);
+    const viewFor = (idx) => (hasSources(layer) ? layer.sources[clampSourceIdx(layer, idx)].id : layer.id);
 
     let record = store.get(key);
     const intent = intentOf(key, record);
-    const targetIdx = clampIdx(record.sourceIdx);
+    const targetIdx = clampSourceIdx(layer, record.sourceIdx);
     const target = record.desired ? viewFor(targetIdx) : null;
     const current = record.applied ? record.viewId : null;
 
@@ -292,7 +328,11 @@ export function createLayerController({ store, getLayer, views, external, onErro
       begin(key, run, "loading");
       let opened;
       try {
+        // `settings` is kept while the layer is off, so turning it back on
+        // reopens the last variant; provider defaults apply only to a layer
+        // that never had settings.
         opened = await external.open(layer, record.settings ?? layer.external?.defaults);
+        if (!isRuntime(opened)) throw new TypeError(`Layer "${key}": provider open returned no runtime view`);
       } catch (error) {
         fail(key, run, error, "add", intent, {}, { desired: false, settings: record.appliedSettings });
         return;
@@ -313,8 +353,13 @@ export function createLayerController({ store, getLayer, views, external, onErro
         // Creates the new view before removing the old one, so on failure the
         // registered view is still the one on the map.
         replaced = await external.replace(layer, record.settings);
+        if (!isRuntime(replaced?.runtime)) {
+          throw new TypeError(`Layer "${key}": provider replace returned no runtime view`);
+        }
       } catch (error) {
-        const shown = external.getRuntime(layer) ?? runtime;
+        // The registry, not the provider's result, says which view is on the map now.
+        const registered = external.getRuntime(layer);
+        const shown = isRuntime(registered) ? registered : runtime;
         fail(
           key,
           run,
@@ -342,9 +387,27 @@ export function createLayerController({ store, getLayer, views, external, onErro
     }
   }
 
+  /**
+   * Whether a layer's intent differs from what MapX shows: on/off, the source
+   * of a compound layer that is on, or the settings of an external layer that
+   * is on. True from the moment intent is written until the controller has
+   * applied it, or reset it after a failure.
+   */
+  function hasPendingIntent(key) {
+    const record = store.get(key);
+    if (record.desired !== record.applied) return true;
+    if (!record.desired) return false;
+    const layer = getLayer(key);
+    if (!layer) return false;
+    if (external.isExternal(layer)) {
+      return Boolean(record.settings) && !settingsMatch(record.appliedSettings, record.settings);
+    }
+    return hasSources(layer) && clampSourceIdx(layer, record.sourceIdx) !== record.appliedSourceIdx;
+  }
+
   return {
     intend,
-    apply,
+    hasPendingIntent,
     /** Turn a layer on or off. */
     setOn: (key, on) => intend(key, { desired: Boolean(on) }),
     /** Pick a compound layer's source. Applied now if the layer is on, otherwise on the next turn-on. */
@@ -359,8 +422,6 @@ export function createLayerController({ store, getLayer, views, external, onErro
           .filter((record) => record.desired || record.applied || running.has(record.key))
           .map((record) => intend(record.key, { desired: false })),
       ),
-    /** Whether a key has a reconciliation in flight. */
-    isBusy: (key) => running.has(key),
     /**
      * Retire the controller: ignore new intent, drop the results of MapX calls
      * still in flight (nothing is written to the store) and start no more calls.
