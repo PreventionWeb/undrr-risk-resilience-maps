@@ -22,6 +22,14 @@ const IMAGE_FALLBACK_LABELS = {
 };
 
 /**
+ * The latest opacity a user set per view, with a count of changes. A slider
+ * whose transparency read was in flight while the user dragged another slider
+ * for the same view takes that value instead of the (now stale) read.
+ * @type {Map<string, { changes: number, opacity: number }>}
+ */
+const userOpacity = new Map();
+
+/**
  * Build an opacity slider for a view and append it to container.
  *
  * Reads the current transparency from the SDK (inverted to opacity for the
@@ -58,19 +66,26 @@ export async function addOpacitySlider(idView, container) {
 
   // SDK uses "transparency" (0=opaque, 100=invisible); UI shows "opacity"
   // (0=invisible, 100=opaque). Convert: opacity = 100 - transparency.
+  const changesBefore = userOpacity.get(idView)?.changes ?? 0;
+  let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    if (typeof current === "number") {
-      slider.value = String(100 - current);
-      valueDisplay.textContent = `${100 - current}%`;
-    }
+    if (typeof current === "number") opacity = 100 - current;
   } catch {
     // Default to 100% opacity
+  }
+  // A slider for the same view was moved during the read: its value is newer.
+  const moved = userOpacity.get(idView);
+  if (moved && moved.changes !== changesBefore) opacity = moved.opacity;
+  if (opacity !== null) {
+    slider.value = String(opacity);
+    valueDisplay.textContent = `${opacity}%`;
   }
 
   slider.addEventListener("input", async () => {
     const opacity = Number(slider.value);
     valueDisplay.textContent = `${opacity}%`;
+    userOpacity.set(idView, { changes: (userOpacity.get(idView)?.changes ?? 0) + 1, opacity });
     syncOpacitySliders(idView, slider);
     try {
       await setViewLayerTransparency(idView, 100 - opacity);
