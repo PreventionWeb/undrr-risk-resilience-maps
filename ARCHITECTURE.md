@@ -288,7 +288,12 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 - Simple layers: just the key (e.g. `population`)
 - Compound layers: key + source index (e.g. `earthquake-pga:2`); index 0 is omitted for brevity
 - On initial load, `restoreLayersFromHash()` validates and clamps source indices before applying them. Source index is always set (including 0) to ensure any prior state is cleared.
-- On `hashchange`, `reconcileLayersFromHash()` diffs current state against the new URL: turns layers off if absent, turns them on with correct source if present, and switches source directly (via `switchSource`) if a compound layer stays on but its source index changes.
+- Not every `hashchange` is app state. `hashChangeAction()` in `src/state/hash.js` (pure, so a future non-URL state adapter can reuse it) classifies the parsed hash:
+  - **ignore**: empty hash, unknown id or in-page anchor (e.g. a Mangrove tab section `#mg-tabs__section-...`). Tab and layers are left alone.
+  - **keep-layers**: an info tab (`home`, `sources`, `about`) with no `layers`, such as a plain `href="#sources"` link. Info tabs don't show the map, so the view switches, the open layers stay on, and the hash is rewritten in place (`replaceState`) to the canonical `#sources?layers=...`. The same applies on Back to a bare info-tab entry.
+  - **reconcile**: a data tab (with or without `layers`), or an info tab carrying `layers`. Tab and layers are applied exactly as below.
+- In-app links to info pages (nav links, a layer's "Citation and methodology details") call `switchTab()` directly rather than relying on the hash.
+- On a reconciling `hashchange`, `reconcileLayersFromHash()` diffs current state against the new URL: turns layers off if absent, turns them on with correct source if present, and switches source directly (via `switchSource`) if a compound layer stays on but its source index changes.
 - History entries: a single user action (toggle, source switch, tab switch) pushes one entry. Multi-layer changes run inside `batchHashWrites()`, which skips the per-layer writes and writes once when the batch settles: clear-all pushes one entry, while restore and back/forward replace the current entry because the URL already holds the target state. The `hashchange` handler switches tabs without writing, so the previous layers are never written under the new tab.
 
 ## Build pipeline
@@ -320,7 +325,7 @@ Test files cover pure and near-pure modules:
 | `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                          |
 | `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
-`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore, clear-all and back/forward history entries. Rapid-toggle and clear-during-load cases are not yet covered (see the tracker, unisdr/undrr-risk-resilience-maps#14).
+`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all, back/forward history entries, rapid double toggles, `viewRemove` failures and non-app hashes. Known bugs left for the layer state refactor (clear-all while a layer is loading, cancelling an external layer mid-load) are recorded as `it.fails` / `it.todo` (see the tracker, unisdr/undrr-risk-resilience-maps#14).
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser

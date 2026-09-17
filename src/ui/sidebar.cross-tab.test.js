@@ -244,3 +244,198 @@ describe("cross-tab layer rows", () => {
     expect(history.length).toBe(lengthBefore);
   });
 });
+
+/** Layer keys in the current hash's `layers` param. */
+function hashLayerKeys() {
+  const query = location.hash.split("?")[1];
+  const layers = new URLSearchParams(query ?? "").get("layers");
+  return layers ? layers.split(",").map((segment) => segment.split(":")[0]) : [];
+}
+
+/** The layer's own accordion in its home tab. */
+function homeItem(tabId, label) {
+  return [...document.querySelectorAll(`#tab-${tabId} .layer-item`)].find(
+    (item) => item.querySelector(".layer-label").textContent === label,
+  );
+}
+
+/**
+ * Assert a layer reads the same everywhere: openViews, its home switch, a
+ * cross-tab row and the URL hash.
+ */
+function expectLayerState({ key, label, homeTab, viewIds, on }) {
+  expect(viewIds.some((id) => store.openViews.has(id))).toBe(on);
+  expect(homeItem(homeTab, label).querySelector(".layer-eye").getAttribute("aria-checked")).toBe(String(on));
+  expect(crossRow("resilience", label).querySelector(".layer-eye").getAttribute("aria-checked")).toBe(
+    String(on),
+  );
+  expect(hashLayerKeys().includes(key)).toBe(on);
+}
+
+const RECOVERY = { key: "recovery", label: "Recovery Speed", homeTab: "risk", viewIds: ["MX-REC"] };
+const FLOOD = { key: "flood", label: "Flood", homeTab: "risk", viewIds: ["MX-F10", "MX-F100"] };
+const POP = { key: "pop", label: "Population", homeTab: "exposure", viewIds: ["MX-POP"] };
+
+// Safety net for the layer state refactor (unisdr/undrr-risk-resilience-maps#14):
+// pins the current contract between openViews, the toggles and the URL hash.
+describe("layer state consistency", () => {
+  let warn;
+
+  beforeEach(() => {
+    window.location.hash = "";
+    document.body.innerHTML = `
+      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
+      <button id="panel-toggle"></button>
+      <button id="layer-clear-btn" hidden></button>
+      <div id="app-map"></div>
+      <div id="info-page"></div>`;
+    store.openViews.clear();
+    for (const fn of Object.values(mocks)) fn.mockReset();
+    mocks.viewAdd.mockResolvedValue(undefined);
+    mocks.viewRemove.mockResolvedValue(undefined);
+    mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
+    mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    buildSidebar();
+    showTab("resilience");
+    return () => warn.mockRestore();
+  });
+
+  async function turnOn(layer) {
+    crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+  }
+
+  describe("rapid double toggle", () => {
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("leaves a %s layer in one consistent state", async (_kind, layer) => {
+      const eye = crossRow("resilience", layer.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+
+      await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+      await tick();
+      // The second click lands while the first is in flight and is ignored.
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+      expectLayerState({ ...layer, on: true });
+    });
+
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("turns a %s layer off when the second click follows the first settling", async (_kind, layer) => {
+      await turnOn(layer);
+      crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+
+      await vi.waitFor(() => expect(hashLayerKeys()).not.toContain(layer.key));
+      expectLayerState({ ...layer, on: false });
+    });
+  });
+
+  describe("viewRemove rejection", () => {
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("keeps a %s layer on when MapX fails to remove it", async (_kind, layer) => {
+      await turnOn(layer);
+      mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
+
+      crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+
+      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+      await tick();
+      expectLayerState({ ...layer, on: true });
+      expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
+    });
+  });
+
+  it("adds views in the order of the shared link's layers on restore", async () => {
+    history.replaceState(null, "", "#risk?layers=pop,flood:1,recovery");
+
+    await restoreLayersFromHash();
+
+    expect(mocks.viewAdd.mock.calls.map(([id]) => id)).toEqual(["MX-POP", "MX-F100", "MX-REC"]);
+  });
+
+  // Known bug, left for the layer controller PR (unisdr/undrr-risk-resilience-maps#14):
+  // clear-all only turns off layers whose switch is already active, so a layer
+  // still loading survives and turns on afterwards. `it.fails` flips to a
+  // failure once this is fixed; convert it to a plain `it` then.
+  it.fails("turns off a layer that is still loading when Clear all is clicked", async () => {
+    await turnOn(FLOOD);
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-REC");
+
+    document.getElementById("layer-clear-btn").click();
+    slowAdd.resolve();
+    for (let i = 0; i < 5; i++) await tick();
+
+    expectLayerState({ ...FLOOD, on: false });
+    expectLayerState({ ...RECOVERY, on: false });
+  });
+
+  // Known bug, left for the layer controller PR (unisdr/undrr-risk-resilience-maps#14):
+  // an external layer's switch is disabled while it loads, so there is no way to
+  // cancel it. This harness also stubs the external runtime registry, so the
+  // case needs the controller's own tests.
+  it.todo("turns off an external layer that is turned off while it is still loading");
+
+  describe("hashes that are not app state", () => {
+    beforeEach(async () => {
+      await turnOn(RECOVERY);
+      await turnOn(POP);
+    });
+
+    function navigateTo(hash) {
+      history.pushState(null, "", hash);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
+
+    it("keeps layers for a bare info tab hash and rewrites it in place", async () => {
+      const lengthBefore = history.length;
+      navigateTo("#sources");
+      await tick();
+
+      expect(store.activeTab).toBe("sources");
+      expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+      expect(location.hash).toBe("#sources?layers=recovery,pop");
+      expect(history.length).toBe(lengthBefore + 1);
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+    });
+
+    it("ignores in-page anchors and unknown ids", async () => {
+      for (const hash of ["#mg-tabs__section-sources-1", "#not-a-tab?layers=ews", "#"]) {
+        navigateTo(hash);
+        await tick();
+        expect(store.activeTab).toBe("resilience");
+        expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+      }
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens Sources from a layer's citation link without touching layers", async () => {
+      const lengthBefore = history.length;
+      homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a[href='#sources']").click();
+      await tick();
+
+      expect(store.activeTab).toBe("sources");
+      expect(location.hash).toBe("#sources?layers=recovery,pop");
+      expect(history.length).toBe(lengthBefore + 1);
+      expectLayerState({ ...RECOVERY, on: true });
+    });
+
+    it("still reconciles a data tab hash without layers", async () => {
+      navigateTo("#exposure");
+
+      await vi.waitFor(() => expect(store.openViews.size).toBe(0));
+      expect(store.activeTab).toBe("exposure");
+      expect(location.hash).toBe("#exposure");
+    });
+  });
+});
