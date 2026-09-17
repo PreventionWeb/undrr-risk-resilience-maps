@@ -21,7 +21,7 @@ vi.mock("./layer-controls.js", () => ({
 }));
 
 import * as store from "../state/store.js";
-import { buildLayerAccordion } from "./sidebar.js";
+import { buildLayerAccordion, getLayersStore } from "./sidebar.js";
 
 const layer = {
   id: "MX-TEST-LAYER",
@@ -48,7 +48,8 @@ describe("layer accordion activation", () => {
     const body = wrapper.querySelector(".layer-body");
 
     header.click();
-    await vi.waitFor(() => expect(viewAdd).toHaveBeenCalledWith(layer.id));
+    await vi.waitFor(() => expect(store.openViews.has(layer.id)).toBe(true));
+    expect(viewAdd).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("block");
     expect(eyeBtn.getAttribute("role")).toBe("switch");
     expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
@@ -65,7 +66,10 @@ describe("layer accordion activation", () => {
     expect(viewAdd).toHaveBeenCalledTimes(1);
 
     eyeBtn.click();
-    await vi.waitFor(() => expect(viewRemove).toHaveBeenCalledWith(layer.id));
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({ applied: false, status: "idle" }),
+    );
+    expect(viewRemove).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("none");
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(wrapper.querySelector(".layer-arrow").textContent).toBe("\u25B6");
@@ -91,9 +95,63 @@ describe("layer accordion activation", () => {
     expect(body.style.display).toBe("none");
 
     finishAdd();
-    await vi.waitFor(() => expect(eyeBtn.getAttribute("aria-checked")).toBe("true"));
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({ applied: true, status: "idle" }),
+    );
+    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
     expect(body.style.display).toBe("none");
     expect(store.openViews.has(layer.id)).toBe(true);
+  });
+
+  /**
+   * Press a key the way a browser does: keydown bubbles, and unless a listener
+   * cancels it, Enter/Space on a button activates it (a click).
+   */
+  function pressKey(target, key) {
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    if (!event.defaultPrevented && target instanceof HTMLButtonElement) target.click();
+  }
+
+  /** A layer of its own, so rows built by earlier tests don't share its record. */
+  let layerCount = 0;
+  const freshLayer = () => {
+    layerCount++;
+    return { ...layer, key: `fresh-layer-${layerCount}`, id: `MX-FRESH-${layerCount}` };
+  };
+
+  it.each(["Enter", " "])("toggles the layer, not the accordion, on %j on the switch", async (key) => {
+    const layer = freshLayer();
+    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
+    document.body.appendChild(wrapper);
+    const body = wrapper.querySelector(".layer-body");
+
+    pressKey(eyeBtn, key);
+    await vi.waitFor(() => expect(getLayersStore().get(layer.key).applied).toBe(true));
+    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
+
+    pressKey(eyeBtn, key);
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({
+        desired: false,
+        applied: false,
+        status: "idle",
+      }),
+    );
+    expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+    expect(body.style.display).toBe("none");
+    expect(wrapper.querySelector(".layer-header").getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it.each(["Enter", " "])("toggles the accordion on %j on the header", (key) => {
+    const { wrapper } = buildLayerAccordion(freshLayer());
+    document.body.appendChild(wrapper);
+    const header = wrapper.querySelector(".layer-header");
+
+    pressKey(header, key);
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+    pressKey(header, key);
+    expect(header.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("shows the R-R initiative before the layer description", () => {

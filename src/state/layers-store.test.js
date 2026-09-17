@@ -9,9 +9,11 @@ import {
 
 const OFF = {
   desired: false,
-  applied: false,
   sourceIdx: 0,
   settings: null,
+  applied: false,
+  appliedSourceIdx: 0,
+  appliedSettings: null,
   viewId: null,
   status: "idle",
   error: null,
@@ -87,6 +89,20 @@ describe("createLayersStore", () => {
     layers.set("crops", { settings: { crop: "MAIZE", scenario: "20" } });
     expect(fn).toHaveBeenCalledTimes(2);
     expect(layers.get("crops").settings).toEqual({ crop: "MAIZE", scenario: "20" });
+  });
+
+  it("stores appliedSettings as a frozen copy too", () => {
+    const layers = createLayersStore();
+    const appliedSettings = { crop: "WHEAT", extra: { years: [2030] } };
+
+    const stored = layers.set("crops", { appliedSettings }).appliedSettings;
+    appliedSettings.crop = "MAIZE";
+
+    expect(stored).toEqual({ crop: "WHEAT", extra: { years: [2030] } });
+    expect(Object.isFrozen(stored)).toBe(true);
+    expect(Object.isFrozen(stored.extra)).toBe(true);
+    layers.set("crops", { appliedSettings: { crop: "WHEAT", extra: { years: [2030] } } });
+    expect(layers.get("crops").appliedSettings).toBe(stored);
   });
 
   it("merges patches into the stored record", () => {
@@ -247,21 +263,24 @@ describe("mirrorOpenViews", () => {
 describe("changesUrlState", () => {
   const on = { key: "flood", ...OFF, applied: true, viewId: "MX-F10" };
 
-  it("is true when on/off, source or settings change", () => {
+  it("is true when on/off or the applied source or settings change", () => {
     expect(changesUrlState(on, { ...on, applied: false })).toBe(true);
-    expect(changesUrlState({ ...on, sourceIdx: 1 }, on)).toBe(true);
-    expect(changesUrlState({ ...on, settings: { crop: "MAIZE" } }, on)).toBe(true);
+    expect(changesUrlState({ ...on, appliedSourceIdx: 1 }, on)).toBe(true);
+    expect(changesUrlState({ ...on, appliedSettings: { crop: "MAIZE" } }, on)).toBe(true);
   });
 
-  it("is false for status, desired and the transient view gap of a source switch", () => {
+  it("is false for status, intent and the transient view gap of a source switch", () => {
     expect(changesUrlState({ ...on, status: "switching" }, on)).toBe(false);
     expect(changesUrlState({ ...on, desired: false }, on)).toBe(false);
+    expect(changesUrlState({ ...on, sourceIdx: 1 }, on)).toBe(false);
+    expect(changesUrlState({ ...on, settings: { crop: "MAIZE" } }, on)).toBe(false);
     expect(changesUrlState({ ...on, viewId: null }, on)).toBe(false);
   });
 
   it("is true when a layer that stayed on gets a view back", () => {
-    // After a failed switch and rollback the layer is on with no view, so the
-    // URL leaves it out; it must come back once a view carries it again.
+    // During a source switch the layer is on with no view, so a hash written
+    // then (by another layer) leaves it out; it must come back once a view
+    // carries it again, even if the applied source did not change (a rollback).
     const viewless = { ...on, viewId: null };
     expect(changesUrlState(on, viewless)).toBe(true);
     // Not for a layer that is off.
@@ -273,8 +292,9 @@ describe("toUrlLayers", () => {
   it("lists layers that are on, in config order, with settings only when set", () => {
     const layers = createLayersStore();
     layers.set("pop", { applied: true, viewId: "MX-POP" });
-    layers.set("crops", { applied: true, viewId: "MX-GJ-1", settings: { crop: "WHEAT" } });
-    layers.set("flood", { applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    layers.set("crops", { applied: true, viewId: "MX-GJ-1", appliedSettings: { crop: "WHEAT" } });
+    // The URL follows what MapX shows, not a source switch still in flight.
+    layers.set("flood", { applied: true, viewId: "MX-F100", appliedSourceIdx: 1, sourceIdx: 2 });
     layers.set("recovery", { desired: true, status: "loading" });
     layers.set("unknown", { applied: true, viewId: "MX-X" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -307,7 +327,7 @@ describe("toUrlLayers", () => {
 
   it("leaves out a layer mid source-switch, as the openViews walk did", () => {
     const layers = createLayersStore();
-    layers.set("flood", { applied: true, viewId: null, sourceIdx: 1 });
+    layers.set("flood", { applied: true, viewId: null, appliedSourceIdx: 1 });
     expect(toUrlLayers(layers.all(), ["flood"])).toEqual([]);
   });
 });

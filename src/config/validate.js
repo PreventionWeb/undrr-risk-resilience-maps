@@ -48,6 +48,11 @@ export function validateLayers(tabs, primaryProject) {
         warnings.push(`${ctx} -- vt layer missing geometry field ("point", "polygon", or "line")`);
       }
 
+      if (available && !external && !layer.key) {
+        // Layer state (the layers store, the controller and the hash) is keyed by layer.key.
+        errors.push(`${ctx} -- published layer missing key`);
+      }
+
       if (layer.key) {
         if (seenKeys.has(layer.key)) {
           errors.push(`${ctx} -- duplicate key "${layer.key}" (breaks hash routing and layerElementMap)`);

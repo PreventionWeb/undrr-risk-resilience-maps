@@ -156,6 +156,14 @@ describe("validateLayers", () => {
     expect(() => validateLayers([makeTab("hazard", layers)], PRIMARY)).toThrow();
   });
 
+  it("throws when a published layer has no key", () => {
+    const layer = makeSimpleLayer({ key: undefined });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).toThrow();
+    expect(error.mock.calls.flat().join("\n")).toMatch(/published layer missing key/);
+    error.mockRestore();
+  });
+
   it("throws on duplicate view IDs across different tabs", () => {
     const layer1 = makeSimpleLayer({ id: "MX-SAME", key: "k1", label: "L1" });
     const layer2 = makeSimpleLayer({ id: "MX-SAME", key: "k2", label: "L2" });

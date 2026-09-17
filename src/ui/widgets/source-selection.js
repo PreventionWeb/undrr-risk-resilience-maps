@@ -1,32 +1,40 @@
 /**
  * Shared selection state for source-switching widgets.
  *
- * Widgets show a new selection immediately, but the switch is async and may
- * be rejected (another switch is in flight) or fail. `onSourceChange` resolves
- * to `false` in those cases; the widget then shows the source that is actually
- * on the map (or still loading) instead of drifting from it.
+ * Widgets show a new selection immediately, but the switch is async.
+ * `onSourceChange` resolves to the source index the layer ends up on (the
+ * layer controller applies the latest pick, or keeps the previous source if
+ * the switch fails), and the widget shows that. `false` or a rejection means
+ * the pick was not applied: the widget shows the last source it confirmed.
+ * Any other result (e.g. `undefined`) accepts the pick.
+ *
+ * When picks overlap, an older pick that settles later shows the newest pick
+ * (its index while in flight, its outcome once settled), so a slow earlier
+ * pick never overwrites a later one.
  *
  * @param {number} initialIndex
- * @param {(index: number) => boolean|void|Promise<boolean|void>} onSourceChange
+ * @param {(index: number) => number|boolean|void|Promise<number|boolean|void>} onSourceChange
  * @returns {(index: number) => Promise<number>} resolves to the index to show
  */
 export function createSourceSelection(initialIndex, onSourceChange) {
   let confirmedIndex = initialIndex;
-  let inFlightIndex = null;
+  let latest = null;
 
   return async function select(index) {
-    const owns = inFlightIndex === null;
-    if (owns) inFlightIndex = index;
+    const pick = { index, shown: null };
+    latest = pick;
 
-    let accepted;
+    let result;
     try {
-      accepted = (await onSourceChange(index)) !== false;
+      result = await onSourceChange(index);
     } catch {
-      accepted = false;
+      result = false;
     }
 
-    if (owns) inFlightIndex = null;
-    if (accepted) confirmedIndex = index;
-    return accepted ? index : (inFlightIndex ?? confirmedIndex);
+    if (Number.isInteger(result)) confirmedIndex = result;
+    else if (result !== false) confirmedIndex = index;
+    pick.shown = confirmedIndex;
+
+    return latest === pick ? pick.shown : (latest.shown ?? latest.index);
   };
 }

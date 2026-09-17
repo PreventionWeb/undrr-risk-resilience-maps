@@ -6,8 +6,12 @@ const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn(),
   addLegend: vi.fn(),
   openExternalLayer: vi.fn(),
+  closeExternalLayer: vi.fn(),
   replaceExternalLayer: vi.fn(),
 }));
+
+// Runtime views of open external layers, like the real registry keeps.
+const externalRuntimes = vi.hoisted(() => new Map());
 
 vi.mock("../config/layers.js", () => ({
   TABS: [
@@ -32,6 +36,7 @@ vi.mock("../config/layers.js", () => ({
           sources: [
             { id: "MX-F10", label: "10y", desc: "Ten." },
             { id: "MX-F100", label: "100y", desc: "Hundred." },
+            { id: "MX-F500", label: "500y", desc: "Five hundred." },
           ],
         },
         { key: "crops", label: "Crops", type: "cc", desc: "Crops.", external: { defaults: {} } },
@@ -67,7 +72,7 @@ vi.mock("../utils/panels.js", () => ({
 vi.mock("../external/index.js", () => ({
   isExternalLayer: (layer) => Boolean(layer.external),
   openExternalLayer: mocks.openExternalLayer,
-  closeExternalLayer: vi.fn(),
+  closeExternalLayer: mocks.closeExternalLayer,
   replaceExternalLayer: mocks.replaceExternalLayer,
   getExternalLayerDefinition: () => ({
     controls: [
@@ -81,10 +86,29 @@ vi.mock("../external/index.js", () => ({
       },
     ],
   }),
-  getExternalLayerRuntime: () => null,
+  getExternalLayerRuntime: (layer) => externalRuntimes.get(layer.key) ?? null,
 }));
 
-import { buildSidebar, destroySidebar, getLayersStore, restoreLayersFromHash } from "./sidebar.js";
+/** Default external registry behaviour: open registers a runtime view, close drops it. */
+function mockExternalRegistry() {
+  externalRuntimes.clear();
+  mocks.openExternalLayer.mockImplementation(async (layer, settings) => {
+    const runtime = { idView: `GJ-${layer.key}`, settings: { ...settings } };
+    externalRuntimes.set(layer.key, runtime);
+    return runtime;
+  });
+  mocks.closeExternalLayer.mockImplementation(async (layer) => {
+    externalRuntimes.delete(layer.key);
+  });
+}
+
+import {
+  buildSidebar,
+  destroySidebar,
+  getLayersStore,
+  onViewsChanged,
+  restoreLayersFromHash,
+} from "./sidebar.js";
 import * as store from "../state/store.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -133,6 +157,7 @@ describe("cross-tab layer rows", () => {
     mocks.viewRemove.mockResolvedValue(undefined);
     mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
     mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    mockExternalRegistry();
     buildSidebar();
     showTab("resilience");
   });
@@ -209,7 +234,9 @@ describe("cross-tab layer rows", () => {
     slowAdd.resolve();
 
     const row = crossRow("resilience", "Flood");
-    await vi.waitFor(() => expect(floodEye.getAttribute("aria-checked")).toBe("false"));
+    // The switch follows intent at once; the map catches up once the switch settles.
+    expect(floodEye.getAttribute("aria-checked")).toBe("false");
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
     expect(store.openViews.size).toBe(0);
     expect(mocks.viewRemove).toHaveBeenLastCalledWith("MX-F100");
     expect(row.querySelector(".cross-tab-body").hidden).toBe(true);
@@ -308,6 +335,7 @@ describe("layer state consistency", () => {
     mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
     mocks.addLegend.mockImplementation(asyncRender("html-legend"));
     warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockExternalRegistry();
     buildSidebar();
     showTab("resilience");
     return () => warn.mockRestore();
@@ -318,21 +346,41 @@ describe("layer state consistency", () => {
     await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
   }
 
+  async function turnOnHome(layer) {
+    homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+    await vi.waitFor(() => expect(getLayersStore().get(layer.key).status).toBe("idle"));
+  }
+
   describe("rapid double toggle", () => {
     it.each([
       ["simple", RECOVERY],
       ["compound", FLOOD],
-    ])("leaves a %s layer in one consistent state", async (_kind, layer) => {
+    ])("leaves a %s layer off, as the last click asked", async (_kind, layer) => {
       const eye = crossRow("resilience", layer.label).querySelector(".layer-eye");
       eye.click();
       eye.click();
 
-      await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
-      await tick();
-      // The second click lands while the first is in flight and is ignored.
+      // The second click lands while the first is in flight and is applied after it.
+      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(getLayersStore().get(layer.key).status).toBe("idle"));
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+      expectLayerState({ ...layer, on: false });
+    });
+
+    it("ends on the last of three clicks without touching the map again", async () => {
+      const slowAdd = deferred();
+      mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+      eye.click();
+      slowAdd.resolve();
+
+      await vi.waitFor(() => expect(hashLayerKeys()).toContain(RECOVERY.key));
       expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
       expect(mocks.viewRemove).not.toHaveBeenCalled();
-      expectLayerState({ ...layer, on: true });
+      expectLayerState({ ...RECOVERY, on: true });
     });
 
     it.each([
@@ -372,30 +420,131 @@ describe("layer state consistency", () => {
     expect(mocks.viewAdd.mock.calls.map(([id]) => id)).toEqual(["MX-POP", "MX-F100", "MX-REC"]);
   });
 
-  // Known bug, left for the layer controller PR (unisdr/undrr-risk-resilience-maps#14):
-  // clear-all only turns off layers whose switch is already active, so a layer
-  // still loading survives and turns on afterwards. `it.fails` flips to a
-  // failure once this is fixed; convert it to a plain `it` then.
-  it.fails("turns off a layer that is still loading when Clear all is clicked", async () => {
+  it("turns off a layer that is still loading when Clear all is clicked", async () => {
     await turnOn(FLOOD);
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
     expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-REC");
+    const lengthBefore = history.length;
 
     document.getElementById("layer-clear-btn").click();
     slowAdd.resolve();
-    for (let i = 0; i < 5; i++) await tick();
+    await vi.waitFor(() => expect(getLayersStore().get(RECOVERY.key).status).toBe("idle"));
+    await tick();
 
     expectLayerState({ ...FLOOD, on: false });
     expectLayerState({ ...RECOVERY, on: false });
+    expect(location.hash).toBe("#resilience");
+    // Clear-all is still one history entry, even though a layer was loading.
+    expect(history.length).toBe(lengthBefore + 1);
   });
 
-  // Known bug, left for the layer controller PR (unisdr/undrr-risk-resilience-maps#14):
-  // an external layer's switch is disabled while it loads, so there is no way to
-  // cancel it. This harness also stubs the external runtime registry, so the
-  // case needs the controller's own tests.
-  it.todo("turns off an external layer that is turned off while it is still loading");
+  it("shows Clear all while the only layer is still loading", async () => {
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const clearBtn = document.getElementById("layer-clear-btn");
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+
+    expect(clearBtn.hidden).toBe(false);
+    clearBtn.click();
+    expect(clearBtn.hidden).toBe(true);
+    slowAdd.resolve();
+    await vi.waitFor(() => expect(getLayersStore().get(RECOVERY.key).status).toBe("idle"));
+    expectLayerState({ ...RECOVERY, on: false });
+  });
+
+  it("turns off an external layer that is turned off while it is still loading", async () => {
+    const slowOpen = deferred();
+    const open = mocks.openExternalLayer.getMockImplementation();
+    mocks.openExternalLayer.mockImplementationOnce(async (...args) => {
+      await slowOpen.promise;
+      return open(...args);
+    });
+    const eye = crossRow("resilience", "Crops").querySelector(".layer-eye");
+
+    eye.click();
+    expect(eye.disabled).toBe(false);
+    eye.click();
+    expect(eye.getAttribute("aria-checked")).toBe("false");
+    slowOpen.resolve();
+
+    await vi.waitFor(() => expect(mocks.closeExternalLayer).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(getLayersStore().get("crops").status).toBe("idle"));
+    expect(externalRuntimes.size).toBe(0);
+    expect(getLayersStore().get("crops")).toMatchObject({ desired: false, applied: false, viewId: null });
+    expect(hashLayerKeys()).not.toContain("crops");
+    expect(crossRow("resilience", "Crops").querySelector(".cross-tab-body").hidden).toBe(true);
+  });
+
+  it("ends on the last source picked when sources are clicked quickly", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const lengthBefore = history.length;
+
+    const tabs = item.querySelectorAll(".widget-sub-tab");
+    tabs[1].click();
+    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+    tabs[2].click();
+    expect(tabs[2].classList.contains("is-active")).toBe(true);
+    slowAdd.resolve();
+
+    await vi.waitFor(() => expect(location.hash).toBe("#risk?layers=flood:2"));
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+    await tick();
+    const shown = [...item.querySelectorAll(".widget-sub-tab")].map((tab) =>
+      tab.classList.contains("is-active"),
+    );
+    expect(shown).toEqual([false, false, true]);
+    expect(getLayersStore().get("flood")).toMatchObject({
+      viewId: "MX-F500",
+      sourceIdx: 2,
+      appliedSourceIdx: 2,
+    });
+    expect(store.openViews).toEqual(new Set(["MX-F500"]));
+    expect(mocks.addLegend).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "MX-F500" }),
+      item.querySelector(".layer-legend-slot"),
+    );
+    // 100y reached the map while 500y was already picked: its entry is
+    // replaced by 500y's, so the quick picks are one entry, as on main.
+    expect(history.length).toBe(lengthBefore + 1);
+  });
+
+  it("shows the kept source in the widget when a switch fails", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+    mocks.viewAdd.mockRejectedValueOnce(new Error("offline"));
+
+    item.querySelectorAll(".widget-sub-tab")[1].click();
+
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("error"));
+    await vi.waitFor(() =>
+      expect(item.querySelectorAll(".widget-sub-tab")[0].classList.contains("is-active")).toBe(true),
+    );
+    expect(item.querySelectorAll(".widget-sub-tab")[1].classList.contains("is-active")).toBe(false);
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
+    expect(location.hash).toBe("#risk?layers=flood");
+  });
+
+  it("updates the source widget on back/forward", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+
+    history.pushState(null, "", "#risk?layers=flood:2");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    await vi.waitFor(() => expect(getLayersStore().get("flood").appliedSourceIdx).toBe(2));
+    await vi.waitFor(() =>
+      expect(item.querySelectorAll(".widget-sub-tab")[2].classList.contains("is-active")).toBe(true),
+    );
+  });
 
   describe("hashes that are not app state", () => {
     beforeEach(async () => {
@@ -464,13 +613,12 @@ describe("layers store", () => {
       <div id="app-map"></div>
       <div id="info-page"></div>`;
     store.openViews.clear();
-    // activeSourceIndex outlives buildSidebar(); earlier tests leave Flood on 100y.
-    store.setActiveSource("flood", 0);
     for (const fn of Object.values(mocks)) fn.mockReset();
     mocks.viewAdd.mockResolvedValue(undefined);
     mocks.viewRemove.mockResolvedValue(undefined);
     mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
     mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    mockExternalRegistry();
     buildSidebar();
     showTab("resilience");
   });
@@ -536,30 +684,254 @@ describe("layers store", () => {
     expectStoreMatchesUi();
   });
 
-  it("puts a layer back in the hash when it is re-enabled after a double switch failure", async () => {
+  it("puts a layer back in the hash when its view returns after another layer wrote the hash", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
 
-    // The new source and the rollback to the old one both fail: the layer
-    // stays on with no view on the map.
-    mocks.viewAdd.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
+    // The new source is slow and then fails; the old one is put back.
+    const slowAdd = deferred();
+    mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledTimes(3));
-    await tick();
-    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null, status: "error" });
+    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null });
 
-    // Another toggle rewrites the hash without Flood, as it did on main.
+    // Another toggle during the switch rewrites the hash without Flood, which
+    // has no view on the map at that moment.
     homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
 
-    // Re-enabling Flood adds its view again, so the hash lists it again.
+    // The rollback re-adds MX-F10: nothing but the view changed, and the hash
+    // lists Flood again.
+    slowAdd.resolve(Promise.reject(new Error("offline")));
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("error"));
+    await tick();
+    warn.mockRestore();
+    expect(getLayersStore().get("flood")).toMatchObject({
+      applied: true,
+      viewId: "MX-F10",
+      appliedSourceIdx: 0,
+    });
+    expect(hashSegments()).toEqual(["recovery", "flood"]);
+  });
+
+  describe("one history entry per user action", () => {
+    beforeEach(async () => {
+      // Let beforeEach's queued hashchange settle before counting entries.
+      await tick();
+    });
+
+    it("pushes one entry for a single toggle", async () => {
+      const lengthBefore = history.length;
+      crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes one entry for a single source switch", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const lengthBefore = history.length;
+
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").appliedSourceIdx).toBe(1));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:1");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("ends a double-click where it started, with one entry that Back cannot turn the layer on from", async () => {
+      const lengthBefore = history.length;
+      const hashBefore = location.hash;
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+
+      eye.click();
+      eye.click();
+      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+
+      // The add reached the map and pushed an entry listing the layer; the
+      // removal replaced it. One entry, holding the pre-click state.
+      expect(location.hash).toBe(hashBefore);
+      expect(history.length).toBe(lengthBefore + 1);
+
+      history.back();
+      await tick();
+      await tick();
+      expect(location.hash).toBe(hashBefore);
+      expect(getLayersStore().get("recovery")).toMatchObject({ desired: false, applied: false });
+    });
+
+    it("pushes one entry for quick A→B→C source picks where B reaches the map first", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const item = homeItem("risk", FLOOD.label);
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      const lengthBefore = history.length;
+
+      item.querySelectorAll(".widget-sub-tab")[1].click();
+      await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+      item.querySelectorAll(".widget-sub-tab")[2].click();
+      slowAdd.resolve();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").appliedSourceIdx).toBe(2));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:2");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes a new entry for the next action after a double-click", async () => {
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+      const lengthBefore = history.length;
+
+      eye.click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    async function turnOnHomeFlood() {
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").applied).toBe(true));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+    }
+  });
+
+  describe("accessibility while loading", () => {
+    const announcerText = (row) => row.querySelector(".layer-announcer").textContent;
+
+    it("marks the switch busy while loading and announces a failed load in the rows", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const slowAdd = deferred();
+      mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+      const row = crossRow("resilience", POP.label);
+      const eye = row.querySelector(".layer-eye");
+
+      eye.click();
+
+      expect(eye.getAttribute("aria-checked")).toBe("true");
+      expect(eye.getAttribute("aria-busy")).toBe("true");
+      expect(eye.getAttribute("aria-label")).toBe("Loading Population…");
+      const home = homeItem("exposure", POP.label);
+      expect(home.querySelector(".layer-eye").getAttribute("aria-busy")).toBe("true");
+
+      slowAdd.resolve(Promise.reject(new Error("offline")));
+      await vi.waitFor(() => expect(getLayersStore().get("pop").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(eye.getAttribute("aria-checked")).toBe("false");
+      expect(eye.getAttribute("aria-busy")).toBe("false");
+      expect(eye.getAttribute("aria-label")).toBe("Turn on Population");
+      expect(announcerText(row)).toBe("Could not load Population. It is off.");
+      expect(announcerText(home)).toBe("Could not load Population. It is off.");
+      const announcer = row.querySelector(".layer-announcer");
+      expect(announcer.getAttribute("aria-live")).toBe("polite");
+      expect(announcer.classList.contains("mg-u-sr-only")).toBe(true);
+      expect(announcer.id).toBe("");
+
+      // The next attempt clears the message; success leaves it empty.
+      eye.click();
+      expect(announcerText(row)).toBe("");
+      await vi.waitFor(() => expect(getLayersStore().get("pop").applied).toBe(true));
+      expect(announcerText(row)).toBe("");
+      expect(eye.getAttribute("aria-label")).toBe("Turn off Population");
+    });
+
+    it("announces a failed turn-off", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const row = crossRow("resilience", RECOVERY.label);
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+      mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
+
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announcerText(row)).toBe("Could not change Recovery Speed. It is still on as before.");
+      expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    });
+
+    it("announces a failed external layer load", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mocks.openExternalLayer.mockRejectedValueOnce(new Error("offline"));
+      const row = crossRow("resilience", "Crops");
+
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("crops").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announcerText(row)).toBe("Could not load Crops. It is off.");
+    });
+  });
+
+  it("never reports zero layers while one is on, even mid source switch", async () => {
+    const counts = [];
+    onViewsChanged((count) => counts.push(count));
+    try {
+      showTab("risk");
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").applied).toBe(true));
+
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      // Flood is in the gap between its views: on, but with no view in openViews.
+      await vi.waitFor(() =>
+        expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null }),
+      );
+      expect(store.openViews.size).toBe(0);
+
+      homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+      slowAdd.resolve();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").viewId).toBe("MX-F100"));
+
+      expect(counts).toEqual([1, 2]);
+    } finally {
+      onViewsChanged(null);
+    }
+  });
+
+  it("ends off after a double switch failure, and can be turned on again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+
+    // The new source and the rollback to the old one both fail: nothing of the
+    // layer is on the map, so it is recorded as off, never on without a view.
+    mocks.viewAdd.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("error"));
+    await tick();
+    expect(getLayersStore().get("flood")).toMatchObject({
+      desired: false,
+      applied: false,
+      viewId: null,
+      sourceIdx: 0,
+    });
+    expect(hashSegments()).toEqual([]);
+    const home = homeItem("risk", FLOOD.label);
+    expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+
+    // Turning it on again adds the kept source and lists it in the hash.
+    home.querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
     await tick();
     warn.mockRestore();
-    expect(hashSegments()).toEqual(["recovery", "flood"]);
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, status: "idle", error: null });
+    expect(hashSegments()).toEqual(["flood"]);
   });
 
   it("finishes updating the UI when the hash write throws", async () => {
@@ -640,7 +1012,11 @@ describe("layers store", () => {
   });
 
   it("records a failed external variant change as an error", async () => {
-    mocks.openExternalLayer.mockResolvedValue({ idView: "MX-GJ-1", settings: { crop: "WHEAT" } });
+    mocks.openExternalLayer.mockImplementation(async (layer) => {
+      const runtime = { idView: "MX-GJ-1", settings: { crop: "WHEAT" } };
+      externalRuntimes.set(layer.key, runtime);
+      return runtime;
+    });
     const failure = new Error("provider down");
     mocks.replaceExternalLayer.mockRejectedValueOnce(failure);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -660,10 +1036,14 @@ describe("layers store", () => {
       desired: true,
       applied: true,
       viewId: "MX-GJ-1",
+      // Intent is reset to the settings of the view the registry still has.
       settings: { crop: "WHEAT" },
+      appliedSettings: { crop: "WHEAT" },
       error: failure,
     });
     expect(select.value).toBe("WHEAT");
+    // The controls announce their own error; the row does not repeat it.
+    expect(crops.querySelector(".layer-announcer").textContent).toBe("");
   });
 
   it("records a failed load as an error and leaves the layer off", async () => {
@@ -759,11 +1139,44 @@ describe("layers store", () => {
     slowAdd.resolve();
     for (let i = 0; i < 3; i++) await tick();
 
-    // Nothing is written into the destroyed store, openViews or the URL.
-    expect(orphan.get("recovery").applied).toBe(false);
+    // Nothing is written into the destroyed store, openViews, the URL or the
+    // row. The switch keeps showing the intent from the click; no controls are built.
+    expect(orphan.get("recovery")).toMatchObject({ desired: true, applied: false, status: "loading" });
     expect(store.openViews.size).toBe(0);
     expect(location.hash).toBe("#resilience");
-    expect(eye.getAttribute("aria-checked")).toBe("false");
+    expect(eye.getAttribute("aria-checked")).toBe("true");
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+  });
+
+  it("drops a MapX response that settles after a rebuild", async () => {
+    await tick();
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    const orphan = getLayersStore();
+
+    document.body.innerHTML = `
+      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
+      <button id="panel-toggle"></button>
+      <button id="layer-clear-btn" hidden></button>
+      <div id="app-map"></div>
+      <div id="info-page"></div>`;
+    buildSidebar();
+    showTab("resilience");
+    await tick();
+    const hashBefore = location.hash;
+    slowAdd.resolve();
+    for (let i = 0; i < 3; i++) await tick();
+
+    // Neither the old nor the new store, openViews, the URL or the new rows see it.
+    expect(orphan.get("recovery").applied).toBe(false);
+    expect(getLayersStore()).not.toBe(orphan);
+    expect(getLayersStore().all()).toEqual([]);
+    expect(store.openViews.size).toBe(0);
+    expect(location.hash).toBe(hashBefore);
+    expect(
+      crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").getAttribute("aria-checked"),
+    ).toBe("false");
   });
 
   it("clears openViews left by a previous build", async () => {
