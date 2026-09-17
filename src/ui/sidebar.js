@@ -12,7 +12,7 @@ import { TABS } from "../config/layers.js";
 import { getLayerRegistry } from "../config/registry.js";
 import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
-import { isSDKReady } from "../sdk/client.js";
+import { isSDKReady, onSDKReadyChange } from "../sdk/client.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
@@ -154,6 +154,9 @@ export function createSidebar(
     }),
   );
   disposers.push(layersStore.subscribe(renderLayerRows));
+  // Layer switches are aria-disabled until the map can accept changes, so they
+  // are re-rendered when it becomes (or stops being) ready.
+  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
 
   let layerController = createLayerController({
     store: layersStore,
@@ -278,6 +281,7 @@ export function createSidebar(
     if (!panel) return;
     panel.classList.remove("is-collapsed");
     onPanelExpand(panel);
+    renderToggleState(false);
   }
 
   function switchTab(tabId, { syncHash = true, replaceHash = false } = {}) {
@@ -491,6 +495,13 @@ export function createSidebar(
 
   // Collapse / expand sidebar — clear/restore inline resize dimensions so the
   // collapsed CSS width isn't overridden by a prior user resize.
+  /** Keep the collapse control telling the truth about what it does next. */
+  function renderToggleState(collapsed) {
+    if (!toggle) return;
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", collapsed ? "Expand the layers panel" : "Collapse the layers panel");
+  }
+
   toggle?.addEventListener(
     "click",
     () => {
@@ -498,13 +509,16 @@ export function createSidebar(
       if (panel.classList.contains("is-collapsed")) {
         panel.classList.remove("is-collapsed");
         onPanelExpand(panel);
+        renderToggleState(false);
       } else {
         onPanelCollapse(panel);
         panel.classList.add("is-collapsed");
+        renderToggleState(true);
       }
     },
     { signal },
   );
+  renderToggleState(Boolean(panel?.classList.contains("is-collapsed")));
 
   // "Clear all" turns off every layer that is on or still loading, across all tabs
   clearBtn?.addEventListener(
@@ -517,12 +531,12 @@ export function createSidebar(
     { signal },
   );
 
+  // A Mangrove switch (a checkbox): its own state is the setting, and its
+  // label stays "Show disabled" whichever way it is set.
   disabledToggleBtn?.addEventListener(
-    "click",
+    "change",
     () => {
-      showDisabledLayers = !showDisabledLayers;
-      disabledToggleBtn.setAttribute("aria-pressed", String(showDisabledLayers));
-      disabledToggleBtn.textContent = showDisabledLayers ? "Hide disabled" : "Show disabled";
+      showDisabledLayers = Boolean(disabledToggleBtn.checked);
       applyDisabledLayerVisibility();
     },
     { signal },
@@ -566,7 +580,7 @@ export function createSidebar(
       onSelect: (tabId, source) => {
         switchTab(tabId);
         // A category link expands the panel if it is collapsed.
-        if (source === "tab") panel?.classList.remove("is-collapsed");
+        if (source === "tab" && panel?.classList.contains("is-collapsed")) expandPanel();
       },
     });
   }
@@ -648,10 +662,7 @@ export function createSidebar(
       }
     }
     if (clearBtn) clearBtn.hidden = true;
-    if (disabledToggleBtn) {
-      disabledToggleBtn.setAttribute("aria-pressed", "false");
-      disabledToggleBtn.textContent = "Show disabled";
-    }
+    if (disabledToggleBtn) disabledToggleBtn.checked = false;
     layersStore = null;
     layerController = null;
     if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);

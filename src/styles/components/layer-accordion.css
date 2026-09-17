@@ -1,9 +1,11 @@
 /**
- * Layer accordion items — header, eye toggle, body, description.
+ * Layer accordion items — header, expand button, Mangrove switch, body,
+ * description. Colours and spacing come from Mangrove tokens; the switch
+ * itself is Mangrove's `.mg-switch` component.
  */
 
 .layer-item {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .layer-item.layer-disabled {
@@ -11,30 +13,47 @@
 }
 
 .layer-item.layer-active {
-  background: #f0f6fc;
+  background: rgb(var(--mg-color-blue-900) / 0.05);
 }
 
+/* The row head: the expand button takes the free space, the switch sits
+   beside it. Both are real controls, so neither steals the other's keys. */
 .layer-header {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.layer-expand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  padding: 0.35rem 0.25rem 0.35rem 0.5rem;
+  border: 0;
+  border-radius: var(--mg-radius-button);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: start;
   cursor: pointer;
-  user-select: none;
 }
 
-.layer-header:hover {
-  background: #f5f5f5;
+.layer-expand:hover {
+  background: rgb(var(--mg-color-blue-900) / 0.06);
 }
 
-.layer-header:focus-visible {
+.layer-expand:focus-visible {
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: -2px;
+  outline-offset: calc(-1 * var(--mg-focus-ring-width));
 }
 
 .layer-arrow {
   font-size: 0.6rem;
-  color: #999;
+  color: var(--color-text-muted);
   width: 0.75rem;
   flex-shrink: 0;
 }
@@ -45,77 +64,49 @@
   font-weight: 500;
 }
 
+/* Mangrove's subtle tag, at panel scale. */
 .layer-type-tag {
-  font-size: 0.55rem;
-  padding: 0.05rem 0.25rem;
+  font-size: 0.6rem;
+  min-block-size: 1.25rem;
+  min-inline-size: 0;
+  padding: 0 var(--mg-spacing-50);
   flex-shrink: 0;
+  letter-spacing: 0.01em;
 }
 
-.layer-eye {
-  position: relative;
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 1.25rem;
-  cursor: pointer;
+/* ── Layer switch (Mangrove .mg-switch) ───────────── */
+
+/* Mangrove owns the track, thumb, checked fill, pending ring, aria-disabled
+   dimming, focus ring, forced colours and reduced motion. Locally: the hit
+   target, and the error outline for a layer whose last call failed. */
+.layer-switch {
   flex-shrink: 0;
-  transition-property: scale;
-  transition-duration: 120ms;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  justify-content: center;
+  min-block-size: 2.5rem;
+  min-inline-size: 2.75rem;
+  padding-inline: 0.125rem;
 }
 
-.layer-eye::before {
-  content: "";
-  position: absolute;
-  inset: 0.625rem 0.125rem;
-  border-radius: 0.75rem;
-  background-color: rgb(var(--mg-color-neutral-400));
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 8%);
-  transition: background-color var(--mg-motion-duration-fast, 180ms)
-    var(--mg-motion-easing-standard, cubic-bezier(0.2, 0, 0, 1));
+@media (pointer: coarse) {
+  .layer-switch {
+    min-block-size: 2.75rem;
+  }
 }
 
-.layer-eye::after {
-  content: "";
-  position: absolute;
-  top: 0.75rem;
-  left: 0.25rem;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background-color: rgb(var(--mg-color-neutral-0));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transform: translateX(0);
-  transition: transform var(--mg-motion-duration-fast, 180ms)
-    var(--mg-motion-easing-standard, cubic-bezier(0.2, 0, 0, 1));
+.layer-switch.is-error .mg-switch__track {
+  box-shadow: inset 0 0 0 2px rgb(var(--mg-color-red-900));
 }
 
-.layer-eye:hover::before {
-  background-color: rgb(var(--mg-color-neutral-500));
+/* The seen half of a failed call (Mangrove's form error colour), at panel
+   scale. The row's live region says the same thing to screen readers. */
+.layer-error {
+  margin: 0 0.75rem 0.4rem 1.75rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
 }
 
-.layer-eye:active {
-  scale: 0.96;
-}
-
-.layer-eye:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
-}
-
-.layer-eye.is-active::before {
-  background-color: rgb(var(--mg-color-interactive));
-}
-
-.layer-eye.is-active::after {
-  transform: translateX(1rem);
-}
-
-.layer-eye:disabled {
-  cursor: wait;
-  opacity: 0.55;
+.layer-error:empty {
+  display: none;
 }
 
 /* ── Expanded body ────────────────────────────────── */
@@ -127,16 +118,16 @@
 .layer-desc {
   margin: 0 0 0.4rem 0;
   font-size: 0.7rem;
-  color: #666;
+  color: var(--color-text-muted);
   line-height: 1.4;
   text-wrap: pretty;
 }
 
 .tab-panel-intro {
   padding: 0.7rem 0.75rem;
-  color: #3f4e5e;
-  background: #f5f8fb;
-  border-bottom: 1px solid #dce5ed;
+  color: var(--color-text);
+  background: rgb(var(--mg-color-blue-900) / 0.04);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 0.72rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -158,7 +149,7 @@
 }
 
 .tab-panel-glossary {
-  color: #5a6876;
+  color: var(--color-text-muted);
 }
 
 .layer-meta-links {
@@ -180,9 +171,9 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #777;
-  background: #f9f9f9;
-  border-bottom: 1px solid #eee;
+  color: var(--color-text-muted);
+  background: rgb(var(--mg-color-neutral-50) / 0.5);
+  border-bottom: 1px solid var(--color-border-light);
   cursor: pointer;
   list-style: none;
   display: flex;
@@ -210,12 +201,12 @@
 /* ------------------------------------------------------------------ */
 
 .cross-tab-sections {
-  border-top: 2px solid #ddd;
+  border-top: 2px solid var(--color-border);
   margin-top: 0.5rem;
 }
 
 .cross-tab-section {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-summary {
@@ -227,11 +218,11 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #555;
+  color: rgb(var(--mg-color-neutral-600));
 }
 
 .cross-tab-summary:hover {
-  background: #f5f5f5;
+  background: rgb(var(--mg-color-blue-900) / 0.04);
 }
 
 .cross-tab-group-label {
@@ -241,17 +232,17 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #999;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--color-text-muted);
+  background: rgb(var(--mg-color-neutral-50) / 0.35);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.35rem 0.5rem 0.35rem 1.2rem;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 0.1rem 0.5rem 0.1rem 1.2rem;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-item:last-child .cross-tab-row {
@@ -265,7 +256,7 @@
 
 .cross-tab-body {
   padding: 0.25rem 0.75rem 0.6rem 1.2rem;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-item:last-child .cross-tab-body {
@@ -279,6 +270,6 @@
 .cross-tab-label {
   flex: 1;
   font-size: 0.78rem;
-  color: #333;
+  color: var(--color-text);
   line-height: 1.3;
 }

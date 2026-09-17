@@ -36,7 +36,7 @@ vi.mock("./info-panels.js", () => ({
   buildAboutPanel: () => document.createElement("div"),
 }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
+vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({
   addOpacitySlider: vi.fn((_idView, container) => {
     const el = document.createElement("div");
@@ -90,7 +90,7 @@ describe("layer accordion activation", () => {
 
   it("turns a layer on when expanded and leaves it on when collapsed", async () => {
     const { wrapper, eyeBtn } = accordion(layer);
-    const header = wrapper.querySelector(".layer-header");
+    const header = wrapper.querySelector(".layer-expand");
     const body = wrapper.querySelector(".layer-body");
 
     header.click();
@@ -98,13 +98,13 @@ describe("layer accordion activation", () => {
     expect(viewAdd).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("block");
     expect(eyeBtn.getAttribute("role")).toBe("switch");
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
+    expect(eyeBtn.checked).toBe(true);
     expect(store.openViews.has(layer.id)).toBe(true);
 
     header.click();
     expect(body.style.display).toBe("none");
     expect(viewRemove).not.toHaveBeenCalled();
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
+    expect(eyeBtn.checked).toBe(true);
     expect(store.openViews.has(layer.id)).toBe(true);
 
     header.click();
@@ -119,7 +119,7 @@ describe("layer accordion activation", () => {
     expect(body.style.display).toBe("none");
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(wrapper.querySelector(".layer-arrow").textContent).toBe("\u25B6");
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+    expect(eyeBtn.checked).toBe(false);
     expect(store.openViews.has(layer.id)).toBe(false);
   });
 
@@ -137,7 +137,7 @@ describe("layer accordion activation", () => {
 
       await vi.waitFor(() => expect(getLayersStore().get(unknown.key).status).toBe("error"));
       expect(getLayersStore().get(unknown.key)).toMatchObject({ desired: false, applied: false });
-      expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+      expect(eyeBtn.checked).toBe(false);
       expect(eyeBtn.getAttribute("aria-busy")).toBe("false");
       expect(wrapper.querySelector(".layer-announcer").textContent).toBe(
         "Could not load Test Layer. It is off.",
@@ -157,7 +157,7 @@ describe("layer accordion activation", () => {
         }),
     );
     const { wrapper, eyeBtn } = accordion(layer);
-    const header = wrapper.querySelector(".layer-header");
+    const header = wrapper.querySelector(".layer-expand");
     const body = wrapper.querySelector(".layer-body");
 
     header.click();
@@ -168,19 +168,25 @@ describe("layer accordion activation", () => {
     await vi.waitFor(() =>
       expect(getLayersStore().get(layer.key)).toMatchObject({ applied: true, status: "idle" }),
     );
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
+    expect(eyeBtn.checked).toBe(true);
     expect(body.style.display).toBe("none");
     expect(store.openViews.has(layer.id)).toBe(true);
   });
 
   /**
    * Press a key the way a browser does: keydown bubbles, and unless a listener
-   * cancels it, Enter/Space on a button activates it (a click).
+   * cancels it, Enter/Space on a button and Space on a checkbox activate it
+   * (a click). Enter on a checkbox does nothing by itself, which is why the
+   * layer switch handles it.
    */
   function pressKey(target, key) {
     const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
     target.dispatchEvent(event);
-    if (!event.defaultPrevented && target instanceof HTMLButtonElement) target.click();
+    if (event.defaultPrevented) return;
+    if (target instanceof HTMLButtonElement) target.click();
+    else if (target instanceof HTMLInputElement && target.type === "checkbox" && key === " ") {
+      target.click();
+    }
   }
 
   /** A layer of its own, so rows built by earlier tests don't share its record. */
@@ -194,7 +200,7 @@ describe("layer accordion activation", () => {
 
     pressKey(eyeBtn, key);
     await vi.waitFor(() => expect(getLayersStore().get(layer.key).applied).toBe(true));
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
+    expect(eyeBtn.checked).toBe(true);
 
     pressKey(eyeBtn, key);
     await vi.waitFor(() =>
@@ -204,14 +210,14 @@ describe("layer accordion activation", () => {
         status: "idle",
       }),
     );
-    expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+    expect(eyeBtn.checked).toBe(false);
     expect(body.style.display).toBe("none");
-    expect(wrapper.querySelector(".layer-header").getAttribute("aria-expanded")).toBe("false");
+    expect(wrapper.querySelector(".layer-expand").getAttribute("aria-expanded")).toBe("false");
   });
 
   it.each(["Enter", " "])("toggles the accordion on %j on the header", (key) => {
     const { wrapper } = accordion(freshLayer());
-    const header = wrapper.querySelector(".layer-header");
+    const header = wrapper.querySelector(".layer-expand");
 
     pressKey(header, key);
     expect(header.getAttribute("aria-expanded")).toBe("true");

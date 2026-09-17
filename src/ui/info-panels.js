@@ -149,8 +149,8 @@ export function buildSourcesPanel({ signal } = {}) {
         <h1 class="info-page-hero__title">Sources</h1>
         <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
         <label class="sources-mapx-toggle mg-switch">
-          <input type="checkbox" class="mg-switch__input" data-action="toggle-mapx-ids">
-          <span class="mg-switch__track">
+          <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-mapx-ids">
+          <span class="mg-switch__track" aria-hidden="true">
             <span class="mg-switch__thumb"></span>
           </span>
           <span class="mg-switch__label">Show MapX view IDs</span>

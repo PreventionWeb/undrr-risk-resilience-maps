@@ -109,20 +109,56 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
 
   it("shows busy switch state and labels from the record", () => {
     const { store, el } = setup(simple, { variant });
-    expect(eye(el).getAttribute("aria-checked")).toBe("false");
+    // A switch keeps the layer's name; its state is the switch state.
+    expect(eye(el).getAttribute("role")).toBe("switch");
+    expect(eye(el).type).toBe("checkbox");
+    expect(eye(el).closest(".mg-switch")).not.toBeNull();
+    expect(eye(el).checked).toBe(false);
     expect(eye(el).getAttribute("aria-busy")).toBe("false");
+    expect(eye(el).getAttribute("aria-label")).toBe("Population");
 
     store.set("pop", { desired: true, status: "loading" });
-    expect(eye(el).getAttribute("aria-checked")).toBe("true");
+    expect(eye(el).checked).toBe(true);
     expect(eye(el).getAttribute("aria-busy")).toBe("true");
     expect(eye(el).getAttribute("aria-label")).toBe("Loading Population…");
 
     store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
     expect(eye(el).getAttribute("aria-busy")).toBe("false");
-    expect(eye(el).getAttribute("aria-label")).toBe("Turn off Population");
+    expect(eye(el).getAttribute("aria-label")).toBe("Population");
 
     store.set("pop", { desired: false, status: "removing" });
     expect(eye(el).getAttribute("aria-label")).toBe("Turning off Population…");
+  });
+
+  it("marks the switch aria-disabled while the map is not ready", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { controller, el } = setup(simple, { variant, isReady: () => false });
+    expect(eye(el).getAttribute("aria-disabled")).toBe("true");
+
+    eye(el).click();
+
+    // The click is cancelled, so the checkbox does not stay on either.
+    expect(eye(el).checked).toBe(false);
+    expect(controller.setOn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("shows an error state on the switch, and a message, after a failed load", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    store.set("pop", { desired: false, status: "error", error: new Error("offline") });
+
+    expect(el.querySelector(".layer-switch").classList.contains("is-error")).toBe(true);
+    const message = el.querySelector(".layer-error");
+    expect(message.textContent).toBe("Could not load Population. It is off.");
+    // Said once, by the row's live region.
+    expect(message.getAttribute("aria-hidden")).toBe("true");
+
+    // The next attempt clears both.
+    store.set("pop", { desired: true, status: "loading" });
+    expect(el.querySelector(".layer-switch").classList.contains("is-error")).toBe(false);
+    expect(el.querySelector(".layer-error").textContent).toBe("");
   });
 
   it("announces a failure and clears the message on the next call", () => {
@@ -207,16 +243,18 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     const bubbled = vi.fn();
     el.addEventListener("click", bubbled);
 
+    // The checkbox still toggles itself (that is the browser, not the row),
+    // but nothing reaches the controller and no record is rendered again.
     eye(el).click();
     expect(bubbled).toHaveBeenCalledTimes(1);
-    if (variant === "full") el.querySelector(".layer-header").click();
+    if (variant === "full") el.querySelector(".layer-expand").click();
     store.set("pop", { desired: true, applied: true, viewId: "MX-POP" });
 
     expect(controller.setOn).not.toHaveBeenCalled();
-    expect(eye(el).getAttribute("aria-checked")).toBe("false");
+    expect(eye(el).getAttribute("aria-busy")).toBe("false");
     expect(mocks.addLegend).not.toHaveBeenCalled();
     if (variant === "full") {
-      expect(el.querySelector(".layer-header").getAttribute("aria-expanded")).toBe("false");
+      expect(el.querySelector(".layer-expand").getAttribute("aria-expanded")).toBe("false");
     }
   });
 
@@ -228,7 +266,7 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
 });
 
 describe("createLayerRow full variant", () => {
-  const header = (el) => el.querySelector(".layer-header");
+  const header = (el) => el.querySelector(".layer-expand");
   const expanded = (el) => header(el).getAttribute("aria-expanded") === "true";
 
   it("uses the accordion markup", () => {
@@ -285,23 +323,43 @@ describe("createLayerRow full variant", () => {
     expect(expanded(el)).toBe(true);
   });
 
-  it("toggles the accordion, not the layer, on Enter or Space on the header", () => {
+  it("gives the accordion its own button beside the switch, not around it", () => {
+    const { el } = setup(simple);
+    const expand = header(el);
+    expect(expand.tagName).toBe("BUTTON");
+    // The switch is a sibling: no interactive control nested inside another.
+    expect(expand.querySelector(".layer-eye")).toBeNull();
+    expect(eye(el).closest(".layer-expand")).toBeNull();
+    expect(eye(el).closest(".mg-switch").parentElement).toBe(expand.parentElement);
+  });
+
+  it("toggles the accordion, not the layer, on Enter or Space on the expand button", () => {
     const { controller, el } = setup(draft);
+    // A native button: the browser turns Enter and Space into a click, so the
+    // row cancels nothing.
     for (const key of ["Enter", " "]) {
       const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
       header(el).dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(true);
+      expect(event.defaultPrevented).toBe(false);
+      header(el).click();
     }
     expect(expanded(el)).toBe(false);
     expect(controller.setOn).not.toHaveBeenCalled();
   });
 
-  it("leaves Enter and Space on the switch to the switch", () => {
-    const { el } = setup(simple);
-    const event = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
-    eye(el).dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
+  it("leaves Space on the switch to the switch and turns Enter into a toggle", () => {
+    const { controller, el } = setup(simple);
+    // Space is the checkbox's own key: the row must not cancel it.
+    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    eye(el).dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(false);
     expect(expanded(el)).toBe(false);
+
+    // Enter does nothing to a checkbox, so the row activates it.
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    eye(el).dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(controller.setOn).toHaveBeenLastCalledWith("pop", true);
   });
 
   it("opens Sources from the citation link", () => {
@@ -387,7 +445,7 @@ describe("createLayerRow compact variant", () => {
     expect(el.className).toBe("cross-tab-item");
     expect(el.querySelector(".cross-tab-label").textContent).toBe("Flood");
     expect(el.querySelector(".layer-type-tag").textContent).toBe("raster");
-    expect(el.querySelector(".layer-header, .layer-widget-slot, .widget-sub-tabs")).toBeNull();
+    expect(el.querySelector(".layer-expand, .layer-widget-slot, .widget-sub-tabs")).toBeNull();
   });
 
   it("shows details only while the layer is on", () => {

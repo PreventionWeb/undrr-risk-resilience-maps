@@ -51,7 +51,7 @@ vi.mock("../config/layers.js", () => ({
   ],
 }));
 vi.mock("../sdk/views.js", () => ({ viewAdd: mocks.viewAdd, viewRemove: mocks.viewRemove }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
+vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({
   addOpacitySlider: mocks.addOpacitySlider,
   addLegend: mocks.addLegend,
@@ -188,7 +188,7 @@ describe("cross-tab layer rows", () => {
     expect(body.hidden).toBe(false);
     expect(body.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
     expect(body.querySelector(".layer-desc").textContent).toBe("Recovery.");
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(row.querySelector(".layer-eye").checked).toBe(true);
 
     row.querySelector(".layer-eye").click();
     await vi.waitFor(() => expect(body.hidden).toBe(true));
@@ -301,7 +301,7 @@ describe("cross-tab layer rows", () => {
     expect(status.hidden).toBe(false);
     expect(status.classList.contains("is-error")).toBe(true);
     expect(row.querySelector(".cross-tab-body").hidden).toBe(false);
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+    expect(row.querySelector(".layer-eye").checked).toBe(false);
   });
 
   it("turns a layer off after a source switch that was in flight settles", async () => {
@@ -325,12 +325,12 @@ describe("cross-tab layer rows", () => {
 
     const row = crossRow("resilience", "Flood");
     // The switch follows intent at once; the map catches up once the switch settles.
-    expect(floodEye.getAttribute("aria-checked")).toBe("false");
+    expect(floodEye.checked).toBe(false);
     await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
     expect(store.openViews.size).toBe(0);
     expect(mocks.viewRemove).toHaveBeenLastCalledWith("MX-F100");
     expect(row.querySelector(".cross-tab-body").hidden).toBe(true);
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+    expect(row.querySelector(".layer-eye").checked).toBe(false);
   });
 
   it("restores a shared link without adding history entries", async () => {
@@ -394,10 +394,8 @@ function homeItem(tabId, label) {
  */
 function expectLayerState({ key, label, homeTab, viewIds, on }) {
   expect(viewIds.some((id) => store.openViews.has(id))).toBe(on);
-  expect(homeItem(homeTab, label).querySelector(".layer-eye").getAttribute("aria-checked")).toBe(String(on));
-  expect(crossRow("resilience", label).querySelector(".layer-eye").getAttribute("aria-checked")).toBe(
-    String(on),
-  );
+  expect(homeItem(homeTab, label).querySelector(".layer-eye").checked).toBe(on);
+  expect(crossRow("resilience", label).querySelector(".layer-eye").checked).toBe(on);
   expect(hashLayerKeys().includes(key)).toBe(on);
 }
 
@@ -552,7 +550,7 @@ describe("layer state consistency", () => {
     eye.click();
     expect(eye.disabled).toBe(false);
     eye.click();
-    expect(eye.getAttribute("aria-checked")).toBe("false");
+    expect(eye.checked).toBe(false);
     slowOpen.resolve();
 
     await vi.waitFor(() => expect(mocks.closeExternalLayer).toHaveBeenCalledTimes(1));
@@ -625,7 +623,7 @@ describe("layer state consistency", () => {
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     const item = homeItem("risk", RECOVERY.label);
-    const header = item.querySelector(".layer-header");
+    const header = item.querySelector(".layer-expand");
     header.click();
     await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
     header.click();
@@ -643,7 +641,7 @@ describe("layer state consistency", () => {
     expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(item.querySelector(".layer-body").style.display).toBe("none");
-    expect(item.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(item.querySelector(".layer-eye").checked).toBe(true);
     expect(location.hash).toBe("#risk?layers=recovery");
   });
 
@@ -744,13 +742,9 @@ describe("layers store", () => {
     const layersStore = sidebar.store;
     for (const layer of [RECOVERY, FLOOD, POP]) {
       const record = layersStore.get(layer.key);
-      const on = String(record.applied);
-      expect(
-        homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").getAttribute("aria-checked"),
-      ).toBe(on);
-      expect(
-        crossRow("resilience", layer.label).querySelector(".layer-eye").getAttribute("aria-checked"),
-      ).toBe(on);
+      const on = record.applied;
+      expect(homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").checked).toBe(on);
+      expect(crossRow("resilience", layer.label).querySelector(".layer-eye").checked).toBe(on);
       expect(hashLayerKeys().includes(layer.key)).toBe(record.applied);
       expect(record.status).toBe("idle");
       if (record.applied) {
@@ -929,7 +923,7 @@ describe("layers store", () => {
 
       eye.click();
 
-      expect(eye.getAttribute("aria-checked")).toBe("true");
+      expect(eye.checked).toBe(true);
       expect(eye.getAttribute("aria-busy")).toBe("true");
       expect(eye.getAttribute("aria-label")).toBe("Loading Population…");
       const home = homeItem("exposure", POP.label);
@@ -939,9 +933,9 @@ describe("layers store", () => {
       await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
       warn.mockRestore();
 
-      expect(eye.getAttribute("aria-checked")).toBe("false");
+      expect(eye.checked).toBe(false);
       expect(eye.getAttribute("aria-busy")).toBe("false");
-      expect(eye.getAttribute("aria-label")).toBe("Turn on Population");
+      expect(eye.getAttribute("aria-label")).toBe("Population");
       expect(announcerText(row)).toBe("Could not load Population. It is off.");
       expect(announcerText(home)).toBe("Could not load Population. It is off.");
       const announcer = row.querySelector(".layer-announcer");
@@ -954,7 +948,7 @@ describe("layers store", () => {
       expect(announcerText(row)).toBe("");
       await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
       expect(announcerText(row)).toBe("");
-      expect(eye.getAttribute("aria-label")).toBe("Turn off Population");
+      expect(eye.getAttribute("aria-label")).toBe("Population");
     });
 
     it("announces a failed turn-off", async () => {
@@ -969,7 +963,7 @@ describe("layers store", () => {
       warn.mockRestore();
 
       expect(announcerText(row)).toBe("Could not change Recovery Speed. It is still on as before.");
-      expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+      expect(row.querySelector(".layer-eye").checked).toBe(true);
     });
 
     it("announces a failed external layer load", async () => {
@@ -1033,7 +1027,7 @@ describe("layers store", () => {
     });
     expect(hashSegments()).toEqual([]);
     const home = homeItem("risk", FLOOD.label);
-    expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+    expect(home.querySelector(".layer-eye").checked).toBe(false);
 
     // Turning it on again adds the kept source and lists it in the hash.
     home.querySelector(".layer-eye").click();
@@ -1063,9 +1057,9 @@ describe("layers store", () => {
     error.mockRestore();
     expect(sidebar.store.get("recovery")).toMatchObject({ applied: true, viewId: "MX-REC" });
     expect(store.openViews.has("MX-REC")).toBe(true);
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(row.querySelector(".layer-eye").checked).toBe(true);
     const home = homeItem("risk", RECOVERY.label);
-    expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(home.querySelector(".layer-eye").checked).toBe(true);
     expect(home.classList.contains("layer-active")).toBe(true);
     // The home row's legend renders once its tab is shown.
     showTab("risk");
@@ -1259,7 +1253,7 @@ describe("layers store", () => {
     expect(orphan.get("recovery")).toMatchObject({ desired: true, applied: false, status: "loading" });
     expect(store.openViews.size).toBe(0);
     expect(location.hash).toBe("#resilience");
-    expect(eye.getAttribute("aria-checked")).toBe("true");
+    expect(eye.checked).toBe(true);
     expect(mocks.addLegend).not.toHaveBeenCalled();
   });
 
@@ -1284,9 +1278,7 @@ describe("layers store", () => {
     expect(sidebar.store.all()).toEqual([]);
     expect(store.openViews.size).toBe(0);
     expect(location.hash).toBe(hashBefore);
-    expect(
-      crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").getAttribute("aria-checked"),
-    ).toBe("false");
+    expect(crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").checked).toBe(false);
   });
 
   it("clears openViews left by a previous build", async () => {

@@ -26,7 +26,7 @@ vi.mock("../config/layers.js", () => ({
   ],
 }));
 vi.mock("../sdk/views.js", () => ({ viewAdd: mocks.viewAdd, viewRemove: mocks.viewRemove }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
+vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../utils/export-layers.js", () => ({ downloadLayerInventory: vi.fn() }));
@@ -57,7 +57,7 @@ const PAGE = `
   <div id="app-map" data-ui="app-map">
     <div class="layer-panel" id="sidebar" data-ui="layer-panel">
       <div class="layer-panel-header">
-        <button id="layer-disabled-toggle" data-ui="show-disabled" aria-pressed="false">Show disabled</button>
+        <label class="mg-switch"><input type="checkbox" role="switch" class="mg-switch__input" id="layer-disabled-toggle" data-ui="show-disabled" /><span class="mg-switch__track" aria-hidden="true"><span class="mg-switch__thumb"></span></span><span class="mg-switch__label">Show disabled</span></label>
         <button id="layer-clear-btn" data-ui="clear-layers" hidden>Clear all</button>
         <button id="panel-toggle" data-ui="panel-toggle">Collapse</button>
       </div>
@@ -247,9 +247,10 @@ describe("createSidebar", () => {
     expect($("[data-tab-panel='exposure']").style.display).toBe("block");
     expect($("[data-tab-panel='hazard']").style.display).toBe("none");
 
-    // One "Show disabled" click flips it once.
+    // One "Show disabled" click flips the switch once.
     $("#layer-disabled-toggle").click();
-    expect($("#layer-disabled-toggle").getAttribute("aria-pressed")).toBe("true");
+    expect($("#layer-disabled-toggle").checked).toBe(true);
+    expect($("[data-tab-panel='exposure'] [data-layer-disabled='true']")?.hidden ?? false).toBe(false);
   });
 
   it("does nothing on clicks to old elements after destroy", async () => {
@@ -272,6 +273,8 @@ describe("createSidebar", () => {
     sidebar.destroy();
     expect(sidebar.store).toBeNull();
     expect(sidebar.controller).toBeNull();
+    // "Show disabled" is reset for the next instance.
+    expect(disabledToggle.checked).toBe(false);
     // The instance's DOM is gone and the static controls are reset.
     expect($$(".tab-panel, .info-page-panel, .nav-tab-link, .panel-resize-grip")).toEqual([]);
     expect(clearBtn.hidden).toBe(true);
@@ -298,7 +301,8 @@ describe("createSidebar", () => {
     expect(mocks.viewRemove).not.toHaveBeenCalled();
     expect(sidebar.activeTab).toBe("hazard");
     expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
-    expect(disabledToggle.getAttribute("aria-pressed")).toBe("false");
+    // The checkbox flips itself when clicked (the browser does that), but the
+    // destroyed instance no longer listens, so nothing else changes.
     expect(homeLink.classList.contains("is-active")).toBe(false);
   });
 

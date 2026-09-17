@@ -22,7 +22,7 @@ vi.mock("../config/layers.js", () => {
   };
 });
 vi.mock("../sdk/views.js", () => ({ viewAdd: vi.fn(async () => {}), viewRemove: vi.fn(async () => {}) }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
+vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 vi.mock("./home.js", () => ({ buildHomePanel: () => document.createElement("div") }));
 vi.mock("./info-panels.js", () => ({
