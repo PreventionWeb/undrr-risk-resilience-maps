@@ -4,15 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## Unreleased
+## [0.0.3] - 2026-09-17
 
 ### Fixed
 
-- Show the description, opacity slider and legend for layers turned on from another pillar's section of the layer panel. Previously these rendered only in the layer's home tab, which is hidden, so nothing appeared.
-- Render a cross-tab row's legend and opacity slider only in the visible tab, instead of in every tab, to cut repeated MapX legend and transparency requests.
-- Show an external layer's loading and error messages in the cross-tab row it was turned on from.
-- Keep opacity sliders for the same layer in sync, and drop sliders whose slot was cleared before they finished loading.
-- Turning a compound layer off while it is switching source (for example with "Clear all" or Back) now turns it off once the switch settles, instead of leaving the new source on the map.
+- Show the description, opacity slider and legend for layers turned on from another pillar's section of the layer panel. Previously these rendered only in the layer's home tab, which is hidden, so nothing appeared ([#10](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/10)).
+- Render a cross-tab row's legend and opacity slider only in the visible tab, instead of in every tab, to cut repeated MapX legend and transparency requests ([#12](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/12)).
+- Show an external layer's loading and error messages in the cross-tab row it was turned on from ([#12](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/12)).
+- Keep opacity sliders for the same layer in sync, and drop sliders whose slot was cleared before they finished loading ([#12](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/12)).
+- Turning a compound layer off while it is switching source (for example with "Clear all" or Back) now turns it off once the switch settles, instead of leaving the new source on the map ([#12](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/12)).
+
+### Added
+
+- Add a `commit-msg` hook that rejects AI-assistant attribution trailers, enabled on `yarn install` ([#11](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/11)).
 
 ## [0.0.2] - 2026-09-17
 
