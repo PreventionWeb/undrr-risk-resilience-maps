@@ -122,7 +122,11 @@ describe("createSidebar", () => {
     sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
 
     expect($$(".tab-panel").map((el) => el.dataset.tabPanel)).toEqual(["hazard", "exposure"]);
-    expect($$("#info-page > .info-page-panel").map((el) => el.dataset.tabPanel)).toEqual(["home", "sources", "about"]);
+    expect($$("#info-page > .info-page-panel").map((el) => el.dataset.tabPanel)).toEqual([
+      "home",
+      "sources",
+      "about",
+    ]);
     // Panels are found by data-tab-panel; the instance creates no tab-* ids.
     expect($$("[id^='tab-']")).toEqual([]);
     expect($$(".nav-tab-link").map((a) => a.dataset.tab)).toEqual(["hazard", "exposure"]);

@@ -284,7 +284,9 @@ describe("cross-tab layer rows", () => {
       expect([...counts.values()]).toEqual([1, 1, 1, 1]);
     }
     await vi.waitFor(() =>
-      expect(document.querySelectorAll("[data-tab-panel='exposure'] .layer-legend-slot .html-legend")).toHaveLength(2),
+      expect(
+        document.querySelectorAll("[data-tab-panel='exposure'] .layer-legend-slot .html-legend"),
+      ).toHaveLength(2),
     );
   });
 

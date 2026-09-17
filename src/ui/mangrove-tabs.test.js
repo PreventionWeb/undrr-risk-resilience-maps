@@ -73,7 +73,9 @@ describe("initMangroveTabs with a signal", () => {
       for (let i = 0; i < 5; i++) {
         const scope = document.createElement("div");
         const lifetime = new AbortController();
-        expect(await initMangroveTabs(scope, { importImpl: async () => mod, signal: lifetime.signal })).toBe(true);
+        expect(await initMangroveTabs(scope, { importImpl: async () => mod, signal: lifetime.signal })).toBe(
+          true,
+        );
         expect(listeners.count()).toBe(1);
         lifetime.abort();
         expect(mod.mgTabsDestroy).toHaveBeenLastCalledWith(scope);
