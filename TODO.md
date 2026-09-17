@@ -22,7 +22,7 @@ Cross-project `view_add` calls currently work in practice (see [LEARNINGS.md](LE
 
 ## Widget event bus
 
-The compound layer system (`src/ui/widgets/`) uses a callback pattern: each widget calls `onSourceChange(index)` which the sidebar routes to `switchSource()`. This works for source switching but is tightly coupled -- the sidebar owns all SDK call logic.
+The compound layer system (`src/ui/widgets/`) uses a callback pattern: each widget calls `onSourceChange(index)` which the sidebar routes to `controller.setSource()` (`src/services/layer-controller.js`). Source switching no longer lives in the sidebar, but other SDK calls (opacity, filters) are still wired per widget.
 
 If we add filter widgets that need to call SDK filter methods (e.g. `set_view_layer_filter_text`, `set_view_layer_filter_numeric`), a lightweight event emitter would decouple widgets from specific SDK calls. Each widget would emit `{ type, layerId, value }` events, and a central handler would dispatch to the right SDK method.
 

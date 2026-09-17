@@ -2,14 +2,14 @@
  * Per-layer state: one record per layer key saying whether the layer is on,
  * which source or variant is showing and which MapX view carries it.
  *
- * This is step 1 of the layer-state refactor (unisdr/undrr-risk-resilience-maps#14).
- * The sidebar writes records alongside its existing state and reads `applied`
- * instead of the switch's `.is-active` class in clear-all, restore, reconcile,
- * accordion expand and the deferred turn-off (toggleLayer itself still checks
- * openViews and the external registry). `store.openViews` is kept as a
- * compatibility Set derived from these records (see mirrorOpenViews), and the
- * URL hash is serialised from them (see toUrlLayers). A later controller will
- * reconcile `desired` into `applied`.
+ * Part of the layer-state refactor (unisdr/undrr-risk-resilience-maps#14).
+ * Records hold intent (`desired`, `sourceIdx`, `settings`), written by the UI,
+ * and what MapX shows (`applied`, `viewId`, `appliedSourceIdx`,
+ * `appliedSettings`), written by the layer controller
+ * (src/services/layer-controller.js), which reconciles one into the other.
+ * `store.openViews` is kept as a compatibility Set derived from these records
+ * (see mirrorOpenViews), and the URL hash is serialised from the applied
+ * fields (see toUrlLayers).
  *
  * Nothing here touches the DOM, the URL or the SDK, and nothing runs on import.
  */
@@ -20,15 +20,22 @@ import { isLayerAvailable } from "../config/layers/status.js";
  * @property {string} key - stable layer config key
  * @property {boolean} desired - intent: what the user last asked for (on/off). When a
  *   MapX call fails it is reset to what MapX shows (a failed turn-on leaves `false`, a
- *   failed turn-off `true`), so it only differs from `applied` while a call is in flight
+ *   failed turn-off `true`), unless newer intent arrived during the call, so it only
+ *   differs from `applied` while a call is in flight or pending
+ * @property {number} sourceIdx - intent: compound layers' index into `sources`; 0 otherwise.
+ *   Reset to `appliedSourceIdx` when a switch fails
+ * @property {object|null} settings - intent: external layers' provider settings (e.g. crop,
+ *   scenario); null means the provider defaults. Stored as a frozen copy; a patch with
+ *   equal contents keeps the stored object
  * @property {boolean} applied - whether the layer is on (MapX confirmed the add)
- * @property {number} sourceIdx - compound layers: index into `sources`; 0 otherwise
- * @property {object|null} settings - external layers: provider settings (e.g. crop, scenario).
- *   Stored as a frozen copy; a patch with equal contents keeps the stored object
+ * @property {number} appliedSourceIdx - the source MapX shows (or last showed) for the layer
+ * @property {object|null} appliedSettings - the provider settings of the external view on the
+ *   map. Stored as a frozen copy, like `settings`
  * @property {string|null} viewId - MapX view currently on the map for this layer. Null while
  *   off and during a source switch, between removing the old view and adding the new one
  * @property {"idle"|"loading"|"removing"|"switching"|"error"} status - a MapX call in flight,
  *   or "error" when the last one failed (turn on, turn off, source switch or variant change)
+ *   and intent was reset to the applied state
  * @property {unknown} error - that failure; kept until a later call for the layer succeeds
  */
 
@@ -36,9 +43,11 @@ const defaults = (key) =>
   Object.freeze({
     key,
     desired: false,
-    applied: false,
     sourceIdx: 0,
     settings: null,
+    applied: false,
+    appliedSourceIdx: 0,
+    appliedSettings: null,
     viewId: null,
     status: "idle",
     error: null,
@@ -47,7 +56,7 @@ const defaults = (key) =>
 /** Fields a patch may set. `key` is always the store key and is ignored in patches. */
 const FIELDS = new Set(Object.keys(defaults("")).filter((field) => field !== "key"));
 /** Object-valued fields, stored as frozen copies so callers can't mutate a record. */
-const OBJECT_FIELDS = new Set(["settings"]);
+const OBJECT_FIELDS = new Set(["settings", "appliedSettings"]);
 
 const isPlainData = (value) =>
   Array.isArray(value) || (value !== null && typeof value === "object" && value.constructor === Object);
@@ -111,7 +120,7 @@ export function createLayersStore() {
      * to the "off" defaults, is not stored and does not notify.
      *
      * Unknown fields are ignored with a console warning, and `key` is ignored.
-     * Object fields (`settings`) are stored as deep-frozen copies; a patch with
+     * Object fields (`settings`, `appliedSettings`) are stored as deep-frozen copies; a patch with
      * equal contents keeps the stored object, so it is not a change.
      * Subscriber errors are logged (console.error), never thrown.
      * @param {string} key
@@ -186,17 +195,18 @@ export function mirrorOpenViews(layersStore, openViews) {
 }
 
 /**
- * Whether a record change alters what the URL should say: on/off, source,
- * settings, or a layer that is on getting a view again (toUrlLayers leaves out
- * a layer with no view, e.g. after a source switch and its rollback both
- * failed). Status, `desired` and the transient `viewId: null` during a source
- * switch do not, so a switch still writes once, when the new view arrives.
+ * Whether a record change alters what the URL should say. Only what MapX
+ * shows does: on/off, the applied source or settings, or a layer that is on
+ * getting a view again (toUrlLayers leaves out a layer with no view, e.g. when
+ * another layer wrote the hash during this layer's source switch). Intent,
+ * status and the transient `viewId: null` during a source switch do not, so a
+ * switch still writes once, when the new view arrives.
  */
 export function changesUrlState(next, prev) {
   return (
     next.applied !== prev.applied ||
-    next.sourceIdx !== prev.sourceIdx ||
-    next.settings !== prev.settings ||
+    next.appliedSourceIdx !== prev.appliedSourceIdx ||
+    next.appliedSettings !== prev.appliedSettings ||
     Boolean(next.applied && next.viewId && !prev.viewId)
   );
 }
@@ -221,9 +231,10 @@ export function urlKeyOrder(tabs) {
 const unorderedKeysWarned = new Set();
 
 /**
- * The layers that are on, as URL state entries, ordered by `keyOrder` (config
- * order, see urlKeyOrder). A layer mid source-switch (no view on the map) is
- * left out, as it was when the hash was built from openViews.
+ * The layers that are on, as URL state entries built from their applied source
+ * and settings (what MapX shows, not intent still loading), ordered by
+ * `keyOrder` (config order, see urlKeyOrder). A layer mid source-switch (no
+ * view on the map) is left out, as it was when the hash was built from openViews.
  *
  * `keyOrder` is required. A layer that is on but whose key is not in it is
  * left out too (the config walk never listed such a key), with a console
@@ -246,5 +257,7 @@ export function toUrlLayers(records, keyOrder) {
   return on
     .filter((record) => rank.has(record.key))
     .sort((a, b) => rank.get(a.key) - rank.get(b.key))
-    .map(({ key, sourceIdx, settings }) => (settings ? { key, sourceIdx, settings } : { key, sourceIdx }));
+    .map(({ key, appliedSourceIdx: sourceIdx, appliedSettings: settings }) =>
+      settings ? { key, sourceIdx, settings } : { key, sourceIdx },
+    );
 }

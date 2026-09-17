@@ -14,7 +14,7 @@ import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
-import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
+import { buildWidget, isCompound } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { hashChangeAction } from "../state/hash.js";
 import { createHashAdapter } from "../state/hash-adapter.js";
@@ -25,6 +25,7 @@ import {
   toUrlLayers,
   urlKeyOrder,
 } from "../state/layers-store.js";
+import { createLayerController, isBusyStatus, settingsMatch } from "../services/layer-controller.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
@@ -71,11 +72,13 @@ const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
 // grouped row order of the sidebar).
 const URL_KEY_ORDER = urlKeyOrder(TABS);
 
-// Per-layer records: whether each layer is on, its source/variant and view.
-// `store.openViews` and the URL hash are derived from it by subscribers.
-// Created by buildSidebar(), never on import (see getLayersStore and
-// destroySidebar for the lifecycle).
+// Per-layer records: what the user asked for and what MapX shows. The layer
+// controller reconciles one into the other; `store.openViews`, the URL hash and
+// the layer rows are derived from the records by subscribers. The store and
+// controller are created by buildSidebar(), never on import (see
+// getLayersStore, getLayerController and destroySidebar for the lifecycle).
 let layersStore = null;
+let layerController = null;
 // Reads, writes and watches URL state (the hash, in the standalone app). Only
 // buildSidebar() sets it.
 let stateAdapter = null;
@@ -84,11 +87,11 @@ let destroyed = false;
 // Undo initLayerState()/buildSidebar() subscriptions and listeners (see destroySidebar).
 let disposers = [];
 
-// Built by buildSidebar(); maps layer.key → { layer, eyeBtn, wrapper }
-// Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
-// positional DOM queries that break when layer order changes in config.
-// Filled in sidebar row order (grouped tabs list rows by R2R category), so it
-// is not the hash order; that is URL_KEY_ORDER.
+// Maps layer.key → the layer's row in its home tab (see buildLayerAccordion):
+// { layer, eyeBtn, wrapper, expandOnApply, shownSourceIdx, shownSettings, pendingSelections }.
+// It is the controller's layer config lookup. Filled in sidebar row order
+// (grouped tabs list rows by R2R category), so it is not the hash order; that
+// is URL_KEY_ORDER.
 const layerElementMap = new Map();
 // Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
 // for the compact rows in cross-tab sections, so layers activated outside their
@@ -97,11 +100,6 @@ const secondaryRows = new Map();
 // Maps layer.key → { layer, viewId, legendLayer, status, version }: what the
 // cross-tab rows should show. Only rows in the visible tab are rendered.
 const secondaryState = new Map();
-// Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
-const toggleInFlight = new Set();
-// Keys of compound layers mid source-switch, and those asked to turn off meanwhile.
-const sourceSwitchInFlight = new Set();
-const pendingToggleOff = new Set();
 let showDisabledLayers = false;
 // Depth of batched layer changes (restore, back/forward, clear-all). Hash
 // writes inside a batch are skipped and replaced by one write when it ends,
@@ -109,8 +107,9 @@ let showDisabledLayers = false;
 let hashBatchDepth = 0;
 
 /**
- * Create the layers store and URL adapter, and derive openViews and the hash
- * from the store. Replaces any previous instance and its subscriptions.
+ * Create the layers store, layer controller and URL adapter, and derive
+ * openViews, the hash and the layer rows from the store. Replaces any previous
+ * instance and its subscriptions.
  * @param {ReturnType<typeof createHashAdapter>} [adapter] - injected adapter,
  *   owned by the caller; the default hash adapter is owned and destroyed here
  * @param {{ url?: boolean }} [options] - `url: false` creates no adapter, so
@@ -135,6 +134,24 @@ function initLayerState(adapter, { url = true } = {}) {
       if (changesUrlState(next, prev)) syncHashFromState();
     }),
   );
+  disposers.push(layersStore.subscribe(renderLayerRecord));
+  layerController = createLayerController({
+    store: layersStore,
+    getLayer: (key) => layerElementMap.get(key)?.layer,
+    views: { add: viewAdd, remove: viewRemove },
+    external: {
+      isExternal: isExternalLayer,
+      getRuntime: getExternalLayerRuntime,
+      open: openExternalLayer,
+      close: closeExternalLayer,
+      replace: replaceExternalLayer,
+    },
+    onError: (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
+  });
+  // Runs first on destroy (disposers run in reverse), so a MapX call that
+  // settles afterwards is dropped before anything else is torn down.
+  const controller = layerController;
+  disposers.push(() => controller.destroy());
 }
 
 /**
@@ -152,18 +169,31 @@ export function getLayersStore() {
 }
 
 /**
+ * The controller that applies layer changes to the map. Created with the store
+ * (see getLayersStore): lazily and without a URL adapter only before any
+ * buildSidebar(), and null after destroySidebar() until the next buildSidebar().
+ * @returns {ReturnType<typeof createLayerController>|null}
+ */
+export function getLayerController() {
+  if (!layerController && !destroyed) initLayerState(null, { url: false });
+  return layerController;
+}
+
+/**
  * Tear down what buildSidebar() set up: the URL listener, the store
- * subscriptions, and the hash adapter if the sidebar created it (an injected
+ * subscriptions (openViews mirror, hash sync, row renderer), the layer
+ * controller, and the hash adapter if the sidebar created it (an injected
  * adapter belongs to the caller and is not destroyed).
  *
  * Lifecycle rule: after destroySidebar() and until the next buildSidebar(),
- * getLayersStore() returns null and the sidebar's entry points do nothing:
- * switch and header clicks, clear-all, source and variant changes, tab-switch
- * hash writes, and restoreLayersFromHash() (which warns). Nothing is
- * re-created lazily, and the URL adapter is only ever created by
- * buildSidebar(). A MapX call that settles after destroy, or after a rebuild,
- * is dropped: its result is not written to the old or new store, openViews,
- * the URL or the rows (the view MapX added is not removed).
+ * getLayersStore() and getLayerController() return null and the sidebar's
+ * entry points do nothing: switch and header clicks, clear-all, source and
+ * variant changes, tab-switch hash writes, and restoreLayersFromHash() (which
+ * warns). Nothing is re-created lazily, and the URL adapter is only ever
+ * created by buildSidebar(). A MapX call that settles after destroy, or after
+ * a rebuild, is dropped: the old controller writes nothing to the old or new
+ * store, openViews, the URL or the rows, and starts no further MapX calls for
+ * intent still pending (a view MapX already added is not removed).
  *
  * The DOM, and the nav, panel and `navigate-tab` listeners that predate the
  * store, are not removed yet.
@@ -171,42 +201,9 @@ export function getLayersStore() {
 export function destroySidebar() {
   for (const dispose of disposers.splice(0).reverse()) dispose();
   layersStore = null;
+  layerController = null;
   stateAdapter = null;
   destroyed = true;
-}
-
-/**
- * Whether `layers` is still the sidebar's store, i.e. the sidebar was not
- * destroyed or rebuilt since an async operation captured it.
- */
-function isLive(layers) {
-  return layers !== null && layers === layersStore;
-}
-
-/**
- * Write to a layer's record; layers without a key have no record. Async
- * callers pass the store they started with, so a late write after destroy or
- * a rebuild is dropped.
- */
-function setLayerRecord(layer, patch, layers = layersStore) {
-  if (layer.key && isLive(layers)) layers.set(layer.key, patch);
-}
-
-/**
- * Whether a layer is on. Every published layer in config has a key; the switch
- * class is only a fallback for a keyless layer, which the store can't track.
- * Always false once the sidebar is destroyed.
- */
-function isLayerApplied(layer, eyeBtn) {
-  if (!layer.key) return eyeBtn.classList.contains("is-active");
-  return Boolean(getLayersStore()?.get(layer.key).applied);
-}
-
-function setLayerToggleDisabled(layer, eyeBtn, disabled) {
-  eyeBtn.disabled = disabled;
-  for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-    btn.disabled = disabled;
-  }
 }
 
 /**
@@ -281,6 +278,12 @@ function setLayerToggleState(layer, button, active) {
   button.title = active ? "Turn layer off" : "Turn layer on";
 }
 
+/** Every switch for a layer: its home row and its cross-tab rows. */
+function layerSwitches(key) {
+  const home = layerElementMap.get(key)?.eyeBtn;
+  return [...(home ? [home] : []), ...(secondaryRows.get(key) ?? []).map((row) => row.eyeBtn)];
+}
+
 /** Expand or collapse a layer accordion's body. */
 function setAccordionExpanded(wrapper, expanded) {
   wrapper.querySelector(".layer-body").style.display = expanded ? "block" : "none";
@@ -288,54 +291,228 @@ function setAccordionExpanded(wrapper, expanded) {
   wrapper.querySelector(".layer-header").setAttribute("aria-expanded", String(expanded));
 }
 
-function externalSettingsMatch(left, right) {
-  if (!left || !right) return false;
-  return Object.keys(right).every((key) => left[key] === right[key]);
+/**
+ * A layer switch was clicked (home or cross-tab row): ask for the opposite of
+ * the layer's current intent. Toggling intent rather than what MapX shows makes
+ * a second click while loading cancel the first; the controller applies the
+ * latest intent once the call in flight settles.
+ * @param {string} key
+ * @param {{ expand?: boolean }} [options] - open the accordion when the layer comes on
+ */
+function toggleLayerFromSwitch(key, { expand = true } = {}) {
+  const el = layerElementMap.get(key);
+  const controller = getLayerController();
+  if (!el || !controller) return; // destroyed (see destroySidebar)
+  // Guard: SDK must be ready before attempting map operations
+  if (!isSDKReady()) {
+    console.warn(`${el.layer.label} cannot be toggled yet — map is still loading.`);
+    return;
+  }
+  const on = !getLayersStore().get(key).desired;
+  if (on) el.expandOnApply = expand;
+  return controller.setOn(key, on);
 }
 
-async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
-  const layers = getLayersStore();
-  if (!layers) return null; // destroyed (see destroySidebar)
+/**
+ * Store subscriber: bring a layer's rows in line with its record. Switches
+ * follow intent (`desired`); the details, source widget, slider and legend
+ * follow what MapX shows (`applied`, `viewId`).
+ */
+function renderLayerRecord(key, next, prev) {
+  const el = layerElementMap.get(key);
+  if (!el) return;
+  const { layer } = el;
+  const external = isExternalLayer(layer);
+  const busy = isBusyStatus(next.status);
+
+  if (next.desired !== prev.desired) {
+    for (const button of layerSwitches(key)) setLayerToggleState(layer, button, next.desired);
+  }
+  if (busy !== isBusyStatus(prev.status)) {
+    for (const button of layerSwitches(key)) button.setAttribute("aria-busy", String(busy));
+  }
+
+  if (external && next.status === "loading" && prev.status !== "loading" && !next.applied) {
+    showExternalLoading(el);
+  }
+
+  if (next.applied && !prev.applied) renderLayerOn(el, next);
+  else if (!next.applied && prev.applied) renderLayerOff(el);
+  else if (next.applied && next.viewId && next.viewId !== prev.viewId) renderLayerView(el, next);
+
+  const settled = !busy && isBusyStatus(prev.status);
+  if (settled && next.applied) syncLayerSelectors(el, next);
+  if (settled && !next.applied && external) {
+    if (next.status === "error") showExternalLoadError(el);
+    else clearLayerControls(el);
+  }
+
+  if (next.desired !== prev.desired || next.applied !== prev.applied) updateClearBtn();
+}
+
+/** The layer came on: reveal its row and build its controls. */
+function renderLayerOn(el, record) {
+  const { layer, wrapper } = el;
+  wrapper.classList.add("layer-active");
+  // Auto-expand the cross-tab sections containing this layer
+  for (const { eyeBtn } of secondaryRows.get(layer.key) ?? []) {
+    const section = eyeBtn.closest("details.cross-tab-section");
+    if (section) section.open = true;
+  }
+
+  // Direct switch activation reveals controls. Header activation already
+  // manages expansion and must not reopen after a slow MapX response.
+  if (el.expandOnApply) setAccordionExpanded(wrapper, true);
+
+  wrapper.querySelector(".layer-widget-slot").innerHTML = "";
+  if (isCompound(layer) && layer.widget) renderSourceWidget(el, record.sourceIdx);
+  if (isExternalLayer(layer)) renderExternalControls(el, record.appliedSettings);
+
+  renderLayerView(el, record);
+}
+
+/**
+ * Show the view MapX now carries for the layer: its description, opacity
+ * slider and legend, in the home row and the cross-tab rows.
+ */
+function renderLayerView(el, record) {
+  const { layer, wrapper } = el;
+  const { viewId } = record;
+  let legendLayer = layer;
+  if (isExternalLayer(layer)) {
+    legendLayer = { ...layer, id: viewId, legend: getExternalLayerRuntime(layer)?.legend };
+  } else if (isCompound(layer)) {
+    // Merge the shown source's fields (desc, legend) onto the parent layer so
+    // addLegend sees the right data.
+    const source = layer.sources[safeSourceIdx(layer, record.appliedSourceIdx)];
+    legendLayer = { ...layer, ...source, label: layer.label };
+    // Show the active source's description instead of the parent's
+    const descEl = wrapper.querySelector(".layer-desc");
+    if (descEl) setLayerDescription(descEl, layer, source.desc || layer.desc);
+  }
+
   const sliderSlot = wrapper.querySelector(".layer-slider-slot");
   const legendSlot = wrapper.querySelector(".layer-legend-slot");
-  if (layer.key) toggleInFlight.add(layer.key);
-  setLayerToggleDisabled(layer, eyeBtn, true);
-  setLayerRecord(layer, { status: "switching" }, layers);
-  try {
-    const result = await replaceExternalLayer(layer, settings);
-    if (!isLive(layers)) return result.runtime;
-    // Store subscribers run synchronously here: openViews moves to the new view
-    // and the hash is written before the slider and legend below are rebuilt.
-    setLayerRecord(
-      layer,
-      { viewId: result.runtime.idView, settings: result.runtime.settings, status: "idle", error: null },
-      layers,
-    );
-
-    sliderSlot.innerHTML = "";
-    addOpacitySlider(result.runtime.idView, sliderSlot);
-    legendSlot.innerHTML = "";
-    const legendLayer = { ...layer, id: result.runtime.idView, legend: result.runtime.legend };
-    addLegend(legendLayer, legendSlot);
-    setSecondaryState(layer, { viewId: result.runtime.idView, legendLayer });
-    return result.runtime;
-  } catch (error) {
-    // The previous variant stays on the map, so only the failure is recorded.
-    setLayerRecord(layer, { status: "error", error }, layers);
-    throw error;
-  } finally {
-    setLayerToggleDisabled(layer, eyeBtn, false);
-    if (layer.key) toggleInFlight.delete(layer.key);
-  }
+  sliderSlot.innerHTML = "";
+  addOpacitySlider(viewId, sliderSlot);
+  legendSlot.innerHTML = "";
+  addLegend(legendLayer, legendSlot);
+  setSecondaryState(layer, { viewId, legendLayer });
 }
 
-function renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition) {
+/** The layer went off: clear its controls and return the row to its compact state. */
+function renderLayerOff(el) {
+  el.wrapper.classList.remove("layer-active");
+  clearLayerControls(el);
+  // Turning a layer off ends the interaction and returns the row to its
+  // compact state. Collapsing alone still leaves an active layer on.
+  setAccordionExpanded(el.wrapper, false);
+}
+
+function clearLayerControls(el) {
+  const { layer, wrapper } = el;
+  setSecondaryState(layer, null);
+  for (const selector of [".layer-widget-slot", ".layer-slider-slot", ".layer-legend-slot"]) {
+    wrapper.querySelector(selector).innerHTML = "";
+  }
+  el.shownSourceIdx = null;
+  el.shownSettings = null;
+}
+
+function showExternalLoading(el) {
+  const { layer, wrapper } = el;
+  const text = `Loading ${layer.label}…`;
+  if (el.expandOnApply) {
+    setAccordionExpanded(wrapper, true);
+    const widgetSlot = wrapper.querySelector(".layer-widget-slot");
+    widgetSlot.innerHTML = "";
+    const status = document.createElement("p");
+    status.className = "external-layer-status";
+    status.setAttribute("aria-live", "polite");
+    status.textContent = text;
+    widgetSlot.appendChild(status);
+  }
+  setSecondaryState(layer, { status: { text } });
+}
+
+function showExternalLoadError(el) {
+  const { layer, wrapper } = el;
+  const text = `Could not load ${layer.label}. Please try again.`;
+  const status = wrapper.querySelector(".layer-widget-slot .external-layer-status");
+  if (status) {
+    status.classList.add("is-error");
+    status.textContent = text;
+  }
+  setSecondaryState(layer, { status: { text, isError: true } });
+}
+
+/**
+ * Build the source switcher for a compound layer. A pick resolves to the source
+ * the layer ends up on once every pick in flight has settled, so the widget
+ * shows the last pick, or the source kept after a failure.
+ */
+function renderSourceWidget(el, sourceIdx) {
+  const { layer, wrapper } = el;
   const widgetSlot = wrapper.querySelector(".layer-widget-slot");
   widgetSlot.innerHTML = "";
-  const controls = buildExternalControls(externalDefinition, runtime.settings, (settings) =>
-    updateExternalVariant(layer, settings, eyeBtn, wrapper),
-  );
+  el.shownSourceIdx = sourceIdx;
+  const widgetEl = buildWidget(layer.widget, layer.sources, sourceIdx, async (newIdx) => {
+    const controller = getLayerController();
+    // Destroyed (see destroySidebar): keep showing the current source.
+    if (!controller) return el.shownSourceIdx;
+    el.shownSourceIdx = newIdx;
+    el.pendingSelections++;
+    try {
+      const record = await controller.setSource(layer.key, newIdx);
+      el.shownSourceIdx = record.sourceIdx;
+      return record.sourceIdx;
+    } finally {
+      el.pendingSelections--;
+    }
+  });
+  if (widgetEl) widgetSlot.appendChild(widgetEl);
+}
+
+/** Build an external layer's provider controls (e.g. crop, scenario). */
+function renderExternalControls(el, settings) {
+  const { layer, wrapper } = el;
+  const widgetSlot = wrapper.querySelector(".layer-widget-slot");
+  widgetSlot.innerHTML = "";
+  el.shownSettings = settings;
+  const controls = buildExternalControls(getExternalLayerDefinition(layer), settings, async (wanted) => {
+    const controller = getLayerController();
+    // Destroyed (see destroySidebar): keep showing the current settings.
+    if (!controller) return { settings: el.shownSettings };
+    el.shownSettings = wanted;
+    el.pendingSelections++;
+    try {
+      const record = await controller.setSettings(layer.key, wanted);
+      el.shownSettings = record.appliedSettings;
+      // The controls show their own error and revert to the settings on the map.
+      if (record.status === "error" && !settingsMatch(record.appliedSettings, wanted)) {
+        throw record.error ?? new Error(`Could not update ${layer.label}`);
+      }
+      return { settings: record.appliedSettings };
+    } finally {
+      el.pendingSelections--;
+    }
+  });
   widgetSlot.appendChild(controls);
+}
+
+/**
+ * After a change settles, rebuild the source widget or external controls if
+ * they show something else than the record, e.g. after back/forward. Changes
+ * made through the controls themselves correct their own display.
+ */
+function syncLayerSelectors(el, record) {
+  if (el.pendingSelections > 0) return;
+  const { layer } = el;
+  if (isCompound(layer) && layer.widget && el.shownSourceIdx !== record.sourceIdx) {
+    renderSourceWidget(el, record.sourceIdx);
+  } else if (isExternalLayer(layer) && !settingsMatch(el.shownSettings, record.appliedSettings)) {
+    renderExternalControls(el, record.appliedSettings);
+  }
 }
 
 /**
@@ -367,16 +544,12 @@ export function buildSidebar({ stateAdapter: adapter } = {}) {
     }
   });
 
-  // "Clear all" turns off every active layer across all tabs
+  // "Clear all" turns off every layer that is on or still loading, across all tabs
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
-      batchHashWrites(() =>
-        Promise.all(
-          Array.from(layerElementMap.values())
-            .filter(({ layer, eyeBtn }) => isLayerApplied(layer, eyeBtn))
-            .map(({ layer, eyeBtn, wrapper }) => toggleLayer(layer, eyeBtn, wrapper)),
-        ),
-      );
+      const controller = getLayerController();
+      if (!controller) return; // destroyed (see destroySidebar)
+      batchHashWrites(() => controller.clearAll());
     });
   }
 
@@ -442,13 +615,12 @@ export function buildSidebar({ stateAdapter: adapter } = {}) {
 
     const addLayersToContainer = (layers, container) => {
       for (const layer of layers) {
-        const { wrapper, eyeBtn } = buildLayerAccordion(layer);
+        // Registers published layers in layerElementMap.
+        const { wrapper } = buildLayerAccordion(layer);
         if (!isLayerAvailable(layer)) {
           wrapper.hidden = !showDisabledLayers;
           wrapper.dataset.layerDisabled = "true";
           wrapper.classList.add("layer-disabled");
-        } else if (layer.key) {
-          layerElementMap.set(layer.key, { layer, eyeBtn, wrapper });
         }
         container.appendChild(wrapper);
       }
@@ -629,9 +801,14 @@ function updateDisabledLayerVisibility() {
 
 /**
  * Write current state (active tab + open layers) to the URL hash.
- * Runs from the layers-store subscriber when a layer's on/off state, source or
- * variant changes, and directly after a tab switch. Inside a batch only the
+ * Runs from the layers-store subscriber when what MapX shows changes (see
+ * changesUrlState), and directly after a tab switch. Inside a batch only the
  * Clear button is updated; the batch writes the hash once.
+ *
+ * The store runs its subscribers synchronously in subscription order, so the
+ * hash is written before the row renderer updates the switches and legend. A
+ * failed write is logged here and a throwing subscriber is logged by the
+ * store, so neither stops the panel from finishing its update.
  * @param {{ replace?: boolean }} [options] - replace the history entry instead of pushing
  */
 function syncHashFromState({ replace = false } = {}) {
@@ -670,10 +847,15 @@ async function batchHashWrites(fn, { replace = false } = {}) {
   }
 }
 
-/** Show/hide the "Clear all" button based on whether any layers are active. */
+/**
+ * Show "Clear all" while any layer is on or asked to be on (so a layer that is
+ * still loading can be cleared), and report the number of open views.
+ */
 function updateClearBtn() {
   const clearBtn = document.getElementById("layer-clear-btn");
-  if (clearBtn) clearBtn.hidden = store.openViews.size === 0;
+  if (clearBtn && layersStore) {
+    clearBtn.hidden = !layersStore.all().some((record) => record.desired || record.applied);
+  }
   if (_viewsChangeCallback) _viewsChangeCallback(store.openViews.size);
 }
 
@@ -688,9 +870,21 @@ function safeSourceIdx(layer, sourceIdx) {
 }
 
 /**
+ * Ask for a layer as a URL state entry describes it: on, with its (clamped)
+ * source or its provider settings.
+ */
+function intendFromUrl(el, { sourceIdx, settings }) {
+  const { layer } = el;
+  const patch = { desired: true };
+  if (isCompound(layer)) patch.sourceIdx = safeSourceIdx(layer, sourceIdx);
+  if (isExternalLayer(layer) && settings) patch.settings = settings;
+  if (!getLayersStore().get(layer.key).applied) el.expandOnApply = true;
+  return getLayerController().intend(layer.key, patch);
+}
+
+/**
  * Restore layer state from the URL hash. Call after SDK is ready.
- * Uses layerElementMap (built during buildSidebar) for key-based lookup,
- * eliminating positional DOM queries that break when layer order changes.
+ * Layers are requested in hash order, so MapX adds their views in that order.
  */
 export async function restoreLayersFromHash() {
   if (!layersStore || !stateAdapter) {
@@ -701,20 +895,14 @@ export async function restoreLayersFromHash() {
   const { layers } = stateAdapter.read();
   if (layers.length === 0) return;
 
-  // Toggles start in hash order (MapX adds views in request order) and the
-  // URL is only rewritten once, in place, after they all settle.
+  // The URL is only rewritten once, in place, after every layer settles.
   await batchHashWrites(
     () =>
       Promise.all(
-        layers.map(({ key, sourceIdx, settings }) => {
-          const el = layerElementMap.get(key);
-          if (!el || isLayerApplied(el.layer, el.eyeBtn)) return null;
-          const { layer, eyeBtn, wrapper } = el;
-          if (isCompound(layer)) {
-            // Always set source index — even 0, to clear any prior state
-            store.setActiveSource(compoundKey(layer), safeSourceIdx(layer, sourceIdx));
-          }
-          return toggleLayer(layer, eyeBtn, wrapper, settings);
+        layers.map((entry) => {
+          const el = layerElementMap.get(entry.key);
+          if (!el || getLayersStore().get(entry.key).desired) return null;
+          return intendFromUrl(el, entry);
         }),
       ),
     { replace: true },
@@ -722,45 +910,24 @@ export async function restoreLayersFromHash() {
 }
 
 /**
- * Reconcile open layer state against a parsed hash layers array.
- * Called on hashchange (back/forward) after initial load.
- * - Turns off layers not in the hash.
- * - Turns on layers that should be on.
- * - Switches source index for compound layers that stay on but change source.
+ * Reconcile layer intent against a parsed hash layers array.
+ * Called on hashchange (back/forward) after initial load: layers not in the
+ * hash are turned off, and those in it are asked for with their source or
+ * settings. The controller works out what actually has to change.
  */
 async function reconcileLayersFromHash(hashLayers) {
-  const targetMap = new Map(hashLayers.map((l) => [l.key, l]));
+  const inHash = new Set(hashLayers.map((entry) => entry.key));
   const changes = [];
 
-  for (const [key, { layer, eyeBtn, wrapper }] of layerElementMap) {
-    const isOn = isLayerApplied(layer, eyeBtn);
-    const hashEntry = targetMap.get(key);
-    const shouldBeOn = Boolean(hashEntry);
-
-    if (isOn !== shouldBeOn) {
-      if (shouldBeOn && isCompound(layer)) {
-        // Always set — including 0 — so any prior source state is cleared
-        store.setActiveSource(compoundKey(layer), safeSourceIdx(layer, hashEntry.sourceIdx));
-      }
-      changes.push(toggleLayer(layer, eyeBtn, wrapper, hashEntry?.settings));
-    } else if (isOn && isCompound(layer)) {
-      // Layer stays on: switch source if hash encodes a different index
-      const safeIdx = safeSourceIdx(layer, hashEntry.sourceIdx);
-      if (safeIdx !== store.getActiveSource(compoundKey(layer))) {
-        changes.push(switchSource(layer, compoundKey(layer), safeIdx, wrapper));
-      }
-    } else if (isOn && isExternalLayer(layer) && hashEntry.settings) {
-      const runtime = getExternalLayerRuntime(layer);
-      if (runtime && !externalSettingsMatch(runtime.settings, hashEntry.settings)) {
-        changes.push(
-          updateExternalVariant(layer, hashEntry.settings, eyeBtn, wrapper)
-            .then((updated) =>
-              renderExternalControls(layer, updated, eyeBtn, wrapper, getExternalLayerDefinition(layer)),
-            )
-            .catch((error) => console.warn(`Failed to restore external variant for ${layer.key}:`, error)),
-        );
-      }
+  for (const key of layerElementMap.keys()) {
+    const record = getLayersStore().get(key);
+    if (!inHash.has(key) && (record.desired || record.applied)) {
+      changes.push(getLayerController().setOn(key, false));
     }
+  }
+  for (const entry of hashLayers) {
+    const el = layerElementMap.get(entry.key);
+    if (el) changes.push(intendFromUrl(el, entry));
   }
 
   await Promise.all(changes);
@@ -797,7 +964,7 @@ export function buildLayerAccordion(layer) {
     setLayerToggleState(layer, eyeBtn, false);
     eyeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      toggleLayer(layer, eyeBtn, wrapper);
+      toggleLayerFromSwitch(layer.key);
     });
     header.appendChild(eyeBtn);
   }
@@ -866,8 +1033,11 @@ export function buildLayerAccordion(layer) {
 
     // Expanding a published layer is an activation intent. Collapsing only
     // hides its controls; the layer remains on until its switch is turned off.
-    if (!open && eyeBtn && !isLayerApplied(layer, eyeBtn)) {
-      toggleLayer(layer, eyeBtn, wrapper, null, false);
+    // The header manages expansion itself, so a slow load must not reopen it.
+    // Nothing happens once the sidebar is destroyed (see destroySidebar).
+    const record = getLayersStore()?.get(layer.key);
+    if (!open && eyeBtn && record && !record.desired) {
+      toggleLayerFromSwitch(layer.key, { expand: false });
     }
   };
 
@@ -879,295 +1049,22 @@ export function buildLayerAccordion(layer) {
     }
   });
 
+  if (published && layer.key) {
+    layerElementMap.set(layer.key, {
+      layer,
+      eyeBtn,
+      wrapper,
+      // Whether the accordion opens when the layer comes on.
+      expandOnApply: true,
+      // What the source widget or external controls show, and how many of
+      // their own changes are still settling (see syncLayerSelectors).
+      shownSourceIdx: null,
+      shownSettings: null,
+      pendingSelections: 0,
+    });
+  }
+
   return { wrapper, eyeBtn };
-}
-
-async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null, expandOnActivate = true) {
-  // The store this toggle writes to; null once destroyed (see destroySidebar).
-  const layers = getLayersStore();
-  if (!layers) return;
-
-  // Guard: SDK must be ready before attempting map operations
-  if (!isSDKReady()) {
-    const label = wrapper.querySelector(".layer-label");
-    const msg = label
-      ? `${label.textContent} cannot be toggled yet — map is still loading.`
-      : "Map is still loading.";
-    console.warn(msg);
-    return;
-  }
-
-  // A source switch is mid-flight: defer a turn-off until it settles, otherwise
-  // the switch would re-add its new view after the layer was turned off.
-  if (layer.key && sourceSwitchInFlight.has(layer.key)) {
-    pendingToggleOff.add(layer.key);
-    setLayerRecord(layer, { desired: false }, layers);
-    return;
-  }
-
-  // Guard: prevent concurrent toggles for the same layer (rapid clicks / secondary + primary race)
-  if (layer.key && toggleInFlight.has(layer.key)) return;
-  if (layer.key) toggleInFlight.add(layer.key);
-  const external = isExternalLayer(layer);
-  if (external) setLayerToggleDisabled(layer, eyeBtn, true);
-
-  try {
-    const widgetSlot = wrapper.querySelector(".layer-widget-slot");
-    const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-    const legendSlot = wrapper.querySelector(".layer-legend-slot");
-    const compound = isCompound(layer);
-    const externalDefinition = external ? getExternalLayerDefinition(layer) : null;
-    // Determine which view ID is currently active
-    const key = compound ? compoundKey(layer) : null;
-    // Guard against an out-of-bounds index (defensive; config is validated)
-    const activeIdx = compound ? safeSourceIdx(layer, store.getActiveSource(key)) : 0;
-    let runtime = external ? getExternalLayerRuntime(layer) : null;
-    let activeViewId = external ? runtime?.idView : compound ? layer.sources[activeIdx].id : layer.id;
-
-    // Is this layer currently on? For compound layers, check if ANY source is open.
-    const isOn = external
-      ? Boolean(runtime)
-      : compound
-        ? layer.sources.some((s) => store.openViews.has(s.id))
-        : store.openViews.has(layer.id);
-
-    if (isOn) {
-      setLayerRecord(layer, { desired: false, status: "removing" }, layers);
-      // Turn off -- remove whichever source view is active
-      const removeId = external
-        ? runtime.idView
-        : compound
-          ? layer.sources.find((s) => store.openViews.has(s.id))?.id
-          : layer.id;
-      if (removeId) {
-        try {
-          if (external) {
-            await closeExternalLayer(layer);
-          } else {
-            await viewRemove(removeId);
-          }
-        } catch (err) {
-          // MapX may still show the view, so every layer kind stays on in the
-          // toggles, cross-tab rows, openViews and hash rather than desync.
-          console.warn(`Failed to remove view ${removeId}; keeping ${layer.key || removeId} on:`, err);
-          // Intent goes back to what MapX shows (see LayerRecord.desired).
-          setLayerRecord(layer, { desired: true, status: "error", error: err }, layers);
-          return;
-        }
-      }
-      // Destroyed or rebuilt while MapX was busy: drop the result.
-      if (!isLive(layers)) return;
-      // Store subscribers run synchronously here: the view leaves openViews and
-      // the hash is written before the switches and controls below are updated.
-      // A subscriber that throws is logged by the store and does not stop this.
-      setLayerRecord(layer, { applied: false, viewId: null, status: "idle", error: null }, layers);
-      setLayerToggleState(layer, eyeBtn, false);
-      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-        setLayerToggleState(layer, btn, false);
-      }
-      setSecondaryState(layer, null);
-      wrapper.classList.remove("layer-active");
-      widgetSlot.innerHTML = "";
-      sliderSlot.innerHTML = "";
-      legendSlot.innerHTML = "";
-
-      // Turning a layer off ends the interaction and returns the row to its
-      // compact state. Collapsing alone still leaves an active layer on.
-      setAccordionExpanded(wrapper, false);
-    } else {
-      // Turn on
-      setLayerRecord(layer, { desired: true, status: "loading" }, layers);
-      let externalStatus = null;
-      if (external && expandOnActivate) {
-        setAccordionExpanded(wrapper, true);
-
-        widgetSlot.innerHTML = "";
-        externalStatus = document.createElement("p");
-        externalStatus.className = "external-layer-status";
-        externalStatus.setAttribute("aria-live", "polite");
-        externalStatus.textContent = `Loading ${layer.label}…`;
-        widgetSlot.appendChild(externalStatus);
-      }
-      if (external) setSecondaryState(layer, { status: { text: `Loading ${layer.label}…` } });
-
-      try {
-        if (external) {
-          runtime = await openExternalLayer(layer, initialExternalSettings ?? layer.external.defaults);
-          activeViewId = runtime.idView;
-        } else {
-          await viewAdd(activeViewId);
-        }
-      } catch (err) {
-        console.warn(`Failed to add layer ${layer.key || activeViewId}:`, err);
-        if (!isLive(layers)) return;
-        if (externalStatus) {
-          externalStatus.classList.add("is-error");
-          externalStatus.textContent = `Could not load ${layer.label}. Please try again.`;
-        }
-        if (external) {
-          setSecondaryState(layer, {
-            status: { text: `Could not load ${layer.label}. Please try again.`, isError: true },
-          });
-        }
-        setLayerRecord(layer, { desired: false, status: "error", error: err }, layers);
-        return;
-      }
-      // Destroyed or rebuilt while MapX was busy: drop the result.
-      if (!isLive(layers)) return;
-      // Store subscribers run synchronously here: the view joins openViews and
-      // the hash is written before the switches, legend and cross-tab rows below
-      // are updated. A subscriber that throws is logged by the store and does
-      // not stop this.
-      setLayerRecord(
-        layer,
-        {
-          applied: true,
-          viewId: activeViewId,
-          sourceIdx: activeIdx,
-          settings: external ? runtime.settings : null,
-          status: "idle",
-          error: null,
-        },
-        layers,
-      );
-      setLayerToggleState(layer, eyeBtn, true);
-      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-        setLayerToggleState(layer, btn, true);
-        // Auto-expand the cross-tab section containing this button
-        const section = btn.closest("details.cross-tab-section");
-        if (section) section.open = true;
-      }
-      wrapper.classList.add("layer-active");
-
-      // Direct switch activation reveals controls. Header activation already
-      // manages expansion and must not reopen after a slow MapX response.
-      if (expandOnActivate) setAccordionExpanded(wrapper, true);
-
-      // Build source-switching widget for compound layers
-      if (compound && layer.widget) {
-        const descEl = wrapper.querySelector(".layer-desc");
-        const widgetEl = buildWidget(layer.widget, layer.sources, activeIdx, (newIdx) =>
-          switchSource(layer, key, newIdx, wrapper),
-        );
-        if (widgetEl) widgetSlot.appendChild(widgetEl);
-
-        // Show the active source's description instead of the parent's
-        if (descEl) {
-          setLayerDescription(descEl, layer, layer.sources[activeIdx].desc || layer.desc);
-        }
-      }
-
-      if (external) {
-        renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition);
-      }
-
-      addOpacitySlider(activeViewId, sliderSlot);
-      // For compound layers, merge the active source's fields (desc, legend)
-      // onto the parent layer so addLegend sees the right data.
-      const legendLayer = external
-        ? { ...layer, id: activeViewId, legend: runtime.legend }
-        : compound
-          ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
-          : layer;
-      addLegend(legendLayer, legendSlot);
-      setSecondaryState(layer, { viewId: activeViewId, legendLayer });
-    }
-  } finally {
-    if (external) setLayerToggleDisabled(layer, eyeBtn, false);
-    if (layer.key) toggleInFlight.delete(layer.key);
-  }
-}
-
-/**
- * Switch between sources within a compound layer.
- * Removes the old view, adds the new one, and rebuilds controls.
- * @returns {Promise<boolean>} false if the switch was rejected (another change
- *   is in flight) or failed, so the source widget can show the actual source
- */
-async function switchSource(layer, key, newIdx, wrapper) {
-  const layers = getLayersStore();
-  if (!layers) return false; // destroyed (see destroySidebar)
-  if (layer.key && (toggleInFlight.has(layer.key) || sourceSwitchInFlight.has(layer.key))) return false;
-  if (layer.key) {
-    toggleInFlight.add(layer.key);
-    sourceSwitchInFlight.add(layer.key);
-  }
-  setLayerRecord(layer, { status: "switching" }, layers);
-  let switched;
-  try {
-    switched = await applySourceSwitch(layer, key, newIdx, wrapper, layers);
-  } finally {
-    // A failed switch has already recorded status "error".
-    if (layer.key && isLive(layers) && layers.get(layer.key).status === "switching") {
-      setLayerRecord(layer, { status: "idle" }, layers);
-    }
-    if (layer.key) {
-      toggleInFlight.delete(layer.key);
-      sourceSwitchInFlight.delete(layer.key);
-    }
-  }
-  if (layer.key && pendingToggleOff.delete(layer.key) && isLive(layers)) {
-    const el = layerElementMap.get(layer.key);
-    if (el && isLayerApplied(el.layer, el.eyeBtn)) await toggleLayer(layer, el.eyeBtn, el.wrapper);
-  }
-  return switched;
-}
-
-async function applySourceSwitch(layer, key, newIdx, wrapper, layers) {
-  const oldIdx = store.getActiveSource(key);
-  const oldId = layer.sources[oldIdx].id;
-  const newId = layer.sources[newIdx].id;
-  if (oldId === newId) return true;
-
-  // Remove old, add new
-  try {
-    await viewRemove(oldId);
-  } catch (e) {
-    console.warn(e);
-  }
-  // Destroyed or rebuilt while MapX was busy: drop the result.
-  if (!isLive(layers)) return false;
-  // The layer stays on, but no view carries it until the new one is added.
-  setLayerRecord(layer, { viewId: null }, layers);
-
-  try {
-    await viewAdd(newId);
-  } catch (e) {
-    // Rollback: re-add old view if new one fails
-    console.warn(`Failed to switch to source ${newIdx}:`, e);
-    try {
-      await viewAdd(oldId);
-      setLayerRecord(layer, { viewId: oldId, status: "error", error: e }, layers);
-    } catch {
-      // Nothing of the layer is on the map, but it stays on with no view, as on
-      // main (the layer controller records this case as off instead).
-      setLayerRecord(layer, { status: "error", error: e }, layers);
-    }
-    return false;
-  }
-  if (!isLive(layers)) return false;
-  store.setActiveSource(key, newIdx);
-  // Store subscribers run synchronously here: openViews gets the new view and
-  // the hash is written before the description, slider and legend are rebuilt.
-  setLayerRecord(layer, { viewId: newId, sourceIdx: newIdx, error: null }, layers);
-
-  // Update description to the new source's text
-  const descEl = wrapper.querySelector(".layer-desc");
-  if (descEl) {
-    setLayerDescription(descEl, layer, layer.sources[newIdx].desc || layer.desc);
-  }
-
-  // Rebuild opacity slider and legend for the new source
-  const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-  const legendSlot = wrapper.querySelector(".layer-legend-slot");
-  sliderSlot.innerHTML = "";
-  addOpacitySlider(newId, sliderSlot);
-
-  legendSlot.innerHTML = "";
-  const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
-  addLegend(legendLayer, legendSlot);
-  setSecondaryState(layer, { viewId: newId, legendLayer });
-  return true;
 }
 
 function setLayerDescription(element, layer, description) {
@@ -1179,7 +1076,7 @@ function setLayerDescription(element, layer, description) {
 /**
  * Build collapsed <details> sections for all tabs other than the current one.
  * Each section shows a compact row per published layer (label + type tag + eye toggle).
- * Eye toggles delegate to the canonical eye button in layerElementMap.
+ * Eye toggles ask the controller for the layer, as its home switch does.
  */
 function buildCrossTabSections(currentTab) {
   const container = document.createElement("div");
@@ -1229,8 +1126,8 @@ function buildCrossTabSections(currentTab) {
  * Build a single compact row for a cross-tab section.
  * The row carries its own details area (description, opacity slider, legend)
  * that is shown while the layer is active; source/variant switching stays in
- * the layer's home tab. Registered in secondaryRows so toggleLayer keeps it in
- * sync; `tabId` is the tab panel the row lives in (rendered only when visible).
+ * the layer's home tab. Registered in secondaryRows so renderLayerRecord keeps it
+ * in sync; `tabId` is the tab panel the row lives in (rendered only when visible).
  */
 function buildCrossTabRow(layer, tabId = null) {
   const item = document.createElement("div");
@@ -1253,7 +1150,7 @@ function buildCrossTabRow(layer, tabId = null) {
   eyeBtn.title += " — switch to tab for sub-source controls";
   eyeBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    layerElementMap.get(layer.key)?.eyeBtn.click();
+    toggleLayerFromSwitch(layer.key);
   });
   row.appendChild(eyeBtn);
   item.appendChild(row);

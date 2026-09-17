@@ -155,6 +155,8 @@ describe("shared-link round trip through the layers store", () => {
         viewId: `MX-${key}-${sourceIdx}`,
         sourceIdx,
         settings: settings ?? null,
+        appliedSourceIdx: sourceIdx,
+        appliedSettings: settings ?? null,
       });
     }
     adapter.write({ tab, layers: toUrlLayers(store.all(), CONFIG_ORDER) }, { replace: true });
