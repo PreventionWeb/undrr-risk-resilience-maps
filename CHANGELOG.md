@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## Unreleased
+
+### Fixed
+
+- Show the description, opacity slider and legend for layers turned on from another pillar's section of the layer panel. Previously these rendered only in the layer's home tab, which is hidden, so nothing appeared.
+
 ## [0.0.2] - 2026-09-17
 
 ### Changed

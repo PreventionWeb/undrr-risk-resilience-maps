@@ -8,12 +8,20 @@ const { viewAdd, viewRemove } = vi.hoisted(() => ({
 vi.mock("../sdk/views.js", () => ({ viewAdd, viewRemove }));
 vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
 vi.mock("./layer-controls.js", () => ({
-  addOpacitySlider: vi.fn(),
-  addLegend: vi.fn(),
+  addOpacitySlider: vi.fn((_idView, container) => {
+    const el = document.createElement("div");
+    el.className = "opacity-row";
+    container.appendChild(el);
+  }),
+  addLegend: vi.fn((_layer, container) => {
+    const el = document.createElement("div");
+    el.className = "html-legend";
+    container.appendChild(el);
+  }),
 }));
 
 import * as store from "../state/store.js";
-import { buildLayerAccordion } from "./sidebar.js";
+import { buildCrossTabRow, buildLayerAccordion } from "./sidebar.js";
 
 const layer = {
   id: "MX-TEST-LAYER",
@@ -91,8 +99,32 @@ describe("layer accordion activation", () => {
   it("shows the R-R initiative before the layer description", () => {
     const { wrapper } = buildLayerAccordion(layer);
 
-    expect(wrapper.querySelector(".layer-desc").textContent).toBe(
-      "Test R-R initiative. Test description.",
-    );
+    expect(wrapper.querySelector(".layer-desc").textContent).toBe("Test R-R initiative. Test description.");
+  });
+
+  it("shows the legend in the cross-tab row when a layer is activated outside its tab", async () => {
+    // Regression: activating a layer from another tab's cross-tab section only
+    // rendered the legend into the (hidden) home-tab accordion.
+    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
+    document.body.appendChild(wrapper);
+    const crossRow = buildCrossTabRow(layer);
+    document.body.appendChild(crossRow);
+    const crossBody = crossRow.querySelector(".cross-tab-body");
+    const crossEye = crossRow.querySelector(".layer-eye");
+    // The cross-tab switch delegates to the canonical switch via layerElementMap,
+    // which buildSidebar populates; drive the canonical switch directly here.
+    expect(crossBody.hidden).toBe(true);
+
+    eyeBtn.click();
+    await vi.waitFor(() => expect(crossEye.getAttribute("aria-checked")).toBe("true"));
+    expect(crossBody.hidden).toBe(false);
+    expect(crossBody.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+    expect(crossBody.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
+    expect(crossBody.querySelector(".layer-desc").textContent).toBe("Test R-R initiative. Test description.");
+
+    eyeBtn.click();
+    await vi.waitFor(() => expect(crossEye.getAttribute("aria-checked")).toBe("false"));
+    expect(crossBody.hidden).toBe(true);
+    expect(crossBody.querySelector(".html-legend")).toBeNull();
   });
 });
