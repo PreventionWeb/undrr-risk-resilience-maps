@@ -43,11 +43,16 @@ function layerBadgeLabel(layer) {
  * Build the type/geometry badge shown next to a layer label. Mangrove's subtle
  * tag variant: the type is carried by the word, not by a colour, so the row's
  * only coloured control is its switch.
+ *
+ * An unpublished row (shown by "Show disabled") says so in the same tag
+ * instead of naming its type. Its greying is done with colours that keep the
+ * text readable rather than with an opacity on the row, so the wording is what
+ * says why the row is greyed out — along with it having no switch.
  */
-function buildLayerTypeTag(layer) {
+function buildLayerTypeTag(layer, published) {
   const tag = document.createElement("span");
   tag.className = "mg-tag mg-tag--subtle layer-type-tag";
-  tag.textContent = layerBadgeLabel(layer);
+  tag.textContent = published ? layerBadgeLabel(layer) : "not published";
   return tag;
 }
 
@@ -86,6 +91,14 @@ function buildLayerSwitch(layer) {
  * A layer whose last call failed keeps an error outline until the next call,
  * and a switch is `aria-disabled` (still focusable, so it can be explained)
  * while the map cannot accept layer changes.
+ *
+ * The switch's description (`title` on the input, which assistive technology
+ * reports as the control's description) only explains what the row cannot do:
+ * the map is still starting up, or this is a compact row with no source
+ * controls of its own. It never restates the on/off state. That state belongs
+ * to the switch role, and the wording it replaces ("Turn layer on/off") sat on
+ * the `<label>`, so it reached the accessibility tree as part of the switch's
+ * name — the very thing this PR set out to remove.
  */
 function setLayerToggleState(
   layer,
@@ -102,14 +115,9 @@ function setLayerToggleState(
   );
   const wrapper = input.parentElement;
   setClass(wrapper, "is-error", failed);
-  const title = !ready
-    ? "The map is still loading"
-    : busy
-      ? `${active ? "Turning on" : "Turning off"} this layer…`
-      : active
-        ? "Turn layer off"
-        : "Turn layer on";
-  wrapper.title = `${title}${hint}`;
+  const description = ready ? hint : "The map is still loading";
+  if (description) input.title = description;
+  else input.removeAttribute("title");
 }
 
 /**
@@ -134,6 +142,15 @@ function buildErrorLine() {
   error.className = "layer-error mg-form-error";
   error.setAttribute("aria-hidden", "true");
   return error;
+}
+
+/**
+ * What to announce while a MapX call for a layer is in flight. The switch's
+ * own name says the same thing, but it is inside an `aria-busy` subtree, which
+ * assistive technology is told not to report changes from.
+ */
+function busyMessage(layer, record) {
+  return record.desired ? `Loading ${layer.label}…` : `Turning off ${layer.label}…`;
 }
 
 /** What to announce when a MapX call for a layer failed, from what MapX now shows. */
@@ -222,8 +239,10 @@ export function createLayerRow(
   },
 ) {
   const full = variant === "full";
-  // Compact rows have no sub-source controls of their own; their tooltip says so.
-  const titleHint = variant === "full" ? "" : " — switch to tab for sub-source controls";
+  // Compact rows have no sub-source controls of their own; the switch's
+  // description says where to find them. A full row's switch needs no
+  // description, so it gets none.
+  const titleHint = variant === "full" ? "" : "Switch to this layer's own tab for source options";
   const published = isLayerAvailable(layer);
   const external = isExternalLayer(layer);
   const listeners = new AbortController();
@@ -283,7 +302,7 @@ export function createLayerRow(
   label.className = full ? "layer-label" : "cross-tab-label";
   label.textContent = layer.label;
   labelHost.appendChild(label);
-  labelHost.appendChild(buildLayerTypeTag(layer));
+  labelHost.appendChild(buildLayerTypeTag(layer, published));
   if (full) header.appendChild(expandBtn);
 
   let eyeBtn = null;
@@ -297,7 +316,11 @@ export function createLayerRow(
     eyeBtn.addEventListener(
       "click",
       (e) => {
-        e.stopPropagation();
+        // No stopPropagation: the switch is a sibling of the expand control,
+        // not nested inside it, so a click that reaches the row's head or root
+        // activates nothing. (It would not have helped either — on a label,
+        // the event that bubbles from the input is the original one, and only
+        // the label's synthetic re-dispatch could be stopped.)
         if (isReady()) return;
         // Cancelling the click restores the checkbox's previous state.
         e.preventDefault();
@@ -333,7 +356,10 @@ export function createLayerRow(
   // collapsed.
   const announcer = published ? buildAnnouncer() : null;
   if (announcer) element.appendChild(announcer);
-  const errorLine = published && !external ? buildErrorLine() : null;
+  // Every published row has one. An external layer normally shows its message
+  // on its own status line, and only falls back to this when that line was
+  // never rendered (see showExternalStatus).
+  const errorLine = published ? buildErrorLine() : null;
   if (errorLine) element.appendChild(errorLine);
 
   const body = document.createElement("div");
@@ -495,11 +521,21 @@ export function createLayerRow(
 
     if (announcer) {
       // Failures are announced in the row for every kind of layer (a failed
-      // turn-on otherwise only flips the switch back). A new call clears the
+      // turn-on otherwise only flips the switch back). A new call replaces the
       // message, so the same failure is announced again if it happens again.
       if (busy && !wasBusy) {
-        setText(announcer, "");
+        // `aria-busy` is what Mangrove draws the pending ring from, but it
+        // also tells assistive technology to stop reporting changes inside the
+        // switch's subtree, so the "Loading X…" name may never be spoken. Say
+        // it from the row's live region instead, as rc.2's own
+        // switch-pending.js does.
+        setText(announcer, busyMessage(layer, next));
         if (errorLine) setText(errorLine, "");
+      } else if (!busy && wasBusy) {
+        // The call settled: drop the busy sentence rather than leave it
+        // standing. A failure replaces it just below, so it is not announced
+        // twice.
+        setText(announcer, "");
       }
       // External controls announce the failures of changes made through them.
       const announcedByControls = external && (pendingSelections > 0 || selectionPending());
@@ -509,7 +545,7 @@ export function createLayerRow(
         !announcedByControls
       ) {
         announcer.textContent = failureMessage(layer, next);
-        if (errorLine) setText(errorLine, failureMessage(layer, next));
+        if (errorLine && !external) setText(errorLine, failureMessage(layer, next));
       }
     }
 
@@ -602,7 +638,13 @@ export function createLayerRow(
     if (statusP) {
       statusP.classList.add("is-error");
       statusP.textContent = text;
+      return;
     }
+    // No status line was rendered: the loading branch above returns early when
+    // the activation came from the expand control (`expandOnApply === false`),
+    // which manages expansion itself. Without this the failure of a full
+    // external row was only spoken, never shown.
+    if (errorLine) setText(errorLine, text);
   }
 
   /**

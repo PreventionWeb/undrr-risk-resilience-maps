@@ -943,9 +943,10 @@ describe("layers store", () => {
       expect(announcer.classList.contains("mg-u-sr-only")).toBe(true);
       expect(announcer.id).toBe("");
 
-      // The next attempt clears the message; success leaves it empty.
+      // The next attempt replaces the message with its own busy sentence
+      // (`aria-busy` stops the switch's name being reported); success clears it.
       eye.click();
-      expect(announcerText(row)).toBe("");
+      expect(announcerText(row)).toBe("Loading Population…");
       await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
       expect(announcerText(row)).toBe("");
       expect(eye.getAttribute("aria-label")).toBe("Population");

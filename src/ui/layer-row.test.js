@@ -130,6 +130,62 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     expect(eye(el).getAttribute("aria-label")).toBe("Turning off Population…");
   });
 
+  it("keeps the switch's state out of everything assistive tech can reach", () => {
+    const { store, el } = setup(simple, { variant });
+    const wrapper = eye(el).closest(".mg-switch");
+    const stateful = /turn (the )?layer (on|off)|turn on|turn off/i;
+
+    for (const record of [
+      { desired: false, status: "idle" },
+      { desired: true, status: "loading" },
+      { desired: true, applied: true, viewId: "MX-POP", status: "idle" },
+    ]) {
+      store.set("pop", record);
+      // The `<label>` carries no title: it would reach the accessibility tree
+      // as part of the switch's name.
+      expect(wrapper.hasAttribute("title")).toBe(false);
+      // The name is the layer (or what is happening), never "Turn layer on/off".
+      expect(eye(el).getAttribute("aria-label")).not.toMatch(stateful);
+      // Nor does the description, where there is one.
+      expect(eye(el).getAttribute("title") ?? "").not.toMatch(stateful);
+    }
+
+    // A full row's switch needs no description at all; a compact row's says
+    // where the source controls are, without naming a state.
+    if (variant === "full") {
+      expect(eye(el).hasAttribute("title")).toBe(false);
+    } else {
+      expect(eye(el).getAttribute("title")).toBe("Switch to this layer's own tab for source options");
+    }
+  });
+
+  it("explains an aria-disabled switch on the input, not on its label", () => {
+    const { el } = setup(simple, { variant, isReady: () => false });
+    expect(eye(el).getAttribute("aria-disabled")).toBe("true");
+    expect(eye(el).getAttribute("title")).toBe("The map is still loading");
+    expect(eye(el).closest(".mg-switch").hasAttribute("title")).toBe(false);
+  });
+
+  it("announces what is happening while a call is in flight", () => {
+    const { store, el } = setup(simple, { variant });
+    expect(announcer(el)).toBe("");
+
+    // `aria-busy` tells assistive tech to suspend reporting changes inside the
+    // switch, so the busy name may never be spoken; the live region says it.
+    store.set("pop", { desired: true, status: "loading" });
+    expect(announcer(el)).toBe("Loading Population…");
+
+    store.set("pop", { desired: true, applied: true, viewId: "MX-POP", status: "idle" });
+    expect(announcer(el)).toBe("");
+
+    store.set("pop", { desired: false, status: "removing" });
+    expect(announcer(el)).toBe("Turning off Population…");
+
+    // A failure replaces the busy sentence rather than being announced after it.
+    store.set("pop", { desired: false, applied: true, status: "error", error: new Error("nope") });
+    expect(announcer(el)).toBe("Could not change Population. It is still on as before.");
+  });
+
   it("marks the switch aria-disabled while the map is not ready", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { controller, el } = setup(simple, { variant, isReady: () => false });
@@ -171,8 +227,9 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     store.set("pop", { desired: false, status: "error", error: new Error("offline") });
     expect(announcer(el)).toBe("Could not load Population. It is off.");
 
+    // The next call replaces the failure with its own busy sentence.
     store.set("pop", { desired: true, status: "loading" });
-    expect(announcer(el)).toBe("");
+    expect(announcer(el)).toBe("Loading Population…");
     store.set("pop", { applied: true, viewId: "MX-POP", status: "idle", error: null });
     store.set("pop", { status: "removing", desired: false });
     store.set("pop", { status: "error", desired: true, error: new Error("timeout") });
@@ -251,8 +308,14 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     store.set("pop", { desired: true, applied: true, viewId: "MX-POP" });
 
     expect(controller.setOn).not.toHaveBeenCalled();
-    expect(eye(el).getAttribute("aria-busy")).toBe("false");
+    // No record is rendered: a live row would announce the change, add its
+    // active class and build the view's slider and legend.
+    expect(announcer(el)).toBe("");
+    expect(el.classList.contains("layer-active")).toBe(false);
+    expect(el.querySelector(".layer-slider-slot").children.length).toBe(0);
+    expect(el.querySelector(".layer-legend-slot").children.length).toBe(0);
     expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
     if (variant === "full") {
       expect(el.querySelector(".layer-expand").getAttribute("aria-expanded")).toBe("false");
     }
@@ -425,6 +488,25 @@ describe("createLayerRow full variant", () => {
     store.set("crops", { desired: false, status: "error", error: new Error("offline") });
     expect(status.textContent).toBe("Could not load Crops. Please try again.");
     expect(status.classList.contains("is-error")).toBe(true);
+  });
+
+  it("shows a failed external load activated from the expand control", async () => {
+    const { store, el } = setup(external);
+    // Activating from the expand control sets expandOnApply = false, so no
+    // status line is rendered and the error branch has nothing to mutate. The
+    // row must still show something: before, the failure was only spoken.
+    header(el).click();
+    await Promise.resolve();
+    store.set("crops", { desired: true, status: "loading" });
+    expect(el.querySelector(".external-layer-status")).toBeNull();
+
+    store.set("crops", { desired: false, status: "error", error: new Error("offline") });
+    expect(el.querySelector(".layer-error").textContent).toBe("Could not load Crops. Please try again.");
+    expect(announcer(el)).toBe("Could not load Crops. It is off.");
+
+    // The next attempt clears it again.
+    store.set("crops", { desired: true, status: "loading" });
+    expect(el.querySelector(".layer-error").textContent).toBe("");
   });
 
   it("builds external controls with the applied settings and the runtime legend", () => {
