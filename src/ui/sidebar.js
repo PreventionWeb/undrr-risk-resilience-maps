@@ -64,16 +64,35 @@ const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
 const layerElementMap = new Map();
-// Maps layer.key → [secondary eye buttons] across cross-tab sections.
-const secondaryEyeBtns = new Map();
+// Maps layer.key → [{ eyeBtn, body, sliderSlot, legendSlot }] for the compact
+// rows in cross-tab sections, so layers activated outside their home tab
+// still show their details, opacity slider and legend.
+const secondaryRows = new Map();
 // Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
 const toggleInFlight = new Set();
 let showDisabledLayers = false;
 
 function setLayerToggleDisabled(layer, eyeBtn, disabled) {
   eyeBtn.disabled = disabled;
-  for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+  for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
     btn.disabled = disabled;
+  }
+}
+
+/**
+ * Render (or clear, when viewId is null) the opacity slider and legend in
+ * every cross-tab row for a layer. Mirrors the controls in the home-tab
+ * accordion so the active layer's legend is visible from any tab.
+ */
+function renderSecondaryControls(layer, viewId, legendLayer) {
+  for (const row of secondaryRows.get(layer.key) ?? []) {
+    row.sliderSlot.innerHTML = "";
+    row.legendSlot.innerHTML = "";
+    if (row.desc) setLayerDescription(row.desc, layer, legendLayer?.desc || layer.desc);
+    row.body.hidden = !viewId;
+    if (!viewId) continue;
+    addOpacitySlider(viewId, row.sliderSlot);
+    addLegend(legendLayer, row.legendSlot);
   }
 }
 
@@ -109,7 +128,9 @@ async function updateExternalVariant(
     sliderSlot.innerHTML = "";
     addOpacitySlider(result.runtime.idView, sliderSlot);
     legendSlot.innerHTML = "";
-    addLegend({ ...layer, id: result.runtime.idView, legend: result.runtime.legend }, legendSlot);
+    const legendLayer = { ...layer, id: result.runtime.idView, legend: result.runtime.legend };
+    addLegend(legendLayer, legendSlot);
+    renderSecondaryControls(layer, result.runtime.idView, legendLayer);
     if (updateHash) syncHashFromState();
     return result.runtime;
   } finally {
@@ -170,7 +191,7 @@ export function buildSidebar() {
 
   // Clear stale state (guards against HMR / test re-runs)
   layerElementMap.clear();
-  secondaryEyeBtns.clear();
+  secondaryRows.clear();
 
   // Populate info page with all info panels
   infoPage.appendChild(buildHomePanel());
@@ -700,9 +721,10 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         store.openViews.delete(removeId);
       }
       setLayerToggleState(layer, eyeBtn, false);
-      for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, false);
       }
+      renderSecondaryControls(layer, null);
       wrapper.classList.remove("layer-active");
       widgetSlot.innerHTML = "";
       sliderSlot.innerHTML = "";
@@ -753,7 +775,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       }
       store.openViews.add(activeViewId);
       setLayerToggleState(layer, eyeBtn, true);
-      for (const btn of secondaryEyeBtns.get(layer.key) ?? []) {
+      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, true);
         // Auto-expand the cross-tab section containing this button
         const section = btn.closest("details.cross-tab-section");
@@ -799,6 +821,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
           : layer;
       addLegend(legendLayer, legendSlot);
+      renderSecondaryControls(layer, activeViewId, legendLayer);
       syncHashFromState();
     }
   } finally {
@@ -854,6 +877,7 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   legendSlot.innerHTML = "";
   const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
   addLegend(legendLayer, legendSlot);
+  renderSecondaryControls(layer, newId, legendLayer);
 }
 
 function setLayerDescription(element, layer, description) {
@@ -913,9 +937,14 @@ function buildCrossTabSections(currentTab) {
 
 /**
  * Build a single compact row for a cross-tab section.
- * Registers the eye button in secondaryEyeBtns so toggleLayer can keep it in sync.
+ * The row carries its own details area (description, opacity slider, legend)
+ * that is shown while the layer is active; source/variant switching stays in
+ * the layer's home tab. Registered in secondaryRows so toggleLayer keeps it in sync.
  */
-function buildCrossTabRow(layer) {
+export function buildCrossTabRow(layer) {
+  const item = document.createElement("div");
+  item.className = "cross-tab-item";
+
   const row = document.createElement("div");
   row.className = "cross-tab-row";
 
@@ -936,9 +965,31 @@ function buildCrossTabRow(layer) {
     layerElementMap.get(layer.key)?.eyeBtn.click();
   });
   row.appendChild(eyeBtn);
+  item.appendChild(row);
 
-  if (!secondaryEyeBtns.has(layer.key)) secondaryEyeBtns.set(layer.key, []);
-  secondaryEyeBtns.get(layer.key).push(eyeBtn);
+  const body = document.createElement("div");
+  body.className = "cross-tab-body";
+  body.hidden = true;
 
-  return row;
+  let desc = null;
+  if (layer.initiative || layer.desc) {
+    desc = document.createElement("p");
+    desc.className = "layer-desc mg-form-help";
+    setLayerDescription(desc, layer, layer.desc);
+    body.appendChild(desc);
+  }
+
+  const sliderSlot = document.createElement("div");
+  sliderSlot.className = "layer-slider-slot";
+  body.appendChild(sliderSlot);
+
+  const legendSlot = document.createElement("div");
+  legendSlot.className = "layer-legend-slot";
+  body.appendChild(legendSlot);
+  item.appendChild(body);
+
+  if (!secondaryRows.has(layer.key)) secondaryRows.set(layer.key, []);
+  secondaryRows.get(layer.key).push({ eyeBtn, body, desc, sliderSlot, legendSlot });
+
+  return item;
 }
