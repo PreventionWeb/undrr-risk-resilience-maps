@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { changesUrlState, createLayersStore, mirrorOpenViews, toUrlLayers } from "./layers-store.js";
+import {
+  changesUrlState,
+  createLayersStore,
+  mirrorOpenViews,
+  offRecord,
+  toUrlLayers,
+} from "./layers-store.js";
 
 const OFF = {
   desired: false,
@@ -12,6 +18,14 @@ const OFF = {
   status: "idle",
   error: null,
 };
+
+describe("offRecord", () => {
+  it("is the frozen off record the store returns for a key with no record", () => {
+    expect(offRecord("pop")).toEqual({ key: "pop", ...OFF });
+    expect(offRecord("pop")).toEqual(createLayersStore().get("pop"));
+    expect(Object.isFrozen(offRecord("pop"))).toBe(true);
+  });
+});
 
 describe("createLayersStore", () => {
   it("returns an off record for unknown keys without storing it", () => {

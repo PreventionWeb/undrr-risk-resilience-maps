@@ -37,7 +37,14 @@
  * @property {unknown} error - that failure; kept until a later call for the layer succeeds
  */
 
-const defaults = (key) =>
+/**
+ * A new frozen "off" record for a key: off, idle, no view, no settings. It is
+ * what the store returns for a key with no record yet, and what a layer row
+ * renders before its first record.
+ * @param {string} key
+ * @returns {LayerRecord}
+ */
+export const offRecord = (key) =>
   Object.freeze({
     key,
     desired: false,
@@ -52,7 +59,7 @@ const defaults = (key) =>
   });
 
 /** Fields a patch may set. `key` is always the store key and is ignored in patches. */
-const FIELDS = new Set(Object.keys(defaults("")).filter((field) => field !== "key"));
+const FIELDS = new Set(Object.keys(offRecord("")).filter((field) => field !== "key"));
 /** Object-valued fields, stored as frozen copies so callers can't mutate a record. */
 const OBJECT_FIELDS = new Set(["settings", "appliedSettings"]);
 
@@ -95,8 +102,8 @@ export function createLayersStore() {
   const offRecords = new Map();
   const subscribers = new Set();
 
-  function offRecord(key) {
-    if (!offRecords.has(key)) offRecords.set(key, defaults(key));
+  function cachedOffRecord(key) {
+    if (!offRecords.has(key)) offRecords.set(key, offRecord(key));
     return offRecords.get(key);
   }
 
@@ -107,7 +114,7 @@ export function createLayersStore() {
      *   and it is the `prev` passed to subscribers on the key's first write. It is not
      *   stored: `all()` does not list it.
      */
-    get: (key) => records.get(key) ?? offRecord(key),
+    get: (key) => records.get(key) ?? cachedOffRecord(key),
 
     /** @returns {LayerRecord[]} every record written so far, in first-write order */
     all: () => [...records.values()],
@@ -126,7 +133,7 @@ export function createLayersStore() {
      * @returns {LayerRecord} the record after the patch
      */
     set(key, patch) {
-      const prev = records.get(key) ?? offRecord(key);
+      const prev = records.get(key) ?? cachedOffRecord(key);
       const changes = {};
       for (const [field, value] of Object.entries(patch)) {
         if (field === "key") continue;

@@ -29,23 +29,11 @@ import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
 import { getExternalLayerDefinition, getExternalLayerRuntime, isExternalLayer } from "../external/index.js";
 import { clampSourceIdx, isBusyStatus, settingsMatch } from "../services/layer-controller.js";
+import { offRecord } from "../state/layers-store.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
 const GEOMETRY_LABELS = { point: "points", polygon: "polygons", line: "lines" };
-
-/** What a row shows before its first record: off, idle. */
-const OFF = Object.freeze({
-  desired: false,
-  sourceIdx: 0,
-  settings: null,
-  applied: false,
-  appliedSourceIdx: 0,
-  appliedSettings: null,
-  viewId: null,
-  status: "idle",
-  error: null,
-});
 
 function layerBadgeLabel(layer) {
   return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
@@ -180,8 +168,9 @@ export function createLayerRow(
   const { signal } = listeners;
   let destroyed = false;
 
-  // Last record rendered, and what the switch shows.
-  let last = null;
+  // Last record rendered (before the first: the store's "off" record), and
+  // what the switch shows.
+  let last = offRecord(layer.key);
   let shownDesired = false;
   let shownBusy = false;
   // The view whose slider and legend the row should show: the record it
@@ -369,7 +358,7 @@ export function createLayerRow(
 
   function update(next) {
     if (destroyed) return;
-    const prev = last ?? OFF;
+    const prev = last;
     last = next;
     const busy = isBusyStatus(next.status);
     const wasBusy = isBusyStatus(prev.status);
