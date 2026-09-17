@@ -69,8 +69,17 @@ export function createLayerController({ store, getLayer, views, external, onErro
     if (!destroyed) store.set(key, patch);
   }
 
+  /**
+   * Report a failure to `onError`. A throwing handler is logged, never rethrown,
+   * so it cannot abandon a reconciliation halfway (leaving the key busy).
+   */
   function report(key, error, action) {
-    if (!destroyed) onError(key, error, action);
+    if (destroyed) return;
+    try {
+      onError(key, error, action);
+    } catch (handlerError) {
+      console.error(`Layer controller: onError failed for "${key}":`, handlerError);
+    }
   }
 
   /** Record intent and reconcile. Resolves with the settled record. */
@@ -93,7 +102,20 @@ export function createLayerController({ store, getLayer, views, external, onErro
     // Registered before drain() starts, so intent written by a store subscriber
     // during its synchronous first step joins this run instead of starting another.
     running.set(key, done);
-    drain(key).then(settle);
+    drain(key).then(settle, (error) => {
+      // drain() handles MapX failures itself, so this is a bug (e.g. a store
+      // write that threw). Free the key so later intent starts a new run, leave
+      // no busy status behind, and settle every caller with the record.
+      console.error(`Layer controller: reconciliation failed for "${key}":`, error);
+      if (running.get(key) === done) running.delete(key);
+      dirty.delete(key);
+      try {
+        if (isBusyStatus(store.get(key).status)) write(key, { status: "error", error });
+      } catch (writeError) {
+        console.error(`Layer controller: could not record the failure for "${key}":`, writeError);
+      }
+      settle(store.get(key));
+    });
     return done;
   }
 

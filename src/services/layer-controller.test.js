@@ -595,6 +595,98 @@ describe("createLayerController", () => {
     });
   });
 
+  describe("unexpected errors", () => {
+    /** Collect unhandled rejections for the duration of a test. */
+    function watchUnhandled() {
+      const reasons = [];
+      const listener = (reason) => reasons.push(reason);
+      process.on("unhandledRejection", listener);
+      return { reasons, stop: () => process.off("unhandledRejection", listener) };
+    }
+
+    it("settles and frees the key when onError throws", async () => {
+      const unhandled = watchUnhandled();
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const store = createLayersStore();
+        const views = fakeViews();
+        const onError = vi.fn(() => {
+          throw new Error("handler broke");
+        });
+        const controller = createLayerController({
+          store,
+          getLayer: (key) => LAYERS[key],
+          views,
+          external: fakeExternal(),
+          onError,
+        });
+        views.failNext("add", "MX-POP");
+
+        const record = await controller.setOn("pop", true);
+
+        expect(record).toMatchObject({ desired: false, applied: false, status: "error" });
+        expect(onError).toHaveBeenCalledTimes(1);
+        expect(consoleError).toHaveBeenCalled();
+        // The key is free: a later intent runs and succeeds.
+        await expect(controller.setOn("pop", true)).resolves.toMatchObject({
+          applied: true,
+          viewId: "MX-POP",
+          status: "idle",
+        });
+        expect(views.log).toEqual(["add MX-POP", "add MX-POP"]);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(unhandled.reasons).toEqual([]);
+      } finally {
+        unhandled.stop();
+        consoleError.mockRestore();
+      }
+    });
+
+    it("settles every caller and leaves no busy status when a reconciliation throws", async () => {
+      const unhandled = watchUnhandled();
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const inner = createLayersStore();
+        let failStatusWrite = true;
+        // A store whose "idle" status write throws once: a bug outside MapX.
+        const store = {
+          ...inner,
+          set(key, patch) {
+            if (failStatusWrite && patch.status === "idle") {
+              failStatusWrite = false;
+              throw new Error("store broke");
+            }
+            return inner.set(key, patch);
+          },
+        };
+        const views = fakeViews();
+        const controller = createLayerController({
+          store,
+          getLayer: (key) => LAYERS[key],
+          views,
+          external: fakeExternal(),
+        });
+
+        const first = controller.setOn("pop", true);
+        const joined = controller.setOn("pop", true);
+        const [a, b] = await Promise.all([first, joined]);
+
+        expect(a).toBe(b);
+        expect(a).toMatchObject({ applied: true, status: "error" });
+        expect(controller.isBusy("pop")).toBe(false);
+        await expect(controller.setOn("pop", false)).resolves.toMatchObject({
+          applied: false,
+          status: "idle",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(unhandled.reasons).toEqual([]);
+      } finally {
+        unhandled.stop();
+        consoleError.mockRestore();
+      }
+    });
+  });
+
   describe("destroy", () => {
     it("drops a MapX result that settles after destroy and makes no more calls", async () => {
       const { store, views, onError, controller } = setup();
