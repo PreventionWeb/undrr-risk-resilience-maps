@@ -51,6 +51,9 @@ const PARTS = {
   globalFooter: "global-footer",
 };
 
+/** Marks a sidebar root, so an outer instance can tell a nested one's parts from its own. */
+const ROOT_ATTR = "data-ui-root";
+
 /**
  * Create a sidebar within `root`.
  *
@@ -80,9 +83,21 @@ export function createSidebar(
   root,
   { stateAdapter, registry = getLayerRegistry(), tabs = TABS, onViewsChanged, initialTab = "home" } = {},
 ) {
-  const part = (name) => root.querySelector(`[data-ui="${PARTS[name]}"]`);
+  // The root is marked `data-ui-root`, and a part belongs to the nearest marked
+  // ancestor, so an instance skips the parts of an instance nested inside its
+  // root. That holds once the nested root is marked: create (or mark) the
+  // nested instance first. A root that is not an element (a document) owns
+  // the parts outside every marked root.
+  const rootEl = root instanceof Element ? root : null;
+  const marksRoot = Boolean(rootEl) && !rootEl.hasAttribute(ROOT_ATTR);
+  if (marksRoot) rootEl.setAttribute(ROOT_ATTR, "");
+  const part = (name) =>
+    [...root.querySelectorAll(`[data-ui="${PARTS[name]}"]`)].find((el) => el.closest(`[${ROOT_ATTR}]`) === rootEl);
   const sidebarBody = part("panelBody");
-  if (!sidebarBody) throw new Error('createSidebar: no [data-ui="panel-body"] element under the root');
+  if (!sidebarBody) {
+    if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);
+    throw new Error('createSidebar: no [data-ui="panel-body"] element under the root');
+  }
   const panel = part("panel");
   const toggle = part("toggle");
   const infoPage = part("infoPage");
@@ -637,6 +652,7 @@ export function createSidebar(
     }
     layersStore = null;
     layerController = null;
+    if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);
   }
 
   return {

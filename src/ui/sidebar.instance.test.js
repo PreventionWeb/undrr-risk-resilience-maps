@@ -480,4 +480,23 @@ describe("createSidebar", () => {
     other.querySelector("[data-ui='panel-toggle']").click();
     expect(other.querySelector("[data-ui='layer-panel']").classList.contains("is-collapsed")).toBe(false);
   });
+
+  it("skips the parts of a sidebar root nested inside its root", () => {
+    // The nested root comes first in document order, so a plain querySelector
+    // under the outer root would find its parts.
+    const noIds = PAGE.replaceAll(/ id="[^"]*"/g, "");
+    document.body.innerHTML = `<div id="outer"><div id="inner" data-ui-root>${noIds}</div>${PAGE}</div>`;
+    const inner = document.querySelector("#inner");
+    sidebar = createSidebar(document.querySelector("#outer"), { stateAdapter: memoryAdapter() });
+
+    expect($("#outer").hasAttribute("data-ui-root")).toBe(true);
+    expect(inner.querySelectorAll(".tab-panel, .info-page-panel, .nav-tab-link")).toHaveLength(0);
+    expect($("#panel-body").querySelectorAll(".tab-panel")).toHaveLength(2);
+
+    sidebar.destroy();
+    sidebar = null;
+    // It removes only the mark it added.
+    expect($("#outer").hasAttribute("data-ui-root")).toBe(false);
+    expect(inner.hasAttribute("data-ui-root")).toBe(true);
+  });
 });
