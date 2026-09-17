@@ -524,6 +524,32 @@ describe("layers store", () => {
     expectStoreMatchesUi();
   });
 
+  it("puts a layer back in the hash when it is re-enabled after a double switch failure", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+
+    // The new source and the rollback to the old one both fail: the layer
+    // stays on with no view on the map.
+    mocks.viewAdd.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledTimes(3));
+    await tick();
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null });
+
+    // Another toggle rewrites the hash without Flood, as it did on main.
+    homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+
+    // Re-enabling Flood adds its view again, so the hash lists it again.
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
+    await tick();
+    warn.mockRestore();
+    expect(hashSegments()).toEqual(["recovery", "flood"]);
+  });
+
   it("records a failed load as an error and leaves the layer off", async () => {
     const failure = new Error("offline");
     mocks.viewAdd.mockRejectedValueOnce(failure);

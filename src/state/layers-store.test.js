@@ -171,6 +171,15 @@ describe("changesUrlState", () => {
     expect(changesUrlState({ ...on, desired: false }, on)).toBe(false);
     expect(changesUrlState({ ...on, viewId: null }, on)).toBe(false);
   });
+
+  it("is true when a layer that stayed on gets a view back", () => {
+    // After a failed switch and rollback the layer is on with no view, so the
+    // URL leaves it out; it must come back once a view carries it again.
+    const viewless = { ...on, viewId: null };
+    expect(changesUrlState(on, viewless)).toBe(true);
+    // Not for a layer that is off.
+    expect(changesUrlState({ ...OFF, key: "flood", viewId: "MX-F10" }, { ...OFF, key: "flood" })).toBe(false);
+  });
 });
 
 describe("toUrlLayers", () => {

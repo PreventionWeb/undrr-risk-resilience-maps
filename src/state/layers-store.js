@@ -112,12 +112,18 @@ export function mirrorOpenViews(layersStore, openViews) {
 }
 
 /**
- * Whether a record change alters what the URL should say. Status, `desired`
- * and the transient `viewId: null` during a source switch do not.
+ * Whether a record change alters what the URL should say: on/off, source,
+ * settings, or a layer that is on getting a view again (toUrlLayers leaves out
+ * a layer with no view, e.g. after a source switch and its rollback both
+ * failed). Status, `desired` and the transient `viewId: null` during a source
+ * switch do not, so a switch still writes once, when the new view arrives.
  */
 export function changesUrlState(next, prev) {
   return (
-    next.applied !== prev.applied || next.sourceIdx !== prev.sourceIdx || next.settings !== prev.settings
+    next.applied !== prev.applied ||
+    next.sourceIdx !== prev.sourceIdx ||
+    next.settings !== prev.settings ||
+    Boolean(next.applied && next.viewId && !prev.viewId)
   );
 }
 
