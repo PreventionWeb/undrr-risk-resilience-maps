@@ -70,43 +70,43 @@ describe("MapX availability", () => {
       <section id="map-service-notice" hidden></section>
       <button id="map-service-retry"></button>
     `;
-    const locationRef = { reload: vi.fn() };
+    const reload = vi.fn();
 
     showMapServiceNotice();
     expect(document.getElementById("map-service-notice").hidden).toBe(false);
     hideMapServiceNotice();
     expect(document.getElementById("map-service-notice").hidden).toBe(true);
 
-    initMapServiceRetry(document, locationRef);
+    initMapServiceRetry(document, reload);
     document.getElementById("map-service-retry").click();
-    expect(locationRef.reload).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("counts down and automatically retries MapX", () => {
     vi.useFakeTimers();
     document.body.innerHTML = `<p id="map-service-countdown"></p>`;
-    const locationRef = { reload: vi.fn() };
+    const reload = vi.fn();
 
-    startMapServiceRetryCountdown({ documentRef: document, locationRef, seconds: 3 });
+    startMapServiceRetryCountdown({ documentRef: document, reload, seconds: 3 });
     expect(document.getElementById("map-service-countdown").textContent).toBe("Retrying in 3 seconds");
 
     vi.advanceTimersByTime(2_000);
     expect(document.getElementById("map-service-countdown").textContent).toBe("Retrying in 1 second");
-    expect(locationRef.reload).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1_000);
-    expect(locationRef.reload).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
   });
 
   it("pauses automatic retry while the map is not active", () => {
     vi.useFakeTimers();
     document.body.innerHTML = `<p id="map-service-countdown"></p>`;
-    const locationRef = { reload: vi.fn() };
+    const reload = vi.fn();
     let mapIsActive = false;
 
     startMapServiceRetryCountdown({
       documentRef: document,
-      locationRef,
+      reload,
       seconds: 2,
       shouldCountDown: () => mapIsActive,
     });
@@ -115,6 +115,6 @@ describe("MapX availability", () => {
 
     mapIsActive = true;
     vi.advanceTimersByTime(2_000);
-    expect(locationRef.reload).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
   });
 });

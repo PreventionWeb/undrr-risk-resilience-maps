@@ -46,31 +46,36 @@ vi.mock("../external/index.js", () => ({
   getExternalLayerRuntime: () => null,
 }));
 
-import { buildSidebar, restoreLayersFromHash } from "./sidebar.js";
+import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
 
 function eye(label) {
-  return [...document.querySelectorAll("#tab-risk .layer-item")]
+  return [...document.querySelectorAll("[data-tab-panel='risk'] .layer-item")]
     .find((item) => item.querySelector(".layer-label").textContent === label)
     .querySelector(".layer-eye");
 }
 
 describe("hash order for a grouped tab", () => {
+  let sidebar;
+
   beforeEach(() => {
     history.replaceState(null, "", "#risk");
     document.body.innerHTML = `
-      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
-      <button id="panel-toggle"></button>
-      <button id="layer-clear-btn" hidden></button>
-      <div id="app-map"></div>
-      <div id="info-page"></div>`;
+      <div data-ui="layer-panel"><div class="layer-panel-header"></div><div data-ui="panel-body"></div></div>
+      <button data-ui="panel-toggle"></button>
+      <button data-ui="clear-layers" hidden></button>
+      <div data-ui="app-map"></div>
+      <div data-ui="info-page"></div>`;
     store.openViews.clear();
-    buildSidebar();
+    sidebar = createSidebar(document.body);
+    return () => sidebar.destroy();
   });
 
   it("lists layers in config order, not sidebar group order", async () => {
     // Groups show Societies first, so the rows are in the opposite order.
-    const labels = [...document.querySelectorAll("#tab-risk .layer-label")].map((el) => el.textContent);
+    const labels = [...document.querySelectorAll("[data-tab-panel='risk'] .layer-label")].map(
+      (el) => el.textContent,
+    );
     expect(labels).toEqual(["Societies", "Economy"]);
 
     eye("Economy").click();
@@ -84,7 +89,7 @@ describe("hash order for a grouped tab", () => {
     history.replaceState(null, "", "#risk?layers=econ,soc");
     const lengthBefore = history.length;
 
-    await restoreLayersFromHash();
+    await sidebar.restoreFromUrl();
 
     expect(store.openViews).toEqual(new Set(["MX-ECON", "MX-SOC"]));
     expect(location.hash).toBe("#risk?layers=econ,soc");

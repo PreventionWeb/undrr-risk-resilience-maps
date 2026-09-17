@@ -43,10 +43,18 @@ const CATEGORIES = TABS.map((tab) => ({
   ...CARD_VISUAL[tab.id],
 })).filter((c) => c.icon); // skip any tabs that have no card visual defined
 
-export function buildHomePanel() {
+/**
+ * Build the home page.
+ * @param {object} [options]
+ * @param {(tabId: string) => void} [options.onNavigate] - a category card was
+ *   clicked; open that data tab
+ * @param {AbortSignal} [options.signal] - removes the cards' listeners
+ * @returns {HTMLElement}
+ */
+export function buildHomePanel({ onNavigate = () => {}, signal } = {}) {
   const el = document.createElement("div");
   el.className = "info-page-panel";
-  el.id = "tab-home";
+  el.dataset.tabPanel = "home";
 
   el.innerHTML = `
     <!--
@@ -96,9 +104,7 @@ export function buildHomePanel() {
 
   // Wire category card buttons to navigate to the matching data tab
   for (const btn of el.querySelectorAll(".info-category-card[data-tab]")) {
-    btn.addEventListener("click", () => {
-      document.dispatchEvent(new CustomEvent("navigate-tab", { detail: btn.dataset.tab }));
-    });
+    btn.addEventListener("click", () => onNavigate(btn.dataset.tab), { signal });
   }
 
   return el;

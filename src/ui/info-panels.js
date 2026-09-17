@@ -79,7 +79,11 @@ function buildSourcesTable(layers) {
     </div>`;
 }
 
-export function buildSourcesPanel() {
+/**
+ * Build the Sources page.
+ * @param {{ signal?: AbortSignal }} [options] - removes the page's listeners
+ */
+export function buildSourcesPanel({ signal } = {}) {
   // One tab per layer category. Mangrove's tabs script progressively enhances
   // this markup: it wires up ARIA, keyboard navigation and deep linking, and
   // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
@@ -138,14 +142,14 @@ export function buildSourcesPanel() {
     </div>`;
 
   const panel = buildPanel(
-    "tab-sources",
+    "sources",
     `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
         <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
         <label class="sources-mapx-toggle mg-switch">
-          <input type="checkbox" id="toggle-mapx-ids" class="mg-switch__input">
+          <input type="checkbox" class="mg-switch__input" data-action="toggle-mapx-ids">
           <span class="mg-switch__track">
             <span class="mg-switch__thumb"></span>
           </span>
@@ -161,7 +165,7 @@ export function buildSourcesPanel() {
         <h2 class="info-page-section__title">Layer inventory</h2>
         <p>Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license, and status notes.</p>
         <p>
-          <button id="btn-download-inventory" class="mg-button mg-button-secondary">
+          <button class="mg-button mg-button-secondary" data-action="download-inventory">
             Download layer inventory (CSV)
           </button>
         </p>
@@ -170,11 +174,17 @@ export function buildSourcesPanel() {
   `,
   );
 
-  panel.querySelector("#btn-download-inventory").addEventListener("click", downloadLayerInventory);
+  panel
+    .querySelector("[data-action='download-inventory']")
+    .addEventListener("click", downloadLayerInventory, { signal });
 
-  panel.querySelector("#toggle-mapx-ids").addEventListener("change", (e) => {
-    panel.classList.toggle("show-mapx-ids", e.target.checked);
-  });
+  panel.querySelector("[data-action='toggle-mapx-ids']").addEventListener(
+    "change",
+    (e) => {
+      panel.classList.toggle("show-mapx-ids", e.target.checked);
+    },
+    { signal },
+  );
 
   return panel;
 }
@@ -183,7 +193,7 @@ export function buildSourcesPanel() {
 
 export function buildAboutPanel() {
   return buildPanel(
-    "tab-about",
+    "about",
     `
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
@@ -252,10 +262,14 @@ export function buildAboutPanel() {
   );
 }
 
-function buildPanel(id, innerHTML) {
+/**
+ * An info page panel, marked with its tab id. Panels carry no element id, so
+ * a rebuilt or second sidebar creates no duplicate ids.
+ */
+function buildPanel(tabId, innerHTML) {
   const el = document.createElement("div");
   el.className = "info-page-panel";
-  el.id = id;
+  el.dataset.tabPanel = tabId;
   el.innerHTML = innerHTML;
   return el;
 }

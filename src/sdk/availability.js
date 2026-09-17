@@ -55,15 +55,23 @@ export function hideMapServiceNotice(documentRef = document) {
   if (notice) notice.hidden = true;
 }
 
-export function initMapServiceRetry(documentRef = document, locationRef = window.location) {
+/** Reload the page: the standalone app's retry. An embed passes its own `reload`. */
+const reloadPage = () => window.location.reload();
+
+/**
+ * Wire the notice's "Try again" button.
+ * @param {Document} [documentRef]
+ * @param {() => void} [reload] - how to retry (default: reload the page)
+ */
+export function initMapServiceRetry(documentRef = document, reload = reloadPage) {
   documentRef.getElementById("map-service-retry")?.addEventListener("click", () => {
-    locationRef.reload();
+    reload();
   });
 }
 
 export function startMapServiceRetryCountdown({
   documentRef = document,
-  locationRef = window.location,
+  reload = reloadPage,
   seconds = 60,
   shouldCountDown = () =>
     documentRef.visibilityState !== "hidden" &&
@@ -84,7 +92,7 @@ export function startMapServiceRetryCountdown({
     remaining -= 1;
     if (remaining <= 0) {
       clearInterval(interval);
-      locationRef.reload();
+      reload();
       return;
     }
     render();

@@ -132,3 +132,93 @@ describe("makeResizable", () => {
     expect(() => makeResizable(null)).not.toThrow();
   });
 });
+
+describe("abortable drag and resize", () => {
+  const pointer = (type, init = {}) => new MouseEvent(type, { bubbles: true, button: 0, ...init });
+
+  function draggablePanel(signal) {
+    const el = makePanel();
+    const handle = makeHandle();
+    handle.setPointerCapture = () => {};
+    makeDraggable(el, handle, { signal });
+    return { el, handle };
+  }
+
+  it("drags the panel until the signal aborts", () => {
+    const controller = new AbortController();
+    const { el, handle } = draggablePanel(controller.signal);
+
+    handle.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+    expect(el.style.transition).toBe("none");
+    expect(document.body.style.cursor).toBe("grabbing");
+    handle.dispatchEvent(pointer("pointerup"));
+    expect(document.body.style.cursor).toBe("");
+
+    controller.abort();
+    el.style.left = "";
+    handle.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+
+    expect(el.style.transition).toBe("");
+    expect(el.style.left).toBe("");
+    expect(document.body.style.cursor).toBe("");
+    expect(handle.dataset.draggable).toBeUndefined();
+    expect(handle.classList.contains("is-draggable-handle")).toBe(false);
+  });
+
+  it("ends a drag in progress when the signal aborts", () => {
+    const controller = new AbortController();
+    const { el, handle } = draggablePanel(controller.signal);
+
+    handle.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+    controller.abort();
+
+    expect(document.body.style.cursor).toBe("");
+    expect(el.style.transition).toBe("");
+    // A move after abort no longer positions the panel.
+    el.style.left = "7px";
+    handle.dispatchEvent(pointer("pointermove", { clientX: 40, clientY: 40 }));
+    expect(el.style.left).toBe("7px");
+  });
+
+  it("can be made draggable again after an abort", () => {
+    const first = new AbortController();
+    const { el, handle } = draggablePanel(first.signal);
+    first.abort();
+
+    makeDraggable(el, handle, { signal: new AbortController().signal });
+    handle.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+
+    expect(document.body.style.cursor).toBe("grabbing");
+    handle.dispatchEvent(pointer("pointerup"));
+  });
+
+  it("does nothing with an already aborted signal", () => {
+    const { handle } = draggablePanel(AbortSignal.abort());
+    expect(handle.dataset.draggable).toBeUndefined();
+  });
+
+  it("removes the resize grip and its listeners when the signal aborts", () => {
+    const controller = new AbortController();
+    const el = makePanel();
+    makeResizable(el, { signal: controller.signal });
+    const grip = el.querySelector(".panel-resize-grip");
+    grip.setPointerCapture = () => {};
+
+    grip.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+    expect(el.style.transition).toBe("none");
+    grip.dispatchEvent(pointer("pointermove", { clientX: 500, clientY: 500 }));
+    expect(el.dataset.resizedWidth).toBeDefined();
+
+    controller.abort();
+    expect(el.style.transition).toBe("");
+    expect(el.querySelector(".panel-resize-grip")).toBeNull();
+    delete el.dataset.resizedWidth;
+    grip.dispatchEvent(pointer("pointermove", { clientX: 600, clientY: 600 }));
+    grip.dispatchEvent(pointer("pointerdown", { clientX: 0, clientY: 0 }));
+    expect(el.dataset.resizedWidth).toBeUndefined();
+    expect(el.style.transition).toBe("");
+
+    makeResizable(el, { signal: new AbortController().signal });
+    expect(el.querySelectorAll(".panel-resize-grip").length).toBe(1);
+  });
+});

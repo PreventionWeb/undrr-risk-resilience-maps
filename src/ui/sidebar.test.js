@@ -30,6 +30,12 @@ vi.mock("../config/layers.js", () => ({
 }));
 
 vi.mock("../sdk/views.js", () => ({ viewAdd, viewRemove }));
+vi.mock("./home.js", () => ({ buildHomePanel: () => document.createElement("div") }));
+vi.mock("./info-panels.js", () => ({
+  buildSourcesPanel: () => document.createElement("div"),
+  buildAboutPanel: () => document.createElement("div"),
+}));
+vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
 vi.mock("./layer-controls.js", () => ({
   addOpacitySlider: vi.fn((_idView, container) => {
@@ -45,21 +51,45 @@ vi.mock("./layer-controls.js", () => ({
 }));
 
 import * as store from "../state/store.js";
-import { buildLayerAccordion, getLayersStore } from "./sidebar.js";
+import { TABS } from "../config/layers.js";
+import { createSidebar } from "./sidebar.js";
 
 const { layer } = testLayers;
 
 describe("layer accordion activation", () => {
+  let sidebar;
+
+  /** Build a sidebar for `tabs` (by default the mocked config) in a fresh page. */
+  function build(tabs) {
+    sidebar?.destroy();
+    document.body.innerHTML = `
+      <div data-ui="layer-panel"><div class="layer-panel-header"></div><div data-ui="panel-body"></div></div>
+      <button data-ui="clear-layers" hidden></button>`;
+    sidebar = createSidebar(document.body, tabs ? { tabs } : {});
+  }
+
+  /** A layer's home-tab row, as the old buildLayerAccordion() returned it. */
+  function accordion(target, tabs = TABS) {
+    const index = tabs[0].layers.indexOf(target);
+    const wrapper = document.querySelectorAll(".tab-panel .layer-item")[index];
+    return { wrapper, eyeBtn: wrapper.querySelector(".layer-eye") };
+  }
+
+  const getLayersStore = () => sidebar.store;
+
   beforeEach(() => {
-    document.body.innerHTML = '<button id="layer-clear-btn" hidden></button>';
     store.openViews.clear();
     viewAdd.mockClear();
     viewRemove.mockClear();
+    build();
+    return () => {
+      sidebar.destroy();
+      sidebar = null;
+    };
   });
 
   it("turns a layer on when expanded and leaves it on when collapsed", async () => {
-    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-    document.body.appendChild(wrapper);
+    const { wrapper, eyeBtn } = accordion(layer);
     const header = wrapper.querySelector(".layer-header");
     const body = wrapper.querySelector(".layer-body");
 
@@ -97,8 +127,10 @@ describe("layer accordion activation", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const unknown = { ...layer, key: "not-in-config", id: "MX-NOT-IN-CONFIG" };
-      const { wrapper, eyeBtn } = buildLayerAccordion(unknown);
-      document.body.appendChild(wrapper);
+      // A tab listing a layer the registry (built from the config) doesn't have.
+      const tabs = [{ ...TABS[0], layers: [...TABS[0].layers, unknown] }];
+      build(tabs);
+      const { wrapper, eyeBtn } = accordion(unknown, tabs);
       expect(warn.mock.calls.some(([message]) => String(message).includes("not-in-config"))).toBe(true);
 
       eyeBtn.click();
@@ -124,8 +156,7 @@ describe("layer accordion activation", () => {
           finishAdd = resolve;
         }),
     );
-    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-    document.body.appendChild(wrapper);
+    const { wrapper, eyeBtn } = accordion(layer);
     const header = wrapper.querySelector(".layer-header");
     const body = wrapper.querySelector(".layer-body");
 
@@ -158,8 +189,7 @@ describe("layer accordion activation", () => {
 
   it.each(["Enter", " "])("toggles the layer, not the accordion, on %j on the switch", async (key) => {
     const layer = freshLayer();
-    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-    document.body.appendChild(wrapper);
+    const { wrapper, eyeBtn } = accordion(layer);
     const body = wrapper.querySelector(".layer-body");
 
     pressKey(eyeBtn, key);
@@ -180,8 +210,7 @@ describe("layer accordion activation", () => {
   });
 
   it.each(["Enter", " "])("toggles the accordion on %j on the header", (key) => {
-    const { wrapper } = buildLayerAccordion(freshLayer());
-    document.body.appendChild(wrapper);
+    const { wrapper } = accordion(freshLayer());
     const header = wrapper.querySelector(".layer-header");
 
     pressKey(header, key);
@@ -191,7 +220,7 @@ describe("layer accordion activation", () => {
   });
 
   it("shows the R-R initiative before the layer description", () => {
-    const { wrapper } = buildLayerAccordion(layer);
+    const { wrapper } = accordion(layer);
 
     expect(wrapper.querySelector(".layer-desc").textContent).toBe("Test R-R initiative. Test description.");
   });
