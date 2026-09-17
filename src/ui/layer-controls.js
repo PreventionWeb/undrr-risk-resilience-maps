@@ -32,6 +32,11 @@ const IMAGE_FALLBACK_LABELS = {
  * @param {HTMLElement} container - element to append the slider row into
  */
 export async function addOpacitySlider(idView, container) {
+  // Same ownership marker as addLegend: if the slot is cleared while the
+  // transparency request is pending, the late slider is dropped.
+  const requestMarker = document.createComment(`opacity:${idView}`);
+  container.appendChild(requestMarker);
+
   const row = document.createElement("div");
   row.className = "opacity-row";
 
@@ -45,6 +50,7 @@ export async function addOpacitySlider(idView, container) {
   slider.min = "0";
   slider.max = "100";
   slider.value = "100";
+  slider.dataset.viewId = idView;
 
   const valueDisplay = document.createElement("span");
   valueDisplay.className = "opacity-value";
@@ -65,6 +71,7 @@ export async function addOpacitySlider(idView, container) {
   slider.addEventListener("input", async () => {
     const opacity = Number(slider.value);
     valueDisplay.textContent = `${opacity}%`;
+    syncOpacitySliders(idView, slider);
     try {
       await setViewLayerTransparency(idView, 100 - opacity);
     } catch {
@@ -72,9 +79,23 @@ export async function addOpacitySlider(idView, container) {
     }
   });
 
+  if (requestMarker.parentNode !== container) return;
   row.appendChild(slider);
   row.appendChild(valueDisplay);
-  container.appendChild(row);
+  requestMarker.replaceWith(row);
+}
+
+/**
+ * Mirror a slider's value onto other sliders for the same view (a layer can
+ * show controls in both its home tab and a cross-tab row).
+ */
+function syncOpacitySliders(idView, source) {
+  for (const other of document.querySelectorAll("input.mg-range[data-view-id]")) {
+    if (other === source || other.dataset.viewId !== idView) continue;
+    other.value = source.value;
+    const display = other.parentElement?.querySelector(".opacity-value");
+    if (display) display.textContent = `${source.value}%`;
+  }
 }
 
 /**
