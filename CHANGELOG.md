@@ -4,16 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## [Unreleased]
+## [0.0.2] - 2026-09-17
 
 ### Changed
 
 - Upgraded the UNDRR Mangrove component library from `2.0.0-beta.3` to `2.0.0-rc.1` across the stylesheet, `preview-access.js`, and `tabs.js` modules.
 - Adopted Mangrove's new `.mg-switch` pure CSS component (`.mg-switch__input`, `.mg-switch__track`, `.mg-switch__thumb`, `.mg-switch__label`) for the Sources page MapX view ID toggle, and aligned the layer accordion `.layer-eye` switch button styling with Mangrove's switch geometry and tokens.
 - Adopted `.mg-range` and `.mg-range__ticks` across the layer opacity slider and compound-layer stepped return-period slider.
-- Adopted `.mg-details` on expandable sections in Sources (metrics under development) and layer diagnostic comparison panels.
-- Adopted `.mg-badge` for planning status badges and `.mg-badge--code` for monospace MapX IDs in the Sources data table.
-- Adopted `.mg-button--icon` and `.mg-button--icon--small` for floating map tool buttons (panel collapse toggle and site inspection tool).
+- Adopted `.mg-details` on the Sources page "Metrics under development" section. The compact layer-panel legend comparison keeps its local styling.
+- Adopted `.mg-status-label` (`--waiting-information`, `--negative`, `--draft`) for planned-dataset status in the Sources data table.
+- Inverted the `.mg-switch` checked track and focus ring on the blue Sources hero so both meet 3:1 contrast.
+- Anchored stepped-slider tick labels to each slider stop so marks line up with the `.mg-range` thumb.
+- Moved map toolbar buttons (panel collapse, site inspection, "Show disabled") onto Mangrove's `mg-button-primary mg-button-outline` variant, with `.mg-button--icon` / `.mg-button--icon--small` for the icon tools. Local CSS now only handles position, compact sizing, and the pressed/active state.
+- Switched the map outage "Try again" action to `mg-button mg-button-primary`.
 
 ## [0.0.1] - 2026-09-09
 

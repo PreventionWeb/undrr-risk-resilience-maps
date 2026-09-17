@@ -14,6 +14,16 @@ function escHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+const STATUS_LABEL_MODIFIERS = {
+  "Awaiting data": "waiting-information",
+  "Pending removal": "negative",
+};
+
+function statusLabel(status) {
+  const modifier = STATUS_LABEL_MODIFIERS[status] || "draft";
+  return `<span class="data-table__badge mg-status-label mg-status-label--${modifier}"><span class="mg-status-label__indicator" aria-hidden="true"></span>${escHtml(status)}</span> `;
+}
+
 function sourceCell(source, url) {
   if (!source) return "";
   return url
@@ -35,16 +45,14 @@ function buildSourcesTable(layers) {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
-      const statusBadge = isTrackedOnly
-        ? `<span class="data-table__badge mg-badge">${escHtml(status)}</span> `
-        : "";
+      const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
       const idCell = ids.includes("\n")
         ? ids
             .split("\n")
-            .map((id) => `<code class="mg-badge mg-badge--code">${escHtml(id)}</code>`)
+            .map((id) => `<code>${escHtml(id)}</code>`)
             .join("<br>")
-        : `<code class="mg-badge mg-badge--code">${escHtml(ids)}</code>`;
+        : `<code>${escHtml(ids)}</code>`;
       return `
       <tr${rowClass}>
         <td>${statusBadge}${escHtml(layer.label)}</td>

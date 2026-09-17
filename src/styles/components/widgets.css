@@ -92,5 +92,11 @@
   justify-content: space-between;
   font-size: 0.6rem;
   color: var(--color-text-muted);
-  padding: 0 0.1rem;
+}
+
+/* Zero-width anchors so each tick mark and label centres on its slider stop
+   regardless of label width (mg-range__ticks padding supplies the thumb inset). */
+.widget-slider-ticks span {
+  inline-size: 0;
+  white-space: nowrap;
 }
