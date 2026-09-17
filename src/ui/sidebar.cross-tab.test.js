@@ -565,6 +565,36 @@ describe("layer state consistency", () => {
     expect(location.hash).toBe("#risk?layers=flood");
   });
 
+  it("keeps a row collapsed when back/forward asks for the layer its header is loading", async () => {
+    // The header started the activation and the user collapsed the row; a
+    // history entry asking for the same layer is not a new activation, so it
+    // does not reopen the row (ARCHITECTURE.md, "Expand rules").
+    showTab("risk");
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const item = homeItem("risk", RECOVERY.label);
+    const header = item.querySelector(".layer-header");
+    header.click();
+    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
+    header.click();
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+
+    history.pushState(null, "", "#risk?layers=recovery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    slowAdd.resolve();
+
+    await vi.waitFor(() =>
+      expect(getLayersStore().get("recovery")).toMatchObject({ applied: true, status: "idle" }),
+    );
+    await tick();
+    expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(item.querySelector(".layer-body").style.display).toBe("none");
+    expect(item.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(location.hash).toBe("#risk?layers=recovery");
+  });
+
   it("updates the source widget on back/forward", async () => {
     showTab("risk");
     await turnOnHome(FLOOD);
