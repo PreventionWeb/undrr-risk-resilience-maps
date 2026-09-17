@@ -113,6 +113,10 @@ let showDisabledLayers = false;
 // writes inside a batch are skipped and replaced by one write when it ends,
 // so a multi-layer change creates at most one history entry.
 let hashBatchDepth = 0;
+// Layer keys whose current user action has pushed a history entry while intent
+// was still pending; that action's later hash writes replace the entry (see
+// syncLayerHash).
+const actionEntryKeys = new Set();
 
 /**
  * Create the layers store, layer controller and URL adapter, and derive
@@ -129,6 +133,7 @@ function initLayerState(adapter, { url = true } = {}) {
   // The new store starts empty, so drop view ids a previous build (HMR, tests)
   // left in the compatibility Set.
   store.openViews.clear();
+  actionEntryKeys.clear();
   if (url) {
     stateAdapter = adapter ?? createHashAdapter();
     if (!adapter) disposers.push(() => stateAdapter.destroy());
@@ -139,8 +144,9 @@ function initLayerState(adapter, { url = true } = {}) {
   disposers.push(mirrorOpenViews(layersStore, store.openViews));
   disposers.push(layersStore.subscribe(notifyViewsChanged));
   disposers.push(
-    layersStore.subscribe((_key, next, prev) => {
-      if (changesUrlState(next, prev)) syncHashFromState();
+    layersStore.subscribe((key, next, prev) => {
+      if (changesUrlState(next, prev)) syncLayerHash(key);
+      else settleActionEntry(key);
     }),
   );
   disposers.push(layersStore.subscribe(renderLayerRecord));
@@ -716,6 +722,8 @@ export function buildSidebar({ stateAdapter: adapter } = {}) {
   const unsubscribeUrl = stateAdapter.subscribe((parsed) => {
     const action = hashChangeAction(parsed, { dataTabs: DATA_TABS, infoTabs: INFO_TABS });
     if (action === "ignore") return;
+    // The user moved through history: no earlier action's entry may be replaced.
+    actionEntryKeys.clear();
     if (parsed.tab !== store.activeTab) switchTab(parsed.tab, { syncHash: false });
     if (action === "keep-layers") {
       // Rewrite the bare hash in place so the entry still carries the layers.
@@ -819,20 +827,52 @@ function updateDisabledLayerVisibility() {
  * failed write is logged here and a throwing subscriber is logged by the
  * store, so neither stops the panel from finishing its update.
  * @param {{ replace?: boolean }} [options] - replace the history entry instead of pushing
+ * @returns {boolean} whether the URL state changed (an entry was pushed or replaced)
  */
 function syncHashFromState({ replace = false } = {}) {
-  if (!layersStore) return; // destroyed (see destroySidebar)
-  if (hashBatchDepth > 0) return;
+  if (!layersStore) return false; // destroyed (see destroySidebar)
+  if (hashBatchDepth > 0) return false;
   // A store used before any buildSidebar(): no URL to write.
-  if (!stateAdapter) return;
+  if (!stateAdapter) return false;
   const layers = toUrlLayers(layersStore.all(), URL_KEY_ORDER);
+  const before = JSON.stringify(stateAdapter.read());
   try {
     stateAdapter.write({ tab: store.activeTab, layers }, { replace });
   } catch (error) {
     // e.g. SecurityError when the browser rate-limits history calls. The URL
     // falls behind until the next write; the map and panel stay correct.
     console.error("Could not write layer state to the URL:", error);
+    return false;
   }
+  const changed = JSON.stringify(stateAdapter.read()) !== before;
+  // A new entry belongs to a new action: later writes of earlier actions push.
+  if (changed && !replace) actionEntryKeys.clear();
+  return changed;
+}
+
+/**
+ * Store subscriber's hash write for one layer's change, keeping one history
+ * entry per user action on that layer.
+ *
+ * The first URL change of an action pushes an entry. If the layer still has
+ * pending intent at that point (a second click or a newer source landed while
+ * MapX was busy), the action is not over: the key is remembered and its later
+ * writes replace that entry, until a write or record change finds its intent
+ * applied. So a double-click (on, then off) makes one entry that ends where it
+ * started, and quick A→B→C source picks make one entry ending on C, even when
+ * B reaches the map first. Any other push (another layer, a tab switch, a
+ * batch) or a back/forward navigation closes the open actions.
+ */
+function syncLayerHash(key) {
+  const continuing = actionEntryKeys.has(key);
+  const changed = syncHashFromState({ replace: continuing });
+  settleActionEntry(key, changed);
+}
+
+/** Remember or forget a key's open action entry from its pending intent. */
+function settleActionEntry(key, pushed = false) {
+  if (!layerController?.hasPendingIntent(key)) actionEntryKeys.delete(key);
+  else if (pushed) actionEntryKeys.add(key);
 }
 
 /**
@@ -845,7 +885,10 @@ async function batchHashWrites(fn, { replace = false } = {}) {
     await fn();
   } finally {
     hashBatchDepth--;
-    if (hashBatchDepth === 0) syncHashFromState({ replace });
+    if (hashBatchDepth === 0) {
+      actionEntryKeys.clear();
+      syncHashFromState({ replace });
+    }
   }
 }
 

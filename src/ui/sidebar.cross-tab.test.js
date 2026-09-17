@@ -510,8 +510,9 @@ describe("layer state consistency", () => {
       expect.objectContaining({ id: "MX-F500" }),
       item.querySelector(".layer-legend-slot"),
     );
-    // 100y reached the map before 500y replaced it: one entry per source shown.
-    expect(history.length).toBe(lengthBefore + 2);
+    // 100y reached the map while 500y was already picked: its entry is
+    // replaced by 500y's, so the quick picks are one entry, as on main.
+    expect(history.length).toBe(lengthBefore + 1);
   });
 
   it("shows the kept source in the widget when a switch fails", async () => {
@@ -713,6 +714,97 @@ describe("layers store", () => {
       appliedSourceIdx: 0,
     });
     expect(hashSegments()).toEqual(["recovery", "flood"]);
+  });
+
+  describe("one history entry per user action", () => {
+    beforeEach(async () => {
+      // Let beforeEach's queued hashchange settle before counting entries.
+      await tick();
+    });
+
+    it("pushes one entry for a single toggle", async () => {
+      const lengthBefore = history.length;
+      crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes one entry for a single source switch", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const lengthBefore = history.length;
+
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").appliedSourceIdx).toBe(1));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:1");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("ends a double-click where it started, with one entry that Back cannot turn the layer on from", async () => {
+      const lengthBefore = history.length;
+      const hashBefore = location.hash;
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+
+      eye.click();
+      eye.click();
+      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+
+      // The add reached the map and pushed an entry listing the layer; the
+      // removal replaced it. One entry, holding the pre-click state.
+      expect(location.hash).toBe(hashBefore);
+      expect(history.length).toBe(lengthBefore + 1);
+
+      history.back();
+      await tick();
+      await tick();
+      expect(location.hash).toBe(hashBefore);
+      expect(getLayersStore().get("recovery")).toMatchObject({ desired: false, applied: false });
+    });
+
+    it("pushes one entry for quick A→B→C source picks where B reaches the map first", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const item = homeItem("risk", FLOOD.label);
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      const lengthBefore = history.length;
+
+      item.querySelectorAll(".widget-sub-tab")[1].click();
+      await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+      item.querySelectorAll(".widget-sub-tab")[2].click();
+      slowAdd.resolve();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").appliedSourceIdx).toBe(2));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:2");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes a new entry for the next action after a double-click", async () => {
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("idle"));
+      const lengthBefore = history.length;
+
+      eye.click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    async function turnOnHomeFlood() {
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").applied).toBe(true));
+      await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("idle"));
+    }
   });
 
   it("never reports zero layers while one is on, even mid source switch", async () => {
