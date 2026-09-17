@@ -16,6 +16,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - "Clear all" now also turns off layers that are still loading, and is shown as soon as a layer starts loading.
 - Enter and Space on a layer's switch in the layer list now turn the layer on or off. Before, the key press opened or closed the layer's row instead, so keyboard users could not turn a layer off from its switch.
 - Screen readers now hear when a layer fails to load, turn off or change source, and a switch whose layer is still loading is announced as busy ("Loading …").
+- Moving a layer's opacity slider while the same layer's slider in another tab is still loading no longer gets overwritten when that slider finishes loading.
 
 ### Changed
 
