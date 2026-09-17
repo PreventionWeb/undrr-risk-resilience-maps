@@ -65,17 +65,20 @@ const PARTS = {
  *   registry must index the same layer objects
  * @param {(count: number) => void} [options.onViewsChanged] - called with the
  *   number of layers on the map whenever that number changes
+ * @param {string} [options.initialTab] - the tab shown when the URL names none
+ *   (or an unknown one); default "home"
  * @returns {{
  *   restoreFromUrl(): Promise<void>,
  *   showTab(tabId: string): void,
  *   destroy(): void,
  *   readonly store: ReturnType<typeof createLayersStore>|null,
  *   readonly controller: ReturnType<typeof createLayerController>|null,
+ *   readonly activeTab: string,
  * }}
  */
 export function createSidebar(
   root,
-  { stateAdapter, registry = getLayerRegistry(), tabs = TABS, onViewsChanged } = {},
+  { stateAdapter, registry = getLayerRegistry(), tabs = TABS, onViewsChanged, initialTab = "home" } = {},
 ) {
   const part = (name) => root.querySelector(`[data-ui="${PARTS[name]}"]`);
   const sidebarBody = part("panelBody");
@@ -170,8 +173,8 @@ export function createSidebar(
   // intent was still pending; that action's later hash writes replace the
   // entry (see syncLayerHash).
   const actionEntryKeys = new Set();
-  // The shown tab. Mirrored to `store.activeTab` for existing readers.
-  let activeTab = store.activeTab;
+  // The shown tab, set by the first switchTab below.
+  let activeTab = null;
   // Active-state and click wiring for the nav links (created after the panels).
   let nav = null;
 
@@ -254,7 +257,6 @@ export function createSidebar(
   function switchTab(tabId, { syncHash = true, replaceHash = false } = {}) {
     if (destroyed) return;
     activeTab = tabId;
-    store.setActiveTab(tabId);
     if (syncHash) syncHashFromState({ replace: replaceHash });
 
     const isInfoTab = INFO_TABS.includes(tabId);
@@ -544,12 +546,12 @@ export function createSidebar(
     });
   }
 
-  // Read initial tab from the URL, fall back to the current tab
+  // Read the initial tab from the URL, falling back to the initialTab option.
   const { tab: urlTab } = adapter.read();
-  const initialTab = urlTab && allTabs.includes(urlTab) ? urlTab : activeTab;
+  const firstTab = urlTab && allTabs.includes(urlTab) ? urlTab : allTabs.includes(initialTab) ? initialTab : "home";
   // Preserve a valid incoming URL until MapX is ready and can restore its
   // layers. Writing empty runtime state here would erase the shared link.
-  switchTab(initialTab, { syncHash: !urlTab || !allTabs.includes(urlTab), replaceHash: true });
+  switchTab(firstTab, { syncHash: !urlTab || !allTabs.includes(urlTab), replaceHash: true });
 
   // Browser back/forward: reconcile both tab and layer state from the new URL.
   // The URL is already the target, so the tab switch must not write the old
@@ -627,6 +629,10 @@ export function createSidebar(
     /** The layer controller (null after destroy). */
     get controller() {
       return layerController;
+    },
+    /** The shown tab id (the last one shown, after destroy). */
+    get activeTab() {
+      return activeTab;
     },
   };
 }

@@ -109,7 +109,6 @@ describe("createSidebar", () => {
     history.replaceState(null, "", "#");
     document.body.innerHTML = PAGE;
     store.openViews.clear();
-    store.setActiveTab("home");
     mocks.viewAdd.mockClear();
     mocks.viewRemove.mockClear();
   });
@@ -153,6 +152,35 @@ describe("createSidebar", () => {
     sidebar.destroy();
     expect(options.signal.aborted).toBe(true);
     expect(panelsOnAbort).toBe(3);
+  });
+
+  it("keeps the active tab per instance: a new instance starts on home, or on initialTab", () => {
+    const first = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    $(".nav-info-link[data-panel='sources']").click();
+    expect($("#tab-sources").style.display).toBe("block");
+    first.destroy();
+
+    // No tab in the URL: home, not the previous instance's tab.
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    expect($("#tab-home").style.display).toBe("block");
+    expect(sidebar.activeTab).toBe("home");
+    sidebar.destroy();
+
+    const adapter = memoryAdapter();
+    sidebar = createSidebar(document.body, { stateAdapter: adapter, initialTab: "exposure" });
+    expect(sidebar.activeTab).toBe("exposure");
+    expect(adapter.write).toHaveBeenCalledWith({ tab: "exposure", layers: [] }, { replace: true });
+    sidebar.destroy();
+
+    // A tab in the URL wins; an unknown initialTab falls back to home.
+    sidebar = createSidebar(document.body, {
+      stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }),
+      initialTab: "exposure",
+    });
+    expect(sidebar.activeTab).toBe("hazard");
+    sidebar.destroy();
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter(), initialTab: "nope" });
+    expect(sidebar.activeTab).toBe("home");
   });
 
   it("requires a panel body under the root", () => {
@@ -236,7 +264,7 @@ describe("createSidebar", () => {
     expect(adapter.listenerCount()).toBe(0);
     expect(adapter.destroy).not.toHaveBeenCalled();
     expect(mocks.viewRemove).not.toHaveBeenCalled();
-    expect(store.activeTab).toBe("hazard");
+    expect(sidebar.activeTab).toBe("hazard");
     expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
     expect(disabledToggle.getAttribute("aria-pressed")).toBe("false");
     expect(homeLink.classList.contains("is-active")).toBe(false);
@@ -307,7 +335,7 @@ describe("createSidebar", () => {
     history.pushState(null, "", "#exposure");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
-    expect(store.activeTab).toBe("home");
+    expect(sidebar.activeTab).toBe("home");
   });
 
   it("opens a data tab from a home card through the callback, not a document event", () => {
@@ -322,7 +350,7 @@ describe("createSidebar", () => {
 
     expect(dispatch).not.toHaveBeenCalled();
     dispatch.mockRestore();
-    expect(store.activeTab).toBe("exposure");
+    expect(sidebar.activeTab).toBe("exposure");
     expect(adapter.write).toHaveBeenLastCalledWith({ tab: "exposure", layers: [] }, { replace: false });
     expect($("#tab-exposure").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("");

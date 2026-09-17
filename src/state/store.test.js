@@ -3,7 +3,6 @@ import * as store from "./store.js";
 
 beforeEach(() => {
   store.openViews.clear();
-  store.setActiveTab("home");
 });
 
 // ---------------------------------------------------------------------------
@@ -33,17 +32,8 @@ describe("openViews", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// activeTab
-// ---------------------------------------------------------------------------
-
-describe("activeTab", () => {
-  it("defaults to home", () => {
-    expect(store.activeTab).toBe("home");
-  });
-
-  it("updates via setActiveTab", () => {
-    store.setActiveTab("hazard");
-    expect(store.activeTab).toBe("hazard");
+describe("module state", () => {
+  it("holds no active tab (each sidebar instance owns its own)", () => {
+    expect(Object.keys(store)).toEqual(["openViews"]);
   });
 });

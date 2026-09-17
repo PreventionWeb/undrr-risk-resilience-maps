@@ -366,7 +366,7 @@ describe("cross-tab layer rows", () => {
 
     await vi.waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
     await tick();
-    expect(store.activeTab).toBe("exposure");
+    expect(sidebar.activeTab).toBe("exposure");
     expect(location.hash).toBe("#exposure?layers=pop");
     expect(history.length).toBe(lengthBefore);
   });
@@ -675,7 +675,7 @@ describe("layer state consistency", () => {
       navigateTo("#sources");
       await tick();
 
-      expect(store.activeTab).toBe("sources");
+      expect(sidebar.activeTab).toBe("sources");
       expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
       expect(location.hash).toBe("#sources?layers=recovery,pop");
       expect(history.length).toBe(lengthBefore + 1);
@@ -686,7 +686,7 @@ describe("layer state consistency", () => {
       for (const hash of ["#mg-tabs__section-sources-1", "#not-a-tab?layers=ews", "#"]) {
         navigateTo(hash);
         await tick();
-        expect(store.activeTab).toBe("resilience");
+        expect(sidebar.activeTab).toBe("resilience");
         expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
       }
       expect(mocks.viewRemove).not.toHaveBeenCalled();
@@ -698,7 +698,7 @@ describe("layer state consistency", () => {
       homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a[href='#sources']").click();
       await tick();
 
-      expect(store.activeTab).toBe("sources");
+      expect(sidebar.activeTab).toBe("sources");
       expect(location.hash).toBe("#sources?layers=recovery,pop");
       expect(history.length).toBe(lengthBefore + 1);
       expectLayerState({ ...RECOVERY, on: true });
@@ -708,7 +708,7 @@ describe("layer state consistency", () => {
       navigateTo("#exposure");
 
       await vi.waitFor(() => expect(store.openViews.size).toBe(0));
-      expect(store.activeTab).toBe("exposure");
+      expect(sidebar.activeTab).toBe("exposure");
       expect(location.hash).toBe("#exposure");
     });
   });
@@ -1218,7 +1218,7 @@ describe("layers store", () => {
     await tick();
 
     expect(mocks.viewAdd).not.toHaveBeenCalled();
-    expect(store.activeTab).toBe("resilience");
+    expect(sidebar.activeTab).toBe("resilience");
   });
 
   it("ignores switch clicks after destroy instead of recreating state", async () => {
