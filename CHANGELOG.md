@@ -10,6 +10,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 - Opening a shared link, pressing Back/Forward, or clicking "Clear all" no longer adds extra browser history entries, so Back returns to the previous view instead of an intermediate state.
 - A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch is ignored because another is still loading, or when it fails.
+- Clicking "Citation and methodology details", the Acknowledgements "Sources" link, or any link to an in-page anchor no longer turns off every active layer.
+- If MapX fails to remove a layer, its switch now stays on (and it stays in the shareable link) instead of showing as off while the layer is still on the map.
 
 ### Changed
 

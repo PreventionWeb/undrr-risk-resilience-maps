@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseHash, writeHash, getLayerByKey } from "./hash.js";
+import { parseHash, writeHash, getLayerByKey, hashChangeAction } from "./hash.js";
 
 beforeEach(() => {
   window.location.hash = "";
@@ -166,5 +166,34 @@ describe("getLayerByKey", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getLayerByKey("does-not-exist")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hashChangeAction
+// ---------------------------------------------------------------------------
+
+describe("hashChangeAction", () => {
+  const tabs = { dataTabs: ["hazard", "exposure"], infoTabs: ["home", "sources", "about"] };
+  const layers = [{ key: "population", sourceIdx: 0 }];
+
+  it("ignores empty, unknown and in-page anchor hashes", () => {
+    expect(hashChangeAction({ tab: null, layers: [] }, tabs)).toBe("ignore");
+    expect(hashChangeAction({ tab: "mg-tabs__section-sources-1", layers: [] }, tabs)).toBe("ignore");
+    expect(hashChangeAction({ tab: "unknown", layers }, tabs)).toBe("ignore");
+  });
+
+  it("keeps layers for an info tab without layers", () => {
+    expect(hashChangeAction({ tab: "sources", layers: [] }, tabs)).toBe("keep-layers");
+    expect(hashChangeAction({ tab: "home", layers: [] }, tabs)).toBe("keep-layers");
+  });
+
+  it("reconciles an info tab that carries layers", () => {
+    expect(hashChangeAction({ tab: "about", layers }, tabs)).toBe("reconcile");
+  });
+
+  it("reconciles data tabs, with or without layers", () => {
+    expect(hashChangeAction({ tab: "hazard", layers }, tabs)).toBe("reconcile");
+    expect(hashChangeAction({ tab: "exposure", layers: [] }, tabs)).toBe("reconcile");
   });
 });

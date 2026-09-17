@@ -118,3 +118,24 @@ export function writeHash(tab, layers, { replace = false } = {}) {
 export function getLayerByKey(key) {
   return getLayerIndex().get(key);
 }
+
+/**
+ * Decide how a hash change should affect app state. Pure (takes the parsed
+ * hash and the known tab ids) so a non-URL state adapter can reuse the rule.
+ *
+ * - "ignore": not an app hash (empty, an in-page anchor such as a Mangrove
+ *   tab section, or an unknown tab). Leave the tab and layers alone.
+ * - "keep-layers": an info tab without layers (e.g. a plain `#sources` link).
+ *   Info tabs don't show layers, so switch tab and keep the open layers.
+ * - "reconcile": a data tab, or an info tab carrying layers (an entry the app
+ *   wrote). Apply the tab and reconcile layers to match the hash exactly.
+ *
+ * @param {{ tab: string|null, layers: Array }} parsed - result of parseHash()
+ * @param {{ dataTabs: string[], infoTabs: string[] }} tabs
+ * @returns {"ignore"|"keep-layers"|"reconcile"}
+ */
+export function hashChangeAction({ tab, layers }, { dataTabs, infoTabs }) {
+  if (infoTabs.includes(tab)) return layers.length > 0 ? "reconcile" : "keep-layers";
+  if (dataTabs.includes(tab)) return "reconcile";
+  return "ignore";
+}

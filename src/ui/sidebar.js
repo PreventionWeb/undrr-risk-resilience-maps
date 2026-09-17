@@ -16,7 +16,7 @@ import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { parseHash, writeHash } from "../state/hash.js";
+import { hashChangeAction, parseHash, writeHash } from "../state/hash.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
@@ -392,10 +392,19 @@ export function buildSidebar() {
   // Browser back/forward: reconcile both tab and layer state from the new hash.
   // The URL is already the target, so the tab switch must not write the old
   // layers back, and the reconcile only corrects the current entry in place.
+  // Hashes the app doesn't own (in-page anchors, unknown ids) are ignored, and
+  // a bare info-tab hash (e.g. an `href="#sources"` link) keeps the open layers.
   window.addEventListener("hashchange", () => {
-    const { tab, layers: hashLayers } = parseHash();
-    if (tab && ALL_TABS.includes(tab) && tab !== store.activeTab) switchTab(tab, { syncHash: false });
-    if (isSDKReady()) batchHashWrites(() => reconcileLayersFromHash(hashLayers), { replace: true });
+    const parsed = parseHash();
+    const action = hashChangeAction(parsed, { dataTabs: DATA_TABS, infoTabs: INFO_TABS });
+    if (action === "ignore") return;
+    if (parsed.tab !== store.activeTab) switchTab(parsed.tab, { syncHash: false });
+    if (action === "keep-layers") {
+      // Rewrite the bare hash in place so the entry still carries the layers.
+      syncHashFromState({ replace: true });
+    } else if (isSDKReady()) {
+      batchHashWrites(() => reconcileLayersFromHash(parsed.layers), { replace: true });
+    }
   });
 
   // Home page category cards dispatch a custom event to navigate to a data tab
@@ -685,6 +694,11 @@ export function buildLayerAccordion(layer) {
   const detailsLink = document.createElement("a");
   detailsLink.href = "#sources";
   detailsLink.textContent = "Citation and methodology details";
+  // Navigate like the nav links do; the href stays for open-in-new-tab.
+  detailsLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchTab("sources");
+  });
   metadata.appendChild(detailsLink);
   body.appendChild(metadata);
 
@@ -791,8 +805,10 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
             await viewRemove(removeId);
           }
         } catch (err) {
-          console.warn(`Failed to remove view ${removeId}:`, err);
-          if (external) return;
+          // MapX may still show the view, so every layer kind stays on in the
+          // toggles, cross-tab rows, openViews and hash rather than desync.
+          console.warn(`Failed to remove view ${removeId}; keeping ${layer.key || removeId} on:`, err);
+          return;
         }
         store.openViews.delete(removeId);
       }
