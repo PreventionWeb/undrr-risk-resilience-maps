@@ -418,6 +418,27 @@ describe("createLayerRow compact variant", () => {
     expect(section.open).toBe(true);
   });
 
+  it("renders a visible external loading or error status twice without DOM changes or control calls", async () => {
+    const { store, controller, row, el } = setup(external, { variant: "compact" });
+    const settle = async (patch) => {
+      store.set("crops", patch);
+      const record = store.get("crops");
+      expect(await mutationsDuring(el, () => row.update(record))).toBe(0);
+      expect(await mutationsDuring(el, () => row.update(record))).toBe(0);
+    };
+
+    await settle({ desired: true, status: "loading" });
+    expect(el.querySelector(".external-layer-status").textContent).toBe("Loading Crops…");
+    await settle({ desired: false, status: "error", error: new Error("offline") });
+    expect(el.querySelector(".external-layer-status").textContent).toBe(
+      "Could not load Crops. Please try again.",
+    );
+
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
+    for (const call of Object.values(controller)) expect(call).not.toHaveBeenCalled();
+  });
+
   it("shows an external layer's loading and error status", () => {
     const { store, el } = setup(external, { variant: "compact" });
     const status = el.querySelector(".external-layer-status");

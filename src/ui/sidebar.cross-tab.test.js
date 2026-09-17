@@ -233,6 +233,46 @@ describe("cross-tab layer rows", () => {
     expect(mocks.addOpacitySlider).toHaveBeenCalledTimes(3);
   });
 
+  it("renders no slider or legend when a link is restored on an info tab, then one per row shown", async () => {
+    showTab("sources");
+    history.replaceState(null, "", "#sources?layers=recovery,pop");
+
+    await restoreLayersFromHash();
+    await tick();
+
+    expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
+
+    /** How many times each rendered row received a slider or legend. */
+    const perRow = (mock) => {
+      const counts = new Map();
+      for (const [, container] of mock.mock.calls) {
+        const row = container.closest(".layer-item, .cross-tab-item");
+        counts.set(row, (counts.get(row) ?? 0) + 1);
+      }
+      return counts;
+    };
+    const resilienceRows = [crossRow("resilience", "Recovery Speed"), crossRow("resilience", "Population")];
+
+    showTab("resilience");
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      expect([...perRow(mock).keys()]).toEqual(expect.arrayContaining(resilienceRows));
+      expect([...perRow(mock).values()]).toEqual([1, 1]);
+    }
+
+    showTab("exposure");
+    const exposureRows = [homeItem("exposure", "Population"), crossRow("exposure", "Recovery Speed")];
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      const counts = perRow(mock);
+      expect([...counts.keys()]).toEqual(expect.arrayContaining([...resilienceRows, ...exposureRows]));
+      expect([...counts.values()]).toEqual([1, 1, 1, 1]);
+    }
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll("#tab-exposure .layer-legend-slot .html-legend")).toHaveLength(2),
+    );
+  });
+
   it("shows an external layer's load error in the cross-tab row", async () => {
     mocks.openExternalLayer.mockRejectedValue(new Error("offline"));
     const row = crossRow("resilience", "Crops");
