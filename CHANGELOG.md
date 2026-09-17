@@ -8,6 +8,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- A layer's switch is no longer nested inside the row's expand control, which meant screen readers and other assistive technology could not present either of them reliably (axe reported `nested-interactive`). The row now has an expand button and a switch side by side; Enter and Space act on whichever one is focused.
+- The layer type badge for raster layers no longer falls below the minimum text contrast (axe reported `color-contrast` on six rows in the Hazard tab).
+- Dragging the layer panel by its header no longer swallows clicks on controls that are labelled rather than clicked directly, such as a switch's track.
+- The MapX-ID column heading on the Sources table is readable again on the table's blue header band.
 - Opening a shared link, pressing Back/Forward, or clicking "Clear all" no longer adds extra browser history entries, so Back returns to the previous view instead of an intermediate state.
 - A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch fails.
 - Clicking "Citation and methodology details", the Acknowledgements "Sources" link, or any link to an in-page anchor no longer turns off every active layer.
@@ -20,6 +24,11 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Upgraded the UNDRR Mangrove component library from `2.0.0-rc.1` to `2.0.0-rc.2` across the stylesheet, `preview-access.js`, and `tabs.js` modules. rc.2 adds the `.mg-switch` pending and `aria-disabled` states, forced-colours support and `--mg-switch-*` custom properties; no classes or tokens we use were renamed or removed.
+- Rebuilt every on/off control on Mangrove's switch component, so the layer switches, "Show disabled" and the Sources MapX-ID switch look and behave alike: a clear on/off track, a spinner ring while a layer loads (static when the browser asks for reduced motion), a red outline and message after a failed load, a dimmed state while the map is still starting up, and a 46 × 40 px hit target (44 px tall on touch) that is the same in the home tab and in cross-tab rows.
+- A layer's switch is now announced by the layer's name, with its on/off state coming from the control instead of from wording that changed ("Turn on …" / "Turn off …"). It still says "Loading …" or "Turning off …" while the map is working.
+- "Show disabled" is a switch instead of a button whose label flipped to "Hide disabled", and the layer panel's collapse button now says whether the panel is open and what the button will do next.
+- The layer panel's remaining controls follow Mangrove too: the empty-category message uses the empty-state component, the source switcher uses the form label and select styles, layer type badges use the quieter subtle tag variant, and group headings, cross-tab sections and descriptions take their colours from Mangrove tokens instead of hard-coded greys.
 - An external layer such as EDRA now reopens with the crop or scenario it last showed when it is turned back on, as compound layers keep their last source. It used to reset to the provider defaults.
 - Load the EDRA external-layer adapter and its `proj4` dependency only when an EDRA layer is turned on, cutting the initial JavaScript from 242 KB to 105 KB (77.5 KB to 31.4 KB gzipped).
 - Request each MapX legend image once per view, and keep cross-tab row controls rendered while their tab is hidden instead of re-requesting them on every tab switch.
