@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn(),
   addLegend: vi.fn(),
   openExternalLayer: vi.fn(),
+  replaceExternalLayer: vi.fn(),
 }));
 
 vi.mock("../config/layers.js", () => ({
@@ -67,8 +68,19 @@ vi.mock("../external/index.js", () => ({
   isExternalLayer: (layer) => Boolean(layer.external),
   openExternalLayer: mocks.openExternalLayer,
   closeExternalLayer: vi.fn(),
-  replaceExternalLayer: vi.fn(),
-  getExternalLayerDefinition: () => ({}),
+  replaceExternalLayer: mocks.replaceExternalLayer,
+  getExternalLayerDefinition: () => ({
+    controls: [
+      {
+        key: "crop",
+        label: "Crop",
+        options: [
+          { value: "WHEAT", label: "Wheat" },
+          { value: "MAIZE", label: "Maize" },
+        ],
+      },
+    ],
+  }),
   getExternalLayerRuntime: () => null,
 }));
 
@@ -536,7 +548,7 @@ describe("layers store", () => {
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
     await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledTimes(3));
     await tick();
-    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null });
+    expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null, status: "error" });
 
     // Another toggle rewrites the hash without Flood, as it did on main.
     homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
@@ -575,6 +587,83 @@ describe("layers store", () => {
     expect(home.classList.contains("layer-active")).toBe(true);
     expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
     expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
+  });
+
+  it("records a failed turn-off as an error, resets intent, and clears it on the next success", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+    const failure = new Error("postMessage timeout");
+    mocks.viewRemove.mockRejectedValueOnce(failure);
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+
+    await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("error"));
+    expect(getLayersStore().get("recovery")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-REC",
+      error: failure,
+    });
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual([]));
+    warn.mockRestore();
+    expect(getLayersStore().get("recovery")).toMatchObject({
+      desired: false,
+      applied: false,
+      status: "idle",
+      error: null,
+    });
+  });
+
+  it("records a failed source switch as an error and keeps the previous source", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    const failure = new Error("offline");
+    mocks.viewAdd.mockRejectedValueOnce(failure);
+
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+
+    await vi.waitFor(() => expect(getLayersStore().get("flood").status).toBe("error"));
+    warn.mockRestore();
+    expect(getLayersStore().get("flood")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-F10",
+      sourceIdx: 0,
+      error: failure,
+    });
+    expect(hashSegments()).toEqual(["flood"]);
+  });
+
+  it("records a failed external variant change as an error", async () => {
+    mocks.openExternalLayer.mockResolvedValue({ idView: "MX-GJ-1", settings: { crop: "WHEAT" } });
+    const failure = new Error("provider down");
+    mocks.replaceExternalLayer.mockRejectedValueOnce(failure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    const crops = homeItem("risk", "Crops");
+    crops.querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(getLayersStore().get("crops").applied).toBe(true));
+
+    const select = crops.querySelector("select[data-external-control='crop']");
+    select.value = "MAIZE";
+    select.dispatchEvent(new Event("change"));
+
+    await vi.waitFor(() => expect(getLayersStore().get("crops").status).toBe("error"));
+    await vi.waitFor(() => expect(select.disabled).toBe(false));
+    warn.mockRestore();
+    expect(getLayersStore().get("crops")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-GJ-1",
+      settings: { crop: "WHEAT" },
+      error: failure,
+    });
+    expect(select.value).toBe("WHEAT");
   });
 
   it("records a failed load as an error and leaves the layer off", async () => {

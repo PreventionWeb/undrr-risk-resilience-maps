@@ -306,7 +306,11 @@ async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
     if (!isLive(layers)) return result.runtime;
     // Store subscribers run synchronously here: openViews moves to the new view
     // and the hash is written before the slider and legend below are rebuilt.
-    setLayerRecord(layer, { viewId: result.runtime.idView, settings: result.runtime.settings }, layers);
+    setLayerRecord(
+      layer,
+      { viewId: result.runtime.idView, settings: result.runtime.settings, status: "idle", error: null },
+      layers,
+    );
 
     sliderSlot.innerHTML = "";
     addOpacitySlider(result.runtime.idView, sliderSlot);
@@ -315,8 +319,11 @@ async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
     addLegend(legendLayer, legendSlot);
     setSecondaryState(layer, { viewId: result.runtime.idView, legendLayer });
     return result.runtime;
+  } catch (error) {
+    // The previous variant stays on the map, so only the failure is recorded.
+    setLayerRecord(layer, { status: "error", error }, layers);
+    throw error;
   } finally {
-    setLayerRecord(layer, { status: "idle" }, layers);
     setLayerToggleDisabled(layer, eyeBtn, false);
     if (layer.key) toggleInFlight.delete(layer.key);
   }
@@ -943,7 +950,8 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           // MapX may still show the view, so every layer kind stays on in the
           // toggles, cross-tab rows, openViews and hash rather than desync.
           console.warn(`Failed to remove view ${removeId}; keeping ${layer.key || removeId} on:`, err);
-          setLayerRecord(layer, { desired: true, status: "idle" }, layers);
+          // Intent goes back to what MapX shows (see LayerRecord.desired).
+          setLayerRecord(layer, { desired: true, status: "error", error: err }, layers);
           return;
         }
       }
@@ -952,7 +960,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       // Store subscribers run synchronously here: the view leaves openViews and
       // the hash is written before the switches and controls below are updated.
       // A subscriber that throws is logged by the store and does not stop this.
-      setLayerRecord(layer, { applied: false, viewId: null, status: "idle" }, layers);
+      setLayerRecord(layer, { applied: false, viewId: null, status: "idle", error: null }, layers);
       setLayerToggleState(layer, eyeBtn, false);
       for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, false);
@@ -968,7 +976,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       setAccordionExpanded(wrapper, false);
     } else {
       // Turn on
-      setLayerRecord(layer, { desired: true, status: "loading", error: null }, layers);
+      setLayerRecord(layer, { desired: true, status: "loading" }, layers);
       let externalStatus = null;
       if (external && expandOnActivate) {
         setAccordionExpanded(wrapper, true);
@@ -1018,6 +1026,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           sourceIdx: activeIdx,
           settings: external ? runtime.settings : null,
           status: "idle",
+          error: null,
         },
         layers,
       );
@@ -1088,7 +1097,10 @@ async function switchSource(layer, key, newIdx, wrapper) {
   try {
     switched = await applySourceSwitch(layer, key, newIdx, wrapper, layers);
   } finally {
-    setLayerRecord(layer, { status: "idle" }, layers);
+    // A failed switch has already recorded status "error".
+    if (layer.key && isLive(layers) && layers.get(layer.key).status === "switching") {
+      setLayerRecord(layer, { status: "idle" }, layers);
+    }
     if (layer.key) {
       toggleInFlight.delete(layer.key);
       sourceSwitchInFlight.delete(layer.key);
@@ -1125,9 +1137,11 @@ async function applySourceSwitch(layer, key, newIdx, wrapper, layers) {
     console.warn(`Failed to switch to source ${newIdx}:`, e);
     try {
       await viewAdd(oldId);
-      setLayerRecord(layer, { viewId: oldId }, layers);
+      setLayerRecord(layer, { viewId: oldId, status: "error", error: e }, layers);
     } catch {
-      /* */
+      // Nothing of the layer is on the map, but it stays on with no view, as on
+      // main (the layer controller records this case as off instead).
+      setLayerRecord(layer, { status: "error", error: e }, layers);
     }
     return false;
   }
@@ -1135,7 +1149,7 @@ async function applySourceSwitch(layer, key, newIdx, wrapper, layers) {
   store.setActiveSource(key, newIdx);
   // Store subscribers run synchronously here: openViews gets the new view and
   // the hash is written before the description, slider and legend are rebuilt.
-  setLayerRecord(layer, { viewId: newId, sourceIdx: newIdx }, layers);
+  setLayerRecord(layer, { viewId: newId, sourceIdx: newIdx, error: null }, layers);
 
   // Update description to the new source's text
   const descEl = wrapper.querySelector(".layer-desc");
