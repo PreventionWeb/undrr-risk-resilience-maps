@@ -93,6 +93,29 @@ describe("layer accordion activation", () => {
     expect(store.openViews.has(layer.id)).toBe(false);
   });
 
+  it("warns and leaves the switch off for a layer that is not in the config", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const unknown = { ...layer, key: "not-in-config", id: "MX-NOT-IN-CONFIG" };
+      const { wrapper, eyeBtn } = buildLayerAccordion(unknown);
+      document.body.appendChild(wrapper);
+      expect(warn.mock.calls.some(([message]) => String(message).includes("not-in-config"))).toBe(true);
+
+      eyeBtn.click();
+
+      await vi.waitFor(() => expect(getLayersStore().get(unknown.key).status).toBe("error"));
+      expect(getLayersStore().get(unknown.key)).toMatchObject({ desired: false, applied: false });
+      expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
+      expect(eyeBtn.getAttribute("aria-busy")).toBe("false");
+      expect(wrapper.querySelector(".layer-announcer").textContent).toBe(
+        "Could not load Test Layer. It is off.",
+      );
+      expect(viewAdd).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("does not reopen controls when collapsed during a slow activation", async () => {
     let finishAdd;
     viewAdd.mockImplementationOnce(

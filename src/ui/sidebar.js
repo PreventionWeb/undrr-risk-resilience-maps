@@ -203,6 +203,24 @@ function refreshLayerRows() {
   }
 }
 
+/** Layer keys addLayerRow has already warned about, so each is reported once. */
+const rowKeysWarned = new Set();
+
+/**
+ * The controller looks layers up in the config registry, so a published row
+ * for a layer object that is not the registry's (not in `TABS`, or a copy)
+ * cannot turn anything on: its switch ends in an error. Say so during
+ * development instead of leaving it to be found by clicking.
+ */
+function warnIfNotInConfig(layer) {
+  if (!layer.key || !isLayerAvailable(layer) || rowKeysWarned.has(layer.key)) return;
+  if (getLayerRegistry().byKey(layer.key) === layer) return;
+  rowKeysWarned.add(layer.key);
+  console.warn(
+    `Layer row "${layer.key}" is not the layer config's entry for that key; the controller will not find it, so its switch cannot turn it on.`,
+  );
+}
+
 /**
  * Create a layer row wired to the sidebar's store and controller, and register
  * it for record updates and destroy.
@@ -212,6 +230,7 @@ function refreshLayerRows() {
  *   legend render only while that tab is shown); null for a row outside tabs
  */
 function addLayerRow(layer, variant, tabId) {
+  warnIfNotInConfig(layer);
   // First, so a lazily created store (unit use) does not destroy this row.
   const rowStore = getLayersStore();
   const row = createLayerRow(layer, {
@@ -679,6 +698,11 @@ async function reconcileLayersFromHash(hashLayers) {
  * Build a layer's home-tab row (the full variant of createLayerRow) outside any
  * tab panel. For unit use: buildSidebar() builds its rows itself. Before any
  * buildSidebar() the row gets a store and controller without a URL adapter.
+ *
+ * `layer` must be the layer config's own entry (`TABS`, as the registry's
+ * `byKey` returns it): the controller looks layers up there. For any other
+ * layer the row warns, and turning it on ends in an error with the switch off.
+ * @param {object} layer
  * @returns {{ wrapper: HTMLElement, eyeBtn: HTMLButtonElement|null }}
  */
 export function buildLayerAccordion(layer) {

@@ -721,6 +721,39 @@ describe("createLayerController", () => {
     });
   });
 
+  describe("unknown layers", () => {
+    it("warns once per key, resets intent and records an error instead of doing nothing", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const { store, views, external, controller } = setup();
+        const changes = [];
+        store.subscribe((key, next) => changes.push(next));
+
+        const record = await controller.setOn("ghost", true);
+
+        expect(record).toMatchObject({ desired: false, applied: false, status: "error" });
+        expect(record.error).toBeInstanceOf(Error);
+        expect(String(record.error.message)).toContain("ghost");
+        expect(views.log).toEqual([]);
+        expect(external.open).not.toHaveBeenCalled();
+        expect(controller.hasPendingIntent("ghost")).toBe(false);
+        // The intent was visible (desired: true) before being reset.
+        expect(changes.map((next) => next.desired)).toContain(true);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain("ghost");
+
+        await controller.setOn("ghost", true);
+        expect(store.get("ghost")).toMatchObject({ desired: false, status: "error" });
+        expect(warn).toHaveBeenCalledTimes(1);
+
+        await controller.setOn("phantom", true);
+        expect(warn).toHaveBeenCalledTimes(2);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+  });
+
   describe("unexpected errors", () => {
     /** Collect unhandled rejections for the duration of a test. */
     function watchUnhandled() {
