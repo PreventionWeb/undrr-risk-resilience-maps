@@ -214,49 +214,38 @@
 
 /* ── Inspect toggle button — floating map tool icon ── */
 
+/* Mangrove outline icon button owns colour, hover and focus. Locally it only
+   floats over the map: position, a white fill so it reads against map tiles,
+   and a shadow. */
 .inspect-toggle-btn {
   position: absolute;
   top: 0.75rem;
   left: calc(0.75rem + 20rem + 0.35rem);
   z-index: var(--z-panel);
-  width: 2.25rem;
-  height: 2.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background-color: rgb(var(--mg-color-neutral-0));
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  color: #555;
-  padding: 0;
   transition:
     left 0.2s ease,
-    color 0.15s,
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.inspect-toggle-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+    background-color 0.2s ease,
+    color 0.2s ease,
+    scale var(--mg-motion-duration-fast) var(--mg-motion-easing-standard);
 }
 
 .inspect-toggle-btn.is-active {
-  border-color: var(--color-primary);
-  color: #fff;
-  background: var(--color-primary);
+  background-color: var(--mg-color-button-background);
+  color: rgb(var(--mg-color-button));
 }
 
-.inspect-toggle-btn:disabled {
+/* Mangrove only styles the .disabled class; keep native :disabled inert. */
+.inspect-toggle-btn.mg-button-outline:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  scale: 1;
 }
 
-.inspect-toggle-btn:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
+.inspect-toggle-btn.mg-button-outline:disabled:hover {
+  background-color: rgb(var(--mg-color-neutral-0));
+  color: rgb(var(--mg-color-button-outline-primary));
 }
 
 /* Crosshair cursor on map area while inspection is active */

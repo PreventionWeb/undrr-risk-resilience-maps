@@ -73,7 +73,7 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 ## Mangrove 2.0 follow-ups
 
 - `2.0.0-rc.1` is a release candidate (updated from `2.0.0-beta.3` with adoption
-  of `mg-switch`, `mg-range`, `mg-details`, `mg-badge`, and `mg-button--icon`).
+  of `mg-switch`, `mg-range`, `mg-details`, `mg-status-label`, and `mg-button--icon`).
   Re-test and move to the stable 2.0.0 when it ships, and continue
   to monitor breaking changes listed in Mangrove's `llms.txt` (notably the
   `--sendai-*` colour tokens, which are scheduled for removal in 2.1 — we do not

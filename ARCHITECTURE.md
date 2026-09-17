@@ -216,11 +216,11 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant)
 - `mg-card`, `mg-card__icon--bordered` — interactive category cards on the home page
 - `mg-highlight-box` — callout boxes on info pages
-- `mg-button` / `mg-button--icon` / `mg-tag` — interactive controls, icon tools, and layer type badges
+- `mg-button` (`-primary`, `-secondary`, `-outline`, `--icon`, `--icon--small`) / `mg-tag` — actions, map toolbar and icon tools, and layer type badges
 - `mg-switch` — toggle switch controls for data options and layer activations
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
-- `mg-badge`, `mg-badge--code` — status indicators and monospace dataset IDs
-- `mg-details` — expandable diagnostic and planning sections
+- `mg-status-label` — publication status for planned datasets on the Sources page
+- `mg-details` — expandable planning sections on the Sources page
 - `mg-container` — centred layout
 - `mg-skip-link` — accessible skip navigation link revealing on keyboard focus
 - `mg-table`, `mg-table-scroll-region` — feature attribute table in the infobox and accessible scroll region for wide data tables

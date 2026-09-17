@@ -197,7 +197,7 @@ function createLegendImage(legendData, alt) {
 
 function addImageLegendComparison(idView, container) {
   const details = document.createElement("details");
-  details.className = "legend-diagnostic mg-details";
+  details.className = "legend-diagnostic";
   details.dataset.legendComparison = "mapx-image";
 
   const summary = document.createElement("summary");
