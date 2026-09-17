@@ -61,9 +61,10 @@
 }
 
 /* "Show disabled" is the same Mangrove switch as a layer row's, one size
-   down: Mangrove owns the track, thumb, focus ring and states. */
+   down: Mangrove owns the track, thumb, focus ring and states — including the
+   off track's colour, which must stay at Mangrove's neutral-400 (3.96:1
+   against the panel) to clear the 3:1 a UI component boundary needs. */
 .layer-review-switch {
-  --mg-switch-track-background: rgb(var(--mg-color-neutral-300));
   gap: 0.35rem;
   min-height: 1.75rem;
   white-space: nowrap;

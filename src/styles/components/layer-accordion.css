@@ -8,8 +8,24 @@
   border-bottom: 1px solid var(--color-border-light);
 }
 
+/* Not published ("Show disabled"). Dimmed by colour, not by `opacity`: an
+   opacity on the wrapper dimmed the row's text too, which dropped the label
+   and the type tag to 2.5:1 (axe `color-contrast`). The label takes the muted
+   token (5.16:1 on the tint, against 12.63:1 for a published row), the tag
+   keeps Mangrove's subtle colours at 14.02:1, and the tag's wording — "not
+   published" instead of the layer type — carries the reason the row is greyed
+   out, as does the row having no switch at all. */
 .layer-item.layer-disabled {
-  opacity: 0.45;
+  background: rgb(var(--mg-color-neutral-25));
+}
+
+.layer-item.layer-disabled .layer-label {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.layer-item.layer-disabled .layer-arrow {
+  color: rgb(var(--mg-color-neutral-400));
 }
 
 .layer-item.layer-active {
@@ -64,9 +80,10 @@
   font-weight: 500;
 }
 
-/* Mangrove's subtle tag, at panel scale. */
+/* Mangrove's subtle tag, at panel scale. The smallest Mangrove type token
+   that still reads (11.25px); 0.6rem rendered at 9.6px. */
 .layer-type-tag {
-  font-size: 0.6rem;
+  font-size: var(--mg-font-size-150);
   min-block-size: 1.25rem;
   min-inline-size: 0;
   padding: 0 var(--mg-spacing-50);
@@ -95,6 +112,28 @@
 
 .layer-switch.is-error .mg-switch__track {
   box-shadow: inset 0 0 0 2px rgb(var(--mg-color-red-900));
+}
+
+/* Mangrove's focus rule (`.mg-switch__input:focus-visible + .mg-switch__track`)
+   draws the white band that separates the focus ring from the track with a
+   `box-shadow` of its own, at the same specificity as the error ring above and
+   earlier in the cascade — so on an errored switch the band was dropped. Draw
+   both here, at a specificity that beats either. */
+.layer-switch.is-error .mg-switch__input:focus-visible + .mg-switch__track {
+  box-shadow:
+    0 0 0 var(--mg-focus-ring-offset) rgb(var(--mg-color-neutral-0)),
+    inset 0 0 0 2px rgb(var(--mg-color-red-900));
+}
+
+/* Forced colours drop `box-shadow`, and `.is-error` is the one switch state
+   Mangrove does not cover, so a failure would become invisible. Redraw it on
+   the track's border, which Mangrove sets in the same mode. */
+@media (forced-colors: active) {
+  .layer-switch.is-error .mg-switch__track,
+  .layer-switch.is-error .mg-switch__input:focus-visible + .mg-switch__track {
+    border-color: Mark;
+    border-width: 2px;
+  }
 }
 
 /* The seen half of a failed call (Mangrove's form error colour), at panel
