@@ -8,7 +8,13 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- Upgraded the UNDRR Mangrove component library from `2.0.0-beta.3` to `2.0.0-rc.1` across the stylesheet, `preview-access.js`, and `tabs.js` modules.
+- Upgraded the UNDRR Mangrove component library from `2.0.0-alpha.4` to `2.0.0-rc.1` (via `2.0.0-beta.3`) across the stylesheet, `preview-access.js`, and `tabs.js` modules.
+- Replaced custom `.skip-to-content` CSS with Mangrove's `.mg-skip-link` utility component, targeting `#app-map` with `tabindex="-1"`.
+- Aligned Sources data table with Mangrove's accessible scroll pattern using `.mg-table-scroll-region` with `role="region"`, `aria-label="Dataset sources table"`, and `tabindex="0"`.
+- Enhanced feature infobox attribute table with `<th scope="row">` for semantic key-value accessibility under `mg-table`.
+- Derived local neutral tokens (`--color-text`, `--color-text-muted`, `--color-border`, `--color-border-light`) directly from Mangrove's `--mg-color-neutral-*` channels.
+- Aligned layer panel focus rings and hover/active states with Mangrove tokens (`--mg-color-focus-ring`, `--mg-focus-ring-width`, and `rgb(var(--mg-color-blue-900) / 0.08)`).
+- Separated hover and focus-visible states on Home category cards so focus outlines use Mangrove's high-contrast `--mg-color-focus-ring`.
 - Adopted Mangrove's new `.mg-switch` pure CSS component (`.mg-switch__input`, `.mg-switch__track`, `.mg-switch__thumb`, `.mg-switch__label`) for the Sources page MapX view ID toggle, and aligned the layer accordion `.layer-eye` switch button styling with Mangrove's switch geometry and tokens.
 - Adopted `.mg-range` and `.mg-range__ticks` across the layer opacity slider and compound-layer stepped return-period slider.
 - Adopted `.mg-details` on the Sources page "Metrics under development" section. The compact layer-panel legend comparison keeps its local styling.
