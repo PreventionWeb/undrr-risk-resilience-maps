@@ -25,7 +25,12 @@ import {
   toUrlLayers,
   urlKeyOrder,
 } from "../state/layers-store.js";
-import { createLayerController, isBusyStatus, settingsMatch } from "../services/layer-controller.js";
+import {
+  clampSourceIdx,
+  createLayerController,
+  isBusyStatus,
+  settingsMatch,
+} from "../services/layer-controller.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
@@ -384,7 +389,7 @@ function renderLayerView(el, record) {
   } else if (isCompound(layer)) {
     // Merge the shown source's fields (desc, legend) onto the parent layer so
     // addLegend sees the right data.
-    const source = layer.sources[safeSourceIdx(layer, record.appliedSourceIdx)];
+    const source = layer.sources[clampSourceIdx(layer, record.appliedSourceIdx)];
     legendLayer = { ...layer, ...source, label: layer.label };
     // Show the active source's description instead of the parent's
     const descEl = wrapper.querySelector(".layer-desc");
@@ -860,23 +865,13 @@ function updateClearBtn() {
 }
 
 /**
- * Clamp a sourceIdx from the hash to valid bounds for the given layer.
- * Returns 0 if the value is invalid or out of range.
- */
-function safeSourceIdx(layer, sourceIdx) {
-  if (!isCompound(layer)) return 0;
-  const n = layer.sources.length;
-  return Number.isInteger(sourceIdx) && sourceIdx >= 0 && sourceIdx < n ? sourceIdx : 0;
-}
-
-/**
  * Ask for a layer as a URL state entry describes it: on, with its (clamped)
  * source or its provider settings.
  */
 function intendFromUrl(el, { sourceIdx, settings }) {
   const { layer } = el;
   const patch = { desired: true };
-  if (isCompound(layer)) patch.sourceIdx = safeSourceIdx(layer, sourceIdx);
+  if (isCompound(layer)) patch.sourceIdx = clampSourceIdx(layer, sourceIdx);
   if (isExternalLayer(layer) && settings) patch.settings = settings;
   if (!getLayersStore().get(layer.key).applied) el.expandOnApply = true;
   return getLayerController().intend(layer.key, patch);

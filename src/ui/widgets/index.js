@@ -34,8 +34,3 @@ export function buildWidget(widgetConfig, sources, initialIndex, onSourceChange)
 export function isCompound(layer) {
   return Array.isArray(layer.sources) && layer.sources.length > 0;
 }
-
-/** Stable key for a compound layer (for state tracking). */
-export function compoundKey(layer) {
-  return layer.key || layer.label;
-}
