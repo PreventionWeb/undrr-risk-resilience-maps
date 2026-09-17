@@ -16,7 +16,15 @@ import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
 import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { hashChangeAction, parseHash, writeHash } from "../state/hash.js";
+import { hashChangeAction } from "../state/hash.js";
+import { createHashAdapter } from "../state/hash-adapter.js";
+import {
+  changesUrlState,
+  createLayersStore,
+  mirrorOpenViews,
+  toUrlLayers,
+  urlKeyOrder,
+} from "../state/layers-store.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
@@ -59,10 +67,28 @@ const INFO_TABS = ["home", "sources", "about"];
 // All valid tab IDs for hash routing
 const DATA_TABS = TABS.map((tab) => tab.id);
 const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
+// Layer keys in the order the URL hash lists them (config order, not the
+// grouped row order of the sidebar).
+const URL_KEY_ORDER = urlKeyOrder(TABS);
+
+// Per-layer records: whether each layer is on, its source/variant and view.
+// `store.openViews` and the URL hash are derived from it by subscribers.
+// Created by buildSidebar(), never on import (see getLayersStore and
+// destroySidebar for the lifecycle).
+let layersStore = null;
+// Reads, writes and watches URL state (the hash, in the standalone app). Only
+// buildSidebar() sets it.
+let stateAdapter = null;
+// Set by destroySidebar() and cleared by buildSidebar(): nothing is re-created lazily in between.
+let destroyed = false;
+// Undo initLayerState()/buildSidebar() subscriptions and listeners (see destroySidebar).
+let disposers = [];
 
 // Built by buildSidebar(); maps layer.key → { layer, eyeBtn, wrapper }
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
+// Filled in sidebar row order (grouped tabs list rows by R2R category), so it
+// is not the hash order; that is URL_KEY_ORDER.
 const layerElementMap = new Map();
 // Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
 // for the compact rows in cross-tab sections, so layers activated outside their
@@ -81,6 +107,100 @@ let showDisabledLayers = false;
 // writes inside a batch are skipped and replaced by one write when it ends,
 // so a multi-layer change creates at most one history entry.
 let hashBatchDepth = 0;
+
+/**
+ * Create the layers store and URL adapter, and derive openViews and the hash
+ * from the store. Replaces any previous instance and its subscriptions.
+ * @param {ReturnType<typeof createHashAdapter>} [adapter] - injected adapter,
+ *   owned by the caller; the default hash adapter is owned and destroyed here
+ * @param {{ url?: boolean }} [options] - `url: false` creates no adapter, so
+ *   nothing reads or writes the URL (a store used before any buildSidebar())
+ */
+function initLayerState(adapter, { url = true } = {}) {
+  destroySidebar();
+  destroyed = false;
+  // The new store starts empty, so drop view ids a previous build (HMR, tests)
+  // left in the compatibility Set.
+  store.openViews.clear();
+  if (url) {
+    stateAdapter = adapter ?? createHashAdapter();
+    if (!adapter) disposers.push(() => stateAdapter.destroy());
+  }
+  layersStore = createLayersStore();
+  // Subscriber order matters: openViews must be current before the hash sync
+  // updates the Clear button and the views-changed callback from its size.
+  disposers.push(mirrorOpenViews(layersStore, store.openViews));
+  disposers.push(
+    layersStore.subscribe((_key, next, prev) => {
+      if (changesUrlState(next, prev)) syncHashFromState();
+    }),
+  );
+}
+
+/**
+ * The layers store the sidebar writes to (for tests and readers).
+ *
+ * Normally created by buildSidebar(). Rows built with buildLayerAccordion()
+ * before any buildSidebar() (unit use) get a store on first use, without a URL
+ * adapter, so they never touch the URL. After destroySidebar() this returns
+ * null until the next buildSidebar().
+ * @returns {ReturnType<typeof createLayersStore>|null}
+ */
+export function getLayersStore() {
+  if (!layersStore && !destroyed) initLayerState(null, { url: false });
+  return layersStore;
+}
+
+/**
+ * Tear down what buildSidebar() set up: the URL listener, the store
+ * subscriptions, and the hash adapter if the sidebar created it (an injected
+ * adapter belongs to the caller and is not destroyed).
+ *
+ * Lifecycle rule: after destroySidebar() and until the next buildSidebar(),
+ * getLayersStore() returns null and the sidebar's entry points do nothing:
+ * switch and header clicks, clear-all, source and variant changes, tab-switch
+ * hash writes, and restoreLayersFromHash() (which warns). Nothing is
+ * re-created lazily, and the URL adapter is only ever created by
+ * buildSidebar(). A MapX call that settles after destroy, or after a rebuild,
+ * is dropped: its result is not written to the old or new store, openViews,
+ * the URL or the rows (the view MapX added is not removed).
+ *
+ * The DOM, and the nav, panel and `navigate-tab` listeners that predate the
+ * store, are not removed yet.
+ */
+export function destroySidebar() {
+  for (const dispose of disposers.splice(0).reverse()) dispose();
+  layersStore = null;
+  stateAdapter = null;
+  destroyed = true;
+}
+
+/**
+ * Whether `layers` is still the sidebar's store, i.e. the sidebar was not
+ * destroyed or rebuilt since an async operation captured it.
+ */
+function isLive(layers) {
+  return layers !== null && layers === layersStore;
+}
+
+/**
+ * Write to a layer's record; layers without a key have no record. Async
+ * callers pass the store they started with, so a late write after destroy or
+ * a rebuild is dropped.
+ */
+function setLayerRecord(layer, patch, layers = layersStore) {
+  if (layer.key && isLive(layers)) layers.set(layer.key, patch);
+}
+
+/**
+ * Whether a layer is on. Every published layer in config has a key; the switch
+ * class is only a fallback for a keyless layer, which the store can't track.
+ * Always false once the sidebar is destroyed.
+ */
+function isLayerApplied(layer, eyeBtn) {
+  if (!layer.key) return eyeBtn.classList.contains("is-active");
+  return Boolean(getLayersStore()?.get(layer.key).applied);
+}
 
 function setLayerToggleDisabled(layer, eyeBtn, disabled) {
   eyeBtn.disabled = disabled;
@@ -174,14 +294,23 @@ function externalSettingsMatch(left, right) {
 }
 
 async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
+  const layers = getLayersStore();
+  if (!layers) return null; // destroyed (see destroySidebar)
   const sliderSlot = wrapper.querySelector(".layer-slider-slot");
   const legendSlot = wrapper.querySelector(".layer-legend-slot");
   if (layer.key) toggleInFlight.add(layer.key);
   setLayerToggleDisabled(layer, eyeBtn, true);
+  setLayerRecord(layer, { status: "switching" }, layers);
   try {
     const result = await replaceExternalLayer(layer, settings);
-    store.openViews.delete(result.previousIdView);
-    store.openViews.add(result.runtime.idView);
+    if (!isLive(layers)) return result.runtime;
+    // Store subscribers run synchronously here: openViews moves to the new view
+    // and the hash is written before the slider and legend below are rebuilt.
+    setLayerRecord(
+      layer,
+      { viewId: result.runtime.idView, settings: result.runtime.settings, status: "idle", error: null },
+      layers,
+    );
 
     sliderSlot.innerHTML = "";
     addOpacitySlider(result.runtime.idView, sliderSlot);
@@ -189,8 +318,11 @@ async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
     const legendLayer = { ...layer, id: result.runtime.idView, legend: result.runtime.legend };
     addLegend(legendLayer, legendSlot);
     setSecondaryState(layer, { viewId: result.runtime.idView, legendLayer });
-    syncHashFromState();
     return result.runtime;
+  } catch (error) {
+    // The previous variant stays on the map, so only the failure is recorded.
+    setLayerRecord(layer, { status: "error", error }, layers);
+    throw error;
   } finally {
     setLayerToggleDisabled(layer, eyeBtn, false);
     if (layer.key) toggleInFlight.delete(layer.key);
@@ -208,8 +340,14 @@ function renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinit
 
 /**
  * Build the UI and wire up all nav links.
+ * @param {{ stateAdapter?: ReturnType<typeof createHashAdapter> }} [options] - URL
+ *   state adapter; defaults to the hash adapter, which the sidebar then owns
  */
-export function buildSidebar() {
+export function buildSidebar({ stateAdapter: adapter } = {}) {
+  // Start from a fresh store and drop the previous build's subscriptions and
+  // listeners (HMR / test re-runs).
+  initLayerState(adapter);
+
   const sidebarBody = document.getElementById("panel-body");
   const panel = document.getElementById("sidebar");
   const toggle = document.getElementById("panel-toggle");
@@ -235,7 +373,7 @@ export function buildSidebar() {
       batchHashWrites(() =>
         Promise.all(
           Array.from(layerElementMap.values())
-            .filter(({ eyeBtn }) => eyeBtn.classList.contains("is-active"))
+            .filter(({ layer, eyeBtn }) => isLayerApplied(layer, eyeBtn))
             .map(({ layer, eyeBtn, wrapper }) => toggleLayer(layer, eyeBtn, wrapper)),
         ),
       );
@@ -383,7 +521,7 @@ export function buildSidebar() {
   }
 
   // Read initial tab from URL hash, fall back to default
-  const { tab: hashTab } = parseHash();
+  const { tab: hashTab } = stateAdapter.read();
   const initialTab = hashTab && ALL_TABS.includes(hashTab) ? hashTab : store.activeTab;
   // Preserve a valid incoming hash until MapX is ready and can restore its
   // layers. Writing empty runtime state here would erase the shared link.
@@ -394,8 +532,7 @@ export function buildSidebar() {
   // layers back, and the reconcile only corrects the current entry in place.
   // Hashes the app doesn't own (in-page anchors, unknown ids) are ignored, and
   // a bare info-tab hash (e.g. an `href="#sources"` link) keeps the open layers.
-  window.addEventListener("hashchange", () => {
-    const parsed = parseHash();
+  const unsubscribeUrl = stateAdapter.subscribe((parsed) => {
     const action = hashChangeAction(parsed, { dataTabs: DATA_TABS, infoTabs: INFO_TABS });
     if (action === "ignore") return;
     if (parsed.tab !== store.activeTab) switchTab(parsed.tab, { syncHash: false });
@@ -406,6 +543,7 @@ export function buildSidebar() {
       batchHashWrites(() => reconcileLayersFromHash(parsed.layers), { replace: true });
     }
   });
+  disposers.push(unsubscribeUrl);
 
   // Home page category cards dispatch a custom event to navigate to a data tab
   document.addEventListener("navigate-tab", (e) => {
@@ -491,37 +629,30 @@ function updateDisabledLayerVisibility() {
 
 /**
  * Write current state (active tab + open layers) to the URL hash.
- * Called after every tab switch, layer toggle, and source switch. Inside a
- * batch only the Clear button is updated; the batch writes the hash once.
+ * Runs from the layers-store subscriber when a layer's on/off state, source or
+ * variant changes, and directly after a tab switch. Inside a batch only the
+ * Clear button is updated; the batch writes the hash once.
  * @param {{ replace?: boolean }} [options] - replace the history entry instead of pushing
  */
 function syncHashFromState({ replace = false } = {}) {
+  if (!layersStore) return; // destroyed (see destroySidebar)
   if (hashBatchDepth > 0) {
     updateClearBtn();
     return;
   }
-  const layers = [];
-  for (const tab of TABS) {
-    for (const layer of tab.layers) {
-      if (!layer.key || !isLayerAvailable(layer)) continue;
-      const compound = isCompound(layer);
-      if (compound) {
-        const activeSource = layer.sources.find((s) => store.openViews.has(s.id));
-        if (activeSource) {
-          const idx = layer.sources.indexOf(activeSource);
-          layers.push({ key: layer.key, sourceIdx: idx });
-        }
-      } else if (isExternalLayer(layer)) {
-        const runtime = getExternalLayerRuntime(layer);
-        if (runtime) {
-          layers.push({ key: layer.key, sourceIdx: 0, settings: runtime.settings });
-        }
-      } else if (store.openViews.has(layer.id)) {
-        layers.push({ key: layer.key, sourceIdx: 0 });
-      }
-    }
+  if (!stateAdapter) {
+    // A store used before any buildSidebar(): no URL to write.
+    updateClearBtn();
+    return;
   }
-  writeHash(store.activeTab, layers, { replace });
+  const layers = toUrlLayers(layersStore.all(), URL_KEY_ORDER);
+  try {
+    stateAdapter.write({ tab: store.activeTab, layers }, { replace });
+  } catch (error) {
+    // e.g. SecurityError when the browser rate-limits history calls. The URL
+    // falls behind until the next write; the map and panel stay correct.
+    console.error("Could not write layer state to the URL:", error);
+  }
   updateClearBtn();
 }
 
@@ -562,7 +693,12 @@ function safeSourceIdx(layer, sourceIdx) {
  * eliminating positional DOM queries that break when layer order changes.
  */
 export async function restoreLayersFromHash() {
-  const { layers } = parseHash();
+  if (!layersStore || !stateAdapter) {
+    // State and the URL adapter come only from buildSidebar() (see destroySidebar).
+    console.warn("restoreLayersFromHash: no sidebar is built; nothing restored.");
+    return;
+  }
+  const { layers } = stateAdapter.read();
   if (layers.length === 0) return;
 
   // Toggles start in hash order (MapX adds views in request order) and the
@@ -572,7 +708,7 @@ export async function restoreLayersFromHash() {
       Promise.all(
         layers.map(({ key, sourceIdx, settings }) => {
           const el = layerElementMap.get(key);
-          if (!el || el.eyeBtn.classList.contains("is-active")) return null;
+          if (!el || isLayerApplied(el.layer, el.eyeBtn)) return null;
           const { layer, eyeBtn, wrapper } = el;
           if (isCompound(layer)) {
             // Always set source index — even 0, to clear any prior state
@@ -597,7 +733,7 @@ async function reconcileLayersFromHash(hashLayers) {
   const changes = [];
 
   for (const [key, { layer, eyeBtn, wrapper }] of layerElementMap) {
-    const isOn = eyeBtn.classList.contains("is-active");
+    const isOn = isLayerApplied(layer, eyeBtn);
     const hashEntry = targetMap.get(key);
     const shouldBeOn = Boolean(hashEntry);
 
@@ -730,7 +866,7 @@ export function buildLayerAccordion(layer) {
 
     // Expanding a published layer is an activation intent. Collapsing only
     // hides its controls; the layer remains on until its switch is turned off.
-    if (!open && eyeBtn && !eyeBtn.classList.contains("is-active")) {
+    if (!open && eyeBtn && !isLayerApplied(layer, eyeBtn)) {
       toggleLayer(layer, eyeBtn, wrapper, null, false);
     }
   };
@@ -747,6 +883,10 @@ export function buildLayerAccordion(layer) {
 }
 
 async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null, expandOnActivate = true) {
+  // The store this toggle writes to; null once destroyed (see destroySidebar).
+  const layers = getLayersStore();
+  if (!layers) return;
+
   // Guard: SDK must be ready before attempting map operations
   if (!isSDKReady()) {
     const label = wrapper.querySelector(".layer-label");
@@ -761,6 +901,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
   // the switch would re-add its new view after the layer was turned off.
   if (layer.key && sourceSwitchInFlight.has(layer.key)) {
     pendingToggleOff.add(layer.key);
+    setLayerRecord(layer, { desired: false }, layers);
     return;
   }
 
@@ -791,6 +932,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         : store.openViews.has(layer.id);
 
     if (isOn) {
+      setLayerRecord(layer, { desired: false, status: "removing" }, layers);
       // Turn off -- remove whichever source view is active
       const removeId = external
         ? runtime.idView
@@ -808,10 +950,17 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           // MapX may still show the view, so every layer kind stays on in the
           // toggles, cross-tab rows, openViews and hash rather than desync.
           console.warn(`Failed to remove view ${removeId}; keeping ${layer.key || removeId} on:`, err);
+          // Intent goes back to what MapX shows (see LayerRecord.desired).
+          setLayerRecord(layer, { desired: true, status: "error", error: err }, layers);
           return;
         }
-        store.openViews.delete(removeId);
       }
+      // Destroyed or rebuilt while MapX was busy: drop the result.
+      if (!isLive(layers)) return;
+      // Store subscribers run synchronously here: the view leaves openViews and
+      // the hash is written before the switches and controls below are updated.
+      // A subscriber that throws is logged by the store and does not stop this.
+      setLayerRecord(layer, { applied: false, viewId: null, status: "idle", error: null }, layers);
       setLayerToggleState(layer, eyeBtn, false);
       for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, false);
@@ -825,9 +974,9 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       // Turning a layer off ends the interaction and returns the row to its
       // compact state. Collapsing alone still leaves an active layer on.
       setAccordionExpanded(wrapper, false);
-      syncHashFromState();
     } else {
       // Turn on
+      setLayerRecord(layer, { desired: true, status: "loading" }, layers);
       let externalStatus = null;
       if (external && expandOnActivate) {
         setAccordionExpanded(wrapper, true);
@@ -850,6 +999,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         }
       } catch (err) {
         console.warn(`Failed to add layer ${layer.key || activeViewId}:`, err);
+        if (!isLive(layers)) return;
         if (externalStatus) {
           externalStatus.classList.add("is-error");
           externalStatus.textContent = `Could not load ${layer.label}. Please try again.`;
@@ -859,9 +1009,27 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
             status: { text: `Could not load ${layer.label}. Please try again.`, isError: true },
           });
         }
+        setLayerRecord(layer, { desired: false, status: "error", error: err }, layers);
         return;
       }
-      store.openViews.add(activeViewId);
+      // Destroyed or rebuilt while MapX was busy: drop the result.
+      if (!isLive(layers)) return;
+      // Store subscribers run synchronously here: the view joins openViews and
+      // the hash is written before the switches, legend and cross-tab rows below
+      // are updated. A subscriber that throws is logged by the store and does
+      // not stop this.
+      setLayerRecord(
+        layer,
+        {
+          applied: true,
+          viewId: activeViewId,
+          sourceIdx: activeIdx,
+          settings: external ? runtime.settings : null,
+          status: "idle",
+          error: null,
+        },
+        layers,
+      );
       setLayerToggleState(layer, eyeBtn, true);
       for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, true);
@@ -903,7 +1071,6 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           : layer;
       addLegend(legendLayer, legendSlot);
       setSecondaryState(layer, { viewId: activeViewId, legendLayer });
-      syncHashFromState();
     }
   } finally {
     if (external) setLayerToggleDisabled(layer, eyeBtn, false);
@@ -918,28 +1085,35 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
  *   is in flight) or failed, so the source widget can show the actual source
  */
 async function switchSource(layer, key, newIdx, wrapper) {
+  const layers = getLayersStore();
+  if (!layers) return false; // destroyed (see destroySidebar)
   if (layer.key && (toggleInFlight.has(layer.key) || sourceSwitchInFlight.has(layer.key))) return false;
   if (layer.key) {
     toggleInFlight.add(layer.key);
     sourceSwitchInFlight.add(layer.key);
   }
+  setLayerRecord(layer, { status: "switching" }, layers);
   let switched;
   try {
-    switched = await applySourceSwitch(layer, key, newIdx, wrapper);
+    switched = await applySourceSwitch(layer, key, newIdx, wrapper, layers);
   } finally {
+    // A failed switch has already recorded status "error".
+    if (layer.key && isLive(layers) && layers.get(layer.key).status === "switching") {
+      setLayerRecord(layer, { status: "idle" }, layers);
+    }
     if (layer.key) {
       toggleInFlight.delete(layer.key);
       sourceSwitchInFlight.delete(layer.key);
     }
   }
-  if (layer.key && pendingToggleOff.delete(layer.key)) {
+  if (layer.key && pendingToggleOff.delete(layer.key) && isLive(layers)) {
     const el = layerElementMap.get(layer.key);
-    if (el?.eyeBtn.classList.contains("is-active")) await toggleLayer(layer, el.eyeBtn, el.wrapper);
+    if (el && isLayerApplied(el.layer, el.eyeBtn)) await toggleLayer(layer, el.eyeBtn, el.wrapper);
   }
   return switched;
 }
 
-async function applySourceSwitch(layer, key, newIdx, wrapper) {
+async function applySourceSwitch(layer, key, newIdx, wrapper, layers) {
   const oldIdx = store.getActiveSource(key);
   const oldId = layer.sources[oldIdx].id;
   const newId = layer.sources[newIdx].id;
@@ -951,7 +1125,10 @@ async function applySourceSwitch(layer, key, newIdx, wrapper) {
   } catch (e) {
     console.warn(e);
   }
-  store.openViews.delete(oldId);
+  // Destroyed or rebuilt while MapX was busy: drop the result.
+  if (!isLive(layers)) return false;
+  // The layer stays on, but no view carries it until the new one is added.
+  setLayerRecord(layer, { viewId: null }, layers);
 
   try {
     await viewAdd(newId);
@@ -960,15 +1137,19 @@ async function applySourceSwitch(layer, key, newIdx, wrapper) {
     console.warn(`Failed to switch to source ${newIdx}:`, e);
     try {
       await viewAdd(oldId);
-      store.openViews.add(oldId);
+      setLayerRecord(layer, { viewId: oldId, status: "error", error: e }, layers);
     } catch {
-      /* */
+      // Nothing of the layer is on the map, but it stays on with no view, as on
+      // main (the layer controller records this case as off instead).
+      setLayerRecord(layer, { status: "error", error: e }, layers);
     }
     return false;
   }
-  store.openViews.add(newId);
+  if (!isLive(layers)) return false;
   store.setActiveSource(key, newIdx);
-  syncHashFromState();
+  // Store subscribers run synchronously here: openViews gets the new view and
+  // the hash is written before the description, slider and legend are rebuilt.
+  setLayerRecord(layer, { viewId: newId, sourceIdx: newIdx, error: null }, layers);
 
   // Update description to the new source's text
   const descEl = wrapper.querySelector(".layer-desc");

@@ -43,7 +43,9 @@ undrr-risk-resilience-maps/
 │   │   ├── edra-agriculture-controls.js # EDRA crop/scenario options (loaded eagerly)
 │   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── state/
-│   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
+│   │   ├── store.js            # openViews Set (derived), activeTab, activeSourceIndex Map
+│   │   ├── layers-store.js     # createLayersStore(): per-layer records + subscribers
+│   │   ├── hash-adapter.js     # createHashAdapter(): read/write/subscribe/destroy over hash.js
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
 │   │   ├── sidebar.js          # Nav routing, layer panel, accordions, clear-all
@@ -208,6 +210,20 @@ Plain ES module exports with setter functions, no framework.
 - `activeTab` (string) — currently selected tab ID
 - `activeSourceIndex` (Map) — for compound layers, tracks which source is selected
 
+**Layers store (refactor step 1, unisdr/undrr-risk-resilience-maps#14).** `createLayersStore()` in `src/state/layers-store.js` holds one immutable record per layer key: `{ key, desired, applied, sourceIdx, settings, viewId, status, error }`. `applied` means MapX confirmed the layer is on; `viewId` is the view carrying it, and is `null` while off and in the gap of a source switch. `set(key, patch)` notifies subscribers synchronously with `(key, next, prev)`; `get`, `all` and `openViewIds` read.
+
+- `set` ignores a patch that changes nothing (including a first write equal to the defaults) and warns about and ignores unknown fields. `settings` is stored as a deep-frozen copy, and a patch with equal contents keeps the stored object. A subscriber that throws is logged with `console.error` and does not stop the other subscribers or the caller. `get(key)` for a key with no record returns one frozen "off" record per key.
+- `desired` is intent. When a MapX call fails it is reset to what MapX shows (a failed turn-on leaves `false`, a failed turn-off `true`), and `status: "error"` and `error` record the failure (turn on, turn off, source switch or external variant change) until a later call for that layer succeeds. The layer controller PR keeps these semantics.
+- The sidebar writes records in `toggleLayer`, `switchSource` and `updateExternalVariant`, and answers "is this layer on?" from `applied`, not from the switch's `.is-active` class, in clear-all, restore, reconcile, accordion expand and the deferred turn-off. `toggleLayer` itself still decides on/off from `openViews` (or the external runtime registry). The two differ only after a source switch and its rollback both fail, which leaves `applied: true` with `viewId: null`; clicking that switch re-adds the view, as on `main`.
+- `store.openViews` stays as a compatibility Set for `main.js` and `sdk/inspect.js`. The sidebar no longer mutates it: `mirrorOpenViews()` updates it incrementally from `viewId` changes, which keeps its insertion order.
+- The URL hash is a store subscriber. When `applied`, `sourceIdx` or `settings` change, or a layer that is on gets a view back (`viewId` from `null`), `toUrlLayers()` serialises the records that are on and carry a view, and writes through the state adapter. The `null` gap during a source switch writes nothing, so a switch is still one entry. Tab switches and batch ends still write directly.
+- Hash order is config order: `urlKeyOrder(TABS)` lists published, keyed layers tab by tab in `tab.layers` order, the walk the hash was always built from. It is not the sidebar's row order, because tabs with more than one R2R category show their rows grouped (Societies, Economy, Environment). `toUrlLayers(records, keyOrder)` requires the order, and leaves out (with a one-time warning) a layer whose key is missing from it.
+- The hash is written synchronously inside `set`, before `toggleLayer` updates the switches, legend and cross-tab rows. A failed write (e.g. a `SecurityError` when a browser rate-limits `pushState`) is logged, and the panel still finishes updating.
+- The in-flight sets (`toggleInFlight`, `sourceSwitchInFlight`, `pendingToggleOff`) and the cross-tab mirrors (`secondaryRows`, `secondaryState`) are unchanged; a later layer controller replaces them.
+- The store instance is created by `buildSidebar()`, which also clears `store.openViews`, and exposed through `getLayersStore()`. `destroySidebar()` removes the subscriptions and the URL listener, destroys the hash adapter if the sidebar created it, and drops the store and adapter. Until the next `buildSidebar()`, `getLayersStore()` returns `null`, and switch clicks, clear-all, source and variant changes and `restoreLayersFromHash()` (which warns) do nothing. MapX calls that settle after a destroy or a rebuild are dropped instead of being written into a store nobody reads. Only `buildSidebar()` creates a URL adapter; rows built with `buildLayerAccordion()` before any `buildSidebar()` (unit tests) get a store without one.
+
+**State adapter.** `createHashAdapter({ target = window })` in `src/state/hash-adapter.js` is the only path from the UI to `location`/`history`: `read()` parses `target.location.hash`, `write(state, { replace })` pushes or replaces through `target.history`, `subscribe(fn)` watches `hashchange` on `target`, `destroy()` removes its listeners. `parseHash()` and `writeHash()` accept optional `location`/`history` for this and default to the globals. `buildSidebar({ stateAdapter })` accepts another adapter with the same contract (see the embedding design in unisdr/undrr-risk-resilience-maps#14).
+
 ### UI layer (Mangrove)
 
 All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css) (v2.0.0-rc.1). Components used:
@@ -312,6 +328,8 @@ Test files cover pure and near-pure modules:
 | File                                      | What it tests                                                                                     |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                             |
+| `src/state/layers-store.test.js`          | Store set/get/all, patch rules, subscribers and their errors, openViews mirror, URL key order     |
+| `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy on a target; shared links (grouped tabs too) round-trip      |
 | `src/config/validate.test.js`             | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
 | `src/ui/widgets/sub-tabs.test.js`         | DOM construction, initial state, callbacks, aria roles, revert on rejected switch                 |
 | `src/ui/widgets/source-selection.test.js` | Confirmed/in-flight index when switches are rejected or fail                                      |
@@ -325,7 +343,7 @@ Test files cover pure and near-pure modules:
 | `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                          |
 | `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
-`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all, back/forward history entries, rapid double toggles, `viewRemove` failures and non-app hashes. Known bugs left for the layer state refactor (clear-all while a layer is loading, cancelling an external layer mid-load) are recorded as `it.fails` / `it.todo` (see the tracker, unisdr/undrr-risk-resilience-maps#14).
+`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all, back/forward history entries, rapid double toggles, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward, and covering failure records, a throwing hash write, a layer re-enabled after a double switch failure, and destroy/rebuild. `src/ui/sidebar.grouped.test.js` checks that a grouped tab's hash keeps config order on toggle and restore. Known bugs left for the layer state refactor (clear-all while a layer is loading, cancelling an external layer mid-load) are recorded as `it.fails` / `it.todo` (see the tracker, unisdr/undrr-risk-resilience-maps#14).
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser
