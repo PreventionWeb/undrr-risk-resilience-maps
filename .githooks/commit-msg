@@ -1,0 +1,10 @@
+#!/bin/sh
+# Reject commit messages carrying AI-assistant attribution trailers
+# (e.g. "Co-Authored-By: Claude ..." or "Claude-Session: ...").
+# Enabled via `git config core.hooksPath .githooks` (run by `yarn install`).
+
+if grep -iqE '^[[:space:]]*(co-authored-by:.*(claude|anthropic)|claude-session:)' "$1"; then
+  echo "commit-msg: remove AI attribution trailers before committing:" >&2
+  grep -inE '^[[:space:]]*(co-authored-by:.*(claude|anthropic)|claude-session:)' "$1" >&2
+  exit 1
+fi

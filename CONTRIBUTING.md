@@ -18,6 +18,8 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/).
 
 Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `perf`.
 
+Do not add AI-assistant attribution trailers (`Co-Authored-By: Claude …`, `Claude-Session: …`). A `commit-msg` hook in `.githooks/` rejects them; `yarn install` enables it via `core.hooksPath`. To enable it by hand, run `git config core.hooksPath .githooks`.
+
 ## Changelog
 
 The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-changelog.org/) format. Update it as part of any PR that introduces user-facing changes.
