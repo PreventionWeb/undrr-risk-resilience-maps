@@ -102,7 +102,13 @@ function mockExternalRegistry() {
   });
 }
 
-import { buildSidebar, destroySidebar, getLayersStore, restoreLayersFromHash } from "./sidebar.js";
+import {
+  buildSidebar,
+  destroySidebar,
+  getLayersStore,
+  onViewsChanged,
+  restoreLayersFromHash,
+} from "./sidebar.js";
 import * as store from "../state/store.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -707,6 +713,34 @@ describe("layers store", () => {
       appliedSourceIdx: 0,
     });
     expect(hashSegments()).toEqual(["recovery", "flood"]);
+  });
+
+  it("never reports zero layers while one is on, even mid source switch", async () => {
+    const counts = [];
+    onViewsChanged((count) => counts.push(count));
+    try {
+      showTab("risk");
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").applied).toBe(true));
+
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      // Flood is in the gap between its views: on, but with no view in openViews.
+      await vi.waitFor(() =>
+        expect(getLayersStore().get("flood")).toMatchObject({ applied: true, viewId: null }),
+      );
+      expect(store.openViews.size).toBe(0);
+
+      homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+      slowAdd.resolve();
+      await vi.waitFor(() => expect(getLayersStore().get("flood").viewId).toBe("MX-F100"));
+
+      expect(counts).toEqual([1, 2]);
+    } finally {
+      onViewsChanged(null);
+    }
   });
 
   it("ends off after a double switch failure, and can be turned on again", async () => {

@@ -47,7 +47,10 @@ import {
 
 let _viewsChangeCallback = null;
 
-/** Register a callback invoked whenever the set of open views changes. */
+/**
+ * Register a callback invoked with the number of layers on the map whenever
+ * that number changes (see notifyViewsChanged).
+ */
 export function onViewsChanged(fn) {
   _viewsChangeCallback = fn;
 }
@@ -131,9 +134,10 @@ function initLayerState(adapter, { url = true } = {}) {
     if (!adapter) disposers.push(() => stateAdapter.destroy());
   }
   layersStore = createLayersStore();
-  // Subscriber order matters: openViews must be current before the hash sync
-  // updates the Clear button and the views-changed callback from its size.
+  // Subscriber order matters: openViews must be current before the
+  // views-changed callback and the hash sync run.
   disposers.push(mirrorOpenViews(layersStore, store.openViews));
+  disposers.push(layersStore.subscribe(notifyViewsChanged));
   disposers.push(
     layersStore.subscribe((_key, next, prev) => {
       if (changesUrlState(next, prev)) syncHashFromState();
@@ -807,8 +811,8 @@ function updateDisabledLayerVisibility() {
 /**
  * Write current state (active tab + open layers) to the URL hash.
  * Runs from the layers-store subscriber when what MapX shows changes (see
- * changesUrlState), and directly after a tab switch. Inside a batch only the
- * Clear button is updated; the batch writes the hash once.
+ * changesUrlState), and directly after a tab switch. Inside a batch nothing is
+ * written; the batch writes the hash once when it ends.
  *
  * The store runs its subscribers synchronously in subscription order, so the
  * hash is written before the row renderer updates the switches and legend. A
@@ -818,15 +822,9 @@ function updateDisabledLayerVisibility() {
  */
 function syncHashFromState({ replace = false } = {}) {
   if (!layersStore) return; // destroyed (see destroySidebar)
-  if (hashBatchDepth > 0) {
-    updateClearBtn();
-    return;
-  }
-  if (!stateAdapter) {
-    // A store used before any buildSidebar(): no URL to write.
-    updateClearBtn();
-    return;
-  }
+  if (hashBatchDepth > 0) return;
+  // A store used before any buildSidebar(): no URL to write.
+  if (!stateAdapter) return;
   const layers = toUrlLayers(layersStore.all(), URL_KEY_ORDER);
   try {
     stateAdapter.write({ tab: store.activeTab, layers }, { replace });
@@ -835,7 +833,6 @@ function syncHashFromState({ replace = false } = {}) {
     // falls behind until the next write; the map and panel stay correct.
     console.error("Could not write layer state to the URL:", error);
   }
-  updateClearBtn();
 }
 
 /**
@@ -853,15 +850,28 @@ async function batchHashWrites(fn, { replace = false } = {}) {
 }
 
 /**
- * Show "Clear all" while any layer is on or asked to be on (so a layer that is
- * still loading can be cleared), and report the number of open views.
+ * Show "Clear all" while any layer is on or asked to be on. It follows intent
+ * as well as the map so a layer that is still loading can be cleared, and it
+ * stays while a failing turn-off leaves a layer on. It does not report views;
+ * see notifyViewsChanged.
  */
 function updateClearBtn() {
   const clearBtn = document.getElementById("layer-clear-btn");
   if (clearBtn && layersStore) {
     clearBtn.hidden = !layersStore.all().some((record) => record.desired || record.applied);
   }
-  if (_viewsChangeCallback) _viewsChangeCallback(store.openViews.size);
+}
+
+/**
+ * Store subscriber: tell the onViewsChanged callback how many layers are on
+ * the map, whenever that number changes (a layer's `applied` flips). Intent
+ * alone never fires it, and neither does a source switch: the layer stays on
+ * through the gap between its old and new view, so a switch cannot report 0
+ * while a layer is on (which would disable inspect mode).
+ */
+function notifyViewsChanged(_key, next, prev) {
+  if (next.applied === prev.applied || !_viewsChangeCallback || !layersStore) return;
+  _viewsChangeCallback(layersStore.all().filter((record) => record.applied).length);
 }
 
 /**
