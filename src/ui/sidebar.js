@@ -663,6 +663,10 @@ export function createSidebar(
     }
     if (clearBtn) clearBtn.hidden = true;
     if (disabledToggleBtn) disabledToggleBtn.checked = false;
+    // The collapse control's ARIA and label describe the panel's state, so
+    // they have to be restored with it, not left saying "Expand" over a panel
+    // that is open.
+    renderToggleState(Boolean(panel?.classList.contains("is-collapsed")));
     layersStore = null;
     layerController = null;
     if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);

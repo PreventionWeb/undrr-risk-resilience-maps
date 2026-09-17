@@ -7,6 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   viewAdd: vi.fn(async () => {}),
   viewRemove: vi.fn(async () => {}),
+  // A controllable stand-in for the SDK client's readiness, so a test can flip
+  // it and see the layer switches re-render.
+  sdk: { ready: true, listeners: new Set() },
+  setSDKReady(ready) {
+    mocks.sdk.ready = ready;
+    for (const listener of [...mocks.sdk.listeners]) listener(ready);
+  },
 }));
 
 vi.mock("../config/layers.js", () => ({
@@ -26,7 +33,13 @@ vi.mock("../config/layers.js", () => ({
   ],
 }));
 vi.mock("../sdk/views.js", () => ({ viewAdd: mocks.viewAdd, viewRemove: mocks.viewRemove }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
+vi.mock("../sdk/client.js", () => ({
+  isSDKReady: () => mocks.sdk.ready,
+  onSDKReadyChange: (listener) => {
+    mocks.sdk.listeners.add(listener);
+    return () => mocks.sdk.listeners.delete(listener);
+  },
+}));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../utils/export-layers.js", () => ({ downloadLayerInventory: vi.fn() }));
@@ -111,6 +124,8 @@ describe("createSidebar", () => {
     store.openViews.clear();
     mocks.viewAdd.mockClear();
     mocks.viewRemove.mockClear();
+    mocks.sdk.ready = true;
+    mocks.sdk.listeners.clear();
   });
 
   afterEach(() => {
@@ -136,6 +151,54 @@ describe("createSidebar", () => {
     expect($("[data-tab-panel='home']").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(false);
+  });
+
+  it("re-renders the layer switches when the map becomes ready", () => {
+    mocks.sdk.ready = false;
+    sidebar = createSidebar(document.body, {
+      stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }),
+    });
+    const switches = () => $$(".layer-eye");
+    expect(switches().length).toBeGreaterThan(0);
+    for (const input of switches()) expect(input.getAttribute("aria-disabled")).toBe("true");
+
+    mocks.setSDKReady(true);
+
+    // Every row, home and cross-tab, drops the disabled state without any
+    // record changing.
+    for (const input of switches()) expect(input.hasAttribute("aria-disabled")).toBe(false);
+
+    mocks.setSDKReady(false);
+    for (const input of switches()) expect(input.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("stops listening for readiness changes on destroy", () => {
+    sidebar = createSidebar(document.body, {
+      stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }),
+    });
+    expect(mocks.sdk.listeners.size).toBe(1);
+
+    sidebar.destroy();
+
+    // No listener is left holding the destroyed instance, and a late report
+    // reaches nothing.
+    expect(mocks.sdk.listeners.size).toBe(0);
+    expect(() => mocks.setSDKReady(false)).not.toThrow();
+  });
+
+  it("leaves the collapse control describing the panel it restored", () => {
+    const toggle = $("#panel-toggle");
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    toggle.click();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    sidebar.destroy();
+
+    // destroy() re-opens the panel, so the control must not still say
+    // "Expand" over an open panel.
+    expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle.getAttribute("aria-label")).toBe("Collapse the layers panel");
   });
 
   it("hands the Mangrove tabs its signal, so destroy removes their listeners", () => {
@@ -302,7 +365,10 @@ describe("createSidebar", () => {
     expect(sidebar.activeTab).toBe("hazard");
     expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
     // The checkbox flips itself when clicked (the browser does that), but the
-    // destroyed instance no longer listens, so nothing else changes.
+    // destroyed instance no longer listens: nothing is rebuilt and no disabled
+    // row reappears.
+    expect(disabledToggle.checked).toBe(true);
+    expect($$("[data-layer-disabled='true']")).toEqual([]);
     expect(homeLink.classList.contains("is-active")).toBe(false);
   });
 
