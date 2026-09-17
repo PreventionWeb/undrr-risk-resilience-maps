@@ -96,6 +96,33 @@ describe("addOpacitySlider", () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it("drops a slider whose slot was cleared while transparency was loading", async () => {
+    let finish;
+    getViewLayerTransparency.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const pending = addOpacitySlider("view-1", container);
+    container.innerHTML = "";
+    finish(0);
+    await pending;
+    expect(container.querySelector("input[type=range]")).toBeNull();
+  });
+
+  it("keeps sliders for the same view in sync", async () => {
+    getViewLayerTransparency.mockResolvedValue(0);
+    const other = document.createElement("div");
+    document.body.append(container, other);
+    await addOpacitySlider("view-1", container);
+    await addOpacitySlider("view-1", other);
+    const [first, second] = [container, other].map((el) => el.querySelector("input[type=range]"));
+
+    first.value = "30";
+    first.dispatchEvent(new Event("input"));
+
+    expect(second.value).toBe("30");
+    expect(other.querySelector(".opacity-value").textContent).toBe("30%");
+    container.remove();
+    other.remove();
+  });
 });
 
 // ─── addLegend ────────────────────────────────────────────────────────────────

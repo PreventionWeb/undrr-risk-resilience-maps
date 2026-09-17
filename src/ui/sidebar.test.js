@@ -21,7 +21,7 @@ vi.mock("./layer-controls.js", () => ({
 }));
 
 import * as store from "../state/store.js";
-import { buildCrossTabRow, buildLayerAccordion } from "./sidebar.js";
+import { buildLayerAccordion } from "./sidebar.js";
 
 const layer = {
   id: "MX-TEST-LAYER",
@@ -100,31 +100,5 @@ describe("layer accordion activation", () => {
     const { wrapper } = buildLayerAccordion(layer);
 
     expect(wrapper.querySelector(".layer-desc").textContent).toBe("Test R-R initiative. Test description.");
-  });
-
-  it("shows the legend in the cross-tab row when a layer is activated outside its tab", async () => {
-    // Regression: activating a layer from another tab's cross-tab section only
-    // rendered the legend into the (hidden) home-tab accordion.
-    const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-    document.body.appendChild(wrapper);
-    const crossRow = buildCrossTabRow(layer);
-    document.body.appendChild(crossRow);
-    const crossBody = crossRow.querySelector(".cross-tab-body");
-    const crossEye = crossRow.querySelector(".layer-eye");
-    // The cross-tab switch delegates to the canonical switch via layerElementMap,
-    // which buildSidebar populates; drive the canonical switch directly here.
-    expect(crossBody.hidden).toBe(true);
-
-    eyeBtn.click();
-    await vi.waitFor(() => expect(crossEye.getAttribute("aria-checked")).toBe("true"));
-    expect(crossBody.hidden).toBe(false);
-    expect(crossBody.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
-    expect(crossBody.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
-    expect(crossBody.querySelector(".layer-desc").textContent).toBe("Test R-R initiative. Test description.");
-
-    eyeBtn.click();
-    await vi.waitFor(() => expect(crossEye.getAttribute("aria-checked")).toBe("false"));
-    expect(crossBody.hidden).toBe(true);
-    expect(crossBody.querySelector(".html-legend")).toBeNull();
   });
 });

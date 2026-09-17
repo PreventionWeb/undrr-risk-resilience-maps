@@ -9,6 +9,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Fixed
 
 - Show the description, opacity slider and legend for layers turned on from another pillar's section of the layer panel. Previously these rendered only in the layer's home tab, which is hidden, so nothing appeared.
+- Render a cross-tab row's legend and opacity slider only in the visible tab, instead of in every tab, to cut repeated MapX legend and transparency requests.
+- Show an external layer's loading and error messages in the cross-tab row it was turned on from.
+- Keep opacity sliders for the same layer in sync, and drop sliders whose slot was cleared before they finished loading.
+- Turning a compound layer off while it is switching source (for example with "Clear all" or Back) now turns it off once the switch settles, instead of leaving the new source on the map.
 
 ## [0.0.2] - 2026-09-17
 

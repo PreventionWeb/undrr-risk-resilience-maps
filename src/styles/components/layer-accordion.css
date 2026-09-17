@@ -258,9 +258,18 @@
   border-bottom: none;
 }
 
+/* An expanded row reads as one unit: no divider between it and its details. */
+.cross-tab-item:has(> .cross-tab-body:not([hidden])) .cross-tab-row {
+  border-bottom: none;
+}
+
 .cross-tab-body {
   padding: 0.25rem 0.75rem 0.6rem 1.2rem;
   border-bottom: 1px solid #f5f5f5;
+}
+
+.cross-tab-item:last-child .cross-tab-body {
+  border-bottom: none;
 }
 
 .cross-tab-body .layer-desc {

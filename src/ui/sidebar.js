@@ -64,12 +64,18 @@ const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
 const layerElementMap = new Map();
-// Maps layer.key → [{ eyeBtn, body, sliderSlot, legendSlot }] for the compact
-// rows in cross-tab sections, so layers activated outside their home tab
-// still show their details, opacity slider and legend.
+// Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
+// for the compact rows in cross-tab sections, so layers activated outside their
+// home tab still show their details, opacity slider and legend.
 const secondaryRows = new Map();
+// Maps layer.key → { layer, viewId, legendLayer, status, version }: what the
+// cross-tab rows should show. Only rows in the visible tab are rendered.
+const secondaryState = new Map();
 // Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
 const toggleInFlight = new Set();
+// Keys of compound layers mid source-switch, and those asked to turn off meanwhile.
+const sourceSwitchInFlight = new Set();
+const pendingToggleOff = new Set();
 let showDisabledLayers = false;
 
 function setLayerToggleDisabled(layer, eyeBtn, disabled) {
@@ -80,20 +86,67 @@ function setLayerToggleDisabled(layer, eyeBtn, disabled) {
 }
 
 /**
- * Render (or clear, when viewId is null) the opacity slider and legend in
- * every cross-tab row for a layer. Mirrors the controls in the home-tab
- * accordion so the active layer's legend is visible from any tab.
+ * Record what a layer's cross-tab rows should show and re-render them.
+ * Pass null to clear. `status` is a { text, isError } message shown in place
+ * of the controls while an external layer loads or after it fails.
  */
-function renderSecondaryControls(layer, viewId, legendLayer) {
-  for (const row of secondaryRows.get(layer.key) ?? []) {
-    row.sliderSlot.innerHTML = "";
-    row.legendSlot.innerHTML = "";
-    if (row.desc) setLayerDescription(row.desc, layer, legendLayer?.desc || layer.desc);
-    row.body.hidden = !viewId;
-    if (!viewId) continue;
-    addOpacitySlider(viewId, row.sliderSlot);
-    addLegend(legendLayer, row.legendSlot);
+function setSecondaryState(layer, state) {
+  if (!layer.key) return;
+  if (state) {
+    const version = (secondaryState.get(layer.key)?.version ?? 0) + 1;
+    secondaryState.set(layer.key, {
+      layer,
+      viewId: null,
+      legendLayer: null,
+      status: null,
+      ...state,
+      version,
+    });
+  } else {
+    secondaryState.delete(layer.key);
   }
+  syncSecondaryRows(layer.key);
+}
+
+/**
+ * Render a layer's cross-tab controls into the row in the visible tab only,
+ * and clear rows in hidden tabs. Each render triggers SDK calls (transparency,
+ * legend), so hidden rows are filled lazily when their tab is shown.
+ */
+function syncSecondaryRows(key) {
+  const state = secondaryState.get(key);
+  for (const row of secondaryRows.get(key) ?? []) {
+    const visible = Boolean(state) && (row.tabId == null || row.tabId === store.activeTab);
+    if (!visible) {
+      if (row.renderedVersion != null || !row.body.hidden) clearSecondaryRow(row);
+      continue;
+    }
+    if (row.renderedVersion === state.version) continue;
+
+    clearSecondaryRow(row);
+    row.renderedVersion = state.version;
+    row.body.hidden = false;
+    if (row.desc) setLayerDescription(row.desc, state.layer, state.legendLayer?.desc || state.layer.desc);
+    if (state.status) {
+      row.status.hidden = false;
+      row.status.textContent = state.status.text;
+      row.status.classList.toggle("is-error", Boolean(state.status.isError));
+    }
+    if (state.viewId) {
+      addOpacitySlider(state.viewId, row.sliderSlot);
+      addLegend(state.legendLayer, row.legendSlot);
+    }
+  }
+}
+
+function clearSecondaryRow(row) {
+  row.renderedVersion = null;
+  row.body.hidden = true;
+  row.status.hidden = true;
+  row.status.textContent = "";
+  row.status.classList.remove("is-error");
+  row.sliderSlot.innerHTML = "";
+  row.legendSlot.innerHTML = "";
 }
 
 function setLayerToggleState(layer, button, active) {
@@ -130,7 +183,7 @@ async function updateExternalVariant(
     legendSlot.innerHTML = "";
     const legendLayer = { ...layer, id: result.runtime.idView, legend: result.runtime.legend };
     addLegend(legendLayer, legendSlot);
-    renderSecondaryControls(layer, result.runtime.idView, legendLayer);
+    setSecondaryState(layer, { viewId: result.runtime.idView, legendLayer });
     if (updateHash) syncHashFromState();
     return result.runtime;
   } finally {
@@ -192,6 +245,7 @@ export function buildSidebar() {
   // Clear stale state (guards against HMR / test re-runs)
   layerElementMap.clear();
   secondaryRows.clear();
+  secondaryState.clear();
 
   // Populate info page with all info panels
   infoPage.appendChild(buildHomePanel());
@@ -389,6 +443,7 @@ function switchTab(tabId, { syncHash = true } = {}) {
     for (const panel of document.querySelectorAll(".tab-panel")) {
       panel.style.display = panel.id === `tab-${tabId}` ? "block" : "none";
     }
+    for (const key of secondaryState.keys()) syncSecondaryRows(key);
   }
 }
 
@@ -673,6 +728,13 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
     return;
   }
 
+  // A source switch is mid-flight: defer a turn-off until it settles, otherwise
+  // the switch would re-add its new view after the layer was turned off.
+  if (layer.key && sourceSwitchInFlight.has(layer.key)) {
+    pendingToggleOff.add(layer.key);
+    return;
+  }
+
   // Guard: prevent concurrent toggles for the same layer (rapid clicks / secondary + primary race)
   if (layer.key && toggleInFlight.has(layer.key)) return;
   if (layer.key) toggleInFlight.add(layer.key);
@@ -724,7 +786,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
       for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
         setLayerToggleState(layer, btn, false);
       }
-      renderSecondaryControls(layer, null);
+      setSecondaryState(layer, null);
       wrapper.classList.remove("layer-active");
       widgetSlot.innerHTML = "";
       sliderSlot.innerHTML = "";
@@ -757,6 +819,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         externalStatus.textContent = `Loading ${layer.label}…`;
         widgetSlot.appendChild(externalStatus);
       }
+      if (external) setSecondaryState(layer, { status: { text: `Loading ${layer.label}…` } });
 
       try {
         if (external) {
@@ -770,6 +833,11 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         if (externalStatus) {
           externalStatus.classList.add("is-error");
           externalStatus.textContent = `Could not load ${layer.label}. Please try again.`;
+        }
+        if (external) {
+          setSecondaryState(layer, {
+            status: { text: `Could not load ${layer.label}. Please try again.`, isError: true },
+          });
         }
         return;
       }
@@ -821,7 +889,7 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
           : layer;
       addLegend(legendLayer, legendSlot);
-      renderSecondaryControls(layer, activeViewId, legendLayer);
+      setSecondaryState(layer, { viewId: activeViewId, legendLayer });
       syncHashFromState();
     }
   } finally {
@@ -835,6 +903,26 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
  * Removes the old view, adds the new one, and rebuilds controls.
  */
 async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) {
+  if (layer.key && (toggleInFlight.has(layer.key) || sourceSwitchInFlight.has(layer.key))) return;
+  if (layer.key) {
+    toggleInFlight.add(layer.key);
+    sourceSwitchInFlight.add(layer.key);
+  }
+  try {
+    await applySourceSwitch(layer, key, newIdx, descEl, sliderSlot, legendSlot);
+  } finally {
+    if (layer.key) {
+      toggleInFlight.delete(layer.key);
+      sourceSwitchInFlight.delete(layer.key);
+    }
+  }
+  if (layer.key && pendingToggleOff.delete(layer.key)) {
+    const el = layerElementMap.get(layer.key);
+    if (el?.eyeBtn.classList.contains("is-active")) await toggleLayer(layer, el.eyeBtn, el.wrapper);
+  }
+}
+
+async function applySourceSwitch(layer, key, newIdx, descEl, sliderSlot, legendSlot) {
   const oldIdx = store.getActiveSource(key);
   const oldId = layer.sources[oldIdx].id;
   const newId = layer.sources[newIdx].id;
@@ -877,7 +965,7 @@ async function switchSource(layer, key, newIdx, descEl, sliderSlot, legendSlot) 
   legendSlot.innerHTML = "";
   const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
   addLegend(legendLayer, legendSlot);
-  renderSecondaryControls(layer, newId, legendLayer);
+  setSecondaryState(layer, { viewId: newId, legendLayer });
 }
 
 function setLayerDescription(element, layer, description) {
@@ -920,12 +1008,12 @@ function buildCrossTabSections(currentTab) {
         details.appendChild(groupHeading);
 
         for (const layer of groupLayers) {
-          details.appendChild(buildCrossTabRow(layer));
+          details.appendChild(buildCrossTabRow(layer, currentTab.id));
         }
       }
     } else {
       for (const layer of publishedLayers) {
-        details.appendChild(buildCrossTabRow(layer));
+        details.appendChild(buildCrossTabRow(layer, currentTab.id));
       }
     }
 
@@ -939,9 +1027,10 @@ function buildCrossTabSections(currentTab) {
  * Build a single compact row for a cross-tab section.
  * The row carries its own details area (description, opacity slider, legend)
  * that is shown while the layer is active; source/variant switching stays in
- * the layer's home tab. Registered in secondaryRows so toggleLayer keeps it in sync.
+ * the layer's home tab. Registered in secondaryRows so toggleLayer keeps it in
+ * sync; `tabId` is the tab panel the row lives in (rendered only when visible).
  */
-export function buildCrossTabRow(layer) {
+function buildCrossTabRow(layer, tabId = null) {
   const item = document.createElement("div");
   item.className = "cross-tab-item";
 
@@ -979,6 +1068,12 @@ export function buildCrossTabRow(layer) {
     body.appendChild(desc);
   }
 
+  const status = document.createElement("p");
+  status.className = "external-layer-status";
+  status.setAttribute("aria-live", "polite");
+  status.hidden = true;
+  body.appendChild(status);
+
   const sliderSlot = document.createElement("div");
   sliderSlot.className = "layer-slider-slot";
   body.appendChild(sliderSlot);
@@ -989,7 +1084,7 @@ export function buildCrossTabRow(layer) {
   item.appendChild(body);
 
   if (!secondaryRows.has(layer.key)) secondaryRows.set(layer.key, []);
-  secondaryRows.get(layer.key).push({ eyeBtn, body, desc, sliderSlot, legendSlot });
+  secondaryRows.get(layer.key).push({ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot });
 
   return item;
 }
