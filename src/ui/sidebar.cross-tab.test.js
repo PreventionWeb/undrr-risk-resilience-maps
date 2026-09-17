@@ -72,7 +72,7 @@ vi.mock("../external/index.js", () => ({
   getExternalLayerRuntime: () => null,
 }));
 
-import { buildSidebar } from "./sidebar.js";
+import { buildSidebar, restoreLayersFromHash } from "./sidebar.js";
 import * as store from "../state/store.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -154,12 +154,13 @@ describe("cross-tab layer rows", () => {
     showTab("exposure");
     expect(mocks.addLegend).toHaveBeenCalledTimes(3);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(false);
-    expect(crossRow("resilience", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(true);
 
-    // Returning to a tab re-renders its row once, not on every switch.
+    // Rows keep their rendered controls while their tab is hidden, so switching
+    // tabs does not re-request them.
+    showTab("resilience");
     showTab("risk");
     showTab("exposure");
-    expect(mocks.addLegend).toHaveBeenCalledTimes(4);
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
   });
 
   it("shows an external layer's load error in the cross-tab row", async () => {
@@ -201,5 +202,45 @@ describe("cross-tab layer rows", () => {
     expect(mocks.viewRemove).toHaveBeenLastCalledWith("MX-F100");
     expect(row.querySelector(".cross-tab-body").hidden).toBe(true);
     expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("restores a shared link without adding history entries", async () => {
+    history.replaceState(null, "", "#resilience?layers=recovery,flood:1");
+    const lengthBefore = history.length;
+
+    await restoreLayersFromHash();
+
+    expect(store.openViews).toEqual(new Set(["MX-REC", "MX-F100"]));
+    expect(history.length).toBe(lengthBefore);
+    expect(location.hash).toBe("#resilience?layers=recovery,flood:1");
+  });
+
+  it("clears several layers as a single history entry", async () => {
+    crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
+    crossRow("resilience", "Population").querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(store.openViews.size).toBe(2));
+    const lengthBefore = history.length;
+
+    document.getElementById("layer-clear-btn").click();
+
+    await vi.waitFor(() => expect(location.hash).toBe("#resilience"));
+    expect(store.openViews.size).toBe(0);
+    expect(history.length).toBe(lengthBefore + 1);
+  });
+
+  it("applies back/forward navigation without writing intermediate history", async () => {
+    crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(location.hash).toBe("#resilience?layers=recovery"));
+
+    // Simulate the browser moving to another entry.
+    history.pushState(null, "", "#exposure?layers=pop");
+    const lengthBefore = history.length;
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    await vi.waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
+    await tick();
+    expect(store.activeTab).toBe("exposure");
+    expect(location.hash).toBe("#exposure?layers=pop");
+    expect(history.length).toBe(lengthBefore);
   });
 });

@@ -8,6 +8,9 @@
  */
 import proj4 from "proj4";
 import { getSDK } from "../sdk/client.js";
+import { EDRA_CROPS, EDRA_SCENARIOS } from "./edra-agriculture-controls.js";
+
+export { EDRA_CROPS, EDRA_SCENARIOS, EDRA_CONTROLS } from "./edra-agriculture-controls.js";
 
 const EDRA_ORIGIN = "https://drought.emergency.copernicus.eu";
 const GEOMETRY_URL =
@@ -26,25 +29,6 @@ const MIN_JOIN_COVERAGE = 0.9;
 
 const EPSG_3035 =
   "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 " + "+ellps=GRS80 +units=m +no_defs +type=crs";
-
-export const EDRA_CROPS = [
-  { value: "BARLEY", label: "Barley" },
-  { value: "MAIZE", label: "Maize" },
-  { value: "WHEAT", label: "Wheat" },
-];
-
-export const EDRA_SCENARIOS = [
-  { value: "BASELINE", label: "Historical (1981–2010)", property: "value_his" },
-  { value: "CURRENT", label: "Current climate", property: "value_current" },
-  { value: "15", label: "+1.5 °C", property: "value_15" },
-  { value: "20", label: "+2 °C", property: "value_20" },
-  { value: "30", label: "+3 °C", property: "value_30" },
-];
-
-export const EDRA_CONTROLS = [
-  { key: "crop", label: "Crop", options: EDRA_CROPS },
-  { key: "scenario", label: "Climate scenario", options: EDRA_SCENARIOS },
-];
 
 let geometryPromise = null;
 let configPromise = null;

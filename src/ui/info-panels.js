@@ -4,15 +4,11 @@
  */
 
 import { downloadLayerInventory } from "../utils/export-layers.js";
+import { escapeHtml } from "../utils/html.js";
 import { getLayerStatus } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
-
-function escHtml(s) {
-  if (s == null) return "";
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 const STATUS_LABEL_MODIFIERS = {
   "Awaiting data": "waiting-information",
@@ -21,14 +17,14 @@ const STATUS_LABEL_MODIFIERS = {
 
 function statusLabel(status) {
   const modifier = STATUS_LABEL_MODIFIERS[status] || "draft";
-  return `<span class="data-table__badge mg-status-label mg-status-label--${modifier}"><span class="mg-status-label__indicator" aria-hidden="true"></span>${escHtml(status)}</span> `;
+  return `<span class="data-table__badge mg-status-label mg-status-label--${modifier}"><span class="mg-status-label__indicator" aria-hidden="true"></span>${escapeHtml(status)}</span> `;
 }
 
 function sourceCell(source, url) {
   if (!source) return "";
   return url
-    ? `<a href="${escHtml(url)}" target="_blank" rel="noopener">${escHtml(source)}</a>`
-    : escHtml(source);
+    ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(source)}</a>`
+    : escapeHtml(source);
 }
 
 function mapxIds(layer) {
@@ -50,17 +46,17 @@ function buildSourcesTable(layers) {
       const idCell = ids.includes("\n")
         ? ids
             .split("\n")
-            .map((id) => `<code>${escHtml(id)}</code>`)
+            .map((id) => `<code>${escapeHtml(id)}</code>`)
             .join("<br>")
-        : `<code>${escHtml(ids)}</code>`;
+        : `<code>${escapeHtml(ids)}</code>`;
       return `
       <tr${rowClass}>
-        <td>${statusBadge}${escHtml(layer.label)}</td>
+        <td>${statusBadge}${escapeHtml(layer.label)}</td>
         <td class="data-table__mapx-id">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
-        <td>${escHtml(layer.citation)}</td>
+        <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escHtml(layer.note || layer.desc)}</td>
+        <td>${escapeHtml(layer.note || layer.desc)}</td>
       </tr>`;
     })
     .join("");
@@ -93,7 +89,7 @@ export function buildSourcesPanel() {
     const sectionId = `mg-tabs__section-sources-${i + 1}`;
     return `
       <li class="mg-tabs__item" role="presentation">
-        <a class="mg-tabs__link" href="#${sectionId}" id="${sectionId}--trigger" data-tabs__item="${sectionId}" aria-controls="${sectionId}" role="tab">${escHtml(tab.label)}</a>
+        <a class="mg-tabs__link" href="#${sectionId}" id="${sectionId}--trigger" data-tabs__item="${sectionId}" aria-controls="${sectionId}" role="tab">${escapeHtml(tab.label)}</a>
       </li>`;
   }).join("");
 
@@ -113,7 +109,7 @@ export function buildSourcesPanel() {
     return `
       <div class="mg-tabs-content" data-mg-js-tabs-content="true">
         <section class="mg-tabs__section" id="${sectionId}" role="tabpanel" aria-labelledby="${sectionId}--trigger" tabindex="-1">
-          <h2 class="info-page-section__title">${escHtml(tab.label)} Data</h2>
+          <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
           ${available.length > 0 ? buildSourcesTable(available) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}

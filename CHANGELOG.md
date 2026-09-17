@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Opening a shared link, pressing Back/Forward, or clicking "Clear all" no longer adds extra browser history entries, so Back returns to the previous view instead of an intermediate state.
+- A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch is ignored because another is still loading, or when it fails.
+
+### Changed
+
+- Load the EDRA external-layer adapter and its `proj4` dependency only when an EDRA layer is turned on, cutting the initial JavaScript from 242 KB to 105 KB (77.5 KB to 31.4 KB gzipped).
+- Request each MapX legend image once per view, and keep cross-tab row controls rendered while their tab is hidden instead of re-requesting them on every tab switch.
+
 ## [0.0.3] - 2026-09-17
 
 ### Fixed

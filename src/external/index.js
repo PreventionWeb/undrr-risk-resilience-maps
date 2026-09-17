@@ -7,12 +7,16 @@
  * the same openViews Set as pre-built MapX layers.
  */
 import { getSDK } from "../sdk/client.js";
-import { createEDRAView, deleteEDRAView, EDRA_CONTROLS } from "./edra-agriculture.js";
+import { EDRA_CONTROLS } from "./edra-agriculture-controls.js";
+
+// Adapters are loaded on first use so their dependencies (EDRA pulls in proj4)
+// stay out of the initial bundle. Controls are static data and load eagerly.
+const loadEDRA = () => import("./edra-agriculture.js");
 
 const PROVIDERS = {
   "edra-agriculture": {
-    create: createEDRAView,
-    remove: deleteEDRAView,
+    create: async (...args) => (await loadEDRA()).createEDRAView(...args),
+    remove: async (...args) => (await loadEDRA()).deleteEDRAView(...args),
     controls: EDRA_CONTROLS,
   },
 };

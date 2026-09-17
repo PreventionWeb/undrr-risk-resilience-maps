@@ -83,8 +83,10 @@ export function parseHash() {
  * Write the current state to the URL hash.
  * @param {string} tab - Active tab ID
  * @param {Array<{key: string, sourceIdx: number, settings?: object}>} layers - Active layers
+ * @param {{ replace?: boolean }} [options] - replace the current history entry
+ *   (restoring state already in the URL) instead of pushing a new one
  */
-export function writeHash(tab, layers) {
+export function writeHash(tab, layers, { replace = false } = {}) {
   let hash = `#${tab}`;
 
   if (layers.length > 0) {
@@ -101,7 +103,10 @@ export function writeHash(tab, layers) {
     }
   }
 
-  if (location.hash !== hash) {
+  if (location.hash === hash) return;
+  if (replace) {
+    history.replaceState(null, "", hash);
+  } else {
     history.pushState(null, "", hash);
   }
 }
@@ -112,15 +117,4 @@ export function writeHash(tab, layers) {
  */
 export function getLayerByKey(key) {
   return getLayerIndex().get(key);
-}
-
-/**
- * Find which tab a layer key belongs to.
- * @returns {string|undefined}
- */
-export function getTabForLayerKey(key) {
-  for (const tab of TABS) {
-    if (tab.layers.some((l) => l.key === key)) return tab.id;
-  }
-  return undefined;
 }
