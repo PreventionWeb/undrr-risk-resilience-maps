@@ -641,4 +641,85 @@ describe("layers store", () => {
     expect(mocks.viewAdd).not.toHaveBeenCalled();
     expect(store.activeTab).toBe("resilience");
   });
+
+  it("ignores switch clicks after destroy instead of recreating state", async () => {
+    await tick();
+    const lengthBefore = history.length;
+    destroySidebar();
+    expect(getLayersStore()).toBeNull();
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await tick();
+
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(getLayersStore()).toBeNull();
+    expect(store.openViews.size).toBe(0);
+    expect(history.length).toBe(lengthBefore);
+  });
+
+  it("drops a MapX response that settles after destroy", async () => {
+    await tick();
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+    eye.click();
+    const orphan = getLayersStore();
+    expect(orphan.get("recovery").status).toBe("loading");
+
+    destroySidebar();
+    slowAdd.resolve();
+    for (let i = 0; i < 3; i++) await tick();
+
+    // Nothing is written into the destroyed store, openViews or the URL.
+    expect(orphan.get("recovery").applied).toBe(false);
+    expect(store.openViews.size).toBe(0);
+    expect(location.hash).toBe("#resilience");
+    expect(eye.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("clears openViews left by a previous build", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
+
+    document.body.innerHTML = `
+      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
+      <button id="panel-toggle"></button>
+      <button id="layer-clear-btn" hidden></button>
+      <div id="app-map"></div>
+      <div id="info-page"></div>`;
+    buildSidebar();
+
+    expect(store.openViews.size).toBe(0);
+    expect(getLayersStore().openViewIds()).toEqual([]);
+  });
+
+  it("leaves an injected adapter to its owner on destroy", () => {
+    const unsubscribe = vi.fn();
+    const adapter = {
+      read: () => ({ tab: "exposure", layers: [] }),
+      write: vi.fn(),
+      subscribe: vi.fn(() => unsubscribe),
+      destroy: vi.fn(),
+    };
+    buildSidebar({ stateAdapter: adapter });
+
+    destroySidebar();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(adapter.destroy).not.toHaveBeenCalled();
+    expect(getLayersStore()).toBeNull();
+  });
+
+  it("does not restore from the URL when no sidebar is built", async () => {
+    destroySidebar();
+    history.replaceState(null, "", "#exposure?layers=pop");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await restoreLayersFromHash();
+
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(getLayersStore()).toBeNull();
+  });
 });
