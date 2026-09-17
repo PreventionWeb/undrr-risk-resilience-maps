@@ -29,7 +29,7 @@ undrr-risk-resilience-maps/
 │   │   │   ├── vulnerability.js
 │   │   │   ├── risk.js
 │   │   │   └── resilience.js
-│   │   ├── registry.js         # createLayerRegistry(): byKey / byViewId / tabOf / allLayers / urlKeyOrder
+│   │   ├── registry.js         # createLayerRegistry(): byKey / byViewId / urlKeyOrder
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -289,12 +289,10 @@ An external `open` that resolves without a runtime view id, or a `replace` whose
 ```js
 registry.byKey(key); // layer config, published or not
 registry.byViewId(viewId); // { tab, layer, source } for a permanent MapX view id (compound sources too)
-registry.tabOf(key); // the tab a layer belongs to
-registry.allLayers(); // every layer, tab by tab in config order
 registry.urlKeyOrder(); // published, keyed layers in config order (the hash order)
 ```
 
-It replaces the separate `TABS` walks behind the sidebar's old `layerElementMap` lookup (the controller's `getLayer`), `getLayerByKey` in `hash.js`, the site inspector's view index and the sidebar's `URL_KEY_ORDER`. Keys and view ids are unique (`validateLayers()` rejects duplicates); with duplicates the first occurrence wins. `export-layers.js`, `home.js` and the info panels still walk `TABS` directly, because they need tabs, groups and unpublished layers in page order.
+It replaces the separate `TABS` walks behind the sidebar's old `layerElementMap` lookup (the controller's `getLayer`), `getLayerByKey` in `hash.js`, the site inspector's view index and the sidebar's `URL_KEY_ORDER`. Keys and view ids are unique (`validateLayers()` rejects duplicates); with duplicates the first occurrence wins. Freezing is shallow: the registry, its key order and the `byViewId` entries are frozen, but the layer, source and tab objects it returns are the config's own (not frozen), so treat them as read-only. `export-layers.js`, `home.js` and the info panels still walk `TABS` directly, because they need tabs, groups and unpublished layers in page order.
 
 ### Layer rows
 
@@ -429,7 +427,7 @@ Test files cover pure and near-pure modules:
 | File                                      | What it tests                                                                                                                                                                                                                   |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                                                                                                                                                           |
-| `src/config/registry.test.js`             | `byKey`/`byViewId`/`tabOf`/`allLayers`/`urlKeyOrder`, grouped tabs, duplicates, frozen indexes, the shared app registry                                                                                                         |
+| `src/config/registry.test.js`             | `byKey`/`byViewId`/`urlKeyOrder`, grouped tabs, duplicates, shallow-frozen indexes, the shared app registry                                                                                                                     |
 | `src/ui/layer-row.test.js`                | Both variants with a real store and fake controller: idempotent `update()` (no DOM mutations, no extra SDK calls), busy/label/announcer rendering, expand rules, lazy slider/legend, compact details only while on, `destroy()` |
 | `src/state/layers-store.test.js`          | Store set/get/all, patch rules, subscribers and their errors, openViews mirror, serialisation from applied fields                                                                                                               |
 | `src/services/layer-controller.test.js`   | Latest intent wins (rapid toggles, A→B→C switches), clear-all during load, add/remove/double failures, external settings during load, `view_add` order across keys, destroy                                                     |

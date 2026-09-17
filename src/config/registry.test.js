@@ -38,16 +38,6 @@ describe("createLayerRegistry", () => {
     expect(registry.byViewId("MX-GJ-1")).toBeUndefined();
   });
 
-  it("knows each key's tab", () => {
-    expect(registry.tabOf("soc")).toBe(tabs[0]);
-    expect(registry.tabOf("crops")).toBe(tabs[1]);
-    expect(registry.tabOf("missing")).toBeUndefined();
-  });
-
-  it("lists every layer in config order, ignoring groups", () => {
-    expect(registry.allLayers()).toEqual([econ, soc, flood, draft, noKey, crops]);
-  });
-
   it("gives the URL key order: published, keyed layers in config order", () => {
     expect(registry.urlKeyOrder()).toEqual(["econ", "soc", "flood", "crops"]);
     expect(registry.urlKeyOrder()).toBe(registry.urlKeyOrder());
@@ -61,7 +51,7 @@ describe("createLayerRegistry", () => {
     ]);
     expect(duplicated.byKey("econ")).toBe(econ);
     expect(duplicated.byViewId("MX-ECON").layer).toBe(econ);
-    expect(duplicated.tabOf("econ").id).toBe("a");
+    expect(duplicated.byViewId("MX-ECON").tab.id).toBe("a");
   });
 
   it("does not change the config and returns frozen indexes", () => {
@@ -69,8 +59,11 @@ describe("createLayerRegistry", () => {
     const built = createLayerRegistry(tabs);
     expect(JSON.stringify(tabs)).toBe(before);
     expect(Object.isFrozen(built)).toBe(true);
-    expect(Object.isFrozen(built.allLayers())).toBe(true);
     expect(Object.isFrozen(built.urlKeyOrder())).toBe(true);
+    expect(Object.isFrozen(built.byViewId("MX-F10"))).toBe(true);
+    // Shallow: layer config objects are the config's own, not frozen copies.
+    expect(built.byKey("flood")).toBe(flood);
+    expect(Object.isFrozen(built.byKey("flood"))).toBe(false);
   });
 });
 

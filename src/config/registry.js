@@ -36,42 +36,38 @@ export function urlKeyOrder(tabs) {
  * Keys and view ids are unique across the config (`validateLayers()` rejects
  * duplicates); if a config has duplicates anyway, the first occurrence wins.
  *
+ * Freezing is shallow: the registry object, the key order and the
+ * `byViewId` entries are frozen, but the tab, layer and source objects they
+ * point to are the config's own objects, returned as they are and not frozen. Callers must treat them
+ * as read-only.
+ *
  * @param {Array<{ id: string, layers: object[] }>} tabs
  * @returns {{
  *   byKey: (key: string) => object|undefined,
  *   byViewId: (viewId: string) => { tab: object, layer: object, source: object|null }|undefined,
- *   tabOf: (key: string) => object|undefined,
- *   allLayers: () => object[],
- *   urlKeyOrder: () => string[],
+ *   urlKeyOrder: () => readonly string[],
  * }}
  */
 export function createLayerRegistry(tabs) {
-  const layers = [];
-  const keys = new Map(); // key → { tab, layer }
+  const keys = new Map(); // key → layer
   const views = new Map(); // MapX view id → { tab, layer, source }
 
   for (const tab of tabs) {
     for (const layer of tab.layers) {
-      layers.push(layer);
-      if (layer.key && !keys.has(layer.key)) keys.set(layer.key, { tab, layer });
-      if (layer.id && !views.has(layer.id)) views.set(layer.id, { tab, layer, source: null });
+      if (layer.key && !keys.has(layer.key)) keys.set(layer.key, layer);
+      if (layer.id && !views.has(layer.id)) views.set(layer.id, Object.freeze({ tab, layer, source: null }));
       for (const source of layer.sources ?? []) {
-        if (source.id && !views.has(source.id)) views.set(source.id, { tab, layer, source });
+        if (source.id && !views.has(source.id)) views.set(source.id, Object.freeze({ tab, layer, source }));
       }
     }
   }
   const keyOrder = Object.freeze(urlKeyOrder(tabs));
-  Object.freeze(layers);
 
   return Object.freeze({
     /** Layer config by key, published or not. */
-    byKey: (key) => keys.get(key)?.layer,
+    byKey: (key) => keys.get(key),
     /** `{ tab, layer, source }` for a permanent MapX view id (a compound layer's sources too). */
     byViewId: (viewId) => views.get(viewId),
-    /** The tab a layer key belongs to. */
-    tabOf: (key) => keys.get(key)?.tab,
-    /** Every layer, tab by tab in config order (published or not, keyed or not). */
-    allLayers: () => layers,
     /** Hash order (see urlKeyOrder). */
     urlKeyOrder: () => keyOrder,
   });
