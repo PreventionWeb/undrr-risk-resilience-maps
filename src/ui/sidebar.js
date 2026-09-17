@@ -96,12 +96,12 @@ let destroyed = false;
 let disposers = [];
 
 // Maps layer.key → the layer's row in its home tab (see buildLayerAccordion):
-// { layer, eyeBtn, wrapper, expandOnApply, shownSourceIdx, shownSettings, pendingSelections }.
+// { layer, eyeBtn, wrapper, expandOnApply, shownSourceIdx, shownSettings, pendingSelections, announcer }.
 // It is the controller's layer config lookup. Filled in sidebar row order
 // (grouped tabs list rows by R2R category), so it is not the hash order; that
 // is URL_KEY_ORDER.
 const layerElementMap = new Map();
-// Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
+// Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot, announcer }]
 // for the compact rows in cross-tab sections, so layers activated outside their
 // home tab still show their details, opacity slider and legend.
 const secondaryRows = new Map();
@@ -286,11 +286,44 @@ function clearSecondaryRow(row) {
   row.legendSlot.innerHTML = "";
 }
 
-function setLayerToggleState(layer, button, active) {
+/**
+ * Show a switch's state. `aria-checked` follows intent (`active`). While a
+ * MapX call is in flight (`busy`) the switch is `aria-busy` and its label says
+ * what is happening, since the layer is not on (or off) the map yet.
+ */
+function setLayerToggleState(layer, button, active, busy = false) {
   button.classList.toggle("is-active", active);
   button.setAttribute("aria-checked", String(active));
-  button.setAttribute("aria-label", `${active ? "Turn off" : "Turn on"} ${layer.label}`);
+  button.setAttribute("aria-busy", String(busy));
+  const label = busy
+    ? `${active ? "Loading" : "Turning off"} ${layer.label}…`
+    : `${active ? "Turn off" : "Turn on"} ${layer.label}`;
+  button.setAttribute("aria-label", label);
   button.title = active ? "Turn layer off" : "Turn layer on";
+}
+
+/**
+ * A visually hidden, polite live region for a layer row. Rows own their
+ * announcer (no ids, no global region), so the one in the visible row speaks.
+ */
+function buildAnnouncer() {
+  const announcer = document.createElement("p");
+  announcer.className = "layer-announcer mg-u-sr-only";
+  announcer.setAttribute("aria-live", "polite");
+  return announcer;
+}
+
+/** Every announcer for a layer: its home row and its cross-tab rows. */
+function layerAnnouncers(key) {
+  const home = layerElementMap.get(key)?.announcer;
+  return [...(home ? [home] : []), ...(secondaryRows.get(key) ?? []).map((row) => row.announcer)];
+}
+
+/** What to announce when a MapX call for a layer failed, from what MapX now shows. */
+function failureMessage(layer, record) {
+  return record.applied
+    ? `Could not change ${layer.label}. It is still on as before.`
+    : `Could not load ${layer.label}. It is off.`;
 }
 
 /** Every switch for a layer: its home row and its cross-tab rows. */
@@ -339,12 +372,27 @@ function renderLayerRecord(key, next, prev) {
   const { layer } = el;
   const external = isExternalLayer(layer);
   const busy = isBusyStatus(next.status);
+  const wasBusy = isBusyStatus(prev.status);
 
-  if (next.desired !== prev.desired) {
-    for (const button of layerSwitches(key)) setLayerToggleState(layer, button, next.desired);
+  if (next.desired !== prev.desired || busy !== wasBusy) {
+    for (const button of layerSwitches(key)) setLayerToggleState(layer, button, next.desired, busy);
   }
-  if (busy !== isBusyStatus(prev.status)) {
-    for (const button of layerSwitches(key)) button.setAttribute("aria-busy", String(busy));
+
+  // Failures are announced in the row for every kind of layer (a failed turn-on
+  // otherwise only flips the switch back). A new call clears the message, so
+  // the same failure is announced again if it happens again.
+  if (busy && !wasBusy) {
+    for (const announcer of layerAnnouncers(key)) announcer.textContent = "";
+  }
+  // External controls announce the failures of changes made through them.
+  const announcedByControls = external && el.pendingSelections > 0;
+  if (
+    next.status === "error" &&
+    (prev.status !== "error" || next.error !== prev.error) &&
+    !announcedByControls
+  ) {
+    const message = failureMessage(layer, next);
+    for (const announcer of layerAnnouncers(key)) announcer.textContent = message;
   }
 
   if (external && next.status === "loading" && prev.status !== "loading" && !next.applied) {
@@ -442,8 +490,9 @@ function showExternalLoading(el) {
     const widgetSlot = wrapper.querySelector(".layer-widget-slot");
     widgetSlot.innerHTML = "";
     const status = document.createElement("p");
+    // Visual only: the switch is aria-busy while loading, and a failure is
+    // announced by the row's announcer.
     status.className = "external-layer-status";
-    status.setAttribute("aria-live", "polite");
     status.textContent = text;
     widgetSlot.appendChild(status);
   }
@@ -1018,6 +1067,10 @@ export function buildLayerAccordion(layer) {
   }
 
   wrapper.appendChild(header);
+  // Outside the header (a role="button" has presentational children) and the
+  // body (hidden while collapsed), so it can speak while the row is collapsed.
+  const announcer = published ? buildAnnouncer() : null;
+  if (announcer) wrapper.appendChild(announcer);
 
   // Expandable body (description + controls)
   const body = document.createElement("div");
@@ -1112,6 +1165,7 @@ export function buildLayerAccordion(layer) {
       shownSourceIdx: null,
       shownSettings: null,
       pendingSelections: 0,
+      announcer,
     });
   }
 
@@ -1205,6 +1259,8 @@ function buildCrossTabRow(layer, tabId = null) {
   });
   row.appendChild(eyeBtn);
   item.appendChild(row);
+  const announcer = buildAnnouncer();
+  item.appendChild(announcer);
 
   const body = document.createElement("div");
   body.className = "cross-tab-body";
@@ -1219,8 +1275,8 @@ function buildCrossTabRow(layer, tabId = null) {
   }
 
   const status = document.createElement("p");
+  // Visual only; failures are announced by the row's announcer.
   status.className = "external-layer-status";
-  status.setAttribute("aria-live", "polite");
   status.hidden = true;
   body.appendChild(status);
 
@@ -1234,7 +1290,7 @@ function buildCrossTabRow(layer, tabId = null) {
   item.appendChild(body);
 
   if (!secondaryRows.has(layer.key)) secondaryRows.set(layer.key, []);
-  secondaryRows.get(layer.key).push({ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot });
+  secondaryRows.get(layer.key).push({ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot, announcer });
 
   return item;
 }

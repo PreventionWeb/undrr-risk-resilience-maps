@@ -807,6 +807,74 @@ describe("layers store", () => {
     }
   });
 
+  describe("accessibility while loading", () => {
+    const announcerText = (row) => row.querySelector(".layer-announcer").textContent;
+
+    it("marks the switch busy while loading and announces a failed load in the rows", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const slowAdd = deferred();
+      mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+      const row = crossRow("resilience", POP.label);
+      const eye = row.querySelector(".layer-eye");
+
+      eye.click();
+
+      expect(eye.getAttribute("aria-checked")).toBe("true");
+      expect(eye.getAttribute("aria-busy")).toBe("true");
+      expect(eye.getAttribute("aria-label")).toBe("Loading Population…");
+      const home = homeItem("exposure", POP.label);
+      expect(home.querySelector(".layer-eye").getAttribute("aria-busy")).toBe("true");
+
+      slowAdd.resolve(Promise.reject(new Error("offline")));
+      await vi.waitFor(() => expect(getLayersStore().get("pop").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(eye.getAttribute("aria-checked")).toBe("false");
+      expect(eye.getAttribute("aria-busy")).toBe("false");
+      expect(eye.getAttribute("aria-label")).toBe("Turn on Population");
+      expect(announcerText(row)).toBe("Could not load Population. It is off.");
+      expect(announcerText(home)).toBe("Could not load Population. It is off.");
+      const announcer = row.querySelector(".layer-announcer");
+      expect(announcer.getAttribute("aria-live")).toBe("polite");
+      expect(announcer.classList.contains("mg-u-sr-only")).toBe(true);
+      expect(announcer.id).toBe("");
+
+      // The next attempt clears the message; success leaves it empty.
+      eye.click();
+      expect(announcerText(row)).toBe("");
+      await vi.waitFor(() => expect(getLayersStore().get("pop").applied).toBe(true));
+      expect(announcerText(row)).toBe("");
+      expect(eye.getAttribute("aria-label")).toBe("Turn off Population");
+    });
+
+    it("announces a failed turn-off", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const row = crossRow("resilience", RECOVERY.label);
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").applied).toBe(true));
+      mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
+
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("recovery").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announcerText(row)).toBe("Could not change Recovery Speed. It is still on as before.");
+      expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    });
+
+    it("announces a failed external layer load", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mocks.openExternalLayer.mockRejectedValueOnce(new Error("offline"));
+      const row = crossRow("resilience", "Crops");
+
+      row.querySelector(".layer-eye").click();
+      await vi.waitFor(() => expect(getLayersStore().get("crops").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announcerText(row)).toBe("Could not load Crops. It is off.");
+    });
+  });
+
   it("never reports zero layers while one is on, even mid source switch", async () => {
     const counts = [];
     onViewsChanged((count) => counts.push(count));
@@ -974,6 +1042,8 @@ describe("layers store", () => {
       error: failure,
     });
     expect(select.value).toBe("WHEAT");
+    // The controls announce their own error; the row does not repeat it.
+    expect(crops.querySelector(".layer-announcer").textContent).toBe("");
   });
 
   it("records a failed load as an error and leaves the layer off", async () => {
