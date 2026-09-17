@@ -92,6 +92,15 @@ export function createSidebar(
   const navRoot = part("nav");
   const globalFooter = part("globalFooter");
 
+  // Page state the instance changes, restored by destroy(): which view is
+  // shown, the footer and the panel's collapsed state.
+  const initialPage = {
+    appMapDisplay: appMap?.style.display,
+    infoPageDisplay: infoPage?.style.display,
+    footerHidden: globalFooter?.hidden,
+    panelCollapsed: panel?.classList.contains("is-collapsed"),
+  };
+
   const dataTabs = tabs.map((tab) => tab.id);
   const allTabs = [...INFO_TABS, ...dataTabs];
 
@@ -607,7 +616,20 @@ export function createSidebar(
     for (const el of createdElements.splice(0)) el.remove();
     tabPanels.clear();
     infoPanels.clear();
-    // Leave the static controls as the markup has them, for the next instance.
+    // Leave the page and the static controls as they were before the instance,
+    // for the next one (nav.destroy() restores the links' active state).
+    if (appMap) appMap.style.display = initialPage.appMapDisplay;
+    if (infoPage) infoPage.style.display = initialPage.infoPageDisplay;
+    if (globalFooter) globalFooter.hidden = initialPage.footerHidden;
+    if (panel && panel.classList.contains("is-collapsed") !== initialPage.panelCollapsed) {
+      if (initialPage.panelCollapsed) {
+        onPanelCollapse(panel);
+        panel.classList.add("is-collapsed");
+      } else {
+        panel.classList.remove("is-collapsed");
+        onPanelExpand(panel);
+      }
+    }
     if (clearBtn) clearBtn.hidden = true;
     if (disabledToggleBtn) {
       disabledToggleBtn.setAttribute("aria-pressed", "false");

@@ -119,6 +119,20 @@ describe("createNav", () => {
     expect(active()).toEqual(["home"]);
   });
 
+  it("restores the markup links' active state on destroy", () => {
+    const about = root.querySelector("[data-panel='about']");
+    about.classList.add("is-active");
+    const nav = createNav(root, { tabs: TABS, onSelect: vi.fn() });
+
+    nav.setActive("sources");
+    expect(about.classList.contains("is-active")).toBe(false);
+    nav.destroy();
+
+    expect(about.classList.contains("is-active")).toBe(true);
+    expect(root.querySelector("[data-panel='sources']").classList.contains("is-active")).toBe(false);
+    expect(root.querySelector(".nav-home-link").classList.contains("is-active")).toBe(false);
+  });
+
   it("removes generated links and every listener on destroy", () => {
     const onSelect = vi.fn();
     const nav = createNav(root, { tabs: TABS, onSelect });

@@ -76,6 +76,12 @@ export function createNav(root, { tabs, onSelect, signal }) {
   const homeLink = root.querySelector(".nav-home-link");
   const infoLinks = [...root.querySelectorAll(".nav-info-link")];
   const tabLinks = [...root.querySelectorAll(".nav-tab-link")];
+  // The markup's own links and their active state, restored on destroy.
+  const initialActive = new Map(
+    [homeLink, ...infoLinks, ...tabLinks]
+      .filter((link) => link && !created.some((item) => item.contains(link)))
+      .map((link) => [link, link.classList.contains("is-active")]),
+  );
 
   homeLink?.addEventListener(
     "click",
@@ -123,6 +129,7 @@ export function createNav(root, { tabs, onSelect, signal }) {
     if (controller.signal.aborted) return;
     controller.abort();
     for (const item of created.splice(0)) item.remove();
+    for (const [link, active] of initialActive) link.classList.toggle("is-active", active);
   }
 
   return { setActive, destroy };

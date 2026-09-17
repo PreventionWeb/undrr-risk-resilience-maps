@@ -183,6 +183,36 @@ describe("createSidebar", () => {
     expect(sidebar.activeTab).toBe("home");
   });
 
+  it("restores the page state it changed on destroy", () => {
+    const panel = $("#sidebar");
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    $("#panel-toggle").click();
+    sidebar.showTab("hazard");
+    $(".nav-info-link[data-panel='sources']").click();
+    expect($("#app-map").style.display).toBe("none");
+    expect($("#info-page").style.display).toBe("block");
+    expect($("#global-footer").hidden).toBe(false);
+
+    sidebar.destroy();
+
+    expect($("#app-map").style.display).toBe("");
+    expect($("#info-page").style.display).toBe("");
+    expect($("#global-footer").hidden).toBe(true);
+    expect($$(".is-active")).toEqual([]);
+    expect(panel.classList.contains("is-collapsed")).toBe(false);
+
+    // A panel the markup collapsed stays collapsed, and keeps no resize sizes.
+    panel.classList.add("is-collapsed");
+    panel.dataset.resizedWidth = "400";
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    sidebar.showTab("hazard");
+    expect(panel.classList.contains("is-collapsed")).toBe(false);
+    expect(panel.style.width).toBe("400px");
+    sidebar.destroy();
+    expect(panel.classList.contains("is-collapsed")).toBe(true);
+    expect(panel.style.width).toBe("");
+  });
+
   it("requires a panel body under the root", () => {
     document.body.innerHTML = "<div></div>";
     expect(() => createSidebar(document.body, { stateAdapter: memoryAdapter() })).toThrow(/panel-body/);
