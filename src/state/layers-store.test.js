@@ -82,6 +82,28 @@ describe("createLayersStore", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
+  it("isolates a throwing subscriber from the others and the caller", () => {
+    const layers = createLayersStore();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new Error("SecurityError");
+    const before = vi.fn();
+    const after = vi.fn();
+    layers.subscribe(before);
+    layers.subscribe(() => {
+      throw failure;
+    });
+    layers.subscribe(after);
+
+    const record = layers.set("pop", { applied: true });
+
+    expect(record.applied).toBe(true);
+    expect(layers.get("pop").applied).toBe(true);
+    expect(before).toHaveBeenCalledTimes(1);
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(expect.any(String), failure);
+    error.mockRestore();
+  });
+
   it("stops notifying after unsubscribe", () => {
     const layers = createLayersStore();
     const kept = vi.fn();

@@ -550,6 +550,33 @@ describe("layers store", () => {
     expect(hashSegments()).toEqual(["recovery", "flood"]);
   });
 
+  it("finishes updating the UI when the hash write throws", async () => {
+    // Let beforeEach's queued hashchange run first: with the write failing, the
+    // hash would not list the layer, and a late reconcile would turn it off.
+    await tick();
+    // Browsers throw SecurityError from pushState when history calls are rate-limited.
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const pushState = vi.spyOn(history, "pushState").mockImplementationOnce(() => {
+      throw new DOMException("Too many calls", "SecurityError");
+    });
+    const row = crossRow("resilience", RECOVERY.label);
+
+    row.querySelector(".layer-eye").click();
+
+    await vi.waitFor(() => expect(row.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    pushState.mockRestore();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+    expect(getLayersStore().get("recovery")).toMatchObject({ applied: true, viewId: "MX-REC" });
+    expect(store.openViews.has("MX-REC")).toBe(true);
+    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    const home = homeItem("risk", RECOVERY.label);
+    expect(home.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(home.classList.contains("layer-active")).toBe(true);
+    expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+    expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
+  });
+
   it("records a failed load as an error and leaves the layer off", async () => {
     const failure = new Error("offline");
     mocks.viewAdd.mockRejectedValueOnce(failure);

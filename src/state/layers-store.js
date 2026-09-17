@@ -59,8 +59,9 @@ export function createLayersStore() {
     all: () => [...records.values()],
 
     /**
-     * Merge a patch into a layer's record. A patch that changes nothing is
-     * not stored and does not notify.
+     * Merge a patch into a layer's record and notify subscribers before
+     * returning. A patch that changes nothing is not stored and does not
+     * notify. Subscriber errors are logged (console.error), never thrown.
      * @param {string} key
      * @param {Partial<Omit<LayerRecord, "key">>} patch
      */
@@ -71,7 +72,16 @@ export function createLayersStore() {
       }
       const next = Object.freeze({ ...prev, ...patch, key });
       records.set(key, next);
-      for (const fn of subscribers) fn(key, next, prev);
+      // Subscribers run synchronously, in subscription order. One that throws
+      // is logged and skipped, so it cannot stop the others or the caller,
+      // which still has DOM work to finish after the write.
+      for (const fn of subscribers) {
+        try {
+          fn(key, next, prev);
+        } catch (error) {
+          console.error(`Layers store subscriber failed for "${key}":`, error);
+        }
+      }
       return next;
     },
 

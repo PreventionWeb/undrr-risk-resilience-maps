@@ -252,7 +252,8 @@ async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
   setLayerRecord(layer, { status: "switching" });
   try {
     const result = await replaceExternalLayer(layer, settings);
-    // Moves openViews from the previous view to the new one and writes the hash.
+    // Store subscribers run synchronously here: openViews moves to the new view
+    // and the hash is written before the slider and legend below are rebuilt.
     setLayerRecord(layer, { viewId: result.runtime.idView, settings: result.runtime.settings });
 
     sliderSlot.innerHTML = "";
@@ -580,7 +581,13 @@ function syncHashFromState({ replace = false } = {}) {
     return;
   }
   const layers = toUrlLayers(getLayersStore().all(), URL_KEY_ORDER);
-  stateAdapter.write({ tab: store.activeTab, layers }, { replace });
+  try {
+    stateAdapter.write({ tab: store.activeTab, layers }, { replace });
+  } catch (error) {
+    // e.g. SecurityError when the browser rate-limits history calls. The URL
+    // falls behind until the next write; the map and panel stay correct.
+    console.error("Could not write layer state to the URL:", error);
+  }
   updateClearBtn();
 }
 
@@ -874,7 +881,9 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
           return;
         }
       }
-      // Removes the view from openViews and writes the hash.
+      // Store subscribers run synchronously here: the view leaves openViews and
+      // the hash is written before the switches and controls below are updated.
+      // A subscriber that throws is logged by the store and does not stop this.
       setLayerRecord(layer, { applied: false, viewId: null, status: "idle" });
       setLayerToggleState(layer, eyeBtn, false);
       for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
@@ -926,7 +935,10 @@ async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = nul
         setLayerRecord(layer, { desired: false, status: "error", error: err });
         return;
       }
-      // Adds the view to openViews and writes the hash.
+      // Store subscribers run synchronously here: the view joins openViews and
+      // the hash is written before the switches, legend and cross-tab rows below
+      // are updated. A subscriber that throws is logged by the store and does
+      // not stop this.
       setLayerRecord(layer, {
         applied: true,
         viewId: activeViewId,
@@ -1041,7 +1053,8 @@ async function applySourceSwitch(layer, key, newIdx, wrapper) {
     return false;
   }
   store.setActiveSource(key, newIdx);
-  // Adds the new view to openViews and writes the hash.
+  // Store subscribers run synchronously here: openViews gets the new view and
+  // the hash is written before the description, slider and legend are rebuilt.
   setLayerRecord(layer, { viewId: newId, sourceIdx: newIdx });
 
   // Update description to the new source's text
