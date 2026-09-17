@@ -9,6 +9,11 @@ import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
 import { isCompound } from "./widgets/index.js";
 import { createLayerRow } from "./layer-row.js";
+import {
+  buildCrossTabSections,
+  buildTabPanel,
+  updateDisabledLayerVisibility as updateTabDisabledVisibility,
+} from "./layer-panel.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { hashChangeAction } from "../state/hash.js";
 import { createHashAdapter } from "../state/hash-adapter.js";
@@ -311,75 +316,9 @@ export function buildSidebar({ stateAdapter: adapter } = {}) {
 
   // Populate sidebar with layer panels (data tabs only)
   for (const tab of TABS) {
-    const tabPanel = document.createElement("div");
-    tabPanel.className = "tab-panel";
-    tabPanel.id = `tab-${tab.id}`;
-    tabPanel.style.display = "none";
-
-    const intro = document.createElement("div");
-    intro.className = "tab-panel-intro";
-    const introText = document.createElement("p");
-    introText.textContent = tab.description;
-    intro.appendChild(introText);
-    if (tab.glossary) {
-      const glossary = document.createElement("p");
-      glossary.className = "tab-panel-glossary";
-      glossary.textContent = tab.glossary;
-      intro.appendChild(glossary);
-    }
-    if (tab.definitionUrl) {
-      const definitionLink = document.createElement("a");
-      definitionLink.href = tab.definitionUrl;
-      definitionLink.target = "_blank";
-      definitionLink.rel = "noopener";
-      definitionLink.textContent = "UNDRR definition";
-      intro.appendChild(definitionLink);
-    }
-    tabPanel.appendChild(intro);
-
-    const publishedLayers = tab.layers.filter(isLayerAvailable);
-    const empty = document.createElement("p");
-    empty.className = "tab-panel-empty mg-form-help";
-    empty.textContent =
-      'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
-    empty.hidden = publishedLayers.length > 0;
-    tabPanel.appendChild(empty);
-
-    const addLayersToContainer = (layers, container) => {
-      for (const layer of layers) {
-        const { element: wrapper } = addLayerRow(layer, "full", tab.id);
-        if (!isLayerAvailable(layer)) {
-          wrapper.hidden = !showDisabledLayers;
-          wrapper.dataset.layerDisabled = "true";
-          wrapper.classList.add("layer-disabled");
-        }
-        container.appendChild(wrapper);
-      }
-    };
-
-    if (tab.groups) {
-      for (const group of tab.groups) {
-        const groupEl = document.createElement("details");
-        groupEl.className = "layer-group";
-        groupEl.open = true;
-
-        const groupHeading = document.createElement("summary");
-        groupHeading.className = "layer-group-heading";
-        groupHeading.textContent = group.label;
-        groupEl.appendChild(groupHeading);
-
-        const groupItems = document.createElement("div");
-        groupItems.className = "layer-group-items";
-        addLayersToContainer(group.layers, groupItems);
-        groupEl.appendChild(groupItems);
-
-        tabPanel.appendChild(groupEl);
-      }
-    } else {
-      addLayersToContainer(tab.layers, tabPanel);
-    }
-
-    sidebarBody.appendChild(tabPanel);
+    sidebarBody.appendChild(
+      buildTabPanel(tab, { id: `tab-${tab.id}`, addRow: addLayerRow, showDisabled: showDisabledLayers }),
+    );
   }
 
   updateDisabledLayerVisibility();
@@ -388,7 +327,7 @@ export function buildSidebar({ stateAdapter: adapter } = {}) {
   // layer's home row comes first among its rows.
   for (const tab of TABS) {
     const tabPanel = document.getElementById(`tab-${tab.id}`);
-    tabPanel.appendChild(buildCrossTabSections(tab));
+    tabPanel.appendChild(buildCrossTabSections(tab, TABS, { addRow: addLayerRow }));
   }
 
   // Wire nav home link
@@ -513,22 +452,7 @@ function switchTab(tabId, { syncHash = true, replaceHash = false } = {}) {
 function updateDisabledLayerVisibility() {
   for (const tab of TABS) {
     const tabPanel = document.getElementById(`tab-${tab.id}`);
-    if (!tabPanel) continue;
-
-    for (const wrapper of tabPanel.querySelectorAll("[data-layer-disabled='true']")) {
-      wrapper.hidden = !showDisabledLayers;
-    }
-
-    // Show/hide collapsible groups based on whether they have any visible items
-    for (const groupEl of tabPanel.querySelectorAll(".layer-group")) {
-      const items = groupEl.querySelector(".layer-group-items");
-      if (!items) continue;
-      groupEl.hidden = !Array.from(items.children).some((el) => !el.hidden);
-    }
-
-    const hasPublishedLayers = tab.layers.some(isLayerAvailable);
-    const empty = tabPanel.querySelector(".tab-panel-empty");
-    if (empty) empty.hidden = hasPublishedLayers || showDisabledLayers;
+    if (tabPanel) updateTabDisabledVisibility(tabPanel, tab, showDisabledLayers);
   }
 }
 
@@ -708,53 +632,4 @@ async function reconcileLayersFromHash(hashLayers) {
 export function buildLayerAccordion(layer) {
   const { element } = addLayerRow(layer, "full", null);
   return { wrapper: element, eyeBtn: element.querySelector(".layer-eye") };
-}
-
-/**
- * Build collapsed <details> sections for all tabs other than the current one.
- * Each section shows a compact row per published layer (the compact variant of
- * createLayerRow: label, type tag, switch, and details while the layer is on).
- */
-function buildCrossTabSections(currentTab) {
-  const container = document.createElement("div");
-  container.className = "cross-tab-sections";
-
-  for (const tab of TABS) {
-    if (tab.id === currentTab.id) continue;
-
-    const publishedLayers = tab.layers.filter((l) => isLayerAvailable(l) && l.key);
-    if (publishedLayers.length === 0) continue;
-
-    const details = document.createElement("details");
-    details.className = "cross-tab-section";
-
-    const summary = document.createElement("summary");
-    summary.className = "cross-tab-summary";
-    summary.textContent = tab.label;
-    details.appendChild(summary);
-
-    if (tab.groups) {
-      for (const group of tab.groups) {
-        const groupLayers = group.layers.filter((l) => isLayerAvailable(l) && l.key);
-        if (groupLayers.length === 0) continue;
-
-        const groupHeading = document.createElement("p");
-        groupHeading.className = "cross-tab-group-label";
-        groupHeading.textContent = group.label;
-        details.appendChild(groupHeading);
-
-        for (const layer of groupLayers) {
-          details.appendChild(addLayerRow(layer, "compact", currentTab.id).element);
-        }
-      }
-    } else {
-      for (const layer of publishedLayers) {
-        details.appendChild(addLayerRow(layer, "compact", currentTab.id).element);
-      }
-    }
-
-    container.appendChild(details);
-  }
-
-  return container;
 }
