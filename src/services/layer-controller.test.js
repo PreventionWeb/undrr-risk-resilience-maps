@@ -22,9 +22,8 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-const flush = async () => {
-  for (let i = 0; i < 10; i++) await Promise.resolve();
-};
+/** Wait a macrotask, so every pending microtask has run (for "nothing more happens" checks). */
+const macrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
  * Fake MapX views: records every call in `log`. Calls resolve immediately
@@ -205,9 +204,9 @@ describe("createLayerController", () => {
       let firstSettled = false;
       first.then(() => (firstSettled = true));
       add.resolve();
-      await flush();
       await second;
 
+      // `first` was subscribed before `second` was awaited, so it has settled too.
       expect(firstSettled).toBe(true);
       await expect(first).resolves.toMatchObject({ applied: false });
     });
@@ -308,19 +307,21 @@ describe("createLayerController", () => {
     });
 
     it("waits for a layer already turning off", async () => {
-      const { views, controller } = setup();
+      const { store, views, controller } = setup();
       await controller.setOn("pop", true);
       const remove = views.hold("remove", "MX-POP");
       controller.setOn("pop", false);
 
       let settled = false;
-      controller.clearAll().then(() => (settled = true));
-      await flush();
+      const cleared = controller.clearAll().then(() => (settled = true));
+      // A macrotask lets every pending microtask run: still waiting on the removal.
+      await macrotask();
       expect(settled).toBe(false);
 
       remove.resolve();
-      await flush();
+      await cleared;
       expect(settled).toBe(true);
+      expect(store.get("pop")).toMatchObject({ applied: false, status: "idle" });
     });
   });
 
@@ -360,7 +361,7 @@ describe("createLayerController", () => {
         appliedSourceIdx: 0,
       });
       remove.resolve();
-      await flush();
+      await vi.waitFor(() => expect(views.add).toHaveBeenCalledWith("MX-F100"));
       // Gap between views: on, no view, URL state unchanged.
       expect(store.get("flood")).toMatchObject({ applied: true, viewId: null, appliedSourceIdx: 0 });
       add.resolve();
@@ -399,8 +400,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
 
       controller.setSource("flood", 1);
-      await flush();
-      expect(views.add).toHaveBeenLastCalledWith("MX-F100");
+      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const last = controller.setSource("flood", 2);
       add.resolve();
       await last;
@@ -415,7 +415,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
 
       controller.setSource("flood", 1);
-      await flush();
+      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const off = controller.setOn("flood", false);
       add.resolve();
       await off;
@@ -760,7 +760,7 @@ describe("createLayerController", () => {
           status: "idle",
         });
         expect(views.log).toEqual(["add MX-POP", "add MX-POP"]);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await macrotask();
         expect(unhandled.reasons).toEqual([]);
       } finally {
         unhandled.stop();
@@ -804,7 +804,7 @@ describe("createLayerController", () => {
           applied: false,
           status: "idle",
         });
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await macrotask();
         expect(unhandled.reasons).toEqual([]);
       } finally {
         unhandled.stop();
@@ -825,7 +825,7 @@ describe("createLayerController", () => {
       controller.destroy();
       add.resolve();
       await on;
-      await flush();
+      await macrotask();
 
       expect(store.get("pop")).toBe(before);
       expect(views.log).toEqual(["add MX-POP"]);
@@ -838,7 +838,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
       views.failNext("add", "MX-F100");
       const switched = controller.setSource("flood", 1);
-      await flush();
+      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const before = store.get("flood");
 
       controller.destroy();

@@ -48,7 +48,8 @@ describe("layer accordion activation", () => {
     const body = wrapper.querySelector(".layer-body");
 
     header.click();
-    await vi.waitFor(() => expect(viewAdd).toHaveBeenCalledWith(layer.id));
+    await vi.waitFor(() => expect(store.openViews.has(layer.id)).toBe(true));
+    expect(viewAdd).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("block");
     expect(eyeBtn.getAttribute("role")).toBe("switch");
     expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
@@ -65,7 +66,10 @@ describe("layer accordion activation", () => {
     expect(viewAdd).toHaveBeenCalledTimes(1);
 
     eyeBtn.click();
-    await vi.waitFor(() => expect(viewRemove).toHaveBeenCalledWith(layer.id));
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({ applied: false, status: "idle" }),
+    );
+    expect(viewRemove).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("none");
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(wrapper.querySelector(".layer-arrow").textContent).toBe("\u25B6");
@@ -91,7 +95,10 @@ describe("layer accordion activation", () => {
     expect(body.style.display).toBe("none");
 
     finishAdd();
-    await vi.waitFor(() => expect(eyeBtn.getAttribute("aria-checked")).toBe("true"));
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({ applied: true, status: "idle" }),
+    );
+    expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
     expect(body.style.display).toBe("none");
     expect(store.openViews.has(layer.id)).toBe(true);
   });
@@ -124,8 +131,13 @@ describe("layer accordion activation", () => {
     expect(eyeBtn.getAttribute("aria-checked")).toBe("true");
 
     pressKey(eyeBtn, key);
-    await vi.waitFor(() => expect(getLayersStore().get(layer.key).status).toBe("idle"));
-    expect(getLayersStore().get(layer.key)).toMatchObject({ desired: false, applied: false });
+    await vi.waitFor(() =>
+      expect(getLayersStore().get(layer.key)).toMatchObject({
+        desired: false,
+        applied: false,
+        status: "idle",
+      }),
+    );
     expect(eyeBtn.getAttribute("aria-checked")).toBe("false");
     expect(body.style.display).toBe("none");
     expect(wrapper.querySelector(".layer-header").getAttribute("aria-expanded")).toBe("false");
