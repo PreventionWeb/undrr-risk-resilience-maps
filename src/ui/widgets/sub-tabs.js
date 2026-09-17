@@ -9,7 +9,7 @@
  */
 import { createSourceSelection } from "./source-selection.js";
 
-export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
+export function buildSubTabs(sources, initialIndex, onSourceChange, config, { signal } = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "widget-sub-tabs";
 
@@ -36,9 +36,13 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
       dropdown.appendChild(option);
     }
 
-    dropdown.addEventListener("change", async () => {
-      dropdown.value = String(await select(Number(dropdown.value)));
-    });
+    dropdown.addEventListener(
+      "change",
+      async () => {
+        dropdown.value = String(await select(Number(dropdown.value)));
+      },
+      { signal },
+    );
     wrapper.appendChild(dropdown);
     return wrapper;
   }
@@ -62,10 +66,14 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
     btn.textContent = sources[i].label;
     if (i === initialIndex) btn.classList.add("is-active");
 
-    btn.addEventListener("click", async () => {
-      setActive(i);
-      setActive(await select(i));
-    });
+    btn.addEventListener(
+      "click",
+      async () => {
+        setActive(i);
+        setActive(await select(i));
+      },
+      { signal },
+    );
 
     bar.appendChild(btn);
   }

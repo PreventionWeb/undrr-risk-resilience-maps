@@ -61,4 +61,18 @@ describe("buildExternalControls", () => {
       "Could not update the external layer. Please try again.",
     );
   });
+
+  it("removes its listeners when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const controls = buildExternalControls(definition, { scenario: "CURRENT" }, onChange, {
+      signal: controller.signal,
+    });
+    controller.abort();
+    const select = controls.querySelector("select");
+    change(select, "20");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(select.disabled).toBe(false);
+    expect(controls.querySelector(".external-layer-status").textContent).toBe("");
+  });
 });

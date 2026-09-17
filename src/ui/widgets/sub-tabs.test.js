@@ -126,4 +126,23 @@ describe("buildSubTabs", () => {
     select.dispatchEvent(new Event("change"));
     await vi.waitFor(() => expect(select.value).toBe("1"));
   });
+
+  it("removes its listeners when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const buttons = buildSubTabs(SOURCES, 0, onChange, CONFIG, { signal: controller.signal });
+    controller.abort();
+    buttons.querySelectorAll(".widget-sub-tab")[2].click();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(buttons.querySelectorAll(".widget-sub-tab")[2].classList.contains("is-active")).toBe(false);
+
+    const many = [...SOURCES, { id: "d", label: "Delta" }];
+    const dropdownController = new AbortController();
+    const dropdown = buildSubTabs(many, 0, onChange, CONFIG, { signal: dropdownController.signal });
+    dropdownController.abort();
+    const select = dropdown.querySelector("select");
+    select.value = "3";
+    select.dispatchEvent(new Event("change"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

@@ -18,7 +18,10 @@
  * immediate for every row.
  *
  * The row queries only its own elements, adds no ids and registers its
- * listeners with one AbortController, so `destroy()` removes them all.
+ * listeners, including those of the source widget and external controls it
+ * builds, with one AbortController, so `destroy()` removes them all. Async
+ * work already started (a pick waiting on MapX) still settles; its callbacks
+ * check `destroyed`.
  */
 import { buildWidget, isCompound } from "./widgets/index.js";
 import { addLegend, addOpacitySlider } from "./layer-controls.js";
@@ -140,7 +143,8 @@ function legendLayerFor(layer, record) {
  * @property {(record: object) => void} update - render the layer's record (idempotent)
  * @property {() => boolean} hasPendingSelection - a source or variant pick made
  *   through this row's controls is still settling
- * @property {() => void} destroy - remove the row's listeners; later updates do nothing
+ * @property {() => void} destroy - remove the row's listeners (its source widget's and
+ *   external controls' too); later updates do nothing
  */
 
 /**
@@ -532,19 +536,25 @@ export function createLayerRow(
   function renderSourceWidget(sourceIdx) {
     widgetSlot.innerHTML = "";
     shownSourceIdx = sourceIdx;
-    const widgetEl = buildWidget(layer.widget, layer.sources, sourceIdx, async (newIdx) => {
-      // Destroyed: keep showing the current source.
-      if (destroyed || !controller) return shownSourceIdx;
-      shownSourceIdx = newIdx;
-      pendingSelections++;
-      try {
-        const record = await controller.setSource(layer.key, newIdx);
-        shownSourceIdx = record.sourceIdx;
-        return record.sourceIdx;
-      } finally {
-        pendingSelections--;
-      }
-    });
+    const widgetEl = buildWidget(
+      layer.widget,
+      layer.sources,
+      sourceIdx,
+      async (newIdx) => {
+        // Destroyed: keep showing the current source.
+        if (destroyed || !controller) return shownSourceIdx;
+        shownSourceIdx = newIdx;
+        pendingSelections++;
+        try {
+          const record = await controller.setSource(layer.key, newIdx);
+          shownSourceIdx = record.sourceIdx;
+          return record.sourceIdx;
+        } finally {
+          pendingSelections--;
+        }
+      },
+      { signal },
+    );
     if (widgetEl) widgetSlot.appendChild(widgetEl);
   }
 
@@ -552,23 +562,28 @@ export function createLayerRow(
   function renderExternalControls(settings) {
     widgetSlot.innerHTML = "";
     shownSettings = settings;
-    const controls = buildExternalControls(getExternalLayerDefinition(layer), settings, async (wanted) => {
-      // Destroyed: keep showing the current settings.
-      if (destroyed || !controller) return { settings: shownSettings };
-      shownSettings = wanted;
-      pendingSelections++;
-      try {
-        const record = await controller.setSettings(layer.key, wanted);
-        shownSettings = record.appliedSettings;
-        // The controls show their own error and revert to the settings on the map.
-        if (record.status === "error" && !settingsMatch(record.appliedSettings, wanted)) {
-          throw record.error ?? new Error(`Could not update ${layer.label}`);
+    const controls = buildExternalControls(
+      getExternalLayerDefinition(layer),
+      settings,
+      async (wanted) => {
+        // Destroyed: keep showing the current settings.
+        if (destroyed || !controller) return { settings: shownSettings };
+        shownSettings = wanted;
+        pendingSelections++;
+        try {
+          const record = await controller.setSettings(layer.key, wanted);
+          shownSettings = record.appliedSettings;
+          // The controls show their own error and revert to the settings on the map.
+          if (record.status === "error" && !settingsMatch(record.appliedSettings, wanted)) {
+            throw record.error ?? new Error(`Could not update ${layer.label}`);
+          }
+          return { settings: record.appliedSettings };
+        } finally {
+          pendingSelections--;
         }
-        return { settings: record.appliedSettings };
-      } finally {
-        pendingSelections--;
-      }
-    });
+      },
+      { signal },
+    );
     widgetSlot.appendChild(controls);
   }
 

@@ -313,7 +313,7 @@ const row = createLayerRow(layer, {
 row.element; // root element (.layer-item or .cross-tab-item)
 row.update(record); // render the record; idempotent
 row.hasPendingSelection(); // a source or variant pick made through this row is settling
-row.destroy(); // remove the row's listeners; later updates do nothing
+row.destroy(); // remove the row's listeners (widget and controls too); later updates do nothing
 ```
 
 - **Rendering from the record.** `update(record)` compares the record with the last one it rendered and with what the row shows, so calling it again with the same record changes nothing in the DOM and makes no SDK call. The row keeps only UI state of its own: whether the accordion is expanded, whether it opens when the layer comes on, what the source widget or external controls show, how many of its own picks are settling, and which view's slider and legend are in its slots.
@@ -321,7 +321,7 @@ row.destroy(); // remove the row's listeners; later updates do nothing
 - **Lazy controls.** The opacity slider (`get_view_layer_transparency`) and legend (`resolveMapXLegend`, `get_view_legend_image`) are built only while `isVisible()` is true, once per view that arrives on the map for the layer. A row in a hidden tab, including the home accordion of a layer turned on from a cross-tab row, builds them when its tab is shown; once built they stay while the tab is hidden. Clearing (layer off, new source) is immediate in every row. Descriptions, switch states, the source widget and external controls are cheap and render at once.
 - **Announcements.** Each published row has its own polite live region (`.layer-announcer`) that announces a failed load, turn-off, source switch or variant change, and is cleared by the next call. A failed variant change made through the home row's external controls is announced by those controls instead, so no row repeats it.
 - **Wiring.** `buildSidebar()` builds a full row per layer in its tab and a compact row per published layer in each other tab's cross-tab section. One store subscriber fans each record out through a `Map<key, Set<row>>` (home row first) and updates Clear all. A tab switch calls `update()` on every row with its current record, which only builds the controls of rows that just became visible. `destroySidebar()` destroys every row.
-- **Scope.** A row queries only its own elements (and `closest()` for the cross-tab section it opens), adds no ids and registers its listeners with one `AbortController`. The source widget and external controls keep their listeners on their own elements inside the row. The opacity slider sync in `layer-controls.js` still queries the document.
+- **Scope.** A row queries only its own elements (and `closest()` for the cross-tab section it opens), adds no ids and registers its listeners with one `AbortController`, whose signal it also passes to the source widget (`buildWidget(..., { signal })`) and external controls (`buildExternalControls(..., { signal })`), so `destroy()` removes those listeners too and drops a stepped-slider pick still waiting on its debounce. A pick already sent to the controller still settles; the row ignores it once destroyed. The opacity slider sync in `layer-controls.js` still queries the document.
 
 ### UI layer (Mangrove)
 

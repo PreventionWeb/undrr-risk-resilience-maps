@@ -329,6 +329,33 @@ describe("createLayerRow full variant", () => {
     expect(el.querySelector(".widget-sub-tabs")).not.toBe(widget);
   });
 
+  it("removes the source widget's and external controls' listeners on destroy", () => {
+    const flood = setup(compound);
+    flood.store.set("flood", { desired: true, applied: true, viewId: "MX-F10" });
+    const crops = setup(external);
+    crops.store.set("crops", {
+      desired: true,
+      applied: true,
+      viewId: "GJ-1",
+      appliedSettings: { crop: "WHEAT" },
+    });
+    flood.row.destroy();
+    crops.row.destroy();
+
+    const tab = flood.el.querySelectorAll(".widget-sub-tab")[1];
+    tab.click();
+    // With the listener still attached, the tab would show as picked at once.
+    expect(tab.classList.contains("is-active")).toBe(false);
+    expect(flood.controller.setSource).not.toHaveBeenCalled();
+
+    const select = crops.el.querySelector("select[data-external-control='crop']");
+    select.value = "MAIZE";
+    select.dispatchEvent(new Event("change"));
+    // With the listener still attached, the controls would lock while updating.
+    expect(select.disabled).toBe(false);
+    expect(crops.controller.setSettings).not.toHaveBeenCalled();
+  });
+
   it("shows external loading and error messages in the widget slot", () => {
     const { store, el } = setup(external);
     eye(el).click();
