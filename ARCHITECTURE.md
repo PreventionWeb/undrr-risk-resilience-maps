@@ -29,6 +29,7 @@ undrr-risk-resilience-maps/
 │   │   │   ├── vulnerability.js
 │   │   │   ├── risk.js
 │   │   │   └── resilience.js
+│   │   ├── registry.js         # createLayerRegistry(): byKey / byViewId / tabOf / allLayers / urlKeyOrder
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -50,7 +51,8 @@ undrr-risk-resilience-maps/
 │   │   ├── hash-adapter.js     # createHashAdapter(): read/write/subscribe/destroy over hash.js
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
-│   │   ├── sidebar.js          # Nav routing, layer panel, accordions; calls the layer controller, renders rows from the store
+│   │   ├── sidebar.js          # Nav routing, layer panel, hash sync; builds layer rows and fans store records out to them
+│   │   ├── layer-row.js        # createLayerRow(): one row component, full (home tab) or compact (cross-tab)
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
 │   │   ├── external-controls.js # Provider-neutral external-layer controls
 │   │   ├── home.js             # Home page cards
@@ -231,14 +233,14 @@ Plain ES module exports with setter functions, no framework.
 - `desired`, `sourceIdx` and `settings` are intent. When a MapX call fails they are reset to what MapX shows (a failed turn-on leaves `desired: false`, a failed turn-off `true`), and `status: "error"` and `error` record the failure until a later call for that layer succeeds. See the failure table under Layer controller.
 - `store.openViews` stays as a compatibility Set for `main.js` and `sdk/inspect.js`. The sidebar never mutates it: `mirrorOpenViews()` updates it incrementally from `viewId` changes, which keeps its insertion order.
 - The URL hash is a store subscriber. When `applied`, `appliedSourceIdx` or `appliedSettings` change, or a layer that is on gets a view back (`viewId` from `null`), `toUrlLayers()` serialises the applied source and settings of the records that are on and carry a view, and writes through the state adapter. The hash follows the map, not intent, so a click still loading is not in a shared link. The `null` gap during a source switch writes nothing, so a switch is still one entry. If another layer writes the hash during that gap, the view-back rule lists the layer again once a view carries it (for example after a rollback to the same source). Tab switches and batch ends still write directly.
-- Hash order is config order: `urlKeyOrder(TABS)` lists published, keyed layers tab by tab in `tab.layers` order, the walk the hash was always built from. It is not the sidebar's row order, because tabs with more than one R2R category show their rows grouped (Societies, Economy, Environment). `toUrlLayers(records, keyOrder)` requires the order, and leaves out (with a one-time warning) a layer whose key is missing from it.
-- The hash is written synchronously inside `set`, before the row renderer (a later subscriber) updates the switches, legend and cross-tab rows. A failed write (e.g. a `SecurityError` when a browser rate-limits `pushState`) is logged, and the panel still finishes updating.
-- The sidebar renders its rows from the store (`renderLayerRecord`): switches follow `desired`, and the details, source widget, opacity slider and legend follow `applied`/`viewId`. The cross-tab mirrors (`secondaryRows`, `secondaryState`) remain until rows render from state.
-- The store and controller are created by `buildSidebar()`, which also clears `store.openViews`, and exposed through `getLayersStore()` and `getLayerController()`. `destroySidebar()` removes the subscriptions and the URL listener, destroys the controller, destroys the hash adapter if the sidebar created it, and drops the store, controller and adapter. Until the next `buildSidebar()`, both getters return `null`, and switch clicks, clear-all, source and variant changes and `restoreLayersFromHash()` (which warns) do nothing. MapX calls that settle after a destroy or a rebuild are dropped: the destroyed controller writes nothing and starts no further MapX calls. Only `buildSidebar()` creates a URL adapter; rows built with `buildLayerAccordion()` before any `buildSidebar()` (unit tests) get a store and controller without one.
+- Hash order is config order: the registry's `urlKeyOrder()` (`urlKeyOrder(tabs)` in `src/config/registry.js`) lists published, keyed layers tab by tab in `tab.layers` order, the walk the hash was always built from. It is not the sidebar's row order, because tabs with more than one R2R category show their rows grouped (Societies, Economy, Environment). `toUrlLayers(records, keyOrder)` requires the order, and leaves out (with a one-time warning) a layer whose key is missing from it.
+- The hash is written synchronously inside `set`, before the layer rows (a later subscriber) update their switches, legends and details. A failed write (e.g. a `SecurityError` when a browser rate-limits `pushState`) is logged, and the panel still finishes updating.
+- The sidebar renders its rows from the store: one subscriber hands each record to the layer's rows (see Layer rows below). Switches follow `desired`, and the details, source widget, opacity slider and legend follow `applied`/`viewId`.
+- The store and controller are created by `buildSidebar()`, which also clears `store.openViews`, and exposed through `getLayersStore()` and `getLayerController()`. `destroySidebar()` removes the subscriptions and the URL listener, destroys the controller and the layer rows, destroys the hash adapter if the sidebar created it, and drops the store, controller and adapter. Until the next `buildSidebar()`, both getters return `null`, and switch clicks, clear-all, source and variant changes and `restoreLayersFromHash()` (which warns) do nothing. MapX calls that settle after a destroy or a rebuild are dropped: the destroyed controller writes nothing and starts no further MapX calls. Only `buildSidebar()` creates a URL adapter; rows built with `buildLayerAccordion()` before any `buildSidebar()` (unit tests) get a store and controller without one.
 
 ### Layer controller
 
-`createLayerController({ store, getLayer, views, external, onError })` in `src/services/layer-controller.js` is the only code that adds or removes MapX views. It never touches the DOM, the URL or the SDK directly: `views` is `{ add, remove }` (the sidebar passes `sdk/views.js`), `external` wraps the runtime registry in `src/external/index.js`, and `getLayer` looks up layer config by key.
+`createLayerController({ store, getLayer, views, external, onError })` in `src/services/layer-controller.js` is the only code that adds or removes MapX views. It never touches the DOM, the URL or the SDK directly: `views` is `{ add, remove }` (the sidebar passes `sdk/views.js`), `external` wraps the runtime registry in `src/external/index.js`, and `getLayer` looks up layer config by key (the sidebar passes the layer registry's `byKey`, limited to published layers).
 
 ```js
 controller.setOn(key, on); // intent: on/off
@@ -277,6 +279,47 @@ An external `open` that resolves without a runtime view id, or a `replace` whose
 `onError(key, error, action)` reports every failure (the sidebar logs a warning). A later successful call clears `error`. A throwing `onError` is logged with `console.error` and does not interrupt the reconciliation. If a reconciliation itself throws (a bug, such as a store write that throws), the key is freed, a busy status is replaced by `status: "error"`, and every waiting caller settles with the record, so later intent still runs.
 
 **State adapter.** `createHashAdapter({ target = window })` in `src/state/hash-adapter.js` is the only path from the UI to `location`/`history`: `read()` parses `target.location.hash`, `write(state, { replace })` pushes or replaces through `target.history`, `subscribe(fn)` watches `hashchange` on `target`, `destroy()` removes its listeners. `parseHash()` and `writeHash()` accept optional `location`/`history` for this and default to the globals. `buildSidebar({ stateAdapter })` accepts another adapter with the same contract (see the embedding design in unisdr/undrr-risk-resilience-maps#14).
+
+### Layer registry
+
+`createLayerRegistry(tabs)` in `src/config/registry.js` indexes the tab config once and is pure (it reads the config it is given and touches no DOM, URL or SDK). `getLayerRegistry()` returns the registry for the app's `TABS`, built on first use and shared, since the config is immutable.
+
+```js
+registry.byKey(key); // layer config, published or not
+registry.byViewId(viewId); // { tab, layer, source } for a permanent MapX view id (compound sources too)
+registry.tabOf(key); // the tab a layer belongs to
+registry.allLayers(); // every layer, tab by tab in config order
+registry.urlKeyOrder(); // published, keyed layers in config order (the hash order)
+```
+
+It replaces the separate `TABS` walks behind the sidebar's old `layerElementMap` lookup (the controller's `getLayer`), `getLayerByKey` in `hash.js`, the site inspector's view index and the sidebar's `URL_KEY_ORDER`. Keys and view ids are unique (`validateLayers()` rejects duplicates); with duplicates the first occurrence wins. `export-layers.js`, `home.js` and the info panels still walk `TABS` directly, because they need tabs, groups and unpublished layers in page order.
+
+### Layer rows
+
+`createLayerRow(layer, options)` in `src/ui/layer-row.js` draws one layer. The home tab uses `variant: "full"`: an accordion with description, source and citation links, source widget or external controls, opacity slider and legend. Other tabs' cross-tab sections use `variant: "compact"`: label, type tag and switch, plus description, opacity slider and legend while the layer is on. Source and variant switching stay in the home tab. Before this, the two placements had separate builders kept in sync by hand, which caused #10 and #12.
+
+```js
+const row = createLayerRow(layer, {
+  variant: "full", // or "compact"
+  store, // createLayersStore(): read for the current intent on click
+  controller, // createLayerController(): the switch, header, widget and controls call it
+  isReady, // () => boolean: the map accepts layer changes (isSDKReady)
+  isVisible, // () => boolean: the row's tab is shown
+  onNavigate, // (tabId) => void: the citation link opens Sources
+  selectionPending, // () => boolean: a pick through another row's controls is settling
+});
+row.element; // root element (.layer-item or .cross-tab-item)
+row.update(record); // render the record; idempotent
+row.hasPendingSelection(); // a source or variant pick made through this row is settling
+row.destroy(); // remove the row's listeners; later updates do nothing
+```
+
+- **Rendering from the record.** `update(record)` compares the record with the last one it rendered and with what the row shows, so calling it again with the same record changes nothing in the DOM and makes no SDK call. The row keeps only UI state of its own: whether the accordion is expanded, whether it opens when the layer comes on, what the source widget or external controls show, how many of its own picks are settling, and which view's slider and legend are in its slots.
+- **Expand rules (full rows).** A layer that comes on expands its accordion (switch, cross-tab row, restore or back/forward), unless the header started that activation: the header expands the row itself, and a slow load must not reopen it after the user collapsed it. Turning the layer off collapses the row, and the next activation expands again. Collapsing never turns a layer off.
+- **Lazy controls.** The opacity slider (`get_view_layer_transparency`) and legend (`resolveMapXLegend`, `get_view_legend_image`) are built only while `isVisible()` is true, once per view that arrives on the map for the layer. A row in a hidden tab, including the home accordion of a layer turned on from a cross-tab row, builds them when its tab is shown; once built they stay while the tab is hidden. Clearing (layer off, new source) is immediate in every row. Descriptions, switch states, the source widget and external controls are cheap and render at once.
+- **Announcements.** Each published row has its own polite live region (`.layer-announcer`) that announces a failed load, turn-off, source switch or variant change, and is cleared by the next call. A failed variant change made through the home row's external controls is announced by those controls instead, so no row repeats it.
+- **Wiring.** `buildSidebar()` builds a full row per layer in its tab and a compact row per published layer in each other tab's cross-tab section. One store subscriber fans each record out through a `Map<key, Set<row>>` (home row first) and updates Clear all. A tab switch calls `update()` on every row with its current record, which only builds the controls of rows that just became visible. `destroySidebar()` destroys every row.
+- **Scope.** A row queries only its own elements (and `closest()` for the cross-tab section it opens), adds no ids and registers its listeners with one `AbortController`. The source widget and external controls keep their listeners on their own elements inside the row. The opacity slider sync in `layer-controls.js` still queries the document.
 
 ### UI layer (Mangrove)
 
@@ -341,7 +384,7 @@ per-component typeface declarations.
 
 The floating layer panel includes:
 
-- **Per-layer accordions** — expand to reveal opacity slider, legend, and source-switching widget. Built by `buildLayerAccordion()` in `sidebar.js`; returns `{ wrapper, eyeBtn }` so the sidebar can maintain a `layerElementMap` (key → DOM references) without positional DOM queries.
+- **Per-layer accordions** — expand to reveal opacity slider, legend, and source-switching widget. Built by `createLayerRow()` (full variant, see Layer rows); `buildLayerAccordion()` in `sidebar.js` wraps it for unit tests and returns `{ wrapper, eyeBtn }`.
 - **Eye toggle** — asks the layer controller to turn a layer on/off; `aria-checked` shows the latest intent, so a second click while loading cancels the first. While a MapX call is in flight the switch is `aria-busy="true"` and labelled "Loading X…" (or "Turning off X…"). Enter/Space on the switch toggle the layer; on the row header they expand or collapse the accordion
 - **Failure announcements** — each layer row (home and cross-tab) has its own visually hidden `aria-live="polite"` region (`.layer-announcer.mg-u-sr-only`, no id) that announces a failed load, turn-off, source switch or variant change for every kind of layer, e.g. "Could not load X. It is off." A new call for the layer clears it. Variant changes made through the external controls are announced by the controls' own status instead, and the external loading/error text in the row is visual only
 - **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
@@ -381,26 +424,28 @@ Vitest + jsdom is configured in `vite.config.js`. Run tests with `yarn test`.
 
 Test files cover pure and near-pure modules:
 
-| File                                      | What it tests                                                                                                                                                               |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                                                                                                       |
-| `src/state/layers-store.test.js`          | Store set/get/all, patch rules, subscribers and their errors, openViews mirror, URL key order, serialisation from applied fields                                            |
-| `src/services/layer-controller.test.js`   | Latest intent wins (rapid toggles, A→B→C switches), clear-all during load, add/remove/double failures, external settings during load, `view_add` order across keys, destroy |
-| `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy on a target; shared links (grouped tabs too) round-trip byte for byte via the store                                                    |
-| `src/config/validate.test.js`             | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                                                                                           |
-| `src/ui/widgets/sub-tabs.test.js`         | DOM construction, initial state, callbacks, aria roles, revert on rejected switch                                                                                           |
-| `src/ui/widgets/source-selection.test.js` | Shows the reported final source; overlapping picks; rejected or failed switches                                                                                             |
-| `src/ui/widgets/stepped-slider.test.js`   | DOM, initial state, debounce behaviour                                                                                                                                      |
-| `src/ui/infobox.test.js`                  | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler                                                                                       |
-| `src/ui/site-inspector.test.js`           | Panel build, view index, batch collection, generation guard, raster fallback                                                                                                |
-| `src/ui/layer-controls.test.js`           | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic                                                                            |
-| `src/sdk/legends.test.js`                 | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache                                                                           |
-| `src/sdk/legend-model.test.js`            | Shared color/text/value safety and localization rules                                                                                                                       |
-| `src/sdk/raster-legends.test.js`          | Provider policy, mirror retry, bounded streaming, GeoServer schema, diagnostics, timeout                                                                                    |
-| `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                                                                                                    |
-| `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting                                                                                  |
+| File                                      | What it tests                                                                                                                                                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                                                                                                                                                           |
+| `src/config/registry.test.js`             | `byKey`/`byViewId`/`tabOf`/`allLayers`/`urlKeyOrder`, grouped tabs, duplicates, frozen indexes, the shared app registry                                                                                                         |
+| `src/ui/layer-row.test.js`                | Both variants with a real store and fake controller: idempotent `update()` (no DOM mutations, no extra SDK calls), busy/label/announcer rendering, expand rules, lazy slider/legend, compact details only while on, `destroy()` |
+| `src/state/layers-store.test.js`          | Store set/get/all, patch rules, subscribers and their errors, openViews mirror, serialisation from applied fields                                                                                                               |
+| `src/services/layer-controller.test.js`   | Latest intent wins (rapid toggles, A→B→C switches), clear-all during load, add/remove/double failures, external settings during load, `view_add` order across keys, destroy                                                     |
+| `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy on a target; shared links (grouped tabs too) round-trip byte for byte via the store                                                                                                        |
+| `src/config/validate.test.js`             | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                                                                                                                                               |
+| `src/ui/widgets/sub-tabs.test.js`         | DOM construction, initial state, callbacks, aria roles, revert on rejected switch                                                                                                                                               |
+| `src/ui/widgets/source-selection.test.js` | Shows the reported final source; overlapping picks; rejected or failed switches                                                                                                                                                 |
+| `src/ui/widgets/stepped-slider.test.js`   | DOM, initial state, debounce behaviour                                                                                                                                                                                          |
+| `src/ui/infobox.test.js`                  | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler                                                                                                                                           |
+| `src/ui/site-inspector.test.js`           | Panel build, view index, batch collection, generation guard, raster fallback                                                                                                                                                    |
+| `src/ui/layer-controls.test.js`           | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic                                                                                                                                |
+| `src/sdk/legends.test.js`                 | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache                                                                                                                               |
+| `src/sdk/legend-model.test.js`            | Shared color/text/value safety and localization rules                                                                                                                                                                           |
+| `src/sdk/raster-legends.test.js`          | Provider policy, mirror retry, bounded streaming, GeoServer schema, diagnostics, timeout                                                                                                                                        |
+| `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                                                                                                                                                        |
+| `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting                                                                                                                                      |
 
-`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore (including view-add order), clear-all (including a layer still loading), back/forward history entries, rapid double toggles, quick source picks and a failed switch (widget, hash and legend agree), turning an external layer off while it loads, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward, and covering failure records, a throwing hash write, a layer whose view returns after another layer wrote the hash, a double switch failure that ends off, and destroy/rebuild. `src/ui/sidebar.grouped.test.js` checks that a grouped tab's hash keeps config order on toggle and restore.
+`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows (including that a layer turned on from a cross-tab row renders no slider or legend into its hidden home row until that tab is shown, with exact `addLegend`/`addOpacitySlider` counts across tab switches), shared-link restore (including view-add order), clear-all (including a layer still loading), back/forward history entries, rapid double toggles, quick source picks and a failed switch (widget, hash and legend agree), turning an external layer off while it loads, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward, and covering failure records, a throwing hash write, a layer whose view returns after another layer wrote the hash, a double switch failure that ends off, and destroy/rebuild. `src/ui/sidebar.grouped.test.js` checks that a grouped tab's hash keeps config order on toggle and restore.
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser
