@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildNavTabItem, createNav, INFO_TABS, tabPanelId } from "./nav.js";
+import { buildNavTabItem, createNav, INFO_TABS } from "./nav.js";
 
 const TABS = [
   { id: "risk", label: "Risk", description: "Risk layers" },
@@ -29,8 +29,7 @@ function click(el) {
 }
 
 describe("nav helpers", () => {
-  it("names tab panels and lists the info tabs", () => {
-    expect(tabPanelId("hazard")).toBe("tab-hazard");
+  it("lists the info tabs", () => {
     expect(INFO_TABS).toEqual(["home", "sources", "about"]);
   });
 

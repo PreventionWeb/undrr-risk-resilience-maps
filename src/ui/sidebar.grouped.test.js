@@ -50,7 +50,7 @@ import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
 
 function eye(label) {
-  return [...document.querySelectorAll("#tab-risk .layer-item")]
+  return [...document.querySelectorAll("[data-tab-panel='risk'] .layer-item")]
     .find((item) => item.querySelector(".layer-label").textContent === label)
     .querySelector(".layer-eye");
 }
@@ -73,7 +73,7 @@ describe("hash order for a grouped tab", () => {
 
   it("lists layers in config order, not sidebar group order", async () => {
     // Groups show Societies first, so the rows are in the opposite order.
-    const labels = [...document.querySelectorAll("#tab-risk .layer-label")].map((el) => el.textContent);
+    const labels = [...document.querySelectorAll("[data-tab-panel='risk'] .layer-label")].map((el) => el.textContent);
     expect(labels).toEqual(["Societies", "Economy"]);
 
     eye("Economy").click();

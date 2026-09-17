@@ -157,7 +157,7 @@ function showTab(tabId) {
 
 /** The cross-tab row for a layer inside a given tab panel. */
 function crossRow(tabId, label) {
-  return [...document.querySelectorAll(`#tab-${tabId} .cross-tab-item`)].find(
+  return [...document.querySelectorAll(`[data-tab-panel="${tabId}"] .cross-tab-item`)].find(
     (item) => item.querySelector(".cross-tab-label").textContent === label,
   );
 }
@@ -284,7 +284,7 @@ describe("cross-tab layer rows", () => {
       expect([...counts.values()]).toEqual([1, 1, 1, 1]);
     }
     await vi.waitFor(() =>
-      expect(document.querySelectorAll("#tab-exposure .layer-legend-slot .html-legend")).toHaveLength(2),
+      expect(document.querySelectorAll("[data-tab-panel='exposure'] .layer-legend-slot .html-legend")).toHaveLength(2),
     );
   });
 
@@ -304,7 +304,7 @@ describe("cross-tab layer rows", () => {
 
   it("turns a layer off after a source switch that was in flight settles", async () => {
     showTab("risk");
-    const floodEye = [...document.querySelectorAll("#tab-risk .layer-item")]
+    const floodEye = [...document.querySelectorAll("[data-tab-panel='risk'] .layer-item")]
       .find((item) => item.querySelector(".layer-label").textContent === "Flood")
       .querySelector(".layer-eye");
     floodEye.click();
@@ -381,7 +381,7 @@ function hashLayerKeys() {
 
 /** The layer's own accordion in its home tab. */
 function homeItem(tabId, label) {
-  return [...document.querySelectorAll(`#tab-${tabId} .layer-item`)].find(
+  return [...document.querySelectorAll(`[data-tab-panel="${tabId}"] .layer-item`)].find(
     (item) => item.querySelector(".layer-label").textContent === label,
   );
 }

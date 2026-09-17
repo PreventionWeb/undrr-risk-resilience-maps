@@ -26,13 +26,12 @@ export const EMPTY_TAB_MESSAGE =
  * grouped when the tab has R2R groups. Unpublished layers are marked
  * `data-layer-disabled` and hidden unless `showDisabled`.
  * @param {object} tab - a TABS entry
- * @param {{ id: string, addRow: AddRow, showDisabled?: boolean }} options
+ * @param {{ addRow: AddRow, showDisabled?: boolean }} options
  * @returns {HTMLElement}
  */
-export function buildTabPanel(tab, { id, addRow, showDisabled = false }) {
+export function buildTabPanel(tab, { addRow, showDisabled = false }) {
   const tabPanel = document.createElement("div");
   tabPanel.className = "tab-panel";
-  tabPanel.id = id;
   tabPanel.dataset.tabPanel = tab.id;
   tabPanel.style.display = "none";
 

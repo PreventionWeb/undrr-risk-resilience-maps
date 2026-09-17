@@ -16,16 +16,6 @@
 export const INFO_TABS = ["home", "sources", "about"];
 
 /**
- * The element id of a tab's panel (`tab-hazard`, `tab-home`). Kept for CSS
- * and in-page links; the sidebar holds panel references instead of looking
- * panels up by id.
- * @param {string} tabId
- */
-export function tabPanelId(tabId) {
-  return `tab-${tabId}`;
-}
-
-/**
  * Build a data tab's nav item, matching the Mangrove topbar markup.
  * @param {{ id: string, label: string }} tab
  * @returns {HTMLLIElement}

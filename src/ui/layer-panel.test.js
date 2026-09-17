@@ -33,11 +33,11 @@ describe("buildTabPanel", () => {
     groups: null,
   };
 
-  it("builds a hidden panel with its id, intro and a full row per layer", () => {
+  it("builds a hidden panel with its tab id, intro and a full row per layer", () => {
     const addRow = rowFactory();
-    const panel = buildTabPanel(flat, { id: "tab-hazard", addRow });
+    const panel = buildTabPanel(flat, { addRow });
 
-    expect(panel.id).toBe("tab-hazard");
+    expect(panel.hasAttribute("id")).toBe(false);
     expect(panel.className).toBe("tab-panel");
     expect(panel.dataset.tabPanel).toBe("hazard");
     expect(panel.style.display).toBe("none");
@@ -58,24 +58,24 @@ describe("buildTabPanel", () => {
   });
 
   it("marks unpublished rows and hides them unless disabled layers are shown", () => {
-    const hidden = buildTabPanel(flat, { id: "tab-hazard", addRow: rowFactory() });
+    const hidden = buildTabPanel(flat, { addRow: rowFactory() });
     const storm = hidden.querySelector("[data-key='storm']");
     expect(storm.dataset.layerDisabled).toBe("true");
     expect(storm.classList.contains("layer-disabled")).toBe(true);
     expect(storm.hidden).toBe(true);
     expect(hidden.querySelector("[data-key='quake']").hidden).toBe(false);
 
-    const shown = buildTabPanel(flat, { id: "tab-hazard", addRow: rowFactory(), showDisabled: true });
+    const shown = buildTabPanel(flat, { addRow: rowFactory(), showDisabled: true });
     expect(shown.querySelector("[data-key='storm']").hidden).toBe(false);
   });
 
   it("adds the glossary and shows the empty state only without published layers", () => {
-    const withLayers = buildTabPanel(flat, { id: "tab-hazard", addRow: rowFactory() });
+    const withLayers = buildTabPanel(flat, { addRow: rowFactory() });
     expect(withLayers.querySelector(".tab-panel-empty").hidden).toBe(true);
 
     const empty = buildTabPanel(
       { ...flat, glossary: "AAL means average annual loss.", layers: [unpublished("storm")] },
-      { id: "tab-hazard", addRow: rowFactory() },
+      { addRow: rowFactory() },
     );
     expect(empty.querySelector(".tab-panel-glossary").textContent).toBe("AAL means average annual loss.");
     const message = empty.querySelector(".tab-panel-empty");
@@ -95,7 +95,7 @@ describe("buildTabPanel", () => {
       ],
     };
 
-    const panel = buildTabPanel(grouped, { id: "tab-hazard", addRow: rowFactory() });
+    const panel = buildTabPanel(grouped, { addRow: rowFactory() });
 
     const groups = [...panel.querySelectorAll("details.layer-group")];
     expect(groups.map((g) => [g.open, g.querySelector("summary.layer-group-heading").textContent])).toEqual([

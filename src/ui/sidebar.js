@@ -20,7 +20,7 @@ import { initMangroveTabs } from "./mangrove-tabs.js";
 import { isCompound } from "./widgets/index.js";
 import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
-import { createNav, INFO_TABS, tabPanelId } from "./nav.js";
+import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { hashChangeAction } from "../state/hash.js";
 import { createHashAdapter } from "../state/hash-adapter.js";
@@ -543,7 +543,6 @@ export function createSidebar(
   // Populate sidebar with layer panels (data tabs only)
   for (const tab of tabs) {
     const tabPanel = buildTabPanel(tab, {
-      id: tabPanelId(tab.id),
       addRow: addLayerRow,
       showDisabled: showDisabledLayers,
     });

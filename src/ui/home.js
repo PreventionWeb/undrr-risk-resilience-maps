@@ -54,7 +54,7 @@ const CATEGORIES = TABS.map((tab) => ({
 export function buildHomePanel({ onNavigate = () => {}, signal } = {}) {
   const el = document.createElement("div");
   el.className = "info-page-panel";
-  el.id = "tab-home";
+  el.dataset.tabPanel = "home";
 
   el.innerHTML = `
     <!--

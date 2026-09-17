@@ -121,17 +121,15 @@ describe("createSidebar", () => {
   it("builds panels, info pages and nav links within the root", () => {
     sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
 
-    expect($$(".tab-panel").map((el) => el.id)).toEqual(["tab-hazard", "tab-exposure"]);
-    expect($$("#info-page > .info-page-panel").map((el) => el.id)).toEqual([
-      "tab-home",
-      "tab-sources",
-      "tab-about",
-    ]);
+    expect($$(".tab-panel").map((el) => el.dataset.tabPanel)).toEqual(["hazard", "exposure"]);
+    expect($$("#info-page > .info-page-panel").map((el) => el.dataset.tabPanel)).toEqual(["home", "sources", "about"]);
+    // Panels are found by data-tab-panel; the instance creates no tab-* ids.
+    expect($$("[id^='tab-']")).toEqual([]);
     expect($$(".nav-tab-link").map((a) => a.dataset.tab)).toEqual(["hazard", "exposure"]);
     expect($$(".panel-resize-grip")).toHaveLength(1);
     expect(duplicateIds()).toEqual([]);
     // No URL tab: the home page is shown, with the global footer.
-    expect($("#tab-home").style.display).toBe("block");
+    expect($("[data-tab-panel='home']").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(false);
   });
@@ -157,12 +155,12 @@ describe("createSidebar", () => {
   it("keeps the active tab per instance: a new instance starts on home, or on initialTab", () => {
     const first = createSidebar(document.body, { stateAdapter: memoryAdapter() });
     $(".nav-info-link[data-panel='sources']").click();
-    expect($("#tab-sources").style.display).toBe("block");
+    expect($("[data-tab-panel='sources']").style.display).toBe("block");
     first.destroy();
 
     // No tab in the URL: home, not the previous instance's tab.
     sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
-    expect($("#tab-home").style.display).toBe("block");
+    expect($("[data-tab-panel='home']").style.display).toBe("block");
     expect(sidebar.activeTab).toBe("home");
     sidebar.destroy();
 
@@ -242,8 +240,8 @@ describe("createSidebar", () => {
     $(".nav-tab-link[data-tab='exposure']").click();
     expect(adapter.write).toHaveBeenCalledTimes(1);
     expect(adapter.write).toHaveBeenCalledWith({ tab: "exposure", layers: [] }, { replace: false });
-    expect($("#tab-exposure").style.display).toBe("block");
-    expect($("#tab-hazard").style.display).toBe("none");
+    expect($("[data-tab-panel='exposure']").style.display).toBe("block");
+    expect($("[data-tab-panel='hazard']").style.display).toBe("none");
 
     // One "Show disabled" click flips it once.
     $("#layer-disabled-toggle").click();
@@ -253,7 +251,7 @@ describe("createSidebar", () => {
   it("does nothing on clicks to old elements after destroy", async () => {
     const adapter = memoryAdapter({ tab: "hazard", layers: [] });
     sidebar = createSidebar(document.body, { stateAdapter: adapter });
-    const quakeSwitch = $("#tab-hazard .layer-item .layer-eye");
+    const quakeSwitch = $("[data-tab-panel='hazard'] .layer-item .layer-eye");
     quakeSwitch.click();
     await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
     expect($("#layer-clear-btn").hidden).toBe(false);
@@ -382,7 +380,7 @@ describe("createSidebar", () => {
     dispatch.mockRestore();
     expect(sidebar.activeTab).toBe("exposure");
     expect(adapter.write).toHaveBeenLastCalledWith({ tab: "exposure", layers: [] }, { replace: false });
-    expect($("#tab-exposure").style.display).toBe("block");
+    expect($("[data-tab-panel='exposure']").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("");
     expect($("#info-page").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(true);
@@ -399,7 +397,7 @@ describe("createSidebar", () => {
 
     $(".nav-info-link[data-panel='sources']").click();
     expect(panel.classList.contains("is-collapsed")).toBe(true);
-    expect($("#tab-sources").style.display).toBe("block");
+    expect($("[data-tab-panel='sources']").style.display).toBe("block");
     expect($("#global-footer").hidden).toBe(false);
 
     $(".nav-tab-link[data-tab='hazard']").click();
@@ -442,7 +440,7 @@ describe("createSidebar", () => {
       onViewsChanged: (count) => counts.push(count),
     });
 
-    $("#tab-hazard .layer-item .layer-eye").click();
+    $("[data-tab-panel='hazard'] .layer-item .layer-eye").click();
     await vi.waitFor(() => expect(counts).toEqual([1]));
     $("#layer-clear-btn").click();
     await vi.waitFor(() => expect(counts).toEqual([1, 0]));
@@ -479,6 +477,29 @@ describe("createSidebar", () => {
     ).toHaveLength(0);
     other.querySelector("[data-ui='panel-toggle']").click();
     expect(other.querySelector("[data-ui='layer-panel']").classList.contains("is-collapsed")).toBe(false);
+  });
+
+  it("documents what two live instances still share: Mangrove section ids and openViews", async () => {
+    // Not supported yet (see ARCHITECTURE.md); this pins the known collisions.
+    const noIds = PAGE.replaceAll(/ id="[^"]*"/g, "");
+    document.body.innerHTML = `<div id="a">${noIds}</div><div id="b">${noIds}</div>`;
+    sidebar = createSidebar($("#a"), { stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }) });
+    $("#a [data-tab-panel='hazard'] .layer-item .layer-eye").click();
+    await vi.waitFor(() => expect(store.openViews.has("MX-QUAKE")).toBe(true));
+
+    const second = createSidebar($("#b"), { stateAdapter: memoryAdapter() });
+    try {
+      // Creating B clears the module openViews Set that A mirrors into.
+      expect(store.openViews.size).toBe(0);
+      expect(sidebar.store.get("quake").applied).toBe(true);
+      // The only duplicate ids are the Sources page's Mangrove tab sections,
+      // which Mangrove's tab links point at by id.
+      const dupes = duplicateIds();
+      expect(dupes.length).toBeGreaterThan(0);
+      for (const id of dupes) expect(id).toMatch(/^mg-tabs__section-sources-\d+(--trigger)?$/);
+    } finally {
+      second.destroy();
+    }
   });
 
   it("skips the parts of a sidebar root nested inside its root", () => {
