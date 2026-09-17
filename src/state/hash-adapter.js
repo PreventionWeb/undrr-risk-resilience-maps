@@ -9,21 +9,25 @@
 import { parseHash, writeHash } from "./hash.js";
 
 /**
- * @param {{ target?: EventTarget }} [options] - where `hashchange` fires (default: window)
+ * @param {{ target?: Window }} [options] - the window whose URL the adapter
+ *   owns (default: the global window). Reads use `target.location`, writes use
+ *   `target.location` and `target.history`, and `hashchange` is watched on
+ *   `target`, so any object with those three works (e.g. an iframe's window).
  */
 export function createHashAdapter({ target = window } = {}) {
   const unsubscribers = new Set();
+  const read = () => parseHash({ location: target.location });
 
   return {
     /** Current URL state. */
-    read: () => parseHash(),
+    read,
 
     /**
      * Write state to the hash. Pushes a history entry unless `replace` is set;
      * a hash that is already current is left alone.
      */
     write({ tab, layers }, { replace = false } = {}) {
-      writeHash(tab, layers, { replace });
+      writeHash(tab, layers, { replace, location: target.location, history: target.history });
     },
 
     /**
@@ -33,7 +37,7 @@ export function createHashAdapter({ target = window } = {}) {
      */
     subscribe(fn) {
       const controller = new AbortController();
-      target.addEventListener("hashchange", () => fn(parseHash()), { signal: controller.signal });
+      target.addEventListener("hashchange", () => fn(read()), { signal: controller.signal });
       const unsubscribe = () => {
         controller.abort();
         unsubscribers.delete(unsubscribe);

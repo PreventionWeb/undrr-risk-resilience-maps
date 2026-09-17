@@ -7,6 +7,17 @@ beforeEach(() => {
   history.replaceState(null, "", "#");
 });
 
+/** A stand-in window: its own event target, location and history. */
+function fakeWindow(hash = "") {
+  const target = new EventTarget();
+  target.location = { hash };
+  const navigate = (_state, _title, url) => {
+    target.location.hash = url;
+  };
+  target.history = { pushState: vi.fn(navigate), replaceState: vi.fn(navigate) };
+  return target;
+}
+
 describe("createHashAdapter", () => {
   it("reads the current hash as URL state", () => {
     history.replaceState(null, "", "#hazard?layers=earthquake-pga:2,landslides");
@@ -42,13 +53,31 @@ describe("createHashAdapter", () => {
     expect(history.length).toBe(lengthBefore);
   });
 
+  it("reads and writes the target's location and history, not the globals", () => {
+    const target = fakeWindow("#hazard?layers=landslides");
+    const adapter = createHashAdapter({ target });
+
+    expect(adapter.read()).toEqual({ tab: "hazard", layers: [{ key: "landslides", sourceIdx: 0 }] });
+
+    adapter.write({ tab: "exposure", layers: [{ key: "population", sourceIdx: 0 }] });
+    adapter.write({ tab: "exposure", layers: [] }, { replace: true });
+    // Already current: no call.
+    adapter.write({ tab: "exposure", layers: [] });
+
+    expect(target.history.pushState).toHaveBeenCalledTimes(1);
+    expect(target.history.pushState).toHaveBeenCalledWith(null, "", "#exposure?layers=population");
+    expect(target.history.replaceState).toHaveBeenCalledWith(null, "", "#exposure");
+    expect(target.location.hash).toBe("#exposure");
+    expect(location.hash).toBe("");
+  });
+
   it("calls subscribers with the parsed state on hashchange until unsubscribed", () => {
-    const target = new EventTarget();
+    const target = fakeWindow();
     const adapter = createHashAdapter({ target });
     const fn = vi.fn();
     const unsubscribe = adapter.subscribe(fn);
 
-    history.replaceState(null, "", "#risk?layers=aal-public:1");
+    target.location.hash = "#risk?layers=aal-public:1";
     target.dispatchEvent(new Event("hashchange"));
     expect(fn).toHaveBeenCalledWith({ tab: "risk", layers: [{ key: "aal-public", sourceIdx: 1 }] });
 
@@ -58,7 +87,7 @@ describe("createHashAdapter", () => {
   });
 
   it("removes every listener on destroy", () => {
-    const target = new EventTarget();
+    const target = fakeWindow();
     const adapter = createHashAdapter({ target });
     const first = vi.fn();
     const second = vi.fn();
