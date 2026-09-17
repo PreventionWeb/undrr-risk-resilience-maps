@@ -11,7 +11,7 @@
 }
 
 .opacity-row label {
-  color: #666;
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -25,5 +25,5 @@
   width: 2.5rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: #666;
+  color: var(--color-text-muted);
 }

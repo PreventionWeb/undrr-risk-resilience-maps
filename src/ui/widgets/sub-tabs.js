@@ -15,7 +15,7 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config, { si
 
   if (config.label) {
     const lbl = document.createElement("label");
-    lbl.className = "widget-label";
+    lbl.className = "widget-label mg-form-label";
     lbl.textContent = config.label;
     wrapper.appendChild(lbl);
   }
@@ -25,7 +25,7 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config, { si
   if (sources.length > 3) {
     wrapper.classList.add("widget-sub-tabs--select");
     const dropdown = document.createElement("select");
-    dropdown.className = "widget-source-select";
+    dropdown.className = "widget-source-select mg-form-select";
     dropdown.setAttribute("aria-label", config.label || "Layer option");
 
     for (let i = 0; i < sources.length; i++) {

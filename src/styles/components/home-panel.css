@@ -361,6 +361,11 @@
   display: table-cell;
   white-space: nowrap;
   font-size: 0.78rem;
+}
+
+/* Body cells only: the column header sits on the table's dark blue band and
+   keeps its own (white) colour. */
+.show-mapx-ids td.data-table__mapx-id {
   color: rgb(var(--mg-color-neutral-600));
 }
 
