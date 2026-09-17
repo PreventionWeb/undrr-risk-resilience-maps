@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseHash, writeHash, getLayerByKey, getTabForLayerKey } from "./hash.js";
+import { parseHash, writeHash, getLayerByKey } from "./hash.js";
 
 beforeEach(() => {
   window.location.hash = "";
@@ -125,6 +125,21 @@ describe("writeHash", () => {
     expect(window.history.length).toBe(lengthBefore);
   });
 
+  it("replaces the current history entry when asked", () => {
+    writeHash("hazard", []);
+    const lengthBefore = window.history.length;
+    writeHash("hazard", [{ key: "population", sourceIdx: 0 }], { replace: true });
+    expect(window.location.hash).toBe("#hazard?layers=population");
+    expect(window.history.length).toBe(lengthBefore);
+  });
+
+  it("pushes a new history entry by default", () => {
+    writeHash("hazard", []);
+    const lengthBefore = window.history.length;
+    writeHash("exposure", []);
+    expect(window.history.length).toBe(lengthBefore + 1);
+  });
+
   it("round-trips external variant settings", () => {
     const layers = [
       {
@@ -151,31 +166,5 @@ describe("getLayerByKey", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getLayerByKey("does-not-exist")).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getTabForLayerKey — uses real TABS data
-// ---------------------------------------------------------------------------
-
-describe("getTabForLayerKey", () => {
-  it("returns 'hazard' for a hazard layer key", () => {
-    expect(getTabForLayerKey("river-flooding")).toBe("hazard");
-  });
-
-  it("returns 'exposure' for an exposure layer key", () => {
-    expect(getTabForLayerKey("population")).toBe("exposure");
-  });
-
-  it("returns 'vulnerability' for a vulnerability layer key", () => {
-    expect(getTabForLayerKey("intact-forests")).toBe("vulnerability");
-  });
-
-  it("returns 'resilience' for a resilience layer key", () => {
-    expect(getTabForLayerKey("change-fiscal-gap")).toBe("resilience");
-  });
-
-  it("returns undefined for an unknown key", () => {
-    expect(getTabForLayerKey("does-not-exist")).toBeUndefined();
   });
 });

@@ -3,7 +3,11 @@
  *
  * Renders a button bar within a layer accordion for switching between
  * data sources (e.g. Depth / Frequency / Exposure).
+ *
+ * The selection is shown immediately and corrected if the switch is rejected
+ * (see source-selection.js).
  */
+import { createSourceSelection } from "./source-selection.js";
 
 export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
   const wrapper = document.createElement("div");
@@ -16,28 +20,39 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
     wrapper.appendChild(lbl);
   }
 
+  const select = createSourceSelection(initialIndex, onSourceChange);
+
   if (sources.length > 3) {
     wrapper.classList.add("widget-sub-tabs--select");
-    const select = document.createElement("select");
-    select.className = "widget-source-select";
-    select.setAttribute("aria-label", config.label || "Layer option");
+    const dropdown = document.createElement("select");
+    dropdown.className = "widget-source-select";
+    dropdown.setAttribute("aria-label", config.label || "Layer option");
 
     for (let i = 0; i < sources.length; i++) {
       const option = document.createElement("option");
       option.value = String(i);
       option.textContent = sources[i].label;
       option.selected = i === initialIndex;
-      select.appendChild(option);
+      dropdown.appendChild(option);
     }
 
-    select.addEventListener("change", () => onSourceChange(Number(select.value)));
-    wrapper.appendChild(select);
+    dropdown.addEventListener("change", async () => {
+      dropdown.value = String(await select(Number(dropdown.value)));
+    });
+    wrapper.appendChild(dropdown);
     return wrapper;
   }
 
   const bar = document.createElement("div");
   bar.className = "widget-sub-tabs-bar";
   bar.setAttribute("role", "tablist");
+
+  const setActive = (index) => {
+    bar.querySelectorAll(".widget-sub-tab").forEach((b, i) => {
+      b.classList.toggle("is-active", i === index);
+      b.setAttribute("aria-selected", String(i === index));
+    });
+  };
 
   for (let i = 0; i < sources.length; i++) {
     const btn = document.createElement("button");
@@ -47,14 +62,9 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config) {
     btn.textContent = sources[i].label;
     if (i === initialIndex) btn.classList.add("is-active");
 
-    btn.addEventListener("click", () => {
-      for (const b of bar.querySelectorAll(".widget-sub-tab")) {
-        b.classList.remove("is-active");
-        b.setAttribute("aria-selected", "false");
-      }
-      btn.classList.add("is-active");
-      btn.setAttribute("aria-selected", "true");
-      onSourceChange(i);
+    btn.addEventListener("click", async () => {
+      setActive(i);
+      setActive(await select(i));
     });
 
     bar.appendChild(btn);

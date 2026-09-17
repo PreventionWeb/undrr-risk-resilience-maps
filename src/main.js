@@ -72,22 +72,21 @@ async function startMapX() {
 
   // Wire inspect toggle button
   const inspectToggle = document.getElementById("inspect-toggle");
+
+  function setInspectionMode(active) {
+    if (active) {
+      closeInfobox();
+      enableInspection();
+    } else {
+      disableInspection();
+      hideSiteInspector();
+    }
+    document.getElementById("app-map")?.classList.toggle("inspection-active", active);
+    inspectToggle?.classList.toggle("is-active", active);
+    inspectToggle?.setAttribute("aria-pressed", String(active));
+  }
   if (inspectToggle) {
-    inspectToggle.addEventListener("click", () => {
-      if (isInspectionActive()) {
-        disableInspection();
-        hideSiteInspector();
-        document.getElementById("app-map")?.classList.remove("inspection-active");
-        inspectToggle.classList.remove("is-active");
-        inspectToggle.setAttribute("aria-pressed", "false");
-      } else {
-        closeInfobox();
-        enableInspection();
-        document.getElementById("app-map")?.classList.add("inspection-active");
-        inspectToggle.classList.add("is-active");
-        inspectToggle.setAttribute("aria-pressed", "true");
-      }
-    });
+    inspectToggle.addEventListener("click", () => setInspectionMode(!isInspectionActive()));
   }
 
   mapx.on("ready", async () => {
@@ -117,13 +116,7 @@ async function startMapX() {
     onViewsChanged((count) => {
       if (!inspectToggle) return;
       inspectToggle.disabled = count === 0;
-      if (count === 0 && isInspectionActive()) {
-        disableInspection();
-        hideSiteInspector();
-        document.getElementById("app-map")?.classList.remove("inspection-active");
-        inspectToggle.classList.remove("is-active");
-        inspectToggle.setAttribute("aria-pressed", "false");
-      }
+      if (count === 0 && isInspectionActive()) setInspectionMode(false);
     });
   });
 

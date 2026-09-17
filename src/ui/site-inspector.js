@@ -19,9 +19,7 @@
 import { TABS } from "../config/layers.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
-
-// MapX internal fields not meaningful for end users
-const SKIP_KEYS = ["gid", "mx_t0", "mx_t1", "geom", "geometry"];
+import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
 
 const ATTRIBUTE_LABELS = {
   GRAY_INDEX: "Pixel Value",
@@ -38,14 +36,6 @@ function isNoData(v) {
     Number.isFinite(v) &&
     Math.abs(v - FLOAT32_NODATA) / Math.abs(FLOAT32_NODATA) < 1e-6
   );
-}
-
-function esc(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 function attributeLabel(key) {
@@ -133,7 +123,7 @@ export function showSiteInspector(result) {
   const lng = lngLat.lng.toFixed(5);
   coordsEl.innerHTML = `
     <span class="site-inspector-coords-label">Coordinates</span>
-    <span class="site-inspector-coords-value">${esc(lat)}, ${esc(lng)}</span>
+    <span class="site-inspector-coords-value">${escapeHtml(lat)}, ${escapeHtml(lng)}</span>
     <button class="site-inspector-coords-copy" title="Copy to clipboard" aria-label="Copy coordinates"
       type="button">&#128203;</button>
   `;
@@ -188,18 +178,18 @@ function buildLayerRow(idView, views) {
     <div class="site-inspector-layer-header">
       <span class="site-inspector-indicator site-inspector-indicator--${indicatorMod}"
             aria-hidden="true"></span>
-      <span class="site-inspector-layer-name">${esc(label)}</span>
+      <span class="site-inspector-layer-name">${escapeHtml(label)}</span>
     </div>
   `;
 
   if (description) {
-    html += `<p class="site-inspector-layer-desc">${esc(description)}</p>`;
+    html += `<p class="site-inspector-layer-desc">${escapeHtml(description)}</p>`;
   }
 
   if (entry?.layer) {
     const links = [];
     if (entry.layer.sourceUrl && entry.layer.source !== "Source to be confirmed.") {
-      links.push(`<a href="${esc(entry.layer.sourceUrl)}" target="_blank" rel="noopener">Source</a>`);
+      links.push(`<a href="${escapeHtml(entry.layer.sourceUrl)}" target="_blank" rel="noopener">Source</a>`);
     }
     links.push('<a href="#sources">Citation and methodology details</a>');
     html += `<p class="site-inspector-layer-links">${links.join(" · ")}</p>`;
@@ -209,13 +199,13 @@ function buildLayerRow(idView, views) {
     // Render attribute table. "inBatch" beats local type — raster-as-VT layers
     // (GRAY_INDEX) come through here too.
     const entries = Object.entries(props).filter(
-      ([k, v]) => !SKIP_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
+      ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
     );
     const labelledEntries = entries.map(([key, value]) => [attributeLabel(key), attributeValue(value)]);
     if (labelledEntries.length > 0) {
       html += `<table class="site-inspector-attrs">`;
       for (const [k, v] of labelledEntries) {
-        html += `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`;
+        html += `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`;
       }
       html += `</table>`;
     } else {

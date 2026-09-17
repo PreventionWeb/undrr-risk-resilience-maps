@@ -3,8 +3,10 @@
  *
  * Renders a range input with discrete steps for switching between data
  * sources (e.g. earthquake return periods). Each step maps to one source.
- * Debounced to avoid rapid SDK calls when dragging.
+ * Debounced to avoid rapid SDK calls when dragging. A rejected switch moves
+ * the thumb back to the source actually shown (see source-selection.js).
  */
+import { createSourceSelection } from "./source-selection.js";
 
 const DEBOUNCE_MS = 200;
 
@@ -40,14 +42,19 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
   // Debounce to prevent rapid SDK calls while dragging
   let debounceTimer = null;
   let lastFired = initialIndex;
+  const select = createSourceSelection(initialIndex, onSourceChange);
 
   slider.addEventListener("input", () => {
     clearTimeout(debounceTimer);
     const idx = Number(slider.value);
-    debounceTimer = setTimeout(() => {
-      if (idx !== lastFired) {
-        lastFired = idx;
-        onSourceChange(idx);
+    debounceTimer = setTimeout(async () => {
+      if (idx === lastFired) return;
+      lastFired = idx;
+      const shown = await select(idx);
+      // Leave the thumb alone if the user has dragged on since this fired.
+      if (shown !== idx && Number(slider.value) === idx) {
+        lastFired = shown;
+        slider.value = String(shown);
       }
     }, DEBOUNCE_MS);
   });

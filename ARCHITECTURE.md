@@ -32,15 +32,15 @@ undrr-risk-resilience-maps/
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
-│   │   ├── views.js            # view add/remove/query
+│   │   ├── views.js            # view add/remove, cached legend images
 │   │   ├── legend-model.js     # Shared structured legend model + safety limits
 │   │   ├── legends.js          # MapX catalogue + vector legend adapter/dispatcher
 │   │   ├── raster-legends.js   # Approved GeoServer raster legend adapter
 │   │   ├── filters.js          # layer transparency, filters
-│   │   ├── inspect.js          # click_attributes batch collector, generation guard
-│   │   └── map-control.js      # flyTo, zoom, projection
+│   │   └── inspect.js          # click_attributes batch collector, generation guard
 │   ├── external/               # Runtime external-provider boundary
-│   │   ├── index.js            # Generic provider contract + temporary-view registry
+│   │   ├── index.js            # Generic provider contract + temporary-view registry (adapters lazy-loaded)
+│   │   ├── edra-agriculture-controls.js # EDRA crop/scenario options (loaded eagerly)
 │   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── state/
 │   │   ├── store.js            # openViews Set, activeTab, activeSourceIndex Map
@@ -55,6 +55,7 @@ undrr-risk-resilience-maps/
 │   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel
 │   │   └── widgets/            # Source-switching widgets (registry pattern)
 │   │       ├── index.js        # Widget registry + isCompound helper
+│   │       ├── source-selection.js # Shared selection state; reverts rejected switches
 │   │       ├── sub-tabs.js     # Button bar for metric switching
 │   │       └── stepped-slider.js # Range slider for return periods
 │   └── styles/
@@ -97,11 +98,10 @@ MapX runs in an iframe. All communication goes through `mxsdk.Manager`, which us
 Browser tab
   ├── Our app (parent window)
   │     ├── src/sdk/client.js    → mxsdk.Manager lifecycle + readiness flag
-  │     ├── src/sdk/views.js     → view add/remove/query
+  │     ├── src/sdk/views.js     → view add/remove, cached legend images
   │     ├── src/sdk/legends.js   → catalogue + validated vector legend extraction
   │     ├── src/sdk/raster-legends.js → approved GeoServer raster legend extraction
   │     ├── src/sdk/filters.js   → layer transparency, filters
-  │     ├── src/sdk/map-control.js → flyTo, zoom, projection
   │     └── src/external/        → external data adapters + runtime view registry
   │
   └── MapX iframe (cross-origin)
@@ -289,6 +289,7 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 - Compound layers: key + source index (e.g. `earthquake-pga:2`); index 0 is omitted for brevity
 - On initial load, `restoreLayersFromHash()` validates and clamps source indices before applying them. Source index is always set (including 0) to ensure any prior state is cleared.
 - On `hashchange`, `reconcileLayersFromHash()` diffs current state against the new URL: turns layers off if absent, turns them on with correct source if present, and switches source directly (via `switchSource`) if a compound layer stays on but its source index changes.
+- History entries: a single user action (toggle, source switch, tab switch) pushes one entry. Multi-layer changes run inside `batchHashWrites()`, which skips the per-layer writes and writes once when the batch settles: clear-all pushes one entry, while restore and back/forward replace the current entry because the URL already holds the target state. The `hashchange` handler switches tabs without writing, so the previous layers are never written under the new tab.
 
 ## Build pipeline
 
@@ -303,22 +304,23 @@ Vitest + jsdom is configured in `vite.config.js`. Run tests with `yarn test`.
 
 Test files cover pure and near-pure modules:
 
-| File                                    | What it tests                                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `src/state/hash.test.js`                | `parseHash`/`writeHash` round-trips, `getLayerByKey`, `getTabForLayerKey`                         |
-| `src/config/validate.test.js`           | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
-| `src/ui/widgets/sub-tabs.test.js`       | DOM construction, initial state, callbacks, aria roles                                            |
-| `src/ui/widgets/stepped-slider.test.js` | DOM, initial state, debounce behaviour                                                            |
-| `src/ui/infobox.test.js`                | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler             |
-| `src/ui/site-inspector.test.js`         | Panel build, view index, batch collection, generation guard, raster fallback                      |
-| `src/ui/layer-controls.test.js`         | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic  |
-| `src/sdk/legends.test.js`               | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache |
-| `src/sdk/legend-model.test.js`          | Shared color/text/value safety and localization rules                                             |
-| `src/sdk/raster-legends.test.js`        | Provider policy, mirror retry, bounded streaming, GeoServer schema, diagnostics, timeout          |
-| `src/sdk/inspect.test.js`               | `click_attributes` batching, generation counter, discard of stale events                          |
-| `src/utils/export-layers.test.js`       | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
+| File                                      | What it tests                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `src/state/hash.test.js`                  | `parseHash`/`writeHash` round-trips, push vs replace, `getLayerByKey`                             |
+| `src/config/validate.test.js`             | All error conditions (missing IDs, duplicate views, wrong project, legend schema)                 |
+| `src/ui/widgets/sub-tabs.test.js`         | DOM construction, initial state, callbacks, aria roles, revert on rejected switch                 |
+| `src/ui/widgets/source-selection.test.js` | Confirmed/in-flight index when switches are rejected or fail                                      |
+| `src/ui/widgets/stepped-slider.test.js`   | DOM, initial state, debounce behaviour                                                            |
+| `src/ui/infobox.test.js`                  | Hide/show, title resolution, SKIP_KEYS, Escape/close, XSS escaping, singleton handler             |
+| `src/ui/site-inspector.test.js`           | Panel build, view index, batch collection, generation guard, raster fallback                      |
+| `src/ui/layer-controls.test.js`           | Opacity inversion semantics, SDK error fallbacks, legend swatches, SDK image fallback/diagnostic  |
+| `src/sdk/legends.test.js`                 | MapX style normalisation, localisation, safety limits, unsupported-style fallbacks, request cache |
+| `src/sdk/legend-model.test.js`            | Shared color/text/value safety and localization rules                                             |
+| `src/sdk/raster-legends.test.js`          | Provider policy, mirror retry, bounded streaming, GeoServer schema, diagnostics, timeout          |
+| `src/sdk/inspect.test.js`                 | `click_attributes` batching, generation counter, discard of stale events                          |
+| `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting        |
 
-`sidebar.js` integration tests (hash restore, reconcile, clear-all) are not yet written — testing them requires a full DOM with `buildSidebar()` and mocked SDK modules.
+`src/ui/sidebar.cross-tab.test.js` builds the full sidebar with mocked SDK modules and covers cross-tab rows, shared-link restore, clear-all and back/forward history entries. Rapid-toggle and clear-during-load cases are not yet covered (see the tracker, unisdr/undrr-risk-resilience-maps#14).
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser

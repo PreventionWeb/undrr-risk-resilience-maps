@@ -105,4 +105,25 @@ describe("buildSubTabs", () => {
     select.dispatchEvent(new Event("change"));
     expect(onChange).toHaveBeenCalledWith(3);
   });
+
+  it("reverts to the previous button when the switch is rejected", async () => {
+    const el = buildSubTabs(SOURCES, 0, () => false, CONFIG);
+    const buttons = el.querySelectorAll(".widget-sub-tab");
+    buttons[2].click();
+    expect(buttons[2].classList.contains("is-active")).toBe(true);
+
+    await vi.waitFor(() => expect(buttons[0].classList.contains("is-active")).toBe(true));
+    expect(buttons[2].classList.contains("is-active")).toBe(false);
+    expect(buttons[2].getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("reverts the select when the switch is rejected", async () => {
+    const sources = [...SOURCES, { id: "d", label: "Delta" }];
+    const el = buildSubTabs(sources, 1, async () => false, CONFIG);
+    const select = el.querySelector(".widget-source-select");
+
+    select.value = "3";
+    select.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(select.value).toBe("1"));
+  });
 });

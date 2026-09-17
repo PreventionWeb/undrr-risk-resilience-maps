@@ -6,16 +6,7 @@
  * this module renders them as a key-value table in a floating infobox.
  */
 
-// MapX internal fields that shouldn't be shown to users
-const SKIP_KEYS = ["gid", "mx_t0", "mx_t1", "geom", "geometry"];
-
-function esc(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
 
 // Single managed Escape handler — replaced on every show, cleaned up on every close
 let _escHandler = null;
@@ -44,7 +35,7 @@ export function showInfobox(data) {
   }
 
   const entries = Object.entries(props).filter(
-    ([k, v]) => !SKIP_KEYS.includes(k.toLowerCase()) && v != null && v !== "",
+    ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && v != null && v !== "",
   );
 
   if (entries.length === 0) {
@@ -65,7 +56,7 @@ export function showInfobox(data) {
     let html = '<table class="mg-table mg-table--small">';
     for (const [key, value] of entries) {
       const label = key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      html += `<tr><th scope="row">${esc(label)}</th><td>${esc(value)}</td></tr>`;
+      html += `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
     }
     html += "</table>";
     body.innerHTML = html;
