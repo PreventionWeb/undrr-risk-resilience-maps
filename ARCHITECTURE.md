@@ -46,7 +46,7 @@ undrr-risk-resilience-maps/
 │   ├── services/
 │   │   └── layer-controller.js # createLayerController(): reconciles layer intent to MapX, latest intent wins
 │   ├── state/
-│   │   ├── store.js            # openViews Set (derived), activeTab
+│   │   ├── store.js            # openViews Set (derived from the layers store)
 │   │   ├── layers-store.js     # createLayersStore(): per-layer intent + applied records, subscribers
 │   │   ├── hash-adapter.js     # createHashAdapter(): read/write/subscribe/destroy over hash.js
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
@@ -162,7 +162,7 @@ programme tracker row, operational risks, and migration triggers.
 
 ### Navigation and layer panel
 
-Category tabs (Risk & Resilience, Hazard, Exposure, Vulnerability) live in a Mangrove `mg-mega-topbar` navigation bar. Home, Sources, and About provide the remaining informational views. `index.html` holds only the home link, a separator and the info links; `createNav()` in `src/ui/nav.js` inserts a link per `TABS` entry before the separator, so adding a tab needs no markup change (a home card still needs a `CARD_VISUAL` entry in `home.js`). Links already in the markup are wired, not duplicated.
+Category tabs (Risk, Resilience, Hazard, Exposure, Vulnerability, in `TABS` order) live in a Mangrove `mg-mega-topbar` navigation bar. Home, Sources, and About provide the remaining informational views. `index.html` holds only the home link, a separator and the info links; `createNav()` in `src/ui/nav.js` inserts a link per `TABS` entry before the separator, so adding a tab needs no markup change (a home card still needs a `CARD_VISUAL` entry in `home.js`). Links already in the markup are wired, not duplicated.
 
 **Two routing modes driven by `switchTab()`:**
 
@@ -208,12 +208,13 @@ To add a new widget type: create a factory function in `src/ui/widgets/`, regist
 
 ### State management
 
-Plain ES module exports with setter functions, no framework.
+Plain ES module exports and per-instance factories, no framework.
 
 **Terminology note:** in the MapX SDK, a dataset on the map is called a "view." In our UI and docs, we call them "layers." The code uses both: `openViews` is the SDK-facing set, but UI labels say "layer."
 
 - `openViews` (Set) — MapX view IDs currently active on the map (derived from the layers store)
-- `activeTab` (string) — currently selected tab ID
+
+The active tab is not module state: each sidebar instance keeps its own (`sidebar.activeTab`, starting from the URL or the `initialTab` option).
 
 **Layers store (unisdr/undrr-risk-resilience-maps#14).** `createLayersStore()` in `src/state/layers-store.js` holds one immutable record per layer key:
 
@@ -306,18 +307,24 @@ const sidebar = createSidebar(root, {
   registry, // optional; default getLayerRegistry()
   tabs, // optional data tabs; default TABS (must be the registry's layer objects)
   onViewsChanged, // optional (count) => void: number of layers on the map, when it changes
+  initialTab, // optional tab shown when the URL names none; default "home"
 });
 await sidebar.restoreFromUrl(); // after MapX is ready: request the URL's layers in URL order
-sidebar.showTab("hazard"); // open a tab as a home card does (switch, expand the panel)
+sidebar.showTab("hazard"); // open a tab as a home card does; the seam for tests and future embeds (createRiskMap)
 sidebar.store; // createLayersStore() instance, null after destroy
 sidebar.controller; // createLayerController() instance, null after destroy
+sidebar.activeTab; // the shown tab id
 sidebar.destroy();
 ```
 
-- **Root scoping.** Elements are found with `root.querySelector('[data-ui="..."]')`: `nav`, `info-page`, `app-map`, `layer-panel`, `panel-body` (required), `panel-toggle`, `clear-layers`, `show-disabled` and `global-footer`. A missing optional element skips its feature. The ids in `index.html` stay for CSS and skip links, but the sidebar never looks elements up by id; tab and info panels are held in Maps, not found by `tab-${id}`.
-- **Instance state.** Rows (`allRows`, `rowsByKey`), panels, the history-entry keys (`actionEntryKeys`), batch depth, "Show disabled", the warned-keys set and the active tab live in the closure. `store.openViews` and `store.activeTab` (`src/state/store.js`) are still written as module-level compatibility state for `main.js`, `sdk/inspect.js` and tests, so two live instances would share them.
+- **Root scoping.** Elements are found by `[data-ui="..."]` under the root: `nav`, `info-page`, `app-map`, `layer-panel`, `panel-body` (required), `panel-toggle`, `clear-layers`, `show-disabled` and `global-footer`. A missing optional element skips its feature. The root is marked `data-ui-root` while the instance lives, and a part belongs to its nearest marked ancestor, so an instance skips the parts of a sidebar root nested inside it (once that nested root is marked). The ids in `index.html` stay for CSS and skip links, but the sidebar never looks elements up by id. Tab and info panels carry `data-tab-panel` and no element id, and are held in Maps.
+- **Instance state.** Rows (`allRows`, `rowsByKey`), panels, the history-entry keys (`actionEntryKeys`), batch depth, "Show disabled", the warned-keys set and the active tab live in the closure.
+- **Still shared between instances.** Two live instances are not supported yet:
+  - `store.openViews` (`src/state/store.js`) is module-level compatibility state that `main.js` and tests read. Every instance mirrors into it, and creating an instance clears it, which wipes the view ids of an instance that is still live.
+  - The Sources page repeats Mangrove's section ids (`mg-tabs__section-sources-N` and `…--trigger`) per instance, because Mangrove's tab links point at them by id.
+  - `isSDKReady()`, `sdk/views.js` and the external runtime registry are module singletons tied to the one MapX iframe.
 - **Listeners.** Every listener the instance adds uses one `AbortController` signal: nav links (`createNav({ signal })`), the panel toggle, Clear all, Show disabled, the home cards (`buildHomePanel({ onNavigate, signal })`), the Sources page controls, and the panel drag and resize (`makeDraggable(el, handle, { signal })`, `makeResizable(el, { signal })`, which also end a drag in progress and remove the grip). The URL subscription and store subscriptions are disposers. Home cards call `onNavigate` instead of dispatching a `navigate-tab` event on `document`.
-- **Destroy.** `destroy()` runs the disposers (controller first), aborts the signal, destroys the rows, removes the DOM the instance built (info pages, tab panels, generated nav links, resize grip) and resets the static Clear all and Show disabled buttons, so a new instance on the same page creates no duplicate ids or handlers. The lifecycle rules under State management apply.
+- **Destroy.** `destroy()` runs the disposers (controller first), aborts the signal (which also runs Mangrove's `mgTabsDestroy` for the Sources tabs, removing its window and font listeners), destroys the rows, removes the DOM the instance built (info pages, tab panels, generated nav links, resize grip) and resets the static Clear all and Show disabled buttons. It also restores the page state it changed: the `#app-map` and `#info-page` display, the global footer, the nav links' active classes and the panel's collapsed state. A new instance on the same page creates no duplicate ids or handlers. The lifecycle rules under State management apply.
 - **`main.js`** is the standalone entry and the only module that reaches for page globals: it passes `document.body` as the root, looks up `#mapx` and `#inspect-toggle`, and wires the inspect toggle through `onViewsChanged`. `initMapServiceRetry(document, reload)` and `startMapServiceRetryCountdown({ reload })` take a `reload` callback (default `location.reload()`).
 
 ### Layer rows

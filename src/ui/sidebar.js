@@ -92,7 +92,9 @@ export function createSidebar(
   const marksRoot = Boolean(rootEl) && !rootEl.hasAttribute(ROOT_ATTR);
   if (marksRoot) rootEl.setAttribute(ROOT_ATTR, "");
   const part = (name) =>
-    [...root.querySelectorAll(`[data-ui="${PARTS[name]}"]`)].find((el) => el.closest(`[${ROOT_ATTR}]`) === rootEl);
+    [...root.querySelectorAll(`[data-ui="${PARTS[name]}"]`)].find(
+      (el) => el.closest(`[${ROOT_ATTR}]`) === rootEl,
+    );
   const sidebarBody = part("panelBody");
   if (!sidebarBody) {
     if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);
@@ -571,7 +573,8 @@ export function createSidebar(
 
   // Read the initial tab from the URL, falling back to the initialTab option.
   const { tab: urlTab } = adapter.read();
-  const firstTab = urlTab && allTabs.includes(urlTab) ? urlTab : allTabs.includes(initialTab) ? initialTab : "home";
+  const firstTab =
+    urlTab && allTabs.includes(urlTab) ? urlTab : allTabs.includes(initialTab) ? initialTab : "home";
   // Preserve a valid incoming URL until MapX is ready and can restore its
   // layers. Writing empty runtime state here would erase the shared link.
   switchTab(firstTab, { syncHash: !urlTab || !allTabs.includes(urlTab), replaceHash: true });
@@ -656,7 +659,11 @@ export function createSidebar(
 
   return {
     restoreFromUrl,
-    /** Open a tab as a home card does: switch to it and expand the layer panel. */
+    /**
+     * Open a tab as a home card does: switch to it and expand the layer panel.
+     * The app itself navigates through the nav and home cards; this is the seam
+     * for tests and future embeds (`createRiskMap`).
+     */
     showTab: navigateTo,
     destroy,
     /** The layers store (null after destroy). */
