@@ -16,24 +16,7 @@
  * selected scientific variant without changing the existing layer syntax.
  */
 
-import { TABS } from "../config/layers.js";
-
-/** Build a flat lookup: key → layer config object. */
-function buildLayerIndex() {
-  const index = new Map();
-  for (const tab of TABS) {
-    for (const layer of tab.layers) {
-      if (layer.key) index.set(layer.key, layer);
-    }
-  }
-  return index;
-}
-
-let _layerIndex = null;
-function getLayerIndex() {
-  if (!_layerIndex) _layerIndex = buildLayerIndex();
-  return _layerIndex;
-}
+import { getLayerRegistry } from "../config/registry.js";
 
 /**
  * Parse the URL hash into { tab, layers }.
@@ -123,7 +106,7 @@ export function writeHash(
  * @returns {object|undefined}
  */
 export function getLayerByKey(key) {
-  return getLayerIndex().get(key);
+  return getLayerRegistry().byKey(key);
 }
 
 /**
