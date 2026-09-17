@@ -18,7 +18,13 @@ import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { hashChangeAction } from "../state/hash.js";
 import { createHashAdapter } from "../state/hash-adapter.js";
-import { changesUrlState, createLayersStore, mirrorOpenViews, toUrlLayers } from "../state/layers-store.js";
+import {
+  changesUrlState,
+  createLayersStore,
+  mirrorOpenViews,
+  toUrlLayers,
+  urlKeyOrder,
+} from "../state/layers-store.js";
 import { addOpacitySlider, addLegend } from "./layer-controls.js";
 import { buildExternalControls } from "./external-controls.js";
 import { isLayerAvailable } from "../config/layers/status.js";
@@ -61,6 +67,9 @@ const INFO_TABS = ["home", "sources", "about"];
 // All valid tab IDs for hash routing
 const DATA_TABS = TABS.map((tab) => tab.id);
 const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
+// Layer keys in the order the URL hash lists them (config order, not the
+// grouped row order of the sidebar).
+const URL_KEY_ORDER = urlKeyOrder(TABS);
 
 // Per-layer records: whether each layer is on, its source/variant and view.
 // `store.openViews` and the URL hash are derived from it by subscribers. Both
@@ -74,6 +83,8 @@ let disposers = [];
 // Built by buildSidebar(); maps layer.key → { layer, eyeBtn, wrapper }
 // Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
 // positional DOM queries that break when layer order changes in config.
+// Filled in sidebar row order (grouped tabs list rows by R2R category), so it
+// is not the hash order; that is URL_KEY_ORDER.
 const layerElementMap = new Map();
 // Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
 // for the compact rows in cross-tab sections, so layers activated outside their
@@ -568,9 +579,7 @@ function syncHashFromState({ replace = false } = {}) {
     updateClearBtn();
     return;
   }
-  // layerElementMap holds the published, keyed layers in config order, which
-  // is the order the hash has always listed them in.
-  const layers = toUrlLayers(getLayersStore().all(), [...layerElementMap.keys()]);
+  const layers = toUrlLayers(getLayersStore().all(), URL_KEY_ORDER);
   stateAdapter.write({ tab: store.activeTab, layers }, { replace });
   updateClearBtn();
 }

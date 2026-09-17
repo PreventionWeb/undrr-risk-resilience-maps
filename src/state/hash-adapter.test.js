@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TABS } from "../config/layers.js";
-import { isLayerAvailable } from "../config/layers/status.js";
 import { createHashAdapter } from "./hash-adapter.js";
-import { createLayersStore, toUrlLayers } from "./layers-store.js";
+import { createLayersStore, toUrlLayers, urlKeyOrder } from "./layers-store.js";
 
 beforeEach(() => {
   history.replaceState(null, "", "#");
@@ -84,10 +83,8 @@ describe("createHashAdapter", () => {
   });
 });
 
-// Published, keyed layers in config order: the order the sidebar serialises in.
-const CONFIG_ORDER = TABS.flatMap((tab) => tab.layers)
-  .filter((layer) => layer.key && isLayerAvailable(layer))
-  .map((layer) => layer.key);
+// The same key order the sidebar serialises the hash in.
+const CONFIG_ORDER = urlKeyOrder(TABS);
 
 const EDRA_VARIANTS = encodeURIComponent(
   JSON.stringify({ "edra-crop-yield-reduction": { crop: "MAIZE", scenario: "30" } }),
@@ -103,6 +100,17 @@ describe("shared-link round trip through the layers store", () => {
       "#hazard?layers=edra-crop-yield-reduction,river-flooding:2&variants=%7B%22edra-crop-yield-reduction%22%3A%7B%22crop%22%3A%22MAIZE%22%2C%22scenario%22%3A%2230%22%7D%7D",
     ],
     ["layers from several tabs", "#exposure?layers=recovery-speed:3,population,hdi"],
+    // Grouped tabs: the sidebar lists these by R2R category (Societies, Economy,
+    // Environment), but links keep config order.
+    ["risk layers from different R2R groups", "#risk-resilience?layers=ecosystem-loss,aal-to-gdp-2025"],
+    [
+      "resilience layers from different R2R groups",
+      "#resilience?layers=change-fiscal-gap,early-warning-coverage",
+    ],
+    [
+      "vulnerability layers from different R2R groups",
+      "#vulnerability?layers=intact-forests,water-stress,hdi",
+    ],
   ])("keeps %s unchanged", (_name, link) => {
     history.replaceState(null, "", link);
     const adapter = createHashAdapter();
@@ -124,6 +132,16 @@ describe("shared-link round trip through the layers store", () => {
 
     expect(location.hash).toBe(link);
     expect(history.length).toBe(lengthBefore);
+  });
+
+  it("covers grouped tabs whose rows are not in config order", () => {
+    // Guards the fixtures above: if these orders ever agree, the grouped-tab
+    // links no longer test anything.
+    for (const id of ["risk-resilience", "resilience", "vulnerability"]) {
+      const tab = TABS.find((candidate) => candidate.id === id);
+      const rowOrder = urlKeyOrder([{ layers: tab.groups.flatMap((group) => group.layers) }]);
+      expect(rowOrder).not.toEqual(urlKeyOrder([tab]));
+    }
   });
 
   it("uses the encoded EDRA variants the fixture expects", () => {

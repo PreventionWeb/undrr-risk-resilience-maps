@@ -11,6 +11,7 @@
  *
  * Nothing here touches the DOM, the URL or the SDK, and nothing runs on import.
  */
+import { isLayerAvailable } from "../config/layers/status.js";
 
 /**
  * @typedef {object} LayerRecord
@@ -121,8 +122,24 @@ export function changesUrlState(next, prev) {
 }
 
 /**
+ * The order layers are listed in the URL hash: published, keyed layers in
+ * config order (`tab.layers` of each tab in turn). This is the walk the hash
+ * was always built from. It is not the sidebar's row order, which regroups a
+ * tab's layers by R2R category (see `withR2rGroups`), so it must not be
+ * derived from the rendered rows.
+ * @param {Array<{ layers: object[] }>} tabs - `TABS` from the layer config
+ * @returns {string[]}
+ */
+export function urlKeyOrder(tabs) {
+  return tabs
+    .flatMap((tab) => tab.layers)
+    .filter((layer) => layer.key && isLayerAvailable(layer))
+    .map((layer) => layer.key);
+}
+
+/**
  * The layers that are on, as URL state entries, ordered by `keyOrder` (config
- * order). Keys not in `keyOrder` are dropped. A layer mid source-switch (no
+ * order, see urlKeyOrder). Keys not in `keyOrder` are dropped. A layer mid source-switch (no
  * view on the map) is left out, as it was when the hash was built from openViews.
  * @param {LayerRecord[]} records
  * @param {string[]} keyOrder
