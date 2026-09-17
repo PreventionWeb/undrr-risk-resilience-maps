@@ -9,14 +9,17 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Fixed
 
 - Opening a shared link, pressing Back/Forward, or clicking "Clear all" no longer adds extra browser history entries, so Back returns to the previous view instead of an intermediate state.
-- A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch is ignored because another is still loading, or when it fails.
+- A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch fails.
 - Clicking "Citation and methodology details", the Acknowledgements "Sources" link, or any link to an in-page anchor no longer turns off every active layer.
 - If MapX fails to remove a layer, its switch now stays on (and it stays in the shareable link) instead of showing as off while the layer is still on the map.
 - Rapid clicks now honour the last action for every kind of layer: double-clicking a switch leaves the layer off, clicking a source and then another quickly ends on the second one (the switcher, map, legend and link agree), and an external layer such as EDRA can be turned off while it is still loading.
 - "Clear all" now also turns off layers that are still loading, and is shown as soon as a layer starts loading.
+- Enter and Space on a layer's switch in the layer list now turn the layer on or off. Before, the key press opened or closed the layer's row instead, so keyboard users could not turn a layer off from its switch.
+- Screen readers now hear when a layer fails to load, turn off or change source, and a switch whose layer is still loading is announced as busy ("Loading …").
 
 ### Changed
 
+- An external layer such as EDRA now reopens with the crop or scenario it last showed when it is turned back on, as compound layers keep their last source. It used to reset to the provider defaults.
 - Load the EDRA external-layer adapter and its `proj4` dependency only when an EDRA layer is turned on, cutting the initial JavaScript from 242 KB to 105 KB (77.5 KB to 31.4 KB gzipped).
 - Request each MapX legend image once per view, and keep cross-tab row controls rendered while their tab is hidden instead of re-requesting them on every tab switch.
 
