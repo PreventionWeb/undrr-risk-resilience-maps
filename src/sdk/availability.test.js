@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   canMapLoad,
+  findMapContainer,
   isMapOnScreen,
   hideMapServiceNotice,
   initMapServiceRetry,
@@ -72,6 +73,7 @@ describe("MapX availability", () => {
   it("gives up once MapX has had its full loading time", () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
+    document.body.innerHTML = `<div id="app-map" data-ui="app-map"></div>`;
     watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
 
     vi.advanceTimersByTime(90);
@@ -102,6 +104,76 @@ describe("MapX availability", () => {
     expect(onTimeout).not.toHaveBeenCalled();
     vi.advanceTimersByTime(10);
     expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  // The warm-up keeps MapX loading behind an information page, but that time is
+  // the user's reading time: counting it armed the notice on a healthy service
+  // that was still loading (measured: armed at 75s, ready at 193s).
+  it("does not spend the ready budget while the map warms up behind an information page", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    document.body.innerHTML = `<div id="app-map" data-ui="app-map" class="is-warming"></div>`;
+    const appMap = document.getElementById("app-map");
+
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
+
+    vi.advanceTimersByTime(10_000);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    // The user opens a data tab: now MapX is the view, and the clock starts.
+    appMap.classList.remove("is-warming");
+    vi.advanceTimersByTime(90);
+    expect(onTimeout).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  // `setInterval` coalesces under load and in background tabs, so a budget that
+  // counted ticks made "30s" whatever the machine felt like.
+  it("spends the budget in elapsed time, not in ticks", () => {
+    const onTimeout = vi.fn();
+    document.body.innerHTML = `<div id="app-map" data-ui="app-map"></div>`;
+    let clock = 0;
+    const scheduled = [];
+    const fakeSetInterval = (fn) => {
+      scheduled.push(fn);
+      return scheduled.length;
+    };
+    vi.stubGlobal("setInterval", fakeSetInterval);
+    vi.stubGlobal("clearInterval", () => {});
+
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, now: () => clock });
+    const tick = scheduled[0];
+
+    // Two ticks, but 120ms of real time between them: the budget is spent.
+    clock = 60;
+    tick();
+    expect(onTimeout).not.toHaveBeenCalled();
+    clock = 120;
+    tick();
+    expect(onTimeout).toHaveBeenCalledOnce();
+
+    vi.unstubAllGlobals();
+  });
+
+  // Nothing ever brings the map on screen (a background tab, an unanswered PIN
+  // gate): the watch must not keep a 2 Hz interval alive for the life of the
+  // page, and it must not accuse the service either.
+  it("stops watching after its wall-clock bound", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    const shouldCount = vi.fn(() => false);
+
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, maxWatchMs: 200, shouldCount });
+
+    vi.advanceTimersByTime(1_000);
+    const ticks = shouldCount.mock.calls.length;
+    expect(ticks).toBeLessThanOrEqual(200 / 10);
+
+    // And it really has stopped, rather than merely stopped counting.
+    vi.advanceTimersByTime(10_000);
+    expect(shouldCount).toHaveBeenCalledTimes(ticks);
+    expect(onTimeout).not.toHaveBeenCalled();
   });
 
   describe("canMapLoad", () => {
@@ -162,6 +234,30 @@ describe("MapX availability", () => {
       document.body.innerHTML = `<div id="app-map" style="display: none"></div>`;
       expect(isMapOnScreen(document)).toBe(false);
     });
+
+    // The opposite of `canMapLoad`, deliberately: "don't stall a watch on an
+    // element that isn't there" is not "reload a page that has no map in it".
+    it("is false when there is no map container at all", () => {
+      document.body.replaceChildren();
+      expect(canMapLoad(document)).toBe(true);
+      expect(isMapOnScreen(document)).toBe(false);
+    });
+  });
+
+  // The predicates and `ui/map-warming.js` have to be talking about the same
+  // element, and the sidebar acts on the root-scoped `data-ui` hook.
+  describe("the map container the predicates read", () => {
+    it("is the `data-ui` hook, as in an embed with no #app-map id", () => {
+      document.body.innerHTML = `<div data-ui="app-map" class="is-warming"></div>`;
+      expect(findMapContainer(document)).toBe(document.querySelector('[data-ui="app-map"]'));
+      expect(isMapOnScreen(document)).toBe(false);
+    });
+
+    it("falls back to the id for a page that only has that", () => {
+      document.body.innerHTML = `<div id="app-map" class="is-warming"></div>`;
+      expect(findMapContainer(document)).toBe(document.getElementById("app-map"));
+      expect(isMapOnScreen(document)).toBe(false);
+    });
   });
 
   it("shows, hides, and retries from the service notice", () => {
@@ -183,7 +279,9 @@ describe("MapX availability", () => {
 
   it("counts down and automatically retries MapX", () => {
     vi.useFakeTimers();
-    document.body.innerHTML = `<p id="map-service-countdown"></p>`;
+    // The map is the view the user is on: the default `shouldCountDown` reads
+    // that from the container, and a page with no map never counts down.
+    document.body.innerHTML = `<div id="app-map" data-ui="app-map"></div><p id="map-service-countdown"></p>`;
     const reload = vi.fn();
 
     startMapServiceRetryCountdown({ documentRef: document, reload, seconds: 3 });

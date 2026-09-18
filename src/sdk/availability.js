@@ -3,8 +3,8 @@ export const MAPX_SDK_URL = "https://app.mapx.org/sdk/mxsdk.umd.js";
 const SDK_LOAD_TIMEOUT_MS = 15_000;
 
 /**
- * How long MapX gets to reach its `ready` event, counted only while the map can
- * actually load (see `canMapLoad`).
+ * How long MapX gets to reach its `ready` event, counted only while the map is
+ * the view the user is on (see `isMapOnScreen`).
  *
  * Measured against the live service from a cold browser profile, `ready` lands
  * 2.2-3.5s after the iframe first becomes renderable (1.1s warm). 30s is a
@@ -22,6 +22,36 @@ export const MAP_WARMING_CLASS = "is-warming";
 
 /** How often the ready watch re-checks whether MapX can make progress. */
 const READY_TICK_MS = 500;
+
+/**
+ * Wall-clock bound on the ready watch.
+ *
+ * The budget is spent, not elapsed, so a page nobody ever brings the map onto
+ * -- a background tab, a PIN gate nobody answers, an information page read for
+ * an afternoon -- would otherwise keep a 2 Hz interval alive for the life of
+ * the page and never reach a verdict. After this the watch stops without
+ * accusing the service; a reload (or the retry countdown) arms a fresh one.
+ */
+const MAX_WATCH_MS = 15 * 60_000;
+
+/**
+ * The map container, as both the app and an embed mark it.
+ *
+ * `data-ui="app-map"` is the hook the sidebar acts on, and `#app-map` is what
+ * the standalone page calls the same element; looking for the hook first keeps
+ * these predicates and `ui/map-warming.js` talking about one element in an
+ * embed that has no `#app-map` id. A page with more than one sidebar root has
+ * more than one map, and these module-level predicates answer for the first;
+ * such a page needs per-instance availability, which this module does not do.
+ *
+ * @param {Document} [documentRef]
+ * @returns {Element|null}
+ */
+export function findMapContainer(documentRef = document) {
+  const scoped = documentRef.querySelector?.('[data-ui="app-map"]');
+  if (scoped) return scoped;
+  return documentRef.getElementById?.("app-map") ?? null;
+}
 
 export function loadMapXSdk({
   documentRef = document,
@@ -85,9 +115,13 @@ export function loadMapXSdk({
 export function canMapLoad(documentRef = document) {
   if (documentRef.visibilityState === "hidden") return false;
 
-  const container = documentRef.getElementById("app-map");
+  const container = findMapContainer(documentRef);
   // No container to reason about: don't stall the watch on a missing element.
   if (!container) return true;
+  // Set by `ui/map-warming.js` wherever the warm-up does not apply: `inert` is
+  // unsupported, or the warm-up is not worth its cost on this device or
+  // connection. The map is then hidden as it was before the warm-up existed,
+  // and it really cannot load.
   if (container.style.display === "none") return false;
 
   const styles = documentRef.defaultView?.getComputedStyle?.(container);
@@ -103,32 +137,51 @@ export function canMapLoad(documentRef = document) {
  * still loading, but it is behind the page, transparent and inert, so nothing
  * may happen that the user would only understand if they could see the map --
  * in particular the retry countdown must not reload the page out from under
- * someone who is reading.
+ * someone who is reading, and the ready budget must not be spent on a map
+ * nobody is looking at.
+ *
+ * A missing container is false here, the opposite of `canMapLoad`: "don't stall
+ * a watch on an element that isn't there" is not the same as "reload a page
+ * that has no map in it".
  *
  * @param {Document} [documentRef]
  * @returns {boolean}
  */
 export function isMapOnScreen(documentRef = document) {
   if (!canMapLoad(documentRef)) return false;
-  const container = documentRef.getElementById("app-map");
-  return !container?.classList?.contains(MAP_WARMING_CLASS);
+  const container = findMapContainer(documentRef);
+  if (!container) return false;
+  return !container.classList?.contains(MAP_WARMING_CLASS);
 }
 
 /**
  * Wait for MapX to become ready, calling `onTimeout` if it never does.
  *
- * The budget is spent, not elapsed: it only ticks down while `canMapLoad()`
- * says the iframe is being rendered. Otherwise a user reading the home page,
- * sitting behind the preview PIN gate, or leaving the tab in the background
- * would see the map-service notice for a perfectly healthy service.
+ * The budget is spent, not elapsed, and it is spent on `isMapOnScreen()` --
+ * time in which the map is the view the user is on -- not merely on time in
+ * which it could load. The map also loads while it warms up behind an
+ * information page, but that time is the user's reading time, not MapX's
+ * loading time: on a 400 kbps / 400 ms link, counting it armed the notice 75s
+ * in, while still on `#home`, for a service that became ready at 193s. The
+ * first thing a data-tab click would then show is "The map is temporarily
+ * unavailable", with a reload countdown, before the map had a second on
+ * screen. Spending the budget on-screen keeps 30s as a ~10x margin over a real
+ * cold load, and the warm-up still happens -- it simply cannot accuse a healthy
+ * service on the user's behalf.
+ *
+ * Each tick subtracts the time that actually elapsed since the last one, not
+ * the nominal tick: `setInterval` coalesces under load and in background tabs,
+ * so counting ticks made "30s" whatever the machine felt like.
  *
  * @param {() => void} onTimeout
  * @param {object} [options]
- * @param {number} [options.timeoutMs] - loading time MapX is allowed
+ * @param {number} [options.timeoutMs] - on-screen loading time MapX is allowed
  * @param {Document} [options.documentRef]
  * @param {number} [options.tickMs] - how often progress is re-checked
  * @param {(documentRef: Document) => boolean} [options.shouldCount] - override
  *   the progress check (used by tests)
+ * @param {number} [options.maxWatchMs] - wall-clock bound on the watch itself
+ * @param {() => number} [options.now] - clock (used by tests)
  * @returns {() => void} cancel the watch
  */
 export function watchForMapReady(
@@ -137,14 +190,27 @@ export function watchForMapReady(
     timeoutMs = SDK_READY_TIMEOUT_MS,
     documentRef = document,
     tickMs = READY_TICK_MS,
-    shouldCount = canMapLoad,
+    shouldCount = isMapOnScreen,
+    maxWatchMs = MAX_WATCH_MS,
+    now = () => Date.now(),
   } = {},
 ) {
   let remaining = timeoutMs;
+  const startedAt = now();
+  let lastTickAt = startedAt;
 
   const interval = setInterval(() => {
+    const at = now();
+    const elapsed = at - lastTickAt;
+    lastTickAt = at;
+
+    if (at - startedAt >= maxWatchMs) {
+      clearInterval(interval);
+      return;
+    }
     if (!shouldCount(documentRef)) return;
-    remaining -= tickMs;
+
+    remaining -= elapsed;
     if (remaining > 0) return;
     clearInterval(interval);
     onTimeout();
