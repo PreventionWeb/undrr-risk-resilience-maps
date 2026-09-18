@@ -18,7 +18,7 @@
 
 import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
-import { initMangroveCopyButtons } from "./mangrove-copy-button.js";
+import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
 import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
 
@@ -107,6 +107,11 @@ export function showSiteInspector(result) {
   // form: the component owns the clipboard write, its fallback for
   // non-secure contexts, the transient feedback tooltip and the aria-live
   // announcement. The copied text is the same "lat, lng" as before.
+  //
+  // Its behaviour comes from a CDN module, so until that module lands — and
+  // for good if it never does — a local handler does the same job. It is
+  // dropped the moment the module reports it applied, so only one of the two
+  // is ever listening and a click is never copied or announced twice.
   const coordsEl = panel.querySelector(".site-inspector-coords");
   const lat = lngLat.lat.toFixed(5);
   const lng = lngLat.lng.toFixed(5);
@@ -127,7 +132,10 @@ export function showSiteInspector(result) {
       ><span class="mg-u-sr-only" aria-live="polite"></span>
     </button>
   `;
-  initMangroveCopyButtons(coordsEl, { signal: _renderController.signal });
+  const detachCopyFallback = attachCopyButtonFallback(coordsEl.querySelector(".site-inspector-coords-copy"));
+  initMangroveCopyButtons(coordsEl, { signal: _renderController.signal }).then((applied) => {
+    if (applied) detachCopyFallback();
+  });
 
   // Layer rows
   const layersEl = panel.querySelector(".site-inspector-layers");

@@ -32,14 +32,20 @@ vi.mock("../config/layers.js", () => ({
 }));
 
 // The copy button's behaviour comes from Mangrove's CDN module; record how the
-// panel asks for it instead of fetching it.
-const copyButton = vi.hoisted(() => ({ calls: [] }));
-vi.mock("./mangrove-copy-button.js", () => ({
-  initMangroveCopyButtons: (scope, options) => {
-    copyButton.calls.push({ scope, options });
-    return Promise.resolve(true);
-  },
-}));
+// panel asks for it instead of fetching it. `loaded` stands in for the module
+// request, so a test can leave it pending (a slow CDN) or settle it false (a
+// CDN that never answers). The local fallback is the real one.
+const copyButton = vi.hoisted(() => ({ calls: [], loaded: null }));
+vi.mock("./mangrove-copy-button.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    initMangroveCopyButtons: (scope, options) => {
+      copyButton.calls.push({ scope, options });
+      return copyButton.loaded;
+    },
+  };
+});
 
 import {
   buildSiteInspectorPanel,
@@ -55,6 +61,9 @@ function setupDOM() {
 beforeEach(() => {
   setupDOM();
   copyButton.calls.length = 0;
+  // By default the module is already in: `initMangroveCopyButtons` resolves
+  // true on the next microtask, exactly as a warm cache would.
+  copyButton.loaded = Promise.resolve(true);
 });
 
 describe("buildSiteInspectorPanel", () => {
@@ -193,21 +202,97 @@ describe("the coordinates copy button", () => {
     expect(second.aborted).toBe(true);
   });
 
-  it("does not add a click listener of its own", () => {
-    show();
-    const button = document.querySelector(".site-inspector-coords-copy");
-    const writeText = vi.fn(() => Promise.resolve());
-    const clipboard = navigator.clipboard;
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    try {
-      button.click();
-      // Only the Mangrove module writes to the clipboard, and it is mocked out
-      // here, so nothing should have been written.
-      expect(writeText).not.toHaveBeenCalled();
-    } finally {
-      if (clipboard === undefined) delete navigator.clipboard;
-      else Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+  /**
+   * The module is a CDN import, so it can be late or never arrive. The button
+   * is present, focusable and labelled from the moment the panel renders, so
+   * it has to copy from that moment too; the three tests below cover the
+   * module landing, the module never landing, and a click inside the window
+   * before it lands.
+   */
+  describe("without the Mangrove module", () => {
+    /** Swap in a recording clipboard for the duration of `fn`. */
+    async function withClipboard(fn) {
+      const writeText = vi.fn(() => Promise.resolve());
+      const clipboard = navigator.clipboard;
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      try {
+        await fn(writeText);
+      } finally {
+        if (clipboard === undefined) delete navigator.clipboard;
+        else Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+      }
     }
+
+    it("still copies when the module never loads, and says so", async () => {
+      copyButton.loaded = Promise.resolve(false);
+      show();
+      await copyButton.loaded;
+
+      await withClipboard(async (writeText) => {
+        const button = document.querySelector(".site-inspector-coords-copy");
+        button.click();
+        await Promise.resolve();
+
+        expect(writeText).toHaveBeenCalledTimes(1);
+        expect(writeText).toHaveBeenCalledWith("12.34567, -56.78901");
+        expect(button.classList.contains("mg-copy-button--copied")).toBe(true);
+        expect(
+          button
+            .querySelector(".mg-copy-button__feedback")
+            .classList.contains("mg-copy-button__feedback--visible"),
+        ).toBe(true);
+        expect(button.querySelector(".mg-u-sr-only").textContent).toBe("Coordinates copied to clipboard.");
+      });
+    });
+
+    it("copies a click made while the module is still loading, exactly once", async () => {
+      let applied;
+      copyButton.loaded = new Promise((resolve) => (applied = resolve));
+      show();
+
+      await withClipboard(async (writeText) => {
+        const button = document.querySelector(".site-inspector-coords-copy");
+        // Mid-load: the module is not in yet, so the local handler answers.
+        button.click();
+        await Promise.resolve();
+        expect(writeText).toHaveBeenCalledTimes(1);
+
+        // The module lands and takes over; the local handler is dropped, so a
+        // second click is not written (or announced) twice.
+        applied(true);
+        await copyButton.loaded;
+        await Promise.resolve();
+        button.click();
+        await Promise.resolve();
+        expect(writeText).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("says the copy failed when the clipboard refuses", async () => {
+      copyButton.loaded = Promise.resolve(false);
+      show();
+      await copyButton.loaded;
+
+      const clipboard = navigator.clipboard;
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: () => Promise.reject(new Error("denied")) },
+        configurable: true,
+      });
+      try {
+        const button = document.querySelector(".site-inspector-coords-copy");
+        button.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(button.classList.contains("mg-copy-button--copied")).toBe(false);
+        expect(button.querySelector(".mg-u-sr-only").textContent).toBe(
+          "Copy failed. Select the text and copy it manually.",
+        );
+      } finally {
+        if (clipboard === undefined) delete navigator.clipboard;
+        else Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+      }
+    });
   });
 });
 

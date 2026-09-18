@@ -23,8 +23,16 @@
  * with the stylesheet. Keep MANGROVE_VERSION aligned with the `<link>` in
  * index.html and with mangrove-tabs.js.
  *
- * Enhancement is optional: the authored markup is an ordinary button, so a
- * load failure leaves an inert control rather than a broken panel.
+ * Unlike mangrove-tabs.js, "never applied, never broken" does NOT hold here.
+ * Without the tabs module every panel renders in sequence, so the content is
+ * still reachable; without this module the copy button is present, focusable,
+ * not disabled and announced as "Copy coordinates" — and does nothing at all.
+ * An inert affordance is worse than the hand-rolled control it replaced, and
+ * the window is real: a slow CDN leaves clicks made in the first seconds after
+ * the inspector opens unanswered. So `attachCopyButtonFallback()` below wires a
+ * local click handler at render time, and the caller drops it only once
+ * `initMangroveCopyButtons()` has resolved true — the two are never both live,
+ * so nothing is copied or announced twice.
  */
 
 const MANGROVE_VERSION = "2.0.0-rc.2";
@@ -79,6 +87,67 @@ export async function initMangroveCopyButtons(scope = document, { importImpl, si
   } catch {
     return false;
   }
+}
+
+/** How long the copied state stays up, matching rc.2's copy-button module. */
+const FEEDBACK_MS = 2000;
+const FAILURE_MS = 5000;
+
+/**
+ * Wire a local click handler on one `[data-mg-copy-button]`, doing what the
+ * Mangrove module would: write `data-text-to-copy`, raise the copied state and
+ * its tooltip, and put the copied label into the button's own `aria-live`
+ * region, with the failure wording on a rejected write. It reads the same
+ * `data-*` attributes as the module, so the two behave identically.
+ *
+ * This exists only to cover the window before the CDN module resolves (and the
+ * case where it never does). Detach it as soon as the module is in.
+ * @param {HTMLElement | null} button
+ * @returns {() => void} detach
+ */
+export function attachCopyButtonFallback(button) {
+  if (!button?.addEventListener) return () => {};
+
+  let timer = null;
+  const feedbackEl = button.querySelector(".mg-copy-button__feedback");
+  const liveRegion = button.querySelector(".mg-u-sr-only");
+
+  const reset = () => {
+    button.classList.remove("mg-copy-button--copied");
+    feedbackEl?.classList.remove("mg-copy-button__feedback--visible", "mg-copy-button__feedback--error");
+    if (liveRegion) liveRegion.textContent = "";
+  };
+
+  const onClick = async () => {
+    const { textToCopy = "", tooltipLabel, copiedLabel, failedTooltipLabel, failedLabel } = button.dataset;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(textToCopy);
+      button.classList.add("mg-copy-button--copied");
+      if (feedbackEl) {
+        feedbackEl.textContent = tooltipLabel || "Copied!";
+        feedbackEl.classList.add("mg-copy-button__feedback--visible");
+      }
+      if (liveRegion) liveRegion.textContent = copiedLabel || "Copied to clipboard.";
+      clearTimeout(timer);
+      timer = setTimeout(reset, FEEDBACK_MS);
+    } catch {
+      if (feedbackEl) {
+        feedbackEl.textContent = failedTooltipLabel || "Copy failed";
+        feedbackEl.classList.add("mg-copy-button__feedback--visible", "mg-copy-button__feedback--error");
+      }
+      if (liveRegion) {
+        liveRegion.textContent = failedLabel || "Copy failed. Select the text and copy it manually.";
+      }
+      clearTimeout(timer);
+      timer = setTimeout(reset, FAILURE_MS);
+    }
+  };
+
+  button.addEventListener("click", onClick);
+  // The pending timer is left to run: it only clears the transient state, and
+  // cancelling it here would freeze a "Copied!" tooltip on screen.
+  return () => button.removeEventListener("click", onClick);
 }
 
 export { COPY_BUTTON_MODULE_URL };
