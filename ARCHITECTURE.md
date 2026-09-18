@@ -439,17 +439,17 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-form-label`, `mg-form-select`, `mg-form-error` — compound-layer source switcher and the row-level failure message
 - `mg-form-help` — layer descriptions and the row-level "Turning on" / "Turning off" pending text
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
-- `mg-icon` (`-close`, `-exclamation-triangle`) — the close buttons on the infobox and site inspector, and the map-service notice's warning symbol. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
+- `mg-icon` (`-close`, `-exclamation-triangle`, `-refresh`, `-external-link`, `-copy`) — the close buttons on the infobox and site inspector; the map-service notice's warning symbol, its "Try again" arrow and the new-tab mark on its status link; and the site inspector's copy control. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
 - `mg-status-label` — publication status for planned datasets on the Sources page, and the "Offline" badge in the map-service notice
-- `mg-notice` (`--warning`, `--overlay`, `__header`, `__icon`, `__title`, `__description`, `__meta`, `__actions`) — the map-service notice, as ServiceNotice's CSS-only markup. `--overlay` gives the absolute inset, the centring, the 94% neutral-0 wash and its `backdrop-filter`; `map-service-notice.css` adds only the stacking order, the 22rem inline-start inset that clears the layer panel and the `[hidden]` rule. The React hydration path (`data-mg-service-notice`) is deliberately not used: the retry, the countdown and the capped retries are `src/sdk/availability.js`
+- `mg-notice` (`--warning`, `--overlay`, `__header`, `__icon`, `__title`, `__description`, `__meta`, `__actions`) — the map-service notice, as ServiceNotice's CSS-only markup. `--overlay` gives the absolute inset, the centring, the 94% neutral-0 wash and its `backdrop-filter`; `map-service-notice.css` adds only the stacking order, the 22rem inline-start inset that clears the layer panel, the `[hidden]` rule and `border: 0` (the component's 1px severity border traces the overlay, and this overlay is the whole map embed, so it drew a gold hairline around the map rather than around a notice). The React hydration path (`data-mg-service-notice`) is deliberately not used: the retry, the countdown and the capped retries are `src/sdk/availability.js`
 - `mg-buttons` — the action row inside the notice
 - `mg-copy-button` (`__feedback`) — the "copy coordinates" control in the site inspector, initialised by `mgCopyButton()` (see Mangrove JavaScript)
 - `mg-details` — expandable planning sections on the Sources page
-- `mg-accordion` (`--flush`) — the layer panel's two disclosure stacks: the R2R group subheadings and the collapsed cross-tab sections. It supplies the summary's flex row, the rotating chevron with reduced-motion handling, the minimum hit target, the inset focus ring and the open/closed divider; `layer-accordion.css` scales the summary type back to panel size. `mg-details` is deliberately not combined with it here, because `details.mg-details p` would restyle the layer descriptions and cross-tab group labels inside the stack
+- `mg-accordion` (`--flush`) — the layer panel's two disclosure stacks: the R2R group subheadings and the collapsed cross-tab sections. It supplies the summary's flex row, the rotating chevron with reduced-motion handling, the 2.75rem minimum hit target, the inset focus ring and the open/closed divider. `layer-accordion.css` scales the summary _type_ back to panel size but leaves the height alone, so both summaries measure 44px where the group headings were 36.2px and the cross-tab summaries 41.6px before. It also restates the leading padding at 1.25rem: Mangrove's chevron is a trailing `::after` where the old glyph was a leading `::before`, so without it the heading text starts left of the rows it labels rather than between a row's expand arrow and its label. The stack's container rules are written as `.mg-accordion.layer-groups` / `.mg-accordion.cross-tab-sections`, because `.mg-accordion`'s own declarations are (0,1,0) and a single class would win only on emission order; the last cross-tab section restates the bottom border that `details:not(:last-child)` leaves off. `mg-details` is deliberately not combined with the accordion here, because `details.mg-details p` would restyle the layer descriptions and cross-tab group labels inside the stack
 - `mg-container` — centred layout
 - `mg-skip-link` — accessible skip navigation link revealing on keyboard focus
 - `mg-table`, `mg-table-scroll-region` — feature attribute table in the infobox and accessible scroll region for wide data tables
-- `mg-table--data`, `mg-table__th--sticky`, `mg-table__td--code` — the Sources tables: compact padding, subtle dividers and an uppercase header band, headers pinned while the region scrolls (which is why `.data-table-wrap` caps at 70vh), and the MapX-ID cells in the code face. `mg-table__th--sortable` is not used: it styles a header containing a sorting button and reflects `aria-sort`, but nothing sorts the rows and the script to do so is out of scope
+- `mg-table--data`, `mg-table__th--sticky`, `mg-table__td--code` — the Sources tables: compact padding, subtle dividers and an uppercase header band, headers pinned while the region scrolls (which is why `.data-table-wrap` caps at 70vh — released again in `@media print`, where there is no scroll container and the cap would truncate the citations), and the MapX-ID cells in the code face. `mg-table__th--sortable` is not used: it styles a header containing a sorting button and reflects `aria-sort`, but nothing sorts the rows and the script to do so is out of scope. rc.2 has a specificity bug here: `.mg-table td, .mg-table th` is (0,1,1) and defeats both `.mg-table--data` and `.mg-table__td--code` at (0,1,0), so the compact body size never lands without a local restatement (`.data-table td.mg-table__td--code`). `--small` and the `--data` header band are written as (0,2,1) and do work
 - `mg-tabs` — category tabs on the Sources page, stacking below 480px
 - `mg-footer` — UNDRR global footer, syndicated from PreventionWeb
 - `mg-preview-access` — preview PIN gate, configured from `data-mg-preview-*` attributes
@@ -477,6 +477,16 @@ leaves the authored markup working, not broken.
   can outlive its markup — the inspector aborts the previous render's controller
   before each rebuild and on close, so a slow module load never wires a row that
   is already gone. A destroy export is still called if a later release adds one.
+
+  Unlike the tabs loader, this one is **not** optional in the "never applied,
+  never broken" sense. Without the tabs module every panel still renders, so the
+  content stays reachable; without the copy module the button is present,
+  focusable, not disabled and labelled — and inert. So the inspector attaches a
+  local click handler (`attachCopyButtonFallback`) at render time, reading the
+  same `data-*` attributes and raising the same copied state, tooltip and
+  `aria-live` text, and drops it only once `initMangroveCopyButtons` reports the
+  module applied. The two are never both listening, so a click is never copied
+  or announced twice.
 
 ### Preview access gate
 
