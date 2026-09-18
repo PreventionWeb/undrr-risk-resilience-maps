@@ -143,7 +143,14 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   };
   updateFullViewerLink(map.getState());
 
-  map.on("ready", (payload) => bridge.post("ready", { version: MESSAGE_VERSION, locked: false, ...payload }));
+  // `locked` is read from the gate, never assumed: the field means "the gate is
+  // open", so it has to be the gate's answer at the moment the message is
+  // posted. In practice a locked embed never gets here (MapX cannot load behind
+  // the gate's `visibility: hidden` — see #24), but a stubbed or future map that
+  // does become ready must not tell the host the gate opened.
+  map.on("ready", (payload) =>
+    bridge.post("ready", { version: MESSAGE_VERSION, ...payload, locked: gate.locked }),
+  );
   map.on("state", (state) => {
     updateFullViewerLink(state);
     // While locked, reporting state would let a host read a gated prototype.

@@ -275,8 +275,10 @@ fails silently. Recommend `allow="fullscreen; clipboard-write"`. The SDK creates
 without an `allow` attribute, so geolocation and fullscreen inside MapX are unavailable in any mode.
 Immersive mode hides those controls anyway.
 
-**Storage partitioning.** Browsers partition storage and cookies in third-party iframes by top-level
-site. The app stores nothing itself (B16). MapX in a nested frame works anonymously for public views
+**Storage partitioning.** Current browsers partition storage and cookies in third-party iframes by
+top-level site — by default, and not unconditionally: see "What a host has to know" in §8 for what was
+measured, and for the ways a top-level site or a policy can switch it off. The app stores nothing
+itself (B16). MapX in a nested frame works anonymously for public views
 today (the standalone app is already a third-party context for MapX). **Unknown:** whether any MapX
 feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
 it will break in every embed mode and needs the Storage Access API or a MapX token.
@@ -572,12 +574,46 @@ inside an iframe as much as at top level. It remains a "wet paint" sign rather t
 the PIN is in the markup, by design. Anything that genuinely must not be seen has to be gated at the
 edge, and that is a hosting decision, not a markup one.
 
-**What a host has to know.** `sessionStorage` is per tab, and a third-party frame's storage is
-partitioned by the top-level site, so **an unlock on the standalone viewer does not carry into an
-embed on another site, and an unlock inside the embed does not carry out of it**. A visitor of your
-page enters the PIN inside the frame, once per tab. (Measured: two `localhost` ports are the same
-_site_, so a local harness shares one partition and the unlock does appear to carry — which is why a
-local test cannot be used to conclude anything about a real host. Two real sites do not share it.)
+**What a host has to know.** `sessionStorage` is per tab, and in a browser that partitions
+third-party storage the frame's `sessionStorage` is keyed by the top-level site as well, so **a
+visitor of your page enters the PIN inside the frame, once per tab** — an unlock on the standalone
+viewer does not carry in, and an unlock inside the frame does not carry out. That is a property of
+the browser, not of anything this repo does, so it is worth being exact about what was measured and
+what it rests on:
+
+- **Measured** (September 2026, the _built_ output, Playwright's Chromium 1234 / Chrome for Testing
+  153, two genuinely different sites — `viewer.test` and `hostsite.test`, both resolved to
+  `127.0.0.1` with `--host-resolver-rules`): with partitioning **on**, a viewer unlocked at top level
+  and then a host page framing `embed.html` in the same tab — the frame's `sessionStorage` was empty,
+  the gate was shut, the PIN overlay was up and `.embed-root` computed `visibility: hidden`. With
+  partitioning **off**, the same frame read the same `sessionStorage`, came up already unlocked and
+  showed no overlay at all.
+- **The trap in measuring it.** Playwright launches Chromium with
+  `--disable-features=…,ThirdPartyStoragePartitioning` (microsoft/playwright#32230), so an
+  out-of-the-box Playwright run measures a browser with partitioning switched off and will report
+  that the unlock _is_ shared. (Two `localhost` ports are also the same _site_, so a harness built
+  from two ports cannot show partitioning either, whatever the flags say.) Neither is evidence about
+  a real host.
+- **What browsers actually do.** Chrome has partitioned third-party storage for all users since
+  Chrome 115, and `sessionStorage` is explicitly in scope. Firefox's State Partitioning, on by
+  default since Firefox 103, partitions `sessionStorage` too. So the default answer in current Chrome
+  and Firefox is the one above.
+- **Uncertain.** Safari was not measured here, and neither was any browser other than Chromium — the
+  Chrome and Firefox defaults above are read from their documentation, not from a run. What _was_
+  measured is that a browser with partitioning off shares the unlock, and that state is reachable in
+  the field: Chrome's `DisableThirdPartyStoragePartitioning3` deprecation trial lets a _top-level
+  site_ opt its embedded third parties back into unpartitioned storage, enterprise policy can do the
+  same, and older browsers never partitioned at all.
+
+**So partitioning is not a barrier this prototype may lean on.** Where it is absent — a host that
+took the deprecation trial, a managed browser with the policy off, an older browser, or simply a host
+page on the _same site_ as the viewer — a visitor who unlocked the standalone viewer earlier in that
+tab gets a PIN-free embed. That does not change the access-control story, because there was never one
+to change: the PIN is in the markup, so the gate is a "wet paint" sign and nothing more (see "What the
+gate is worth" above). It does mean the gate is worth _less_ than a reading of this section that
+treats partitioning as a second lock, and it is one more reason the ordering under "Before a real host
+gets a PIN-free embed" ends at the edge rather than in the page.
+
 If a browser blocks the frame's storage altogether, Mangrove catches the failure, reveals the page for
 that load and simply asks again on the next one: the PIN always works, it is only never remembered.
 There is no state in which a visitor cannot get in.

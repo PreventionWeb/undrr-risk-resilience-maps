@@ -20,8 +20,10 @@
          frame and drive. Until hosting can set those headers, the gate is the
          barrier on both ends -- see docs/embedding.md §8, "The preview gate in
          an embed", for what that means for a host (its visitors enter the PIN
-         inside the frame, because third-party storage is partitioned) and for
-         what has to change before a host gets a PIN-free embed. -->
+         inside the frame in any browser that partitions third-party storage,
+         which current Chrome and Firefox do by default -- though not
+         unconditionally; that section records what was measured) and for what
+         has to change before a host gets a PIN-free embed. -->
     <div
       data-mg-preview-access
       data-mg-preview-id="grar-map-viewer"
