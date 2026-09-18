@@ -317,24 +317,25 @@ PR description with its reason and the follow-up issue.
 | 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                                 | 1.5–2 weeks                    |
 | 2b    | Two maps on one page (shared caches keyed per section 3); ties in with side-by-side panels (`TODO.md`)                                 | 3–5 days                       |
 
-Open questions for the maintainer:
+Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps#15):
 
-1. **Target hosts.** Which sites embed first (PreventionWeb, undrr.org country pages, partner
-   sites), and do any forbid third-party iframes or allow only their own CSP?
-2. **Is the script embed truly needed?** Is there a concrete host requirement (auto-height, host
-   filters, several maps per page) that the iframe plus messages can't meet? If not, stop at
-   phase 1.
-3. **Access control in embeds.** Is embedding allowed before the PIN gate is replaced, and what
-   replaces it? Is a `frame-ancestors` allowlist acceptable as the prototype barrier?
-4. **Hosting.** Will production stay on GitHub Pages (no response headers) or move behind UNDRR
-   infrastructure or a CDN that can set CSP?
-5. **Chrome and branding.** Must embeds keep the UNDRR header or attribution link when placed on
-   partner sites? Should the info pages (Home, Sources, About) exist in embeds?
-6. **Deep links.** Should embedded map state appear in the host URL (`queryParamAdapter`), or is
-   an "open full viewer" link enough?
-7. **Analytics.** Whose analytics count embed usage: host events via `state` messages, our own
-   tracking inside the iframe (consent implications on host sites), or both?
-8. **Language.** Is a `language` option needed in the first embed (MapX supports it; our UI strings
-   are English-only today)?
-9. **MapX terms.** Does UNEP/GRID-Geneva have any policy or rate limit on MapX being framed inside a
-   third-party iframe at scale? This is unverified; the response headers currently allow it.
+1. **Target hosts.** UNDRR.org and PreventionWeb.net first. Neither restricts iframes through CSP.
+2. **Is the script embed truly needed?** No — start with the iframe and see how far it goes. That
+   settles the phasing below: build phase 1, and treat phase 2 as conditional on a host needing
+   something the iframe cannot give.
+3. **Access control in embeds.** Embeds may ship before the PIN gate is replaced, and a
+   `frame-ancestors` allowlist is acceptable as the prototype barrier.
+4. **Hosting.** Not yet decided. Likely still GitHub Pages, possibly mapped to a subdomain such as
+   `riskmaps.undrr.org`. So the embed must not depend on response headers until hosting can send
+   them — `frame-ancestors` is a follow-up, not a prerequisite.
+5. **Chrome and branding.** Attribution can be subtle. The info pages are not required in embeds.
+6. **Deep links.** Host-URL state is a nice-to-have, not phase 1. The embed must still never write
+   to the host's history.
+7. **Analytics.** Track on the embed — usage is logged to the map platform — and record which host
+   the embed is running on.
+8. **Language.** Nice-to-have, not phase 1.
+9. **MapX terms.** No policy or rate limit on being framed by third parties.
+
+Still open:
+
+- Whether a `frame-ancestors` allowlist can be set at all depends on question 4 landing.
