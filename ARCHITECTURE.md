@@ -80,7 +80,14 @@ undrr-risk-resilience-maps/
 │           ├── site-inspector.css
 │           ├── widgets.css     # Sub-tabs and stepped-slider
 │           └── infobox.css
+├── tests/
+│   └── e2e/                    # Playwright smoke suite (unit tests live beside their modules)
+│       ├── fixtures/
+│       │   ├── app.js          # The shared test fixture: MapX stub routing, preview-gate unlock, selectors
+│       │   └── mapx-stub.js    # Served as mxsdk.umd.js; the only fake MapX in the suite
+│       └── *.spec.js
 ├── .github/workflows/deploy.yml # GitHub Pages CI
+├── playwright.config.js        # E2E suite: chromium, its own Vite server on port 3040
 ├── vite.config.js
 ├── server.js                   # Static production server (for previewing dist/)
 └── package.json
@@ -460,9 +467,20 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 
 ## Testing
 
-Vitest + jsdom is configured in `vite.config.js`. Run tests with `yarn test`.
+Two suites, with a deliberate split of labour:
 
-Test files cover pure and near-pure modules:
+| Suite                 | Command         | Runs in                   | What it is for                                                                                                         |
+| --------------------- | --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Unit (vitest + jsdom) | `yarn test`     | jsdom, SDK modules mocked | Every module's own rules, in detail: parsing, reconciliation policy, row rendering, failure paths, lifecycle           |
+| E2E (Playwright)      | `yarn test:e2e` | Chromium, MapX stubbed    | The few guarantees that only hold in a real browser: the URL, the history stack, focus and keys, the rendered controls |
+
+`yarn test:all` runs both.
+
+### Unit tests (vitest + jsdom)
+
+Configured in `vite.config.js` (which also excludes `tests/e2e/`, since those
+specs match vitest's `*.spec.js` pattern). Test files cover pure and near-pure
+modules:
 
 | File                                      | What it tests                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -490,6 +508,56 @@ Test files cover pure and near-pure modules:
 | `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting                                                                                                                                                                                                      |
 
 `src/ui/sidebar.cross-tab.test.js` creates a sidebar instance with mocked SDK modules and covers cross-tab rows (including that a layer turned on from a cross-tab row renders no slider or legend into its hidden home row until that tab is shown, with exact `addLegend`/`addOpacitySlider` counts across tab switches), shared-link restore (including view-add order), clear-all (including a layer still loading), back/forward history entries, rapid double toggles, quick source picks and a failed switch (widget, hash and legend agree), turning an external layer off while it loads, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward, and covering failure records, a throwing hash write, a layer whose view returns after another layer wrote the hash, a double switch failure that ends off, and destroy/rebuild. `src/ui/sidebar.grouped.test.js` checks that a grouped tab's hash keeps config order on toggle and restore. `src/ui/sidebar.test.js` covers the home-tab accordion (activation, keyboard, unknown layers) through a sidebar instance.
+
+### E2E smoke suite (Playwright)
+
+`playwright.config.js` runs `tests/e2e/*.spec.js` in Chromium only, against the
+Vite dev server on port 3040 (started by the config's `webServer`, so there is
+nothing to launch by hand). CI retries twice and records a trace on the first
+retry; `test-results/` and `playwright-report/` are git-ignored and uploaded as
+an artifact when the job fails.
+
+**MapX is stubbed, always.** `tests/e2e/fixtures/mapx-stub.js` is served from
+the real SDK URL (`https://app.mapx.org/sdk/mxsdk.umd.js`) by Playwright
+routing, so `loadMapXSdk()` gets a script that sets `window.mxsdk` exactly as
+the UMD bundle does. Its `Manager` appends a placeholder element instead of a
+cross-origin iframe, emits `ready` on the next tick, and answers the commands
+`src/sdk/` sends: `view_add`, `view_remove`, `get_views`,
+`get_view_legend_image`, `get_view_layer_transparency`,
+`set_view_layer_transparency`, `set_immersive_mode`, `set_vector_highlight`,
+`set_features_click_sdk_only` and the camera reads. `get_views` returns raster
+views with no legend URL, which is what the approved-provider policy in
+`raster-legends.js` rejects without any request, so legends resolve to the image
+fallback and the stub's per-view legend image carries its own view id — that is
+how a spec checks the legend on screen belongs to the view the URL names. The
+fixture also blocks `app.mapx.org`, `api.mapx.org` (the MapX mirror),
+`*.unepgrid.ch` (GeoServer) and `*.copernicus.eu` (EDRA) outright, and stubs the
+PreventionWeb footer widget. `window.__mapxStub` exposes `ready`, `openViews`,
+`calls` and a `delayMs` a spec raises when it needs a later action to land while
+an earlier MapX call is provably still in flight.
+
+The Mangrove stylesheet and `preview-access.js` are still loaded from
+assets.undrr.org: they are the app's own design system, and without them the
+page under test is not the page. The preview PIN gate persists its unlock as
+`mg-preview-access:<data-mg-preview-id>` in sessionStorage, so the fixture seeds
+that key (and marks the gate unlocked directly as a fallback) rather than typing
+the PIN in every test.
+
+| Spec                    | What it proves end to end                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared-link.spec.js`   | A three-layer link restores all three switches and both widget kinds on their named sources, and the hash is byte-identical after the restore rewrites it |
+| `history.spec.js`       | One user action is one real history entry; two Back steps and two Forward steps each restore their own layers and URL; navigating history adds no entries |
+| `cross-tab.spec.js`     | A layer turned on from another tab's section renders no controls in its hidden home row, then exactly one slider and one legend once that tab is shown    |
+| `source-switch.spec.js` | Overlapping source picks end on the last one, with the widget, the URL, the opacity slider's view id and the legend image all naming the same view        |
+| `clear-all.spec.js`     | Clear all during a load leaves no switch on, no view on the map and a bare hash                                                                           |
+| `keyboard.spec.js`      | Tab reaches a layer switch from the row's expand control, Space turns it on and Enter turns it off                                                        |
+
+Deliberately **not** covered here, because a browser adds nothing or the suite
+would be guessing at MapX: anything MapX itself renders (tiles, the map canvas,
+its own chrome), legend colour correctness and GeoServer schema handling
+(`raster-legends.test.js`), the reconciliation policy's failure paths
+(`layer-controller.test.js`), external/EDRA layers, feature inspection, and
+visual regression.
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser
