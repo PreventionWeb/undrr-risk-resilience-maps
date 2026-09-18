@@ -14,7 +14,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - The "Show MapX view IDs" switch on the Sources page was almost invisible when off: neither its own knob nor its outline against the blue banner reached the minimum contrast a control needs.
 - The site inspector's "no data" dot was too faint to see (1.9:1 where 3:1 is the minimum). It is now a ring rather than a filled dot, so the two states differ in shape as well as colour.
 - Links inside the text on the About and Sources pages are underlined. Colour alone marked them, and UNDRR blue against the body text is 2.1:1.
-- The smaller switch in the layer panel header would have moved its knob the wrong way in a right-to-left language.
+- The smaller switch in the layer panel header would have moved its knob the wrong way in a right-to-left language. In Windows High Contrast mode it also pushed the knob flush with the edge of its track, because the mode adds a border the knob's travel did not allow for.
 - Layers shown by "Show disabled" are readable again: the whole row used to be dimmed with a transparency, which took its name and badge below the minimum text contrast (axe reported `color-contrast` on four more rows). The row is greyed with colours instead, and its badge says "not published" rather than the layer type.
 - The "Show disabled" switch's off state, the type badge's size, and the focus ring on a switch whose last load failed all met less than the minimum contrast, size or visibility they needed.
 - A screen reader is told when a layer starts and stops loading. The switch says so in its name, but the same attribute that draws the spinner also stops assistive technology reporting changes there, so the row's live region says it instead.

@@ -385,9 +385,11 @@
 .sources-mapx-toggle {
   /* Off: a white track let through at 35% measured 2.78:1 against its own
      white thumb and 1.94:1 against the hero, so neither boundary of the
-     control was visible. Darkening the fill instead gives the thumb 10.9:1,
-     and the white ring below identifies the track against the hero at
-     6.5:1 -- the ring is what keeps the inverted, light-on-blue look. */
+     control was visible. Darkening the fill instead gives the thumb 10.9:1.
+     The darkened fill composites to rgb(17,63,101) over the hero -- 1.7:1 -- so
+     it is the white ring below, at 6.49:1, that is the track's own boundary
+     against the hero, and the ring is also what keeps the inverted,
+     light-on-blue look. */
   --mg-switch-track-background: rgb(var(--mg-color-neutral-900) / 0.35);
   --mg-switch-track-background--checked: rgb(var(--mg-color-neutral-0));
   --mg-switch-thumb-background: rgb(var(--mg-color-interactive));
@@ -400,9 +402,12 @@
 }
 
 /* Inset, so it costs the thumb no room. Invisible on the white checked track,
-   which reaches the hero's 3:1 on its own. */
+   which reaches the hero's 3:1 on its own. Two pixels rather than one: the
+   darkened fill only reaches 1.7:1 against the hero, so this ring is the whole
+   of the off track's outer boundary, and a hairline can land sub-pixel at a
+   fractional zoom or device pixel ratio. */
 .sources-mapx-toggle .mg-switch__track {
-  box-shadow: inset 0 0 0 0.0625rem rgb(var(--mg-color-neutral-0));
+  box-shadow: inset 0 0 0 0.125rem rgb(var(--mg-color-neutral-0));
 }
 
 /* Off: the thumb has to read against the track as well. */
@@ -413,7 +418,7 @@
 /* Mangrove's focus ring puts a white halo in box-shadow; on the hero the
    outline alone reads, and the track keeps its own ring. */
 .sources-mapx-toggle .mg-switch__input:focus-visible + .mg-switch__track {
-  box-shadow: inset 0 0 0 0.0625rem rgb(var(--mg-color-neutral-0));
+  box-shadow: inset 0 0 0 0.125rem rgb(var(--mg-color-neutral-0));
   outline-color: rgb(var(--mg-color-focus-ring-inverse));
 }
 
