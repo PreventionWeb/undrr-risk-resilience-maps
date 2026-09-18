@@ -1,12 +1,17 @@
 /**
- * Sidebar instance: composes the layers store, the layer controller, URL sync,
- * the nav, the info pages and the layer panel within one root element.
+ * Sidebar instance: composes the layers store, the layer controller, the
+ * router, the nav, the info pages and the layer panel within one root element.
  *
  * `createSidebar(root, options)` finds its elements under `root` by `data-ui`
- * hooks, keeps all of its state (rows, tab panels, history-entry keys, batch
- * depth, "Show disabled") in its closure, and registers every listener with
- * one AbortController. `destroy()` removes the listeners, the rows, the
- * controller, an adapter it created and the DOM it built.
+ * hooks, keeps all of its state (rows, tab panels, "Show disabled") in its
+ * closure, and registers every listener with one AbortController. `destroy()`
+ * removes the listeners, the rows, the controller, the router (with an adapter
+ * it created) and the DOM it built.
+ *
+ * URL state lives in `src/services/router.js`: the active tab, the one
+ * history-entry-per-action rule, restore and reconcile-from-URL. The sidebar
+ * never reads or writes URL state; it asks the router for a tab and renders the
+ * tab the router reports.
  */
 import { TABS } from "../config/layers.js";
 import { getLayerRegistry } from "../config/registry.js";
@@ -17,15 +22,13 @@ import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
-import { isCompound } from "./widgets/index.js";
 import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
 import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { hashChangeAction } from "../state/hash.js";
-import { createHashAdapter } from "../state/hash-adapter.js";
-import { changesUrlState, createLayersStore, mirrorOpenViews, toUrlLayers } from "../state/layers-store.js";
-import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
+import { createLayerController } from "../services/layer-controller.js";
+import { createRouter } from "../services/router.js";
 import { isLayerAvailable } from "../config/layers/status.js";
 import {
   closeExternalLayer,
@@ -59,17 +62,17 @@ const ROOT_ATTR = "data-ui-root";
  *
  * @param {ParentNode} root - contains the `data-ui` elements (see PARTS)
  * @param {object} [options]
- * @param {ReturnType<typeof createHashAdapter>} [options.stateAdapter] - URL
- *   state adapter, owned by the caller; by default the sidebar creates a hash
- *   adapter and destroys it with itself
+ * @param {{ read: Function, write: Function, subscribe: Function, destroy: Function }} [options.stateAdapter] -
+ *   URL state adapter, owned by the caller; by default the router creates a
+ *   hash adapter and destroys it with itself
  * @param {ReturnType<typeof getLayerRegistry>} [options.registry] - layer
- *   lookups for the controller and the hash order (default: the shared registry)
+ *   lookups for the controller and the URL key order (default: the shared registry)
  * @param {object[]} [options.tabs] - data tabs to build (default: TABS); the
  *   registry must index the same layer objects
  * @param {(count: number) => void} [options.onViewsChanged] - called with the
  *   number of layers on the map whenever that number changes
- * @param {string} [options.initialTab] - the tab shown when the URL names none
- *   (or an unknown one); default "home"
+ * @param {string} [options.initialTab] - the tab shown when URL state names
+ *   none (or an unknown one); default "home"
  * @returns {{
  *   restoreFromUrl(): Promise<void>,
  *   showTab(tabId: string): void,
@@ -135,28 +138,17 @@ export function createSidebar(
   // The new store starts empty, so drop view ids a previous instance (HMR,
   // tests) left in the compatibility Set.
   store.openViews.clear();
-  // Reads, writes and watches URL state (the hash, in the standalone app).
-  const adapter = stateAdapter ?? createHashAdapter();
-  if (!stateAdapter) disposers.push(() => adapter.destroy());
 
   // Per-layer records: what the user asked for and what MapX shows. The layer
-  // controller reconciles one into the other; `store.openViews`, the URL hash
+  // controller reconciles one into the other; `store.openViews`, the URL state
   // and the layer rows are derived from the records by subscribers.
   let layersStore = createLayersStore();
   // Subscriber order matters: openViews must be current before the
-  // views-changed callback and the hash sync run.
+  // views-changed callback and the router's URL write, and the router must
+  // write the URL before the rows render the switches and the legend. The
+  // router subscribes to the store in createRouter below, between these two.
   disposers.push(mirrorOpenViews(layersStore, store.openViews));
   disposers.push(layersStore.subscribe(notifyViewsChanged));
-  disposers.push(
-    layersStore.subscribe((key, next, prev) => {
-      if (changesUrlState(next, prev)) syncLayerHash(key);
-      else settleActionEntry(key);
-    }),
-  );
-  disposers.push(layersStore.subscribe(renderLayerRows));
-  // Layer switches are aria-disabled until the map can accept changes, so they
-  // are re-rendered when it becomes (or stops being) ready.
-  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
 
   let layerController = createLayerController({
     store: layersStore,
@@ -175,6 +167,30 @@ export function createSidebar(
     },
     onError: (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
   });
+
+  // The only module that reads or writes URL state. It owns the active tab and
+  // the one-history-entry-per-action rule; the sidebar renders what it reports.
+  const router = createRouter({
+    store: layersStore,
+    controller: layerController,
+    registry,
+    // An injected adapter belongs to the caller; the router creates and owns
+    // one otherwise, and destroys it with itself.
+    adapter: stateAdapter,
+    dataTabs,
+    infoTabs: INFO_TABS,
+    initialTab,
+    isReady: isSDKReady,
+    isExternal: isExternalLayer,
+    // Only layers with rows can be turned on, so only they are restored from,
+    // or reconciled against, URL state.
+    layerKeys: () => rowsByKey.keys(),
+  });
+  disposers.push(() => router.destroy());
+  disposers.push(layersStore.subscribe(renderLayerRows));
+  // Layer switches are aria-disabled until the map can accept changes, so they
+  // are re-rendered when it becomes (or stops being) ready.
+  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
   // Runs first on destroy (disposers run in reverse), so a MapX call that
   // settles afterwards is dropped before anything else is torn down.
   const controllerToDestroy = layerController;
@@ -194,16 +210,6 @@ export function createSidebar(
   const infoPanels = new Map();
   const createdElements = [];
   let showDisabledLayers = false;
-  // Depth of batched layer changes (restore, back/forward, clear-all). Hash
-  // writes inside a batch are skipped and replaced by one write when it ends,
-  // so a multi-layer change creates at most one history entry.
-  let hashBatchDepth = 0;
-  // Layer keys whose current user action has pushed a history entry while
-  // intent was still pending; that action's later hash writes replace the
-  // entry (see syncLayerHash).
-  const actionEntryKeys = new Set();
-  // The shown tab, set by the first switchTab below.
-  let activeTab = null;
   // Active-state and click wiring for the nav links (created after the panels).
   let nav = null;
 
@@ -261,7 +267,7 @@ export function createSidebar(
       store: layersStore,
       controller: layerController,
       isReady: isSDKReady,
-      isVisible: () => activeTab === tabId,
+      isVisible: () => router.activeTab === tabId,
       onNavigate: (target) => switchTab(target),
       // The home row's external controls announce failures of their own picks.
       selectionPending: () =>
@@ -284,11 +290,21 @@ export function createSidebar(
     renderToggleState(false);
   }
 
-  function switchTab(tabId, { syncHash = true, replaceHash = false } = {}) {
-    if (destroyed) return;
-    activeTab = tabId;
-    if (syncHash) syncHashFromState({ replace: replaceHash });
+  /**
+   * Show a tab as a user action: the router writes URL state (one history
+   * entry) and calls renderTab below.
+   */
+  function switchTab(tabId) {
+    router.setActiveTab(tabId);
+  }
 
+  /**
+   * The router's tab-change subscriber: render the tab it made active. It is
+   * the only place the sidebar reacts to a tab change, so a switch, a home
+   * card, a nav link and a back/forward navigation all render the same way.
+   */
+  function renderTab(tabId) {
+    if (destroyed) return;
     const isInfoTab = INFO_TABS.includes(tabId);
 
     // Toggle map vs full-page info view
@@ -349,142 +365,6 @@ export function createSidebar(
     onViewsChanged(layersStore.all().filter((record) => record.applied).length);
   }
 
-  // --- URL sync ------------------------------------------------------------
-
-  /**
-   * Write current state (active tab + open layers) to the URL.
-   * Runs from the layers-store subscriber when what MapX shows changes (see
-   * changesUrlState), and directly after a tab switch. Inside a batch nothing
-   * is written; the batch writes the URL once when it ends.
-   *
-   * The store runs its subscribers synchronously in subscription order, so the
-   * URL is written before the rows update the switches and legend. A failed
-   * write is logged here and a throwing subscriber is logged by the store, so
-   * neither stops the panel from finishing its update.
-   * @param {{ replace?: boolean }} [options] - replace the history entry instead of pushing
-   * @returns {boolean} whether the URL state changed (an entry was pushed or replaced)
-   */
-  function syncHashFromState({ replace = false } = {}) {
-    if (!layersStore) return false; // destroyed
-    if (hashBatchDepth > 0) return false;
-    const layers = toUrlLayers(layersStore.all(), registry.urlKeyOrder());
-    const before = JSON.stringify(adapter.read());
-    try {
-      adapter.write({ tab: activeTab, layers }, { replace });
-    } catch (error) {
-      // e.g. SecurityError when the browser rate-limits history calls. The URL
-      // falls behind until the next write; the map and panel stay correct.
-      console.error("Could not write layer state to the URL:", error);
-      return false;
-    }
-    const changed = JSON.stringify(adapter.read()) !== before;
-    // A new entry belongs to a new action: later writes of earlier actions push.
-    if (changed && !replace) actionEntryKeys.clear();
-    return changed;
-  }
-
-  /**
-   * Store subscriber's URL write for one layer's change, keeping one history
-   * entry per user action on that layer.
-   *
-   * The first URL change of an action pushes an entry. If the layer still has
-   * pending intent at that point (a second click or a newer source landed while
-   * MapX was busy), the action is not over: the key is remembered and its later
-   * writes replace that entry, until a write or record change finds its intent
-   * applied. So a double-click (on, then off) makes one entry that ends where it
-   * started, and quick A→B→C source picks make one entry ending on C, even when
-   * B reaches the map first. Any other push (another layer, a tab switch, a
-   * batch) or a back/forward navigation closes the open actions.
-   */
-  function syncLayerHash(key) {
-    const continuing = actionEntryKeys.has(key);
-    const changed = syncHashFromState({ replace: continuing });
-    settleActionEntry(key, changed);
-  }
-
-  /** Remember or forget a key's open action entry from its pending intent. */
-  function settleActionEntry(key, pushed = false) {
-    if (!layerController?.hasPendingIntent(key)) actionEntryKeys.delete(key);
-    else if (pushed) actionEntryKeys.add(key);
-  }
-
-  /**
-   * Run a multi-layer change as one URL write: pushed for a user action
-   * (clear-all), or replacing the current entry when restoring URL state.
-   */
-  async function batchHashWrites(fn, { replace = false } = {}) {
-    hashBatchDepth++;
-    try {
-      await fn();
-    } finally {
-      hashBatchDepth--;
-      if (hashBatchDepth === 0) {
-        actionEntryKeys.clear();
-        syncHashFromState({ replace });
-      }
-    }
-  }
-
-  /**
-   * Ask for a layer as a URL state entry describes it: on, with its (clamped)
-   * source or its provider settings.
-   */
-  function intendFromUrl({ key, sourceIdx, settings }) {
-    const layer = registry.byKey(key);
-    const patch = { desired: true };
-    if (isCompound(layer)) patch.sourceIdx = clampSourceIdx(layer, sourceIdx);
-    if (isExternalLayer(layer) && settings) patch.settings = settings;
-    return layerController.intend(key, patch);
-  }
-
-  /**
-   * Reconcile layer intent against a parsed URL layers array.
-   * Called on a URL change (back/forward) after initial load: layers not in the
-   * URL are turned off, and those in it are asked for with their source or
-   * settings. The controller works out what actually has to change.
-   */
-  async function reconcileLayersFromUrl(urlLayers) {
-    const inUrl = new Set(urlLayers.map((entry) => entry.key));
-    const changes = [];
-
-    for (const key of rowsByKey.keys()) {
-      const record = layersStore.get(key);
-      if (!inUrl.has(key) && (record.desired || record.applied)) {
-        changes.push(layerController.setOn(key, false));
-      }
-    }
-    for (const entry of urlLayers) {
-      if (rowsByKey.has(entry.key)) changes.push(intendFromUrl(entry));
-    }
-
-    await Promise.all(changes);
-  }
-
-  /**
-   * Restore layer state from the URL. Call after the SDK is ready.
-   * Layers are requested in URL order, so MapX adds their views in that order.
-   */
-  async function restoreFromUrl() {
-    if (destroyed) {
-      console.warn("restoreFromUrl: the sidebar is destroyed; nothing restored.");
-      return;
-    }
-    const { layers } = adapter.read();
-    if (layers.length === 0) return;
-
-    // The URL is only rewritten once, in place, after every layer settles.
-    await batchHashWrites(
-      () =>
-        Promise.all(
-          layers.map((entry) => {
-            if (!rowsByKey.has(entry.key) || layersStore.get(entry.key).desired) return null;
-            return intendFromUrl(entry);
-          }),
-        ),
-      { replace: true },
-    );
-  }
-
   // --- Build ---------------------------------------------------------------
 
   const append = (parent, el) => {
@@ -525,8 +405,7 @@ export function createSidebar(
     "click",
     () => {
       if (destroyed) return;
-      const controller = layerController;
-      batchHashWrites(() => controller.clearAll());
+      router.clearAll();
     },
     { signal },
   );
@@ -585,35 +464,11 @@ export function createSidebar(
     });
   }
 
-  // Read the initial tab from the URL, falling back to the initialTab option.
-  const { tab: urlTab } = adapter.read();
-  const firstTab =
-    urlTab && allTabs.includes(urlTab) ? urlTab : allTabs.includes(initialTab) ? initialTab : "home";
-  // Preserve a valid incoming URL until MapX is ready and can restore its
-  // layers. Writing empty runtime state here would erase the shared link.
-  switchTab(firstTab, { syncHash: !urlTab || !allTabs.includes(urlTab), replaceHash: true });
-
-  // Browser back/forward: reconcile both tab and layer state from the new URL.
-  // The URL is already the target, so the tab switch must not write the old
-  // layers back, and the reconcile only corrects the current entry in place.
-  // States the app doesn't own (in-page anchors, unknown ids) are ignored, and
-  // a bare info-tab state (e.g. an `href="#sources"` link) keeps the open layers.
-  disposers.push(
-    adapter.subscribe((parsed) => {
-      if (destroyed) return;
-      const action = hashChangeAction(parsed, { dataTabs, infoTabs: INFO_TABS });
-      if (action === "ignore") return;
-      // The user moved through history: no earlier action's entry may be replaced.
-      actionEntryKeys.clear();
-      if (parsed.tab !== activeTab) switchTab(parsed.tab, { syncHash: false });
-      if (action === "keep-layers") {
-        // Rewrite the bare state in place so the entry still carries the layers.
-        syncHashFromState({ replace: true });
-      } else if (isSDKReady()) {
-        batchHashWrites(() => reconcileLayersFromUrl(parsed.layers), { replace: true });
-      }
-    }),
-  );
+  // Everything the sidebar renders now exists: show the tab the router picks
+  // from URL state (or the initialTab option) and let it watch for external
+  // changes (back/forward, links, typed URLs).
+  router.onTabChange(renderTab);
+  router.start();
 
   // Make the layer panel draggable and resizable
   if (panel) {
@@ -623,9 +478,9 @@ export function createSidebar(
 
   /**
    * Tear down the instance: every listener (nav, panel toggle and drag/resize,
-   * Clear all, Show disabled, home cards, Sources), the URL subscription, the
-   * store subscriptions, the layer rows, the controller, the hash adapter if
-   * the sidebar created it (an injected adapter belongs to the caller), and the
+   * Clear all, Show disabled, home cards, Sources), the store subscriptions,
+   * the layer rows, the controller, the router (with the hash adapter it
+   * created; an injected adapter belongs to the caller), and the
    * DOM it built (info pages, tab panels, generated nav links, resize grip).
    *
    * Afterwards `store` and `controller` are null and nothing is re-created:
@@ -673,7 +528,8 @@ export function createSidebar(
   }
 
   return {
-    restoreFromUrl,
+    /** Restore the layers in URL state. Call after the SDK is ready. */
+    restoreFromUrl: () => router.restoreFromUrl(),
     /**
      * Open a tab as a home card does: switch to it and expand the layer panel.
      * The app itself navigates through the nav and home cards; this is the seam
@@ -691,7 +547,7 @@ export function createSidebar(
     },
     /** The shown tab id (the last one shown, after destroy). */
     get activeTab() {
-      return activeTab;
+      return router.activeTab;
     },
   };
 }
