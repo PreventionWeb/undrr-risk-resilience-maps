@@ -18,7 +18,7 @@ import { getLayerRegistry, urlKeyOrder } from "../config/registry.js";
 import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady, onSDKReadyChange } from "../sdk/client.js";
-import { MAP_WARMING_CLASS } from "../sdk/availability.js";
+import { createMapWarming } from "./map-warming.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
@@ -54,58 +54,11 @@ const PARTS = {
   clearBtn: "clear-layers",
   disabledToggleBtn: "show-disabled",
   globalFooter: "global-footer",
+  skipLink: "skip-link",
 };
 
 /** Marks a sidebar root, so an outer instance can tell a nested one's parts from its own. */
 const ROOT_ATTR = "data-ui-root";
-
-/**
- * Show or warm up the map container.
- *
- * Warming up means: still laid out inside the viewport (so the browser keeps
- * rendering the cross-origin MapX iframe and MapX keeps loading), but invisible
- * behind the information page, not clickable, not a tab stop and not in the
- * accessibility tree. `inert` covers focus and pointers, `aria-hidden` keeps
- * screen readers out, and the transparency is in `layout.css`.
- *
- * `inert` goes on the map *and* on its children, because each covers the other's
- * blind spot: Mangrove's preview gate sets `inert` on every child of `<body>`
- * while the PIN is pending and removes it from all of them when the PIN is
- * accepted, which strips the map's own; and a child appended after this runs
- * (`buildSiteInspectorPanel()` does exactly that) is only covered by the map's.
- *
- * A one-shot loop over `children` would leave exactly that second case half
- * done — `#site-inspector` is built lazily, so on an info page it was the one
- * child without its own `inert`, and a PIN unlock landing after the map had
- * started warming would have made it the one reachable thing behind the info
- * page. While warming, an observer marks children appended later too.
- *
- * @param {HTMLElement} appMap
- * @param {boolean} warming
- */
-const warmingObservers = new WeakMap();
-
-function setMapWarming(appMap, warming) {
-  appMap.classList.toggle(MAP_WARMING_CLASS, warming);
-  if (warming) appMap.setAttribute("aria-hidden", "true");
-  else appMap.removeAttribute("aria-hidden");
-  appMap.toggleAttribute("inert", warming);
-  for (const child of appMap.children) child.toggleAttribute("inert", warming);
-
-  warmingObservers.get(appMap)?.disconnect();
-  warmingObservers.delete(appMap);
-  if (!warming || typeof MutationObserver !== "function") return;
-
-  const observer = new MutationObserver((records) => {
-    for (const record of records) {
-      for (const node of record.addedNodes) {
-        if (node.nodeType === 1) node.toggleAttribute("inert", true);
-      }
-    }
-  });
-  observer.observe(appMap, { childList: true });
-  warmingObservers.set(appMap, observer);
-}
 
 /**
  * Create a sidebar within `root`.
@@ -164,6 +117,13 @@ export function createSidebar(
   const disabledToggleBtn = part("disabledToggleBtn");
   const navRoot = part("nav");
   const globalFooter = part("globalFooter");
+  // "Skip to map": hidden while an information page is the view, because there
+  // is no map to skip to and its target is the invisible warm-up region.
+  const skipLink = part("skipLink");
+
+  // The map container's warm-up state, and everything that keeps the warming
+  // map out of reach (see ui/map-warming.js).
+  const mapWarming = appMap ? createMapWarming(appMap, { skipLink }) : null;
 
   // Page state the instance changes, restored by destroy(): which view is
   // shown, the footer and the panel's collapsed state.
@@ -387,15 +347,11 @@ export function createSidebar(
     if (destroyed) return;
     const isInfoTab = INFO_TABS.includes(tabId);
 
-    // Toggle map vs full-page info view. An information page does not hide the
-    // map with `display: none`: MapX renders in a cross-origin iframe that the
-    // browser throttles to a standstill unless it is laid out inside the
-    // viewport, so hiding it meant MapX only began loading on the first data-tab
-    // click. It stays laid out and loading, fully transparent behind the info
-    // page and inert, so it costs the user nothing to look at or tab through.
-    // See `.app-map.is-warming` in layout.css and `canMapLoad` in
-    // sdk/availability.js.
-    if (appMap) setMapWarming(appMap, isInfoTab);
+    // Toggle map vs full-page info view. Where it is worth its cost the map is
+    // not hidden behind an information page but kept laid out and loading,
+    // transparent and inert; where it is not, it is hidden as it used to be.
+    // ui/map-warming.js owns that choice and the invariants that go with it.
+    mapWarming?.set(isInfoTab);
     if (infoPage) infoPage.style.display = isInfoTab ? "block" : "none";
 
     // The UNDRR global footer belongs to the content pages; the map view is
@@ -600,7 +556,7 @@ export function createSidebar(
     infoPanels.clear();
     // Leave the page and the static controls as they were before the instance,
     // for the next one (nav.destroy() restores the links' active state).
-    if (appMap) setMapWarming(appMap, false);
+    mapWarming?.destroy();
     if (infoPage) infoPage.style.display = initialPage.infoPageDisplay;
     if (globalFooter) globalFooter.hidden = initialPage.footerHidden;
     if (panel && panel.classList.contains("is-collapsed") !== initialPage.panelCollapsed) {

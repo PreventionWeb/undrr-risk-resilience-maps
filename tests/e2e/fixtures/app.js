@@ -4,7 +4,9 @@
  *   - MapX is the stub in `mapx-stub.js` (served from the real SDK URL) and no
  *     request can reach MapX, GeoServer, the MapX mirror or Copernicus/EDRA;
  *   - the Mangrove preview PIN gate is already unlocked, so no spec has to
- *     fight it (it persists the unlock in sessionStorage — see below);
+ *     fight it (it persists the unlock in sessionStorage — see below), unless
+ *     the spec says `test.use({ previewUnlocked: false })` and answers it with
+ *     `unlockPreviewGate()`;
  *   - the PreventionWeb footer widget is a no-op, because `index.html` calls
  *     `PW_Widget.initialize` from an inline script.
  *
@@ -31,6 +33,11 @@ const MAPX_STUB = readFileSync(new URL("./mapx-stub.js", import.meta.url), "utf8
  */
 const PREVIEW_UNLOCK_KEY = "mg-preview-access:grar-map-viewer";
 
+/** The gate's PIN, read from the markup so a change to it cannot strand a spec. */
+const PREVIEW_PIN = readFileSync(new URL("../../../index.html", import.meta.url), "utf8").match(
+  /data-mg-preview-pin="(\d+)"/,
+)?.[1];
+
 /** Requests a test must never make. */
 const BLOCKED = [
   "https://app.mapx.org/**",
@@ -40,20 +47,32 @@ const BLOCKED = [
 ];
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
-    await page.addInitScript(
-      ({ key }) => {
-        try {
-          sessionStorage.setItem(key, "unlocked");
-        } catch {
-          // Private mode etc. The class below is then the only unlock.
-        }
-        document.addEventListener("DOMContentLoaded", () => {
-          document.querySelector("[data-mg-preview-access]")?.classList.add("mg-preview-access--unlocked");
-        });
-      },
-      { key: PREVIEW_UNLOCK_KEY },
-    );
+  /**
+   * Is the preview gate already unlocked when the page loads?
+   *
+   * Every spec but one wants `true`. A spec about what the gate does *to* the
+   * page when the PIN is accepted -- it removes `inert` from every direct child
+   * of `<body>`, `#app-map` included -- has to answer it for real, and says
+   * `test.use({ previewUnlocked: false })`.
+   */
+  previewUnlocked: [true, { option: true }],
+
+  page: async ({ page, previewUnlocked }, use) => {
+    if (previewUnlocked) {
+      await page.addInitScript(
+        ({ key }) => {
+          try {
+            sessionStorage.setItem(key, "unlocked");
+          } catch {
+            // Private mode etc. The class below is then the only unlock.
+          }
+          document.addEventListener("DOMContentLoaded", () => {
+            document.querySelector("[data-mg-preview-access]")?.classList.add("mg-preview-access--unlocked");
+          });
+        },
+        { key: PREVIEW_UNLOCK_KEY },
+      );
+    }
 
     // Later routes win, so the blanket denies go first and the SDK stub last.
     for (const pattern of BLOCKED) await page.route(pattern, (route) => route.abort());
@@ -91,6 +110,19 @@ export async function gotoApp(page, hash = "") {
   await page.goto(`/${hash}`);
   await page.waitForFunction(() => window.__mapxStub?.ready === true);
   return page;
+}
+
+/**
+ * Answer the preview gate the way a user does, for a spec that runs with
+ * `previewUnlocked: false`. Resolves once the overlay is gone, which is the
+ * point at which the gate has removed `inert` from every child of `<body>`.
+ * @param {import("@playwright/test").Page} page
+ */
+export async function unlockPreviewGate(page) {
+  const overlay = page.locator(".mg-preview-access__overlay");
+  await overlay.locator("#mg-preview-access-pin").fill(PREVIEW_PIN);
+  await overlay.locator(".mg-preview-access__submit").click();
+  await overlay.waitFor({ state: "detached" });
 }
 
 /** The view ids MapX currently holds, as the stub saw them. */
