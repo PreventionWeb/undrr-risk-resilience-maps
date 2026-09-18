@@ -19,6 +19,20 @@
 
   var stub = {
     ready: false,
+    /**
+     * Hold the manager's `ready` event until `__mapxStub.releaseReady()` is
+     * called. Real MapX loads in a cross-origin iframe and makes no progress
+     * while that iframe is not painted — behind the preview PIN gate, for
+     * instance (see #24) — but this stub is local JavaScript and is otherwise
+     * ready a tick after it is built. A spec about what happens *after* an
+     * unlock has to be able to reproduce a map that was not ready before it.
+     *
+     * Set it from an init script, as `window.__mapxStubHoldReady = true`: this
+     * file is served as the SDK, so it runs later than any init script does.
+     */
+    holdReady: Boolean(window.__mapxStubHoldReady),
+    /** Emit the held `ready`. Replaced per manager; a no-op until one is built. */
+    releaseReady: function () {},
     openViews: [],
     calls: [],
     /**
@@ -124,10 +138,15 @@
     // The app registers its `ready` handler after initSDK() returns, so the
     // event cannot be emitted synchronously.
     var self = this;
-    setTimeout(function () {
+    var emitReady = function () {
       stub.ready = true;
       self._emit("ready", {});
-    }, 0);
+    };
+    if (stub.holdReady) {
+      stub.releaseReady = emitReady;
+    } else {
+      setTimeout(emitReady, 0);
+    }
   }
 
   Manager.prototype.on = function (event, handler) {

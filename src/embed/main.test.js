@@ -170,6 +170,20 @@ describe("mountEmbed", () => {
       expect(named(windowRef, "ready").at(-1).data.payload).toMatchObject({ locked: false });
     });
 
+    it("never reports `locked: false` while the gate is shut, even if the map becomes ready", () => {
+      mount();
+      // Real MapX cannot get here — it makes no progress behind the gate's
+      // `visibility: hidden` (#24) — but `locked` is a claim about the gate, so
+      // it has to be read from the gate rather than assumed by whoever posts it.
+      // With a stubbed or a future map that does fire `ready`, the host would
+      // otherwise be told the prototype had been unlocked.
+      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
+
+      const readies = named(windowRef, "ready").map((entry) => entry.data.payload);
+      expect(readies).toHaveLength(2);
+      for (const payload of readies) expect(payload.locked).toBe(true);
+    });
+
     it("records in the analytics event that it loaded behind the gate", () => {
       const events = [];
       mount("?tab=hazard", { analytics: { sink: (event) => events.push(event) } });

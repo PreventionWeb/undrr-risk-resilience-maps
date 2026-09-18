@@ -44,6 +44,11 @@
   margin: 0;
 }
 
+/* `.mg-notice` is `display: flex`, which beats the UA's `[hidden]` rule. */
+.embed-empty[hidden] {
+  display: none;
+}
+
 .embed-nav .mg-mega-topbar {
   margin: 0;
 }

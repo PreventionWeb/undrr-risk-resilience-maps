@@ -7,7 +7,7 @@ See [docs/product-spec.md](docs/product-spec.md) for the V1 scope and [docs/reso
 
 ## Preview access
 
-The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until hosting can send `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); a framed page's storage is partitioned, so an embed on someone else's site prompts inside the frame. It will be replaced with production access control before launch.
+The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until hosting can send `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); current Chrome and Firefox partition a framed page's storage by default, so an embed on someone else's site prompts inside the frame — but that is the browser's default, not a lock this prototype may rely on. It will be replaced with production access control before launch.
 
 ## Developing
 
