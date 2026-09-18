@@ -17,16 +17,20 @@ export const INFO_TABS = ["home", "sources", "about"];
 
 /**
  * Build a data tab's nav item, matching the Mangrove topbar markup.
+ *
+ * No `role`: Mangrove's own MegaMenu leaves the topbar and its items with
+ * their native semantics and uses `menu`/`menuitem` only inside a submenu. A
+ * `menubar` would promise arrow-key navigation and a single tab stop that this
+ * nav does not implement, and would stop the links being announced as links.
+ *
  * @param {{ id: string, label: string }} tab
  * @returns {HTMLLIElement}
  */
 export function buildNavTabItem(tab) {
   const item = document.createElement("li");
   item.className = "mg-mega-topbar__item";
-  item.setAttribute("role", "none");
   const link = document.createElement("a");
   link.href = `#${tab.id}`;
-  link.setAttribute("role", "menuitem");
   link.className = "mg-mega-topbar__item-link nav-tab-link";
   link.dataset.tab = tab.id;
   link.textContent = tab.label;
@@ -109,17 +113,26 @@ export function createNav(root, { tabs, onSelect, signal }) {
     );
   }
 
+  // `is-active` is a visual state only. The hash is this app's address bar, so
+  // the link for the view on screen is the current page and says so, giving
+  // assistive technology the same cue the highlight gives sighted users.
+  function markActive(link, active) {
+    link.classList.toggle("is-active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
+
   function setActive(tabId) {
-    for (const link of tabLinks) link.classList.toggle("is-active", link.dataset.tab === tabId);
-    homeLink?.classList.toggle("is-active", tabId === "home");
-    for (const link of infoLinks) link.classList.toggle("is-active", link.dataset.panel === tabId);
+    for (const link of tabLinks) markActive(link, link.dataset.tab === tabId);
+    if (homeLink) markActive(homeLink, tabId === "home");
+    for (const link of infoLinks) markActive(link, link.dataset.panel === tabId);
   }
 
   function destroy() {
     if (controller.signal.aborted) return;
     controller.abort();
     for (const item of created.splice(0)) item.remove();
-    for (const [link, active] of initialActive) link.classList.toggle("is-active", active);
+    for (const [link, active] of initialActive) markActive(link, active);
   }
 
   return { setActive, destroy };
