@@ -1,8 +1,11 @@
 # Embedding the map viewer in other sites
 
-- Status: Proposed (design only; nothing here is built yet)
-- Date: 2026-09-17
-- Tracker: unisdr/undrr-risk-resilience-maps#14
+- Status: **Phase 1 built** (`createRiskMap()` and the iframe embed at `embed.html`); phase 2 (script
+  embed and web component) deliberately not built — see [Decision summary](#decision-summary) and
+  [Roadmap](#7-roadmap-and-open-questions)
+- Date: 2026-09-17; phase 1 built 2026-09-18
+- Tracker: unisdr/undrr-risk-resilience-maps#14, built under #15
+- **Using it:** jump to [How to embed](#8-how-to-embed-phase-1)
 - Related: [docs/product-spec.md](product-spec.md) open question 1 ("Hosting path"),
   [docs/external-layers.md](external-layers.md), [docs/legends.md](legends.md)
 
@@ -13,9 +16,16 @@ place the viewer inside their own pages. Today the app assumes it owns the whole
 `index.html`, fixed ids, a URL hash router, module singletons, global Mangrove CSS, a PIN overlay and
 a syndicated footer.
 
-We are not building embedding yet. This document fixes the target so the layer-state refactor
-(`layers-store`, `layer-controller`, render-from-state rows, the `sidebar.js` split) moves toward it
-instead of away from it. Line references are to `main` at the time of writing.
+This document fixed the target so the layer-state refactor (`layers-store`, `layer-controller`,
+render-from-state rows, the `sidebar.js` split) moved toward it instead of away from it. Line
+references are to `main` at the time of writing (2026-09-17), before phase 1 was built.
+
+**What is built now** (2026-09-18): `createRiskMap(root, options)` in `src/app/create-risk-map.js`,
+with `src/main.js` as its first consumer and `embed.html` (`src/embed/`) as its second — an iframe
+embed with URL parameters, an in-memory state adapter, the v1 `postMessage` API and an
+`embed_loaded` analytics event. [How to embed](#8-how-to-embed-phase-1) is the reference for hosts.
+The script embed and the web component are **not** built; the reasoning below for why they might one
+day be needed is kept as it was, because nothing about it has changed.
 
 ## Decision summary
 
@@ -39,7 +49,7 @@ instead of away from it. Line references are to `main` at the time of writing.
 | Security            | Strongest; host can't touch our DOM. Needs a `frame-ancestors` policy and origin-checked messages               | Our code runs with host privileges, and the host must trust our CDN (SRI, CSP)        | Same as (b)                                                                                    |
 | Network origin      | Our origin (unchanged from today)                                                                               | Host origin. Host CSP must allow MapX, EDRA and the mirror                            | Same as (b)                                                                                    |
 | Performance         | Extra document, and a second copy of Mangrove CSS/JS if the host also uses it. The app is small; MapX dominates | Can reuse host Mangrove only if versions match                                        | Mangrove CSS parsed per shadow root (can share via constructable stylesheets)                  |
-| Sizing              | Host must set a height; no auto-resize without our `resize` message                                             | Flows with the page                                                                   | Flows with the page                                                                            |
+| Sizing              | Host must set a height (a map has no natural one, so phase 1 ships no auto-sizing hint — see §8)                | Flows with the page                                                                   | Flows with the page                                                                            |
 | SEO                 | Content not attributed to host. The map is not indexable in any mode                                            | Info pages indexable only if rendered, and they are JS-built today                    | Same as (b)                                                                                    |
 | a11y                | Needs `title`, and focus moves between documents. Escape handlers stay inside the frame                         | Our `document` keydown handlers see host keystrokes; ids can collide with host ids    | Ids scoped by shadow root; still needs care with focus and landmarks                           |
 | Host effort         | Paste one `<iframe>`; a CMS block is trivial                                                                    | Load CSS and JS, provide a sized element, match CSP                                   | One `<script type="module">` plus one tag, and CSP                                             |
@@ -92,33 +102,42 @@ build, and the iframe needs no instance boundary. The script modes need all of i
 
 ### App-instance boundary
 
+As built (`src/app/create-risk-map.js`):
+
 ```js
-import { createRiskMap } from "@undrr/risk-map"; // or /embed/1/risk-map.js
+import { createRiskMap } from "./app/create-risk-map.js";
 
 const map = createRiskMap(rootElement, {
-  tab: "hazard", // initial tab
-  layers: [{ key: "earthquake-pga", sourceIdx: 2 }], // initial layers
-  tabs: ["hazard", "exposure"], // visible tabs (default: all)
-  layerAllowlist: null, // optional Set of layer keys
-  chrome: "nav", // "full" | "nav" | "none"  (header/footer/nav)
-  language: "en",
-  theme: "color_light",
+  initialTab: "hazard", // tab shown when the adapter names none
+  layers: [{ key: "earthquake-pga", sourceIdx: 2 }], // seeded into the adapter
+  tabs: ["hazard", "exposure"], // tab-id allowlist (default: every tab)
+  layerAllowlist: ["earthquake-pga"], // layer-key allowlist (default: every layer)
+  stateAdapter: createMemoryAdapter(), // default: a hash adapter it owns
   mapxProject: PRIMARY_PROJECT,
-  stateAdapter: memoryAdapter(), // see below
-  baseUrl: new URL(".", import.meta.url), // assets and lazy chunks
-  previewGate: false,
+  validate: true, // run validateLayers() first
+  buildInfo: true, // wire the build-info footer if the page has one
+  reload: () => window.location.reload(), // how the map-service notice retries
 });
 
-map.setLayers([{ key: "population" }]); // desired state; controller reconciles
-map.setTab("exposure");
-const off = map.on("layers-changed", (state) => {});
-map.getState(); // { tab, layers: [{ key, sourceIdx, settings, status }] }
-map.destroy(); // removes listeners, MapX iframe, DOM, timers
+map.setLayers([{ key: "population" }]); // desired state; the controller reconciles
+map.setTab("exposure"); // a user action: one history entry
+map.setState({ tab: "exposure", layers: [] }); // both, as one change in place
+map.getState(); // { tab, layers: [{ key, sourceIdx, settings? }] }
+const off = map.on("state", (state) => {}); // also "ready" and "error"
+map.destroy(); // listeners, MapX iframe, DOM, timers, adapter
 ```
 
 `createRiskMap` is the only place allowed to touch `document` and `window`, and only through the
-`root` it was given, `root.ownerDocument`, and the injected adapter. `main.js` shrinks to
-`createRiskMap(document.getElementById("app"), { stateAdapter: hashAdapter(), chrome: "full", previewGate: true })`.
+`root` it was given, `root.ownerDocument` and the injected adapter. `src/main.js` is three lines:
+`createRiskMap(document.body)`.
+
+Two deliberate differences from the sketch this replaced. There is **no `chrome` option**: which
+chrome an instance has is decided by which `data-ui` hooks its markup carries, so `embed.html`
+simply has no information page, header or footer and the sidebar builds none — one mechanism instead
+of two. And the events are `ready`, `state` and `error` rather than `layers-changed`, because this
+document asks the DOM events, the host messages and these to share one vocabulary, and the message
+names are the ones a host already has to know. `language`, `theme`, `baseUrl` and `previewGate` are
+phase 2 or later; `language` is explicitly a nice-to-have (answer 8).
 
 ### State adapter
 
@@ -132,12 +151,12 @@ interface StateAdapter {
 }
 ```
 
-| Adapter              | Use                               | Behaviour                                                                                                                |
-| -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `hashAdapter`        | Standalone site                   | Today's `hash.js` format; `pushState`/`replaceState`; `hashchange` ignores hashes whose tab isn't one of ours (fixes B4) |
-| `memoryAdapter`      | Script/web-component default      | Never touches `location` or `history`                                                                                    |
-| `postMessageAdapter` | Inside the iframe embed           | `read` from the embed URL; `write` posts `state` to the parent; `subscribe` to host `set-state` commands                 |
-| `queryParamAdapter`  | Host wants deep links on its page | Owns a single namespaced param (`?riskmap=hazard;earthquake-pga:2`) via `replaceState`, and leaves other params alone    |
+| Adapter              | Use                               | Behaviour                                                                                                                     |
+| -------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `hashAdapter`        | Standalone site (**built**)       | Today's `hash.js` format; `pushState`/`replaceState`; `hashchange` ignores hashes whose tab isn't one of ours (fixes B4)      |
+| `memoryAdapter`      | The iframe embed (**built**)      | Never touches `location` or `history`; seeded from the embed URL's parameters                                                 |
+| `postMessageAdapter` | Not built                         | Unnecessary: the embed posts `state` from `createRiskMap`'s `state` event, and host commands go through `router.applyState()` |
+| `queryParamAdapter`  | Host wants deep links on its page | Owns a single namespaced param (`?riskmap=hazard;earthquake-pga:2`) via `replaceState`, and leaves other params alone         |
 
 The iframe embed defaults to `postMessageAdapter` with `write` using replace semantics, so the host
 tab's history is never touched (B5). A host that wants shareable URLs mirrors `state` messages into
@@ -188,6 +207,23 @@ replies.
 | embed → host | `error`     | `{ code, message }` (e.g. `mapx-unavailable`) |
 | host → embed | `set-state` | `{ tab?, layers? }`                           |
 | host → embed | `get-state` | `{}`; reply is `state` with the same `id`     |
+
+**As built** (see [How to embed](#8-how-to-embed-phase-1) for the current reference), with three
+deviations from the sketch above:
+
+- No `resize`. It was built, and it did nothing: the embed fills its frame, so the height it could
+  measure is the height the host had already set. A host following the hint received one message
+  telling it what it already knew. Shipping a no-op is worse than shipping nothing, so `resize` is
+  not in v1; a host gives the frame a height. Reviving it means measuring a content box a map does
+  not have, which is a phase-2 question about a fixed-aspect or content-sized mode.
+
+- `set-state` is two commands, `set-tab` and `set-layers`. One message that may or may not carry
+  layers is ambiguous at exactly the point where it matters: layers are a desired state, so
+  "change the tab" and "change the tab, and turn everything else off" must not look alike.
+- The embed's state adapter is `memoryAdapter`, not a `postMessageAdapter`. A host command is not an
+  external URL change; it is delivered to `router.applyState()`, which is the same reconcile path a
+  back/forward navigation takes. So the embed and the standalone app share one path instead of the
+  embed having a pushed-subscription path of its own, and `postMessageAdapter` is not needed.
 
 Rules: the embed posts only to `document.referrer`'s origin after checking it against the embed
 allowlist, never `"*"`. It accepts messages only when `event.source === window.parent` and
@@ -245,9 +281,12 @@ today (the standalone app is already a third-party context for MapX). **Unknown:
 feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
 it will break in every embed mode and needs the Storage Access API or a MapX token.
 
-**PIN gate.** Embeds never render the preview gate. It would lock the host page in script mode,
-and in an iframe it prompts per host site. Until production access control exists, the embed route
-should be undeployed or restricted with `frame-ancestors` to review hosts.
+**PIN gate.** This section's original position was that embeds never render the preview gate — it
+would lock the host page in script mode, and in an iframe it prompts per host site. That still holds
+for a _script_ embed (phase 2). For the iframe embed it did not survive review: the route is deployed,
+GitHub Pages cannot restrict framing, and "undeployed or restricted with `frame-ancestors`" was
+available as neither. So **the iframe embed renders the gate**, and it does prompt per host site, which
+is a cost the maintainer accepted knowingly — see "The preview gate in an embed" in §8.
 
 **Subresource Integrity.** Exact-version paths (`/embed/1.2.3/risk-map.js`) publish an SRI hash.
 SRI covers only the entry file: lazy chunks (EDRA and `proj4`) are loaded by `import()` and can't
@@ -285,37 +324,50 @@ title="…" loading="lazy" allow="fullscreen; clipboard-write">` or, in phase 2,
 Every PR in the layer-state refactor is reviewed against this list. A deviation must be named in the
 PR description with its reason and the follow-up issue.
 
-- [ ] **No new globals or import-time side effects.** New modules export functions or factories;
+Phase 1 meets every line, with one named carry-over: **one instance per document.** The MapX client
+(`sdk/client.js`), the inspection batch (`sdk/inspect.js`), the infobox and the site-inspector panel
+are still module singletons that find their elements by document id. `createRiskMap` is a factory
+and takes its adapter, registry and tabs as arguments, which is what this checklist asks for, and
+both of phase 1's consumers are a single instance per document, so nothing exercises the gap. Two
+maps on one page is phase 2b (see the roadmap), and it is what has to finish this.
+
+- [x] **No new globals or import-time side effects.** New modules export functions or factories;
       nothing runs on import except constant definitions. No new `window.*` or `document`-level
       custom events.
-- [ ] **Store and controller are instantiable.** `createLayersStore()` and `createLayerController()`
+- [x] **Store and controller are instantiable.** `createLayersStore()` and `createLayerController()`
       are factories taking their dependencies (registry, SDK client, external registry). A module
       singleton wrapper for the standalone app is acceptable for now if the factory exists and tests
       use it.
-- [ ] **Router/state adapter is injectable.** Hash reading and writing live behind the
+- [x] **Router/state adapter is injectable.** Hash reading and writing live behind the
       `read/write/subscribe/destroy` adapter. The store and controller never import `hash.js`.
-- [ ] **DOM queries are scoped to a root.** New or moved UI code receives a root element or
+- [x] **DOM queries are scoped to a root.** New or moved UI code receives a root element or
       component elements and uses `root.querySelector`. No new `document.getElementById`, no
       `document.querySelectorAll` across instances, no new hard-coded ids (use `data-` hooks or
       classes).
-- [ ] **Listeners are `destroy()`-able.** Every `addEventListener`, `subscribe`, `setInterval` or SDK
+- [x] **Listeners are `destroy()`-able.** Every `addEventListener`, `subscribe`, `setInterval` or SDK
       `on` registered outside a disposable element returns or records a disposer that a `destroy()`
       path calls. Prefer `AbortController` signals.
-- [ ] **No reliance on `location` or `history` outside the hash adapter.** This includes
+- [x] **No reliance on `location` or `history` outside the hash adapter.** This includes
       `location.reload()` (pass a `reload` callback instead).
-- [ ] **Shared caches are keyed, not implicit.** A module-level cache must key by project, view id or
+- [x] **Shared caches are keyed, not implicit.** A module-level cache must key by project, view id or
       URL (see the table in section 3), never by "the current SDK".
 
 ## 7. Roadmap and open questions
 
-| Phase | Work                                                                                                                                   | Rough effort                   |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                                | Included in #14                |
-| 1a    | `createRiskMap` boundary: markup moves from `index.html` into mount functions; per-instance SDK client, store and inspect; `destroy()` | 1–1.5 weeks                    |
-| 1b    | `embed.html` with `chrome`, `tabs`, `layers` URL params, `postMessageAdapter`, v1 message API, no PIN or footer                        | 3–5 days                       |
-| 1c    | Hosting with headers (`frame-ancestors`, CSP) and a Gutenberg block emitting the iframe                                                | 2–4 days, plus infra lead time |
-| 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                                 | 1.5–2 weeks                    |
-| 2b    | Two maps on one page (shared caches keyed per section 3); ties in with side-by-side panels (`TODO.md`)                                 | 3–5 days                       |
+| Phase | Work                                                                                                                            | Status                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                         | **Done** (#14)                 |
+| 1a    | `createRiskMap` boundary: the standalone app is its first consumer; injected adapter, allowlists, `destroy()`                   | **Done** (#15)                 |
+| 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, no PIN or footer     | **Done** (#15)                 |
+| 1c    | Hosting with headers (`frame-ancestors`, CSP) and a Gutenberg block emitting the iframe                                         | 2–4 days, plus infra lead time |
+| 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                          | 1.5–2 weeks, conditional       |
+| 2b    | Two maps on one page (shared caches keyed per section 3, per-instance SDK client and inspect); ties in with side-by-side panels | 3–5 days                       |
+
+Carried over from 1a on purpose: the markup still lives in `index.html` and `embed.html` rather than
+being built by mount functions, and the SDK client, the inspection batch, the infobox and the site
+inspector are still document-level singletons. Both are only in the way of _two instances in one
+document_, which is 2b, and building the markup in JavaScript would have meant rewriting the page in
+the same PR that introduced the boundary.
 
 Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps#15):
 
@@ -324,7 +376,10 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
    settles the phasing below: build phase 1, and treat phase 2 as conditional on a host needing
    something the iframe cannot give.
 3. **Access control in embeds.** Embeds may ship before the PIN gate is replaced, and a
-   `frame-ancestors` allowlist is acceptable as the prototype barrier.
+   `frame-ancestors` allowlist is acceptable as the prototype barrier. **Settled during review of
+   phase 1:** the hosting that could send `frame-ancestors` does not exist yet (answer 4), so the
+   barrier is the PIN gate, rendered by the embed itself. §8 has the reasoning, the consequences for a
+   host and the order in which it comes back off.
 4. **Hosting.** Not yet decided. Likely still GitHub Pages, possibly mapped to a subdomain such as
    `riskmaps.undrr.org`. So the embed must not depend on response headers until hosting can send
    them — `frame-ancestors` is a follow-up, not a prerequisite.
@@ -339,3 +394,233 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 Still open:
 
 - Whether a `frame-ancestors` allowlist can be set at all depends on question 4 landing.
+
+## 8. How to embed (phase 1)
+
+### The snippet
+
+```html
+<iframe
+  src="https://<host>/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.undrr.org"
+  title="Risk and resilience metrics map"
+  width="100%"
+  height="600"
+  loading="lazy"
+  allow="fullscreen; clipboard-write"
+  style="border: 0"
+></iframe>
+```
+
+`title` is required for screen-reader users: a frame with no name is announced as an unnamed frame.
+`allow="clipboard-write"` is what lets the site inspector's "copy coordinates" button work; without
+it the copy fails silently. Give the frame a height: the embed is a map, so it has no natural one and
+v1 has no auto-sizing message — the one that existed only ever reported the height the host had just
+set (see §3).
+
+**While this is a prototype, the embed is behind a PIN**, like the standalone viewer. A visitor of
+your page enters it inside the frame. Read "The preview gate in an embed" below before you paste this
+anywhere a real audience will see it.
+
+### Parameters
+
+Everything is validated against the layer config and unknown parameters are ignored. A bad value
+falls back to its default rather than failing the embed — with two deliberate exceptions, the
+allowlists and `parentOrigin`, both described under the table.
+
+| Parameter      | Value                                                                                  | Default                       |
+| -------------- | -------------------------------------------------------------------------------------- | ----------------------------- |
+| `tab`          | a data tab id (`risk-resilience`, `resilience`, `hazard`, `exposure`, `vulnerability`) | the first tab the embed shows |
+| `layers`       | `key[:sourceIdx]`, comma separated — the share-link syntax                             | none                          |
+| `variants`     | JSON of per-layer provider settings, as in a share link                                | none                          |
+| `tabs`         | tab-id allowlist, comma separated                                                      | every tab                     |
+| `allow`        | layer-key allowlist, comma separated                                                   | every layer of the shown tabs |
+| `panel`        | `collapsed` or `expanded`                                                              | `expanded`                    |
+| `parentOrigin` | the host origin the embed exchanges messages with                                      | `document.referrer`'s origin  |
+| `instance`     | opaque id (`[A-Za-z0-9_-]`, ≤ 64) echoed in every message                              | none                          |
+
+A source index the layer does not have falls back to its first source, at most 12 layers are opened,
+and info tabs (`home`, `sources`, `about`) are not addressable: an embed has no information pages.
+
+**An allowlist never widens.** `tabs` and `allow` exist to narrow what the embed shows, so the embed
+distinguishes "absent" from "resolved to nothing":
+
+| URL                             | What the embed shows                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| neither parameter               | every tab, every layer                                                          |
+| `?allow=no-such-layer`          | **nothing** — an explicit empty state, and a warning naming the id              |
+| `?tabs=no-such-tab`             | **nothing** — same                                                              |
+| `?tabs=hazard&allow=population` | the `hazard` tab and its own layers (`population` is in `exposure`)             |
+| `?tabs=` (supplied, but empty)  | **nothing** — a parameter that was supplied and names nothing asked for nothing |
+
+Every unrecognised id is named in a `console.warn`, so a host that mistypes one can see why. Before
+this, an allowlist that resolved to nothing was read as no allowlist at all, and a host that had
+excluded everything was handed all five tabs and all 25 layers — and could then turn any of them on
+over the message API.
+
+**`parentOrigin` is strict.** It is the parameter a careful host writes in order to be explicit, so a
+value that is not an `http(s)` origin (`not-a-url`, `https:///`, `javascript:…`, `//evil.example`, or
+empty) disables the message bridge in both directions and says so in the console, rather than quietly
+reverting to the `document.referrer` fallback. Omit the parameter entirely to use that fallback on
+purpose.
+
+### The message API (v1)
+
+Every message, both ways, is `{ type: "undrr-risk-map", v: 1, instance?, id?, name, payload }`.
+
+| Direction    | `name`       | Payload                                                                              |
+| ------------ | ------------ | ------------------------------------------------------------------------------------ |
+| embed → host | `ready`      | `{ version, tabs, layers, locked }` — the tab ids and layer keys this embed can show |
+| embed → host | `state`      | `{ tab, layers }` after each settled change                                          |
+| embed → host | `error`      | `{ code, message }` — see the codes below                                            |
+| host → embed | `set-tab`    | `{ tab }`                                                                            |
+| host → embed | `set-layers` | `{ tab?, layers }` — a desired state, reconciled                                     |
+| host → embed | `get-state`  | `{}` — answered by a `state` message carrying the same `id`                          |
+
+```js
+const frame = document.getElementById("risk-map");
+const EMBED_ORIGIN = "https://<host>";
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== EMBED_ORIGIN) return; // the host has to check too
+  const message = event.data;
+  if (!message || message.type !== "undrr-risk-map" || message.v !== 1) return;
+  if (message.name === "ready") {
+    frame.contentWindow.postMessage(
+      { type: "undrr-risk-map", v: 1, name: "set-layers", payload: { layers: [{ key: "landslides" }] } },
+      EMBED_ORIGIN,
+    );
+  }
+});
+```
+
+Error codes:
+
+| `code`                | Meaning                                                                       |
+| --------------------- | ----------------------------------------------------------------------------- |
+| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state |
+| `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive   |
+| `malformed`           | a `set-layers` whose `layers` is not an array                                 |
+| `unsupported-version` | the `v` in a message is not one this build speaks — sent **once** per embed   |
+| `mapx-unavailable`    | the map service could not be reached                                          |
+| `layer-failed`        | one layer could not be added or removed                                       |
+| `command-failed`      | a command threw inside the embed                                              |
+
+Rules a host can rely on:
+
+- **Wait for `ready`.** Commands that arrive before MapX can accept layer changes are ignored, as a
+  back/forward navigation would be. `ready` can arrive twice while the prototype is gated: once with
+  `locked: true`, and again with `locked: false` once someone has entered the PIN in the frame.
+- **Commands are a desired state, not a diff.** `set-layers` turns off anything not in the list.
+- **Everything is clamped** exactly as a URL parameter is: unknown keys dropped, indices checked,
+  layers outside the embed's allowlist refused, at most 12 at a time.
+- **Malformed traffic is ignored**, never answered and never thrown, with two exceptions that a host
+  needs in order to debug its own code: an unrecognised `v` gets one `unsupported-version` reply per
+  embed (so a host can tell an old embed from a silent one without a loop turning into a flood), and a
+  `set-layers` whose `layers` is not an array gets `malformed` — it is **not** read as "turn
+  everything off", which is what a mistake in a host's code would otherwise do to the map.
+
+### Security model
+
+- The embed posts **only** to the configured parent origin, with an explicit `targetOrigin`, never
+  `"*"`. The browser drops the message if the real parent is not that origin.
+- The embed accepts a command only when it comes from `window.parent` **and** from that origin. A
+  third-party frame on the same host page cannot drive it, even though it can reach the embed's
+  window through `parent.frames[…]`.
+- **While the preview gate is locked** the bridge reports `ready` with `locked: true` and answers
+  every command with `error: locked`. It does not set the tab, does not set layers and does not report
+  state (see the next section for why).
+- **With no parent origin** — no `parentOrigin` parameter and no readable `document.referrer`
+  (a strict `Referrer-Policy`, or the embed opened directly), or a `parentOrigin` that does not parse
+  — the embed refuses in both directions:
+  it posts nothing and accepts no command. It still renders and still works for the person looking at
+  it; it is simply not addressable. Add `&parentOrigin=<your origin>` to fix it.
+- A host can set layers, set the tab and read state. It **cannot** reach inside the embed's DOM, read
+  anything the schema above does not list, make the embed navigate, or make it touch the host page's
+  URL or history: the embed's state lives in an in-memory adapter (`src/state/memory-adapter.js`).
+- Prove it locally with the host harness in `tests/e2e/fixtures/embed-host.html` (it explains how to
+  serve itself from a second port); `tests/e2e/embed.spec.js` is the same thing automated.
+
+### Framing policy, pending hosting
+
+Where the viewer is hosted is still open (answer 4 above), and GitHub Pages cannot set response
+headers, so **nothing in the embed depends on one**. Once hosting can send headers, the embed route
+should carry
+
+```
+Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net
+```
+
+and the standalone app `frame-ancestors 'self'`. Until then the embed is frameable by any site — which
+is why it is gated.
+
+### The preview gate in an embed
+
+**`embed.html` carries the same Mangrove preview gate as `index.html`**: the same
+`data-mg-preview-id` (`grar-map-viewer`), the same public PIN, the same `preview-access.js`. The
+decision is deliberate and it is the maintainer's.
+
+**Why.** Merging publishes `embed.html` to GitHub Pages. Pages cannot send `frame-ancestors` or
+`X-Frame-Options`, so any site on the web can frame the prototype, brand it with the UNDRR logo it
+carries, and drive it over the message API. The alternative to a gate is an ungated prototype on the
+open web; the alternative to publishing is not publishing, which would leave the embed untestable by
+the people reviewing it. So the embed is published, and gated.
+
+**What the gate is worth.** Mangrove's stylesheet hides every child of `<body>`
+(`visibility: hidden`) and the script marks them `inert` until the PIN is accepted. So before an
+unlock the map and the layer panel are not visible, not clickable, not tab stops and not announced —
+inside an iframe as much as at top level. It remains a "wet paint" sign rather than access control:
+the PIN is in the markup, by design. Anything that genuinely must not be seen has to be gated at the
+edge, and that is a hosting decision, not a markup one.
+
+**What a host has to know.** `sessionStorage` is per tab, and a third-party frame's storage is
+partitioned by the top-level site, so **an unlock on the standalone viewer does not carry into an
+embed on another site, and an unlock inside the embed does not carry out of it**. A visitor of your
+page enters the PIN inside the frame, once per tab. (Measured: two `localhost` ports are the same
+_site_, so a local harness shares one partition and the unlock does appear to carry — which is why a
+local test cannot be used to conclude anything about a real host. Two real sites do not share it.)
+If a browser blocks the frame's storage altogether, Mangrove catches the failure, reveals the page for
+that load and simply asks again on the next one: the PIN always works, it is only never remembered.
+There is no state in which a visitor cannot get in.
+
+**The bridge while locked.** A locked embed answers `ready` with `locked: true` and nothing else: it
+refuses `set-tab`, `set-layers` and `get-state` with `error: locked`, and posts no `state`. The
+reasoning: letting a host drive or read a gated prototype would make the gate pointless — the host
+page could operate the map and even mirror its state into its own UI while the visitor is still
+looking at a PIN prompt. But a frame that says nothing at all is indistinguishable from a broken one,
+and a host that knows the embed is locked can show its own message instead, so the one thing it does
+say is that it exists, which version it speaks, and that it is locked. The second `ready`
+(`locked: false`) arrives once the PIN is entered and the map is up.
+
+**The map warm-up and the ready budget.** Nothing to do: `canMapLoad()` already treats a map
+container whose computed visibility is `hidden` as one that cannot load, which is exactly what the
+gate produces — so the ~30 s ready budget does not run behind the gate and a gated embed never shows
+the "map is temporarily unavailable" notice for time nobody spent looking at it. (The information-page
+warm-up itself does not apply to an embed: there are no information pages to warm up behind.)
+
+**The way out.** The "Open the full viewer" link lands on `index.html`, which is gated by the same
+PIN, so both ends of that link are behind the same barrier. Nothing to fix there while the gate is on
+both.
+
+**Before a real host gets a PIN-free embed**, in order:
+
+1. Host the viewer somewhere that can set response headers (answer 4 — GitHub Pages cannot).
+2. Serve `frame-ancestors` on the embed route, as above, and `frame-ancestors 'self'` on the
+   standalone app.
+3. Then remove the gate element and the `preview-access.js` script from `embed.html`. That is the whole
+   change: `src/embed/preview-gate.js` reports "not locked" for a page with no gate, so the bridge
+   opens up on its own, and the one spec group in `tests/e2e/embed.spec.js` that runs with
+   `previewUnlocked: false` is what has to be deleted with it.
+
+Removing the gate before step 2 is the thing not to do: it is the only barrier the embed has while
+`frame-ancestors` cannot be sent.
+
+### Analytics
+
+The embed records one event on load, `embed_loaded`, with
+`{ host, framed, tab, layers, locked }` — `host` being `document.referrer`'s origin, because
+`window.parent.location` is unreadable across origins, and `null` when the browser sends no referrer.
+`locked` says whether the embed loaded behind the preview gate, which is the difference between a host
+whose visitors saw the map and one whose visitors saw a PIN prompt. The repository has no analytics
+platform yet (see `docs/resourcing-plan.md`), so the default sink
+writes the event to the console at debug level; pointing `createAnalytics({ sink })` at Matomo or
+whatever UNDRR standardises on is a one-line change in `src/embed/main.js`.

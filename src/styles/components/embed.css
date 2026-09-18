@@ -1,0 +1,78 @@
+/**
+ * The iframe embed's own layout (`embed.html`).
+ *
+ * Imported only by the embed entry, so the standalone bundle does not carry it.
+ * It re-does exactly two things the standalone page's layout assumes and the
+ * embed does not have: a page header and nav of fixed heights above the map, and
+ * a build-info footer below it.
+ */
+
+.embed-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* `100dvh` where it exists: an embed is often the whole viewport on a phone,
+     and the dynamic unit keeps the map off the URL bar's sliding area. */
+  min-height: 100dvh;
+  background: rgb(var(--mg-color-neutral-0));
+}
+
+/* The map takes the height the nav and the attribution strip leave, rather than
+   the standalone page's `calc(100vh - header - nav - build-info)`. */
+.embed-root .app-map {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 16rem;
+}
+
+.embed-root .app-map.is-warming {
+  /* The embed has no information pages, so nothing ever warms up behind one.
+     Neutralised anyway, because the standalone rule offsets by a header this
+     document does not have. */
+  position: relative;
+  top: 0;
+}
+
+.embed-nav {
+  flex: 0 0 auto;
+}
+
+/* The empty state (an allowlist that selects nothing): it stands in for the map,
+   so it takes the space the map would have had. */
+.embed-empty {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.embed-nav .mg-mega-topbar {
+  margin: 0;
+}
+
+/* ── Attribution ──────────────────────────────────────
+   Subtle, per the maintainer's answer 5 in docs/embedding.md: a source line and
+   a way out to the full viewer, not a second site header. */
+
+.embed-attribution {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.25rem 0.75rem;
+  background: rgb(var(--mg-color-neutral-0));
+  color: rgb(var(--mg-color-neutral-500));
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.embed-attribution a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.embed-attribution a:hover,
+.embed-attribution a:focus-visible {
+  color: var(--color-primary);
+}

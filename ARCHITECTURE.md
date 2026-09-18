@@ -13,13 +13,21 @@ Static site, no backend. The app embeds MapX in an iframe via the SDK's postMess
 
 ```
 undrr-risk-resilience-maps/
-├── index.html                  # Main entry point
+├── index.html                  # Main entry point (standalone site)
+├── embed.html                  # Iframe embed entry: no header, info pages or footer; same PIN gate
 ├── data/
 │   └── inventory.csv           # Master metadata, delivery status, and permanent MapX IDs
 ├── scripts/
 │   └── import-inventory.mjs    # CSV → JS config import tool (dry-run + --apply)
 ├── src/
-│   ├── main.js                 # Standalone entry: validates config, creates the sidebar on document.body, inits SDK
+│   ├── main.js                 # Standalone entry: createRiskMap(document.body) and the app's stylesheet
+│   ├── app/
+│   │   └── create-risk-map.js  # createRiskMap(root, options): the instance boundary both entries build on
+│   ├── embed/
+│   │   ├── main.js             # embed.html's entry: params + memory adapter + message bridge + analytics
+│   │   ├── params.js           # Embed URL parameters, validated and clamped against the layer config
+│   │   ├── messaging.js        # The versioned host postMessage API (v1) and its origin checks
+│   │   └── preview-gate.js     # Reads Mangrove's preview gate: is the embed still locked, and when does it open
 │   ├── config/
 │   │   ├── layers/             # Per-category layer definitions
 │   │   │   ├── index.js        # Assembles TABS array, withR2rGroups() helper
@@ -45,12 +53,14 @@ undrr-risk-resilience-maps/
 │   │   ├── edra-agriculture-controls.js # EDRA crop/scenario options (loaded eagerly)
 │   │   └── edra-agriculture.js # EDRA fetch, cache, reprojection, join, and MapX adapter
 │   ├── services/
+│   │   ├── analytics.js        # createAnalytics({ sink }) + the embed_loaded event shape (no tracker yet)
 │   │   ├── layer-controller.js # createLayerController(): reconciles layer intent to MapX, latest intent wins
 │   │   └── router.js           # createRouter(): active tab, URL state through the adapter, one history entry per action
 │   ├── state/
 │   │   ├── store.js            # openViews Set (derived from the layers store)
 │   │   ├── layers-store.js     # createLayersStore(): per-layer intent + applied records, subscribers
 │   │   ├── hash-adapter.js     # createHashAdapter(): read/write/subscribe/destroy over hash.js
+│   │   ├── memory-adapter.js   # createMemoryAdapter(): the same contract with no location or history (the embed)
 │   │   └── hash.js             # URL hash encoding/decoding + layer index lookup
 │   ├── ui/
 │   │   ├── sidebar.js          # createSidebar(root, options): composes store, controller, router, nav and panels; one instance
@@ -77,6 +87,7 @@ undrr-risk-resilience-maps/
 │       ├── tokens.css          # Design tokens (custom properties)
 │       └── components/         # Per-component CSS files
 │           ├── layout.css      # App shell, nav, info-page containers
+│           ├── embed.css       # The embed's layout and attribution (imported by src/embed/main.js only)
 │           ├── layer-panel.css # Floating sidebar panel
 │           ├── layer-accordion.css # Layer items + R2R group headings
 │           ├── opacity-slider.css
@@ -90,6 +101,9 @@ undrr-risk-resilience-maps/
 │   └── e2e/                    # Playwright smoke suite (unit tests live beside their modules)
 │       ├── fixtures/
 │       │   ├── app.js          # The shared test fixture: MapX stub routing, preview-gate unlock, selectors
+│       │   ├── embed.js        # The embed fixture: two throwaway servers that host the embed cross-origin
+│       │   ├── embed-host.html # Host harness: frames embed.html, logs its messages, sends commands
+│       │   ├── embed-unrelated.html # A third party on the host page, to prove the embed answers only its parent
 │       │   └── mapx-stub.js    # Served as mxsdk.umd.js; the only fake MapX in the suite
 │       ├── dev-server.js       # Port, reuse policy and identity path, shared with both configs
 │       ├── global-setup.js     # Refuses the run if the port serves another checkout
@@ -107,7 +121,7 @@ undrr-risk-resilience-maps/
 
 The app initialises in three phases to keep the UI responsive even if the MapX SDK is slow to load:
 
-1. **Immediate** — `validateLayers()` runs first and throws on config errors. `createSidebar(document.body, { onViewsChanged })` follows: nav links are generated and wired, info pages are built, and layer accordions are rendered. The user can read the home, Sources, and About pages without waiting for the map.
+1. **Immediate** — `createRiskMap(document.body)` runs `validateLayers()` first, which throws on config errors, then builds the sidebar: nav links are generated and wired, info pages are built, and layer accordions are rendered. The user can read the home, Sources, and About pages without waiting for the map.
 2. **SDK availability** — `src/sdk/availability.js` loads the remote SDK with a 15-second limit. After the manager starts, MapX gets 30 seconds of _loading time_ to fire its `ready` event. A failed request, invalid SDK response, manager-construction error, or stalled MapX iframe reveals an in-page service notice with manual retry and MapX availability links; the non-map pages remain usable. A visible 60-second countdown then reloads the current URL automatically, preserving its tab and layer hash while checking whether the service has recovered. Both the ready budget and the countdown run only while `isMapOnScreen()` (the map is the view the user is on); `canMapLoad()` is the wider question — can the iframe make progress at all — and is what tells the warm-up apart from a hidden map. So a healthy service is never reported as failed and nobody is reloaded out of an information page they are reading.
 
    **Why the ready budget is spent rather than elapsed.** MapX renders in a cross-origin iframe, and browsers throttle rendering in an iframe that is not being painted — which halts MapX's own start-up, not just its drawing. Two states do this: the Mangrove preview gate (`visibility: hidden` on the body's children until the PIN is entered) and the tab being in the background. Measured against the live service, MapX makes literally no progress in either and then reaches `ready` ~1.1s (warm) to ~3.5s (cold profile) after the iframe becomes renderable. A wall-clock timer therefore reported a false "MapX is unavailable" for anyone who sat at the PIN gate or backgrounded the tab for 30 seconds. `watchForMapReady()` ticks its budget down only while `isMapOnScreen()` holds, which keeps 30s as a ~10x margin over a real cold load instead of a limit on the user's reading speed. It is spent on being _on screen_, not merely on being able to load, because the warm-up below can load for as long as someone reads: measured at 400 kbps / 400 ms RTT, landing on `#home` and never opening a tab, a budget spent on `canMapLoad()` armed the notice at 78.2-78.3s (two runs) on a service that became ready at 174.3-174.4s, so the first data-tab click showed "The map is temporarily unavailable" and a reload countdown before the map had had a second on screen. Each tick subtracts the time that really elapsed since the last one rather than the nominal tick, because `setInterval` coalesces. The watch is also bounded at 15 minutes -- but measured from the first tick on which the budget was actually spent, so it is on the same clock as the budget. Bounding it from when the watch was armed measured something else: someone who read About for a quarter of an hour and then opened a data tab onto a genuinely dead MapX had had the watch expire before a single millisecond of budget was spent, and would have been left with a blank map, no notice and no retry for the life of the page. Counted from the first spent tick it still ends the case it exists for, a budget spent a sliver at a time because the map keeps going off screen, and it stops without accusing the service. The trade is that a page that never brings the map on screen at all keeps its interval -- one predicate check per tick -- for the life of the page. A late `ready` still clears the notice and cancels the countdown, so even a genuine timeout recovers by itself if the service catches up.
@@ -394,7 +408,34 @@ sidebar.destroy();
   - `isSDKReady()`, `sdk/views.js` and the external runtime registry are module singletons tied to the one MapX iframe.
 - **Listeners.** Every listener the instance adds uses one `AbortController` signal: nav links (`createNav({ signal })`), the panel toggle, Clear all, Show disabled, the home cards (`buildHomePanel({ tabs, onNavigate, signal })`), the Sources page controls, and the panel drag and resize (`makeDraggable(el, handle, { signal })`, `makeResizable(el, { signal })`, which also end a drag in progress and remove the grip). The store subscriptions, the router (which holds the URL subscription and its own store subscription) and the instance's live region are disposers. Home cards call `onNavigate` instead of dispatching a `navigate-tab` event on `document`.
 - **Destroy.** `destroy()` runs the disposers (controller first, then the router and its adapter), aborts the signal (which also runs Mangrove's `mgTabsDestroy` for the Sources tabs, removing its window and font listeners), destroys the rows, removes the DOM the instance built (info pages, tab panels, generated nav links, resize grip) and resets the static Clear all and Show disabled buttons. It also restores the page state it changed: the `#app-map` and `#info-page` display, the global footer, the nav links' active classes and the panel's collapsed state. A new instance on the same page creates no duplicate ids or handlers. The lifecycle rules under State management apply.
-- **`main.js`** is the standalone entry and the only module that reaches for page globals: it passes `document.body` as the root, looks up `#mapx` and `#inspect-toggle`, and wires the inspect toggle through `onViewsChanged`. `initMapServiceRetry(document, reload)` and `startMapServiceRetryCountdown({ reload })` take a `reload` callback (default `location.reload()`).
+- **Seams for `createRiskMap`.** Besides `showTab()` (open a tab as a home card does), the instance exposes `setTab(tabId)` (switch without touching the panel, so an embed that starts collapsed stays collapsed), `setLayers(layers, { tab })` (reconcile to exactly this list, through `router.applyState()`) and `onTabChange(fn)`. `onLayerError` replaces the default console warning, which is how a layer failure reaches an embed host as an `error` message.
+
+### App instance (`createRiskMap`) and the iframe embed
+
+`createRiskMap(root, options)` in `src/app/create-risk-map.js` is the app-instance boundary from [docs/embedding.md §3](docs/embedding.md). It composes the sidebar (and through it the store, controller, router and map warm-up) with the MapX client, the availability watch, the inspection panels and the build-info footer, and gives them one lifetime: `getState()`, `setState()`/`setTab()`/`setLayers()`, `on("ready"|"state"|"error")` and `destroy()`. Both entry points are consumers of it, so they differ in options rather than in wiring:
+
+| | `index.html` → `src/main.js` | `embed.html` → `src/embed/main.js` |
+| --- | --- | --- |
+| State adapter | `createHashAdapter()` (owned by the instance) | `createMemoryAdapter()` — never touches `location` or `history`, so the **host page's** URL and joint session history are untouched |
+| Configuration | the whole layer config | URL parameters, validated and clamped in `src/embed/params.js` |
+| Chrome | header, nav, information pages, footers | a category nav, the map, a subtle attribution line and a link to the full viewer — the embed markup simply carries no `data-ui` hook for the rest |
+| Preview PIN gate | yes | yes, the same gate and PIN: the embed is published to GitHub Pages, which cannot send `frame-ancestors`, so the gate is the only barrier between an UNDRR-branded prototype and any site that frames it. `src/embed/preview-gate.js` watches it, and the host bridge answers `ready` with `locked: true` and refuses every command until it opens |
+| Host API | — | the v1 `postMessage` bridge in `src/embed/messaging.js` |
+| Analytics | — | one `embed_loaded` event naming the host it is framed in |
+
+- **Allowlists.** `selectTabs(TABS, { tabs, layers })` narrows the config to the tab ids and layer keys an instance may show, in config order, keeping the config's own layer objects by reference (the registry and the rows must agree on identity). A tab a layer allowlist empties is dropped. The instance then builds a private registry, so the URL key order and the controller's lookups cover exactly those layers; an instance showing the whole config reuses the shared `getLayerRegistry()`.
+- **Initial state is state.** `initialTab` and `layers` are seeded into the adapter, so they restore through the router's ordinary path with the same clamping and the same single write in place. There is no second startup path for "initial layers".
+- **Events.** `state` is coalesced to a microtask and deduplicated, so one user action reports once. `ready` carries the tab ids and layer keys the instance can show, and is replayed to a listener that subscribes late. `error` carries `mapx-unavailable` or `layer-failed`.
+- **Destroy.** The ready watch and the retry countdown, every listener and subscription, the sidebar (rows, controller, router, DOM), the inspection panels, the MapX manager and its iframe, and an adapter the instance created. `getState()` keeps answering with the last state; everything else is inert.
+- **One instance per document, for now.** The MapX client, the inspection batch, the infobox and the site-inspector panel are still module singletons that find their elements by document id. Both consumers are a single instance per document; two maps on one page is phase 2b in the embedding doc.
+- **Nothing reaches for page globals except through the root.** `createRiskMap` looks up `[data-ui="app-map"]`, `[data-ui="mapx"]` and `[data-ui="inspect-toggle"]` under its root, and passes its own `document` and a `reload` callback to the availability module — so an embed's "Try again" reloads the frame, never the host page.
+
+**The embed's URL parameters** (`tab`, `layers`, `variants`, `tabs`, `allow`, `panel`, `parentOrigin`, `instance`) and **the v1 message schema** are documented for hosts in [docs/embedding.md §8](docs/embedding.md). Four rules matter architecturally:
+
+- `layers`/`variants` are parsed by `parseLayerParams()` in `src/state/hash.js`, the same code a share link uses, so the two syntaxes cannot drift.
+- A host command is delivered to `router.applyState()`, the same path a back/forward navigation takes, so a host cannot reconcile differently from a user.
+- **Narrowing parameters never widen.** `tabs` and `allow` distinguish "absent" from "supplied and resolved to nothing": an allowlist of names the config does not know renders an explicit empty state (`params.empty`, the notice in `embed.html`, no instance created), never the whole config. Two allowlists that resolve but do not overlap narrow to the tab selection. Unrecognised ids are named in a `console.warn`.
+- **Refusals are explicit where a host could otherwise be misread.** A `set-layers` whose `layers` is not an array is answered `error: malformed` rather than reconciled to nothing; a `parentOrigin` that does not parse to an http(s) origin disables the bridge instead of falling back to the referrer; the one `unsupported-version` reply is sent once per embed.
 
 ### Layer rows
 
@@ -601,6 +642,7 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 ## Build pipeline
 
 - Vite dev server with hot reload
+- Two HTML entries, `index.html` (the site) and `embed.html` (the iframe embed), over one module graph: they share the app chunk and its cache headers, and the embed needs no pipeline of its own
 - Vite/Rollup produces static assets to `dist/`
 - Serve with the Node.js static server (`server.js`) or any static host
 - No application backend is needed. Runtime data can come from MapX and explicitly approved external providers; some legend requests may use the MapX mirror.
@@ -640,6 +682,13 @@ in-progress code. A new top-level directory holding unit tests must be added to
 | `src/services/router.test.js`             | Pure (no DOM, no `location`): the first tab from URL state or `initialTab`, push vs replace per action, clear-all as one entry, config key order, restore order and clamping, hash-change actions, and destroy dropping late results                                                             |
 | `src/services/layer-controller.test.js`   | Latest intent wins (rapid toggles, A→B→C switches), clear-all during load, add/remove/double failures, external settings during load, `view_add` order across keys, destroy                                                                                                                      |
 | `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy on a target; shared links (grouped tabs too) round-trip byte for byte via the store                                                                                                                                                                         |
+| `src/state/memory-adapter.test.js`        | The same contract with no `location` or `history`: seeding, copies in and out, a subscriber that is never called, writes ignored after destroy                                                                                                                                                   |
+| `src/app/create-risk-map.test.js`         | `selectTabs` allowlists (order, unknown ids, groups, layer identity); option plumbing, seeded initial layers restoring on ready, the coalesced `state` event, replayed `ready`, `setTab`/`setLayers`/`setState`, layer and map-service errors, and what `destroy()` takes back                   |
+| `src/embed/params.test.js`                | Every embed URL parameter: defaults, unknown tab/layer/source, allowlists (including one that resolves to nothing, two that do not overlap, and the warnings naming the ids), duplicates, `MAX_LAYERS`, `variants` (including broken JSON), `panel`, `parentOrigin` (absent vs supplied-and-unparseable), the `instance` pattern, and unknown parameters ignored |
+| `src/embed/messaging.test.js`             | The whole security surface: foreign origin and foreign source refused, a missing parent refused, no parent origin meaning refuse-everything, non-protocol traffic ignored, an unsupported version answered exactly once, instance routing, the accepted command names, payload and id validation, and `destroy()`                          |
+| `src/embed/preview-gate.test.js`          | Reading Mangrove's gate: no gate or an already-unlocked one is not locked, a locked one flips exactly once when the unlocked class arrives, a throwing listener does not stop the others, a late listener is never called, and `destroy()` stops watching                                         |
+| `src/embed/main.test.js`                  | The embed wired up, with `createRiskMap` stubbed: locked, it announces `ready { locked: true }`, refuses every command with `error: locked`, reports no state, and opens up when the gate does; unlocked, it obeys the three commands, refuses a `set-layers` that is not a list, posts no `resize`, and keeps the full-viewer link current; an empty configuration builds no instance at all; an unparseable `parentOrigin` leaves it silent both ways |
+| `src/services/analytics.test.js`          | `hostOrigin` from a referrer, the `embed_loaded` shape, the injected sink and the default console one, and a throwing sink never reaching the caller                                                                                                                                             |
 | `src/ui/announcer.test.js`                | The live region and its rule: a duplicate for the same record dropped, the same message from a new record (or no record) announced again, one record carrying a clear and a failure, two layers speaking at once both carried, and a standing message written back whichever layer settles first |
 | `src/ui/sidebar.order.test.js`            | The store's subscriber order through a real instance: `openViews` current and the rows not yet rendered at the moment the URL is written, for a layer going on and going off                                                                                                                     |
 | `src/ui/sidebar.announce.test.js`         | Exactly one write to the instance's region per layer event across three placements, for the busy and failure messages; a repeated failure announced twice; two layers loading or failing together; the region's placement for a non-element root; the per-row `.layer-error` lines kept          |
@@ -698,6 +747,14 @@ PreventionWeb footer widget. `window.__mapxStub` exposes `ready`, `openViews`,
 `calls` and a `delayMs` a spec raises when it needs a later action to land while
 an earlier MapX call is provably still in flight.
 
+**The embed's host pages are real servers, not routes.** `tests/e2e/fixtures/embed.js` starts two
+throwaway HTTP servers on ports of their own — one for the host harness, one for an unrelated third
+party — because Chrome's local-network-access checks refuse to let a page whose response did not come
+from the local network load anything from `localhost`, and an intercepted response counts as exactly
+that. The frame is otherwise blocked and the spec proves nothing. Two local ports are both genuinely
+cross-origin and genuinely local, and they are what a person reproducing this by hand would use;
+`embed-host.html` says how.
+
 The Mangrove stylesheet and `preview-access.js` are still loaded from
 assets.undrr.org: they are the app's own design system, and without them the
 page under test is not the page. The preview PIN gate persists its unlock as
@@ -713,6 +770,8 @@ the PIN in every test.
 | `source-switch.spec.js` | Overlapping source picks end on the last one, with the widget, the URL, the opacity slider's view id and the legend image all naming the same view        |
 | `clear-all.spec.js`     | Clear all during a load leaves no switch on, no view on the map and a bare hash                                                                           |
 | `keyboard.spec.js`      | Tab reaches a layer switch from the row's expand control, Space turns it on and Enter turns it off                                                        |
+| `map-warmup.spec.js`    | The map keeps loading behind an information page while staying out of reach, through a real PIN unlock, and the skip link follows the view                |
+| `embed.spec.js`         | The iframe embed: parameters applied and clamped, an allowlist that selects nothing rendering an empty state rather than the whole config, no information pages, no write to its own URL or history, and — framed by a host page on a second origin — `ready`/`state` messages, `set-tab`/`set-layers`/`get-state`, malformed and wrong-version traffic (answered once), a `set-layers` that is not a list refused, commands refused from a third-party frame, from an unconfigured origin and from an unparseable `parentOrigin`, the host's URL and history untouched, and the `embed_loaded` analytics event naming the host. Plus the preview gate: the embed hidden and inert behind it, the ready budget not counting there, the PIN still answerable when storage is blocked, and the host told `locked` and refused until the PIN is entered inside the frame |
 
 Deliberately **not** covered here, because a browser adds nothing or the suite
 would be guessing at MapX: anything MapX itself renders (tiles, the map canvas,

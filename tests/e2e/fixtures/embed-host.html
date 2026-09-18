@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Risk map embed — host harness</title>
+    <style>
+      body {
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        margin: 1rem;
+      }
+      iframe#map {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #ccc;
+      }
+      pre {
+        max-height: 12rem;
+        overflow: auto;
+        background: #f6f6f6;
+        padding: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      A host page for the iframe embed, deliberately as dumb as a real host: it
+      frames `embed.html`, listens for the embed's messages and can send the
+      three commands back.
+
+      It exists so the cross-origin behaviour is provable rather than asserted.
+      `tests/e2e/fixtures/embed.js` serves it from a throwaway HTTP server on a
+      port of its own — a different origin from the embed's, which is what the
+      same-origin policy and `postMessage` care about — and the specs read
+      `window.__harness`.
+
+      To drive it by hand, serve this directory on a port of its own so the
+      origins differ, and pass the embed URL:
+
+        python3 -m http.server 3060 --directory tests/e2e/fixtures
+        open 'http://localhost:3060/embed-host.html?src=http://localhost:3040/embed.html%3Ftab%3Dhazard%26parentOrigin%3Dhttp://localhost:3060'
+
+      Query parameters: `src` (the embed URL) and `evil` (a URL for the unrelated
+      frame used to prove the embed ignores messages that are not its parent's).
+
+      The frame has a fixed height here, as a real host's does: the v1 schema has
+      no auto-sizing hint (docs/embedding.md §8, and the note on `OUTBOUND` in
+      src/embed/messaging.js).
+    -->
+    <h1>Risk map embed — host harness</h1>
+    <p id="status">waiting for the embed…</p>
+    <p><a id="host-link" href="#host-anchor">an ordinary in-page link</a></p>
+
+    <iframe id="map" title="Risk and resilience metrics map" allow="fullscreen; clipboard-write"></iframe>
+
+    <h2>Messages from the embed</h2>
+    <pre id="log"></pre>
+
+    <!-- Not the embed's parent: a third party on yet another origin, used to
+         check that the embed accepts commands only from the window that frames
+         it. Empty unless the `evil` parameter names a page. -->
+    <iframe id="unrelated" title="unrelated frame" hidden></iframe>
+
+    <script>
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var src = params.get("src");
+        var frame = document.getElementById("map");
+        var log = document.getElementById("log");
+        var embedOrigin = src ? new URL(src, location.href).origin : null;
+
+        var harness = {
+          embedOrigin: embedOrigin,
+          messages: [],
+          initialHref: location.href,
+          initialHistoryLength: history.length,
+          /** Post a command to the embed, as a host does. */
+          send: function (name, payload, extra) {
+            var message = { type: "undrr-risk-map", v: 1, name: name, payload: payload || {} };
+            for (var key in extra || {}) message[key] = extra[key];
+            frame.contentWindow.postMessage(message, embedOrigin);
+          },
+          of: function (name) {
+            return harness.messages.filter(function (message) {
+              return message.name === name;
+            });
+          },
+          last: function (name) {
+            var all = harness.of(name);
+            return all[all.length - 1];
+          },
+        };
+        window.__harness = harness;
+
+        window.addEventListener("message", function (event) {
+          // A host has to filter too: this page gets its own traffic as well.
+          if (event.origin !== embedOrigin) return;
+          var data = event.data;
+          if (!data || data.type !== "undrr-risk-map") return;
+          harness.messages.push(data);
+          log.textContent += JSON.stringify(data) + "\n";
+          if (data.name === "ready") {
+            document.getElementById("status").textContent = data.payload.locked
+              ? "embed is locked behind its preview PIN"
+              : "embed ready";
+          }
+        });
+
+        if (src) frame.src = src;
+        var unrelated = params.get("evil");
+        if (unrelated) document.getElementById("unrelated").src = unrelated;
+      })();
+    </script>
+  </body>
+</html>

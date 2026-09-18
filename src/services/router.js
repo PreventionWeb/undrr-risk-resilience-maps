@@ -350,6 +350,21 @@ export function createRouter({
     },
 
     /**
+     * Apply state that came from outside the URL: an embed host's `set-layers`
+     * command (see docs/embedding.md §3). It is the same path an external URL
+     * change takes -- the same tab/layer classification, the same clamping, the
+     * same batched single write in place -- so a host command cannot reconcile
+     * differently from a back/forward navigation, and it never pushes a history
+     * entry. Ignored before the map can accept layer changes, like any other
+     * external change; a host waits for the `ready` message.
+     *
+     * @param {{ tab: string|null, layers: Array<{key: string, sourceIdx?: number, settings?: object}> }} state
+     */
+    applyState(state) {
+      onUrlChange({ tab: state?.tab ?? null, layers: state?.layers ?? [] });
+    },
+
+    /**
      * Run a multi-layer change as one user action, so it makes one history
      * entry: the per-layer writes are skipped and one entry is pushed when the
      * change settles. The caller drives the layers (clear-all is

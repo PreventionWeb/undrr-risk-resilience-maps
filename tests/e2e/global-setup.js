@@ -1,11 +1,13 @@
 /**
- * Refuses the run when the dev server on the suite's port belongs to a
- * different checkout.
+ * Refuses the run when the dev server on the suite's port is not one this suite
+ * can trust: it belongs to a different checkout, or it is not serving the app at
+ * "/".
  *
  * Playwright starts (or reuses) `config.webServer` before global setup, so by
  * the time this runs something is answering on the port — the only open
- * question is whose code it is. See `dev-server.js` for why reuse is worth
- * keeping and what it costs if unchecked.
+ * questions are whose code it is and where it puts the app. See `dev-server.js`
+ * for why reuse is worth keeping and what it costs if unchecked, and
+ * `vite.config.js` for the 20-minute CI timeout a non-"/" base once caused.
  */
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -47,10 +49,31 @@ function refuse(problem, expected) {
   );
 }
 
-export default async function assertDevServerIsThisCheckout() {
-  // Nothing to verify when Playwright is guaranteed to have started the server.
-  if (!REUSE_EXISTING_SERVER) return;
+/**
+ * A base other than "/" is the failure this suite cannot see for itself:
+ * `page.goto("/")` still reaches the app, because Vite redirects the root to the
+ * base, so the specs that open the viewer keep passing — while every
+ * `page.goto("/embed.html")` gets Vite's "did you mean …?" page and times out.
+ * Twenty minutes of retries for a one-line config mistake. Fail in a second
+ * instead, with the cause named.
+ */
+function refuseBase(base) {
+  throw new Error(
+    [
+      `The dev server on port ${PORT} serves the app under "${base}", not "/" — refusing to run the E2E suite.`,
+      "",
+      'Every spec addresses the app relative to `baseURL` ("/", "/embed.html"),',
+      "so a non-root base turns the whole suite into timeouts: Vite redirects",
+      '"/" to the base and answers any other path with its "did you mean …?"',
+      "page, which builds no map and never sets `window.__mapxStub`.",
+      "",
+      "`vite.config.js` applies the GitHub Pages base to `command === \"build\"`",
+      "only. If that changed, change it back rather than teach the specs a base.",
+    ].join("\n"),
+  );
+}
 
+export default async function assertDevServerIsThisCheckout() {
   const expected = canonical(CHECKOUT);
   const url = `http://localhost:${PORT}${DEV_IDENTITY_PATH}`;
 
@@ -60,12 +83,20 @@ export default async function assertDevServerIsThisCheckout() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     identity = await response.json();
   } catch (error) {
+    // Playwright started the server itself, so its identity is not in question;
+    // only a reused server has to prove who it is.
+    if (!REUSE_EXISTING_SERVER) throw error;
     refuse(
       `${url} did not answer (${error.message}). Whatever holds the port is not ` +
         "this project's Vite dev server, or it was started before this check existed.",
       expected,
     );
   }
+
+  if (identity?.base !== "/") refuseBase(String(identity?.base));
+
+  // Nothing more to verify when Playwright is guaranteed to have started the server.
+  if (!REUSE_EXISTING_SERVER) return;
 
   const actual = canonical(String(identity?.root ?? ""));
   if (actual !== expected) {
