@@ -3,6 +3,7 @@
 > See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
 > Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
 > Legend architecture, upstream contracts, troubleshooting, and regression QA are documented in [docs/legends.md](docs/legends.md).
+> Embedding in other sites (iframe and script/web-component modes, instance boundary, and constraints on the layer-state refactor) is decided in [docs/embedding.md](docs/embedding.md).
 
 ## Overview
 

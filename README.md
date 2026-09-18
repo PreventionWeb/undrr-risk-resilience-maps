@@ -38,6 +38,7 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 | [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                              |
 | [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs    |
 | [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide    |
+| [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: modes, blockers, instance API, security, roadmap  |
 | [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                    |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                       |
 | [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                       |
