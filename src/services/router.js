@@ -19,8 +19,12 @@
  * - **One history entry per action.** A layer's first URL change pushes an
  *   entry; while that layer still has pending intent, the same action's later
  *   writes replace it (`actionEntryKeys`). Multi-layer changes run inside a
- *   batch that writes the URL once (`batch`), pushed for clear-all and
- *   replacing for restore and back/forward.
+ *   batch that writes the URL once (`batch`), pushed for a user action the
+ *   caller runs through `asOneEntry()` (clear-all) and replacing for restore
+ *   and back/forward.
+ * - **Where the URL sits in the store's subscriber order.** The router reads
+ *   and writes nothing until `attachTo(store)`, so the call site of `attachTo`
+ *   is what puts the URL write before the UI's render (see attachTo).
  * - **Reading URL state back.** `restoreFromUrl()` after the SDK is ready, and
  *   reconcile-from-URL on every external change the app recognises
  *   (`hashChangeAction`).
@@ -63,8 +67,10 @@ export function hashChangeAction({ tab, layers }, { dataTabs, infoTabs }) {
 /**
  * Create a router.
  *
+ * The router has no store until `attachTo(store)` is called, which is also when
+ * it subscribes: see the note on subscription order there.
+ *
  * @param {object} deps
- * @param {ReturnType<import("../state/layers-store.js").createLayersStore>} deps.store
  * @param {ReturnType<import("./layer-controller.js").createLayerController>} deps.controller
  * @param {ReturnType<import("../config/registry.js").createLayerRegistry>} deps.registry -
  *   `byKey` for URL entries and `urlKeyOrder` for the order layers are written in
@@ -81,17 +87,17 @@ export function hashChangeAction({ tab, layers }, { dataTabs, infoTabs }) {
  * @param {() => Iterable<string>} [deps.layerKeys] - the layer keys the app can
  *   turn on (the sidebar's rows); URL entries for anything else are ignored
  * @returns {{
+ *   attachTo(store: object): () => void,
  *   start(): void,
  *   restoreFromUrl(): Promise<void>,
  *   setActiveTab(tabId: string): void,
- *   clearAll(): void,
+ *   asOneEntry(fn: () => unknown): Promise<void>,
  *   onTabChange(fn: (tabId: string) => void): () => void,
  *   destroy(): void,
  *   readonly activeTab: string|null,
  * }}
  */
 export function createRouter({
-  store,
   controller,
   registry,
   adapter: injectedAdapter,
@@ -105,6 +111,9 @@ export function createRouter({
   const adapter = injectedAdapter ?? createHashAdapter();
   const ownsAdapter = !injectedAdapter;
   const allTabs = [...infoTabs, ...dataTabs];
+
+  /** The layers store, from attachTo(); the router reads nothing before that. */
+  let store = null;
 
   /** Store and adapter subscriptions, run in reverse on destroy. */
   const disposers = [];
@@ -125,16 +134,6 @@ export function createRouter({
   /** The active tab, set by start(). Kept after destroy. */
   let activeTab = null;
   let destroyed = false;
-
-  // The store runs its subscribers synchronously in subscription order, so
-  // registering here (before the UI subscribes) is what makes the URL current
-  // before the rows render the switches and the legend.
-  disposers.push(
-    store.subscribe((key, next, prev) => {
-      if (changesUrlState(next, prev)) syncLayerUrl(key);
-      else settleActionEntry(key);
-    }),
-  );
 
   // --- Writing -------------------------------------------------------------
 
@@ -276,11 +275,35 @@ export function createRouter({
 
   return {
     /**
+     * Take the layers store and subscribe to it. Nothing before this call can
+     * read or write URL state, so **where** it is called is the URL's place in
+     * the store's subscriber order, which the store runs synchronously in
+     * subscription order. The sidebar calls it between its `openViews` mirror
+     * and views-changed subscriber and its row renderer, which is what makes
+     * the URL current before the rows render the switches and the legend. It
+     * used to be a side effect of where `createRouter()` sat.
+     *
+     * @param {ReturnType<import("../state/layers-store.js").createLayersStore>} layersStore
+     * @returns {() => void} unsubscribe (also run by destroy())
+     */
+    attachTo(layersStore) {
+      if (destroyed) return () => {};
+      store = layersStore;
+      const off = store.subscribe((key, next, prev) => {
+        if (changesUrlState(next, prev)) syncLayerUrl(key);
+        else settleActionEntry(key);
+      });
+      disposers.push(off);
+      return off;
+    },
+
+    /**
      * Show the first tab and start watching for external URL changes. Call
-     * after the UI has subscribed with onTabChange().
+     * after attachTo() and after the UI has subscribed with onTabChange().
      */
     start() {
       if (destroyed) return;
+      if (!store) throw new Error("router.start(): call attachTo(store) first");
       const { tab: urlTab } = adapter.read();
       const known = Boolean(urlTab) && allTabs.includes(urlTab);
       const firstTab = known ? urlTab : allTabs.includes(initialTab) ? initialTab : "home";
@@ -326,10 +349,18 @@ export function createRouter({
       applyTab(tabId);
     },
 
-    /** Turn every layer off as one user action, so it makes one history entry. */
-    clearAll() {
-      if (destroyed) return;
-      batch(() => controller.clearAll());
+    /**
+     * Run a multi-layer change as one user action, so it makes one history
+     * entry: the per-layer writes are skipped and one entry is pushed when the
+     * change settles. The caller drives the layers (clear-all is
+     * `controller.clearAll()`), so the router exposes the batching rather than
+     * a UI verb of its own. Inert after destroy: `fn` does not run.
+     * @param {() => unknown} fn - may be async; awaited
+     * @returns {Promise<void>}
+     */
+    asOneEntry(fn) {
+      if (destroyed) return Promise.resolve();
+      return batch(fn);
     },
 
     /**

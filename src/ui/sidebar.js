@@ -14,7 +14,7 @@
  * tab the router reports.
  */
 import { TABS } from "../config/layers.js";
-import { getLayerRegistry } from "../config/registry.js";
+import { getLayerRegistry, urlKeyOrder } from "../config/registry.js";
 import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
 import { isSDKReady, onSDKReadyChange } from "../sdk/client.js";
@@ -126,6 +126,11 @@ export function createSidebar(
   };
 
   const dataTabs = tabs.map((tab) => tab.id);
+  // The layers this instance can turn on: the published, keyed layers of the
+  // tabs it was given, in config order. The same walk the URL key order is
+  // built from, so it is exactly the set of layers the rows cover — without
+  // asking the rows, which are grouped by R2R category and built later.
+  const urlKeys = urlKeyOrder(tabs);
   const allTabs = [...INFO_TABS, ...dataTabs];
 
   // Every listener this instance adds, directly or through nav, panels, pages
@@ -147,12 +152,6 @@ export function createSidebar(
   // controller reconciles one into the other; `store.openViews`, the URL state
   // and the layer rows are derived from the records by subscribers.
   let layersStore = createLayersStore();
-  // Subscriber order matters: openViews must be current before the
-  // views-changed callback and the router's URL write, and the router must
-  // write the URL before the rows render the switches and the legend. The
-  // router subscribes to the store in createRouter below, between these two.
-  disposers.push(mirrorOpenViews(layersStore, store.openViews));
-  disposers.push(layersStore.subscribe(notifyViewsChanged));
 
   let layerController = createLayerController({
     store: layersStore,
@@ -174,8 +173,8 @@ export function createSidebar(
 
   // The only module that reads or writes URL state. It owns the active tab and
   // the one-history-entry-per-action rule; the sidebar renders what it reports.
+  // It reads and writes nothing until attachTo() below.
   const router = createRouter({
-    store: layersStore,
     controller: layerController,
     registry,
     // An injected adapter belongs to the caller; the router creates and owns
@@ -186,15 +185,33 @@ export function createSidebar(
     initialTab,
     isReady: isSDKReady,
     isExternal: isExternalLayer,
-    // Only layers with rows can be turned on, so only they are restored from,
-    // or reconciled against, URL state.
-    layerKeys: () => rowsByKey.keys(),
+    // Only published, keyed layers of the configured tabs can be turned on, so
+    // only they are restored from, or reconciled against, URL state. Taken from
+    // the config (the same walk the URL key order is built from) rather than
+    // asking the UI which rows it built.
+    layerKeys: () => urlKeys,
   });
-  disposers.push(() => router.destroy());
+
+  // Store subscribers, in the order the store calls them (it calls them
+  // synchronously in subscription order), which is why these four lines are
+  // adjacent and their order is the whole invariant:
+  //   1. `store.openViews` must be current before anything reads it,
+  //   2. the views-changed callback reports the new count,
+  //   3. the router writes the URL,
+  //   4. the rows render the switches, the slider and the legend.
+  // The URL is therefore written before the rows update. It used to depend on
+  // where `createRouter()` happened to sit; `attachTo` says it here instead.
+  // See sidebar.order.test.js, which fails if 3 and 4 are swapped.
+  disposers.push(mirrorOpenViews(layersStore, store.openViews));
+  disposers.push(layersStore.subscribe(notifyViewsChanged));
+  // Dropped by router.destroy(), which is a disposer below.
+  router.attachTo(layersStore);
   disposers.push(layersStore.subscribe(renderLayerRows));
+
   // Layer switches are aria-disabled until the map can accept changes, so they
   // are re-rendered when it becomes (or stops being) ready.
   disposers.push(onSDKReadyChange(() => refreshLayerRows()));
+  disposers.push(() => router.destroy());
   // Runs first on destroy (disposers run in reverse), so a MapX call that
   // settles afterwards is dropped before anything else is torn down.
   const controllerToDestroy = layerController;
@@ -420,7 +437,8 @@ export function createSidebar(
     "click",
     () => {
       if (destroyed) return;
-      router.clearAll();
+      // The router batches; the sidebar drives the layers.
+      router.asOneEntry(() => layerController.clearAll());
     },
     { signal },
   );

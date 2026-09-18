@@ -90,7 +90,6 @@ function setup({ adapter = memoryAdapter(), views, initialTab = "home", isReady 
   });
   const tabs = [];
   const router = createRouter({
-    store,
     controller,
     registry,
     adapter,
@@ -100,6 +99,9 @@ function setup({ adapter = memoryAdapter(), views, initialTab = "home", isReady 
     isReady,
     layerKeys: () => ["quake", "flood", "pop"],
   });
+  // The store subscription, and so the URL write, starts here. The sidebar
+  // calls this between its own two subscriptions; see sidebar.order.test.js.
+  router.attachTo(store);
   router.onTabChange((tab) => tabs.push(tab));
   return { adapter, store, controller, router, tabs, viewAdd, viewRemove };
 }
@@ -247,7 +249,7 @@ describe("one history entry per action", () => {
     await controller.setOn("pop", true);
     const before = adapter.writes.length;
 
-    router.clearAll();
+    router.asOneEntry(() => controller.clearAll());
     await vi.waitFor(() => expect(store.get("pop").applied).toBe(false));
 
     expect(adapter.writes.slice(before)).toEqual([{ tab: "home", keys: [], replace: false }]);
@@ -424,10 +426,14 @@ describe("destroy()", () => {
     router.start();
     router.destroy();
     const before = adapter.writes.length;
+    const batched = vi.fn();
 
     router.setActiveTab("hazard");
-    router.clearAll();
+    router.asOneEntry(batched);
     router.start();
+
+    // A batched change does not even run: the router drives nothing after destroy.
+    expect(batched).not.toHaveBeenCalled();
 
     expect(router.activeTab).toBe("home");
     expect(tabs).toEqual(["home"]);
