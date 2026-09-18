@@ -22,6 +22,7 @@ import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
+import { createLayerAnnouncer } from "./announcer.js";
 import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
 import { createNav, INFO_TABS } from "./nav.js";
@@ -209,6 +210,14 @@ export function createSidebar(
   const tabPanels = new Map();
   const infoPanels = new Map();
   const createdElements = [];
+  // One live region for the whole instance: a layer has a row in its own tab and
+  // a compact row in every other tab, and each of them renders the same record,
+  // so a region per row announced the same message several times. It is appended
+  // to the root rather than to a panel, so it is never inside something hidden
+  // (an information page replaces the map; a cross-tab section starts collapsed)
+  // and can still speak. See announcer.js; the visible message stays per row.
+  const announcer = createLayerAnnouncer(rootEl?.ownerDocument ?? document);
+  disposers.push(() => announcer.destroy());
   let showDisabledLayers = false;
   // Active-state and click wiring for the nav links (created after the panels).
   let nav = null;
@@ -272,6 +281,9 @@ export function createSidebar(
       // The home row's external controls announce failures of their own picks.
       selectionPending: () =>
         [...(rowsByKey.get(layer.key) ?? [])].some((other) => other.hasPendingSelection()),
+      // Every row of a layer announces through the instance's one region, which
+      // drops the repeats, so one event is heard once.
+      announce: (message, record) => announcer.announce(layer.key, message, record),
     });
     allRows.push(row);
     if (isLayerAvailable(layer) && layer.key) {
@@ -420,6 +432,11 @@ export function createSidebar(
     },
     { signal },
   );
+
+  // The instance's live region, at the end of its root (or, for a root that is
+  // not an element, of the layer panel). Visually hidden, and removed by
+  // announcer.destroy().
+  (rootEl ?? sidebarBody).appendChild(announcer.element);
 
   // Populate info page with all info panels
   if (infoPage) {
