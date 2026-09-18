@@ -80,32 +80,47 @@
     <div class="app-map" id="app-map" data-ui="app-map" tabindex="-1">
       <div id="mapx" style="width: 100%; height: 100%"></div>
 
-      <section id="map-service-notice" class="map-service-notice" role="alert" hidden>
-        <div class="map-service-notice__card">
-          <span
-            class="map-service-notice__icon mg-icon mg-icon-exclamation-triangle"
-            aria-hidden="true"
-          ></span>
-          <div>
-            <h2 class="map-service-notice__title">The map is temporarily unavailable</h2>
-            <p class="map-service-notice__body">
-              This site is powered by MapX, which could not be reached. The rest of this site remains
-              available while the map service recovers.
-            </p>
-            <p id="map-service-countdown" class="map-service-notice__countdown" aria-live="off">
-              Retrying in 60 seconds
-            </p>
-            <div class="map-service-notice__actions">
-              <button
-                id="map-service-retry"
-                class="map-service-notice__retry mg-button mg-button-primary"
-                type="button"
-              >
-                Try again
-              </button>
-              <a href="https://app.mapx.org/" target="_blank" rel="noopener">Check MapX availability</a>
-            </div>
-          </div>
+      <!-- Mangrove ServiceNotice, CSS-only: the markup its manifest renders for
+           an interactive map whose remote service is unreachable, in the
+           `--overlay` variant that covers a positioned embed container. The
+           retry button, the countdown and the capped retries stay ours
+           (src/sdk/availability.js), so the React hydration path is not loaded
+           and `data-mg-service-notice` is deliberately absent. -->
+      <section
+        id="map-service-notice"
+        class="map-service-notice mg-notice mg-notice--warning mg-notice--overlay"
+        role="alert"
+        hidden
+      >
+        <div class="mg-notice__header">
+          <span class="mg-icon mg-notice__icon mg-icon-exclamation-triangle" aria-hidden="true"></span>
+          <h2 class="mg-notice__title">The map is temporarily unavailable</h2>
+          <span class="mg-status-label mg-status-label--warning"
+            ><span class="mg-status-label__indicator" aria-hidden="true"></span>Offline</span
+          ><span class="mg-u-sr-only" role="status"></span>
+        </div>
+        <div class="mg-notice__description">
+          <p>
+            This site is powered by MapX, which could not be reached. The rest of this site remains available
+            while the map service recovers.
+          </p>
+        </div>
+        <!-- aria-live="off": the section is role="alert", so the whole notice is
+             announced once when it appears; a per-second countdown must not
+             interrupt on top of that. -->
+        <p id="map-service-countdown" class="mg-notice__meta" aria-live="off">Retrying in 60 seconds</p>
+        <div class="mg-notice__actions mg-buttons">
+          <button id="map-service-retry" class="mg-button mg-button-primary" type="button">
+            <span class="mg-icon mg-icon-refresh mg-button__icon" aria-hidden="true"></span>Try again
+          </button>
+          <a
+            href="https://app.mapx.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mg-button mg-button-secondary mg-button-outline"
+            >Check MapX availability <span class="mg-u-sr-only">(opens in a new tab)</span
+            ><span class="mg-icon mg-icon-external-link mg-button__icon" aria-hidden="true"></span
+          ></a>
         </div>
       </section>
 
