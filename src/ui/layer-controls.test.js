@@ -75,6 +75,15 @@ describe("addOpacitySlider", () => {
     expect(display.textContent).toBe("75%");
   });
 
+  it("rounds a fractional transparency so the slider, the label and aria-valuetext agree", async () => {
+    getViewLayerTransparency.mockResolvedValue(0.98);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("99");
+    expect(slider.getAttribute("aria-valuetext")).toBe("99%");
+    expect(container.querySelector(".opacity-value").textContent).toBe("99%");
+  });
+
   it("defaults to 100% opacity when SDK call throws", async () => {
     getViewLayerTransparency.mockRejectedValue(new Error("SDK error"));
     await addOpacitySlider("view-1", container);

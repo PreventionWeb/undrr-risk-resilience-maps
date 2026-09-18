@@ -82,7 +82,10 @@ export async function addOpacitySlider(idView, container) {
   let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    if (typeof current === "number") opacity = 100 - current;
+    // MapX can answer with a fraction (0.98). The slider's step is 1, so it
+    // would round the thumb while the percentage beside it, and now
+    // aria-valuetext, still read "99.02%".
+    if (typeof current === "number") opacity = Math.round(100 - current);
   } catch {
     // Default to 100% opacity
   }

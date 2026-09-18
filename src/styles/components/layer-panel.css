@@ -76,8 +76,7 @@
   --layer-switch-track-padding: 0.0625rem;
   --layer-switch-thumb-size: 1rem;
   --layer-switch-travel: calc(
-    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) -
-      var(--layer-switch-thumb-size)
+    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) - var(--layer-switch-thumb-size)
   );
   gap: 0.35rem;
   min-height: 1.75rem;
