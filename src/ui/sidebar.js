@@ -117,13 +117,14 @@ export function createSidebar(
   const disabledToggleBtn = part("disabledToggleBtn");
   const navRoot = part("nav");
   const globalFooter = part("globalFooter");
-  // "Skip to map": hidden while an information page is the view, because there
-  // is no map to skip to and its target is the invisible warm-up region.
+  // "Skip to map": re-pointed at the information page while that is the view,
+  // because there is no map to skip to and its usual target is the invisible
+  // warm-up region. It is the page's only bypass-blocks mechanism, so it stays.
   const skipLink = part("skipLink");
 
   // The map container's warm-up state, and everything that keeps the warming
   // map out of reach (see ui/map-warming.js).
-  const mapWarming = appMap ? createMapWarming(appMap, { skipLink }) : null;
+  const mapWarming = appMap ? createMapWarming(appMap, { skipLink, infoTarget: infoPage }) : null;
 
   // Page state the instance changes, restored by destroy(): which view is
   // shown, the footer and the panel's collapsed state.

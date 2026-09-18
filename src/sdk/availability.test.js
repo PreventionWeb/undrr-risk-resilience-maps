@@ -156,21 +156,48 @@ describe("MapX availability", () => {
     vi.unstubAllGlobals();
   });
 
-  // Nothing ever brings the map on screen (a background tab, an unanswered PIN
-  // gate): the watch must not keep a 2 Hz interval alive for the life of the
-  // page, and it must not accuse the service either.
-  it("stops watching after its wall-clock bound", () => {
+  // The bound on the watch has to be on the same clock as the budget. Someone
+  // who reads About over lunch and then opens a data tab onto a dead MapX must
+  // still be told: a bound counted from when the watch was armed expired first,
+  // leaving a blank map with no notice and no retry for the life of the page.
+  it("still reports an outage after a long read on an information page", () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
-    const shouldCount = vi.fn(() => false);
+    document.body.innerHTML = `<div id="app-map" data-ui="app-map" class="is-warming"></div>`;
+
+    watchForMapReady(onTimeout);
+
+    // Sixteen minutes on About: past the 15-minute bound, and nothing spent.
+    vi.advanceTimersByTime(16 * 60_000);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    // A data tab is opened, and MapX is genuinely down.
+    document.getElementById("app-map").classList.remove("is-warming");
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  // The case the bound exists for: the budget is spent a sliver at a time,
+  // because the map keeps going off screen, so the watch would otherwise take
+  // hours to reach a verdict about a load nobody is waiting on any more.
+  it("stops watching once it has been counting for too long", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    // On screen for one tick in ten, so 100ms of budget would take a second of
+    // watching -- five times the bound below.
+    let ticked = 0;
+    const shouldCount = vi.fn(() => {
+      ticked += 1;
+      return ticked % 10 === 0;
+    });
 
     watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, maxWatchMs: 200, shouldCount });
 
     vi.advanceTimersByTime(1_000);
     const ticks = shouldCount.mock.calls.length;
-    expect(ticks).toBeLessThanOrEqual(200 / 10);
 
-    // And it really has stopped, rather than merely stopped counting.
+    // It really has stopped, rather than merely stopped counting, and it never
+    // accused the service.
     vi.advanceTimersByTime(10_000);
     expect(shouldCount).toHaveBeenCalledTimes(ticks);
     expect(onTimeout).not.toHaveBeenCalled();

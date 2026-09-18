@@ -24,13 +24,29 @@ export const MAP_WARMING_CLASS = "is-warming";
 const READY_TICK_MS = 500;
 
 /**
- * Wall-clock bound on the ready watch.
+ * Bound on how long the watch may go on *while it is counting*, measured from
+ * the first tick on which the budget was actually spent -- not from when the
+ * watch was armed.
  *
- * The budget is spent, not elapsed, so a page nobody ever brings the map onto
- * -- a background tab, a PIN gate nobody answers, an information page read for
- * an afternoon -- would otherwise keep a 2 Hz interval alive for the life of
- * the page and never reach a verdict. After this the watch stops without
- * accusing the service; a reload (or the retry countdown) arms a fresh one.
+ * It has to measure the same thing the budget does. Wall clock from when the
+ * watch starts measures something else entirely: the budget is spent only
+ * while the map is on screen, so someone who reads About over lunch and then
+ * clicks Hazard would have had the watch expire before a single millisecond of
+ * budget was spent, and a genuinely dead MapX would then never be reported --
+ * blank map, no notice, no retry, for the life of the page.
+ *
+ * Counted from the first spent tick, the bound still ends the case it exists
+ * for: a watch that spends its budget a sliver at a time, because the map keeps
+ * going off screen (a tab switched away from and back, an information page
+ * opened between attempts), would otherwise take hours to reach a verdict that
+ * would be meaningless by then. After this the watch stops without accusing the
+ * service; a reload (or the retry countdown) arms a fresh one.
+ *
+ * The trade: a page that never brings the map on screen at all now keeps its
+ * interval -- one predicate check per tick -- for the life of the page, where
+ * before it stopped after 15 minutes. That is the price of reporting a real
+ * outage to someone who read an information page first, and the watch is
+ * cancellable for the callers that own a lifetime.
  */
 const MAX_WATCH_MS = 15 * 60_000;
 
@@ -180,7 +196,8 @@ export function isMapOnScreen(documentRef = document) {
  * @param {number} [options.tickMs] - how often progress is re-checked
  * @param {(documentRef: Document) => boolean} [options.shouldCount] - override
  *   the progress check (used by tests)
- * @param {number} [options.maxWatchMs] - wall-clock bound on the watch itself
+ * @param {number} [options.maxWatchMs] - bound on the watch, from its first
+ *   spent tick (see `MAX_WATCH_MS`)
  * @param {() => number} [options.now] - clock (used by tests)
  * @returns {() => void} cancel the watch
  */
@@ -196,19 +213,24 @@ export function watchForMapReady(
   } = {},
 ) {
   let remaining = timeoutMs;
-  const startedAt = now();
-  let lastTickAt = startedAt;
+  let lastTickAt = now();
+  // Null until the budget is first spent: the bound below runs on the same
+  // clock as the budget, so it cannot expire before the map was ever on screen.
+  let countingSince = null;
 
   const interval = setInterval(() => {
     const at = now();
     const elapsed = at - lastTickAt;
     lastTickAt = at;
 
-    if (at - startedAt >= maxWatchMs) {
+    if (!shouldCount(documentRef)) return;
+
+    if (countingSince === null) countingSince = at;
+    else if (at - countingSince >= maxWatchMs) {
+      // Spent a sliver at a time for too long to still be judging this load.
       clearInterval(interval);
       return;
     }
-    if (!shouldCount(documentRef)) return;
 
     remaining -= elapsed;
     if (remaining > 0) return;

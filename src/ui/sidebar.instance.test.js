@@ -178,8 +178,11 @@ describe("createSidebar", () => {
     // inspector's panel is appended after this).
     expect($("#app-map").hasAttribute("inert")).toBe(true);
     expect([...$("#app-map").children].every((el) => el.hasAttribute("inert"))).toBe(true);
-    // Nothing to skip to: the skip link's target is the invisible map.
-    expect($("[data-ui='skip-link']").hidden).toBe(true);
+    // No map to skip to, so the page's one skip link points at the content
+    // instead of at the invisible map.
+    expect($("[data-ui='skip-link']").hidden).toBe(false);
+    expect($("[data-ui='skip-link']").getAttribute("href")).toBe(`#${$("[data-ui='info-page']").id}`);
+    expect($("[data-ui='skip-link']").textContent).toBe("Skip to content");
     expect($("#global-footer").hidden).toBe(false);
   });
 

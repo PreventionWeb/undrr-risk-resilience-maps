@@ -113,12 +113,40 @@ test.describe("map warm-up behind an information page", () => {
     await expect(page).toHaveURL(/#hazard\?layers=landslides$/);
   });
 
-  test("the skip link is hidden while there is no map to skip to", async ({ page }) => {
+  // The skip link is the page's only bypass-blocks mechanism (WCAG 2.4.1), so
+  // it is re-pointed at the information page while that is the view rather than
+  // hidden: hiding it left a keyboard user tabbing the header and the whole
+  // category nav with nothing to skip.
+  test("the skip link goes to the content while an information page is the view", async ({ page }) => {
     await gotoApp(page, "#home");
-    await expect(page.locator(".mg-skip-link")).toBeHidden();
+    const skipLink = page.locator(".mg-skip-link");
 
+    await expect(skipLink).toHaveAttribute("href", "#info-page");
+    await expect(skipLink).toHaveText("Skip to content");
+    expect(await skipLink.evaluate((el) => el.hidden)).toBe(false);
+
+    // Still the first Tab stop, and it lands on the content, not in the map.
+    await page.locator("body").press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.className)).toContain("mg-skip-link");
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("info-page");
+    expect(
+      await page.evaluate(() => document.getElementById("app-map").contains(document.activeElement)),
+    ).toBe(false);
+
+    // A data tab hands the map, and the link, back.
     await openTab(page, "hazard");
-    await expect(page.locator(".mg-skip-link")).not.toHaveAttribute("hidden", "");
+    await expect(skipLink).toHaveAttribute("href", "#app-map");
+    await expect(skipLink).toHaveText("Skip to map");
+    expect(await skipLink.evaluate((el) => el.hidden)).toBe(false);
+
+    // And it skips to the map again. (Driven by focus rather than by Tab from
+    // the top: opening the tab moved the sequential focus starting point to the
+    // nav link that was clicked.)
+    await skipLink.focus();
+    expect(await page.evaluate(() => document.activeElement?.className)).toContain("mg-skip-link");
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("app-map");
   });
 });
 
@@ -151,16 +179,14 @@ test.describe("map warm-up after a real PIN unlock", () => {
         .evaluateAll((els) => els.filter((el) => !el.hasAttribute("inert")).map((el) => el.id)),
     ).toEqual([]);
 
-    // The skip link is hidden, so Tab cannot reach it in the first place.
-    await expect(page.locator(".mg-skip-link")).toBeHidden();
-
-    // And even driven directly, activating it leaves focus outside the map.
-    await page.locator(".mg-skip-link").evaluate((el) => {
-      el.hidden = false;
-      el.focus();
-    });
+    // The skip link points at the content, and activating it leaves focus
+    // outside the map -- this is the session in which the gate stripped `inert`.
+    const skipLink = page.locator(".mg-skip-link");
+    await expect(skipLink).toHaveAttribute("href", "#info-page");
+    await skipLink.focus();
     expect(await page.evaluate(() => document.activeElement?.className)).toContain("mg-skip-link");
     await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe("info-page");
     expect(
       await page.evaluate(() => document.getElementById("app-map").contains(document.activeElement)),
     ).toBe(false);

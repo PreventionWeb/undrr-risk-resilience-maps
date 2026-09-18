@@ -10,9 +10,10 @@
     <link rel="preload" as="image" href="https://assets.undrr.org/logos/undrr/undrr-logo-horizontal.svg" />
   </head>
   <body>
-    <!-- Hidden by the sidebar while an information page is the view: there is
-         no map to skip to, and `#app-map` is then the invisible warm-up
-         region. -->
+    <!-- The page's only bypass-blocks mechanism. The sidebar re-points it at
+         `#info-page` ("Skip to content") while an information page is the view,
+         because there is no map to skip to then and `#app-map` is the invisible
+         warm-up region; it goes back to the map on a data tab. -->
     <a href="#app-map" class="mg-skip-link" data-ui="skip-link">Skip to map</a>
 
     <!-- Preview access gate (Mangrove). The runtime builds the overlay from
