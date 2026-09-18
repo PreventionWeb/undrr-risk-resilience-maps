@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 import { createRouter, hashChangeAction } from "./router.js";
 import { createLayersStore } from "../state/layers-store.js";
 import { createLayerController } from "./layer-controller.js";
@@ -250,7 +251,7 @@ describe("one history entry per action", () => {
     const before = adapter.writes.length;
 
     router.asOneEntry(() => controller.clearAll());
-    await vi.waitFor(() => expect(store.get("pop").applied).toBe(false));
+    await waitFor(() => expect(store.get("pop").applied).toBe(false));
 
     expect(adapter.writes.slice(before)).toEqual([{ tab: "home", keys: [], replace: false }]);
   });
@@ -379,8 +380,8 @@ describe("an external change to URL state", () => {
     viewAdd.mockClear();
 
     adapter.emit({ tab: "hazard", layers: [{ key: "pop", sourceIdx: 0 }] });
-    await vi.waitFor(() => expect(store.get("pop").applied).toBe(true));
-    await vi.waitFor(() => expect(store.get("quake").applied).toBe(false));
+    await waitFor(() => expect(store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(store.get("quake").applied).toBe(false));
 
     expect(viewRemove).toHaveBeenCalledWith("MX-QUAKE");
     expect(viewAdd).toHaveBeenCalledWith("MX-POP");
@@ -398,7 +399,7 @@ describe("an external change to URL state", () => {
 
     ready = true;
     adapter.emit({ tab: "hazard", layers: [{ key: "quake", sourceIdx: 0 }] });
-    await vi.waitFor(() => expect(viewAdd).toHaveBeenCalledWith("MX-QUAKE"));
+    await waitFor(() => expect(viewAdd).toHaveBeenCalledWith("MX-QUAKE"));
   });
 });
 

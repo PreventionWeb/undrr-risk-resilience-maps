@@ -61,6 +61,14 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Vitest's 5 s default is a wall-clock budget, and these DOM suites chain
+    // dozens of event-loop turns per test: on a saturated machine a turn costs
+    // tens of milliseconds instead of a fraction of one, and correct tests time
+    // out. A timeout is not an assertion, so give it room rather than let the
+    // machine's load decide the result. See
+    // unisdr/undrr-risk-resilience-maps#15.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     // Unit tests live beside the module they cover, so the suite is exactly
     // `src/` plus `scripts/`. Anchoring `include` at the project root keeps
     // checkouts nested inside this one (git worktrees under

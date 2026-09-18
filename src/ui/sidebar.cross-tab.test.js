@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settle, tick, waitFor } from "../../tests/support/async.js";
 
 const mocks = vi.hoisted(() => ({
   viewAdd: vi.fn(),
@@ -130,7 +131,34 @@ function build(options = {}) {
   return sidebar;
 }
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+// Teardown is part of the test, not of the next one: destroy the instance and
+// then let whatever it had in flight settle here, so a late SDK reply cannot
+// write the hash or `store.openViews` while another test is running. Without
+// this the suite's result depended on how fast the machine was.
+afterEach(async () => {
+  sidebar?.destroy();
+  sidebar = null;
+  viewsChangedListener = null;
+  await settle(() => [location.hash, history.length, store.openViews.size]);
+});
+
+/**
+ * Wait until the app stops changing anything a test in this file looks at: the
+ * URL, the history, the store and the SDK calls.
+ *
+ * Assertions that nothing *more* happened — one history entry, no second
+ * render, no further `viewAdd` — have no outcome to wait for. A fixed
+ * `await tick()` is a guess at how many event-loop turns the work needs, and a
+ * loaded machine needs more of them than an idle one, which is how this suite
+ * came to fail only under load. See unisdr/undrr-risk-resilience-maps#15.
+ */
+const quiet = () =>
+  settle(() => [
+    location.hash,
+    history.length,
+    sidebar?.store?.all() ?? null,
+    ...Object.values(mocks).map((fn) => fn.mock.calls.length),
+  ]);
 
 function deferred() {
   let resolve;
@@ -164,7 +192,10 @@ function crossRow(tabId, label) {
 
 describe("cross-tab layer rows", () => {
   beforeEach(() => {
-    window.location.hash = "";
+    // replaceState, not `location.hash = ""`: assigning the hash makes jsdom
+    // queue a `hashchange` task, which landed in the middle of a later test on
+    // a loaded machine and reconciled the sidebar back to an empty URL.
+    history.replaceState(null, "", "#");
     document.body.innerHTML = SHELL;
     store.openViews.clear();
     for (const fn of Object.values(mocks)) fn.mockReset();
@@ -184,20 +215,24 @@ describe("cross-tab layer rows", () => {
 
     row.querySelector(".layer-eye").click();
 
-    await vi.waitFor(() => expect(body.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    // The slider and the legend render independently, so wait for both: the
+    // legend arriving says nothing about the slider.
+    await waitFor(() => {
+      expect(body.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+      expect(body.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
+    });
     expect(body.hidden).toBe(false);
-    expect(body.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
     expect(body.querySelector(".layer-desc").textContent).toBe("Recovery.");
     expect(row.querySelector(".layer-eye").checked).toBe(true);
 
     row.querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(body.hidden).toBe(true));
+    await waitFor(() => expect(body.hidden).toBe(true));
     expect(body.querySelector(".html-legend")).toBeNull();
   });
 
   it("renders layer controls only in the visible tab", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
 
     // Only the visible Resilience row: not the hidden Exposure row, and not the
     // home accordion in the hidden Risk tab.
@@ -224,8 +259,8 @@ describe("cross-tab layer rows", () => {
     const inHome = (mock) => mock.mock.calls.filter(([, container]) => home.contains(container)).length;
 
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
-    await tick();
+    await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+    await quiet();
 
     // Activating from a cross-tab row renders nothing into the hidden home accordion.
     expect(inHome(mocks.addLegend)).toBe(0);
@@ -238,7 +273,7 @@ describe("cross-tab layer rows", () => {
     showTab("risk");
     expect(inHome(mocks.addLegend)).toBe(1);
     expect(inHome(mocks.addOpacitySlider)).toBe(1);
-    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    await waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
 
     for (const tab of ["resilience", "risk", "exposure", "risk", "resilience"]) showTab(tab);
     expect(inHome(mocks.addLegend)).toBe(1);
@@ -253,7 +288,7 @@ describe("cross-tab layer rows", () => {
     history.replaceState(null, "", "#sources?layers=recovery,pop");
 
     await sidebar.restoreFromUrl();
-    await tick();
+    await quiet();
 
     expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
     expect(mocks.addLegend).not.toHaveBeenCalled();
@@ -283,7 +318,7 @@ describe("cross-tab layer rows", () => {
       expect([...counts.keys()]).toEqual(expect.arrayContaining([...resilienceRows, ...exposureRows]));
       expect([...counts.values()]).toEqual([1, 1, 1, 1]);
     }
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(
         document.querySelectorAll("[data-tab-panel='exposure'] .layer-legend-slot .html-legend"),
       ).toHaveLength(2),
@@ -297,7 +332,7 @@ describe("cross-tab layer rows", () => {
     row.querySelector(".layer-eye").click();
 
     const status = row.querySelector(".cross-tab-body .external-layer-status");
-    await vi.waitFor(() => expect(status.textContent).toBe("Could not load Crops. Please try again."));
+    await waitFor(() => expect(status.textContent).toBe("Could not load Crops. Please try again."));
     expect(status.hidden).toBe(false);
     expect(status.classList.contains("is-error")).toBe(true);
     expect(row.querySelector(".cross-tab-body").hidden).toBe(false);
@@ -310,14 +345,14 @@ describe("cross-tab layer rows", () => {
       .find((item) => item.querySelector(".layer-label").textContent === "Flood")
       .querySelector(".layer-eye");
     floodEye.click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
     showTab("resilience");
 
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     const tabs = floodEye.closest(".layer-item").querySelectorAll(".widget-sub-tab");
     tabs[1].click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
 
     // "Clear all" while the new source is still loading.
     document.getElementById("layer-clear-btn").click();
@@ -326,7 +361,7 @@ describe("cross-tab layer rows", () => {
     const row = crossRow("resilience", "Flood");
     // The switch follows intent at once; the map catches up once the switch settles.
     expect(floodEye.checked).toBe(false);
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
     expect(store.openViews.size).toBe(0);
     expect(mocks.viewRemove).toHaveBeenLastCalledWith("MX-F100");
     expect(row.querySelector(".cross-tab-body").hidden).toBe(true);
@@ -347,27 +382,27 @@ describe("cross-tab layer rows", () => {
   it("clears several layers as a single history entry", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
     crossRow("resilience", "Population").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.size).toBe(2));
+    await waitFor(() => expect(store.openViews.size).toBe(2));
     const lengthBefore = history.length;
 
     document.getElementById("layer-clear-btn").click();
 
-    await vi.waitFor(() => expect(location.hash).toBe("#resilience"));
+    await waitFor(() => expect(location.hash).toBe("#resilience"));
     expect(store.openViews.size).toBe(0);
     expect(history.length).toBe(lengthBefore + 1);
   });
 
   it("applies back/forward navigation without writing intermediate history", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(location.hash).toBe("#resilience?layers=recovery"));
+    await waitFor(() => expect(location.hash).toBe("#resilience?layers=recovery"));
 
     // Simulate the browser moving to another entry.
     history.pushState(null, "", "#exposure?layers=pop");
     const lengthBefore = history.length;
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
-    await vi.waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
-    await tick();
+    await waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
+    await quiet();
     expect(sidebar.activeTab).toBe("exposure");
     expect(location.hash).toBe("#exposure?layers=pop");
     expect(history.length).toBe(lengthBefore);
@@ -409,7 +444,7 @@ describe("layer state consistency", () => {
   let warn;
 
   beforeEach(() => {
-    window.location.hash = "";
+    history.replaceState(null, "", "#");
     document.body.innerHTML = SHELL;
     store.openViews.clear();
     for (const fn of Object.values(mocks)) fn.mockReset();
@@ -426,13 +461,13 @@ describe("layer state consistency", () => {
 
   async function turnOn(layer) {
     crossRow("resilience", layer.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+    await waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
   }
 
   async function turnOnHome(layer) {
     homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
-    await vi.waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
+    await waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+    await waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
   }
 
   describe("rapid double toggle", () => {
@@ -445,8 +480,8 @@ describe("layer state consistency", () => {
       eye.click();
 
       // The second click lands while the first is in flight and is applied after it.
-      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledTimes(1));
-      await vi.waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
       expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
       expectLayerState({ ...layer, on: false });
     });
@@ -460,7 +495,7 @@ describe("layer state consistency", () => {
       eye.click();
       slowAdd.resolve();
 
-      await vi.waitFor(() => expect(hashLayerKeys()).toContain(RECOVERY.key));
+      await waitFor(() => expect(hashLayerKeys()).toContain(RECOVERY.key));
       expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
       expect(mocks.viewRemove).not.toHaveBeenCalled();
       expectLayerState({ ...RECOVERY, on: true });
@@ -473,7 +508,7 @@ describe("layer state consistency", () => {
       await turnOn(layer);
       crossRow("resilience", layer.label).querySelector(".layer-eye").click();
 
-      await vi.waitFor(() => expect(hashLayerKeys()).not.toContain(layer.key));
+      await waitFor(() => expect(hashLayerKeys()).not.toContain(layer.key));
       expectLayerState({ ...layer, on: false });
     });
   });
@@ -488,8 +523,8 @@ describe("layer state consistency", () => {
 
       crossRow("resilience", layer.label).querySelector(".layer-eye").click();
 
-      await vi.waitFor(() => expect(warn).toHaveBeenCalled());
-      await tick();
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+      await quiet();
       expectLayerState({ ...layer, on: true });
       expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
     });
@@ -513,8 +548,8 @@ describe("layer state consistency", () => {
 
     document.getElementById("layer-clear-btn").click();
     slowAdd.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
-    await tick();
+    await waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
+    await quiet();
 
     expectLayerState({ ...FLOOD, on: false });
     expectLayerState({ ...RECOVERY, on: false });
@@ -534,7 +569,7 @@ describe("layer state consistency", () => {
     clearBtn.click();
     expect(clearBtn.hidden).toBe(true);
     slowAdd.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
+    await waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
     expectLayerState({ ...RECOVERY, on: false });
   });
 
@@ -553,8 +588,8 @@ describe("layer state consistency", () => {
     expect(eye.checked).toBe(false);
     slowOpen.resolve();
 
-    await vi.waitFor(() => expect(mocks.closeExternalLayer).toHaveBeenCalledTimes(1));
-    await vi.waitFor(() => expect(sidebar.store.get("crops").status).toBe("idle"));
+    await waitFor(() => expect(mocks.closeExternalLayer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(sidebar.store.get("crops").status).toBe("idle"));
     expect(externalRuntimes.size).toBe(0);
     expect(sidebar.store.get("crops")).toMatchObject({ desired: false, applied: false, viewId: null });
     expect(hashLayerKeys()).not.toContain("crops");
@@ -571,14 +606,14 @@ describe("layer state consistency", () => {
 
     const tabs = item.querySelectorAll(".widget-sub-tab");
     tabs[1].click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
     tabs[2].click();
     expect(tabs[2].classList.contains("is-active")).toBe(true);
     slowAdd.resolve();
 
-    await vi.waitFor(() => expect(location.hash).toBe("#risk?layers=flood:2"));
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
-    await tick();
+    await waitFor(() => expect(location.hash).toBe("#risk?layers=flood:2"));
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+    await quiet();
     const shown = [...item.querySelectorAll(".widget-sub-tab")].map((tab) =>
       tab.classList.contains("is-active"),
     );
@@ -606,8 +641,8 @@ describe("layer state consistency", () => {
 
     item.querySelectorAll(".widget-sub-tab")[1].click();
 
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
-    await vi.waitFor(() =>
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await waitFor(() =>
       expect(item.querySelectorAll(".widget-sub-tab")[0].classList.contains("is-active")).toBe(true),
     );
     expect(item.querySelectorAll(".widget-sub-tab")[1].classList.contains("is-active")).toBe(false);
@@ -625,19 +660,19 @@ describe("layer state consistency", () => {
     const item = homeItem("risk", RECOVERY.label);
     const header = item.querySelector(".layer-expand");
     header.click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
     header.click();
     expect(header.getAttribute("aria-expanded")).toBe("false");
 
     history.pushState(null, "", "#risk?layers=recovery");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await tick();
+    await quiet();
     slowAdd.resolve();
 
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(sidebar.store.get("recovery")).toMatchObject({ applied: true, status: "idle" }),
     );
-    await tick();
+    await quiet();
     expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
     expect(header.getAttribute("aria-expanded")).toBe("false");
     expect(item.querySelector(".layer-body").style.display).toBe("none");
@@ -653,8 +688,8 @@ describe("layer state consistency", () => {
     history.pushState(null, "", "#risk?layers=flood:2");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
-    await vi.waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
-    await vi.waitFor(() =>
+    await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
+    await waitFor(() =>
       expect(item.querySelectorAll(".widget-sub-tab")[2].classList.contains("is-active")).toBe(true),
     );
   });
@@ -673,7 +708,7 @@ describe("layer state consistency", () => {
     it("keeps layers for a bare info tab hash and rewrites it in place", async () => {
       const lengthBefore = history.length;
       navigateTo("#sources");
-      await tick();
+      await quiet();
 
       expect(sidebar.activeTab).toBe("sources");
       expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
@@ -685,7 +720,7 @@ describe("layer state consistency", () => {
     it("ignores in-page anchors and unknown ids", async () => {
       for (const hash of ["#mg-tabs__section-sources-1", "#not-a-tab?layers=ews", "#"]) {
         navigateTo(hash);
-        await tick();
+        await quiet();
         expect(sidebar.activeTab).toBe("resilience");
         expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
       }
@@ -696,7 +731,7 @@ describe("layer state consistency", () => {
     it("opens Sources from a layer's citation link without touching layers", async () => {
       const lengthBefore = history.length;
       homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a[href='#sources']").click();
-      await tick();
+      await quiet();
 
       expect(sidebar.activeTab).toBe("sources");
       expect(location.hash).toBe("#sources?layers=recovery,pop");
@@ -707,7 +742,7 @@ describe("layer state consistency", () => {
     it("still reconciles a data tab hash without layers", async () => {
       navigateTo("#exposure");
 
-      await vi.waitFor(() => expect(store.openViews.size).toBe(0));
+      await waitFor(() => expect(store.openViews.size).toBe(0));
       expect(sidebar.activeTab).toBe("exposure");
       expect(location.hash).toBe("#exposure");
     });
@@ -718,7 +753,7 @@ describe("layer state consistency", () => {
 // the existing state, so its records must agree with what the UI shows.
 describe("layers store", () => {
   beforeEach(() => {
-    window.location.hash = "";
+    history.replaceState(null, "", "#");
     document.body.innerHTML = SHELL;
     store.openViews.clear();
     for (const fn of Object.values(mocks)) fn.mockReset();
@@ -762,25 +797,25 @@ describe("layers store", () => {
   it("matches the UI after toggling on and off", async () => {
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
     crossRow("resilience", FLOOD.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery", "flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery", "flood"]));
     expectStoreMatchesUi();
     expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
 
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
     expectStoreMatchesUi();
   });
 
   it("matches the UI after a source switch", async () => {
     showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
     const lengthBefore = history.length;
 
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
 
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood:1"]));
-    await tick();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood:1"]));
+    await quiet();
     expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F100", sourceIdx: 1 });
     // One entry for the switch; the transient gap between views writes nothing.
     expect(history.length).toBe(lengthBefore + 1);
@@ -792,25 +827,25 @@ describe("layers store", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
 
     // The new source is slow and then fails; the old one is put back.
     const slowAdd = deferred();
     mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
     expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: null });
 
     // Another toggle during the switch rewrites the hash without Flood, which
     // has no view on the map at that moment.
     homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
 
     // The rollback re-adds MX-F10: nothing but the view changed, and the hash
     // lists Flood again.
     slowAdd.resolve(Promise.reject(new Error("offline")));
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
-    await tick();
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await quiet();
     warn.mockRestore();
     expect(sidebar.store.get("flood")).toMatchObject({
       applied: true,
@@ -822,14 +857,15 @@ describe("layers store", () => {
 
   describe("one history entry per user action", () => {
     beforeEach(async () => {
-      // Let beforeEach's queued hashchange settle before counting entries.
-      await tick();
+      // Count entries from a settled starting point, not from the middle of
+      // the setup's own writes.
+      await quiet();
     });
 
     it("pushes one entry for a single toggle", async () => {
       const lengthBefore = history.length;
       crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
 
       expect(location.hash).toBe("#resilience?layers=recovery");
       expect(history.length).toBe(lengthBefore + 1);
@@ -841,8 +877,8 @@ describe("layers store", () => {
       const lengthBefore = history.length;
 
       homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
-      await vi.waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(1));
-      await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+      await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(1));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
 
       expect(location.hash).toBe("#risk?layers=flood:1");
       expect(history.length).toBe(lengthBefore + 1);
@@ -855,8 +891,8 @@ describe("layers store", () => {
 
       eye.click();
       eye.click();
-      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
 
       // The add reached the map and pushed an entry listing the layer; the
       // removal replaced it. One entry, holding the pre-click state.
@@ -864,8 +900,8 @@ describe("layers store", () => {
       expect(history.length).toBe(lengthBefore + 1);
 
       history.back();
-      await tick();
-      await tick();
+      await quiet();
+      await quiet();
       expect(location.hash).toBe(hashBefore);
       expect(sidebar.store.get("recovery")).toMatchObject({ desired: false, applied: false });
     });
@@ -879,11 +915,11 @@ describe("layers store", () => {
       const lengthBefore = history.length;
 
       item.querySelectorAll(".widget-sub-tab")[1].click();
-      await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+      await waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
       item.querySelectorAll(".widget-sub-tab")[2].click();
       slowAdd.resolve();
-      await vi.waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
-      await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+      await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
 
       expect(location.hash).toBe("#risk?layers=flood:2");
       expect(history.length).toBe(lengthBefore + 1);
@@ -893,12 +929,12 @@ describe("layers store", () => {
       const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
       eye.click();
       eye.click();
-      await vi.waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
       const lengthBefore = history.length;
 
       eye.click();
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
 
       expect(location.hash).toBe("#resilience?layers=recovery");
       expect(history.length).toBe(lengthBefore + 1);
@@ -906,8 +942,8 @@ describe("layers store", () => {
 
     async function turnOnHomeFlood() {
       homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
-      await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+      await waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
     }
   });
 
@@ -933,7 +969,7 @@ describe("layers store", () => {
       expect(home.querySelector(".layer-eye").getAttribute("aria-busy")).toBe("true");
 
       slowAdd.resolve(Promise.reject(new Error("offline")));
-      await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+      await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
       warn.mockRestore();
 
       expect(eye.checked).toBe(false);
@@ -953,7 +989,7 @@ describe("layers store", () => {
       // (`aria-busy` stops the switch's name being reported); success clears it.
       eye.click();
       expect(announced()).toBe("Loading Population…");
-      await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
       expect(announced()).toBe("");
       expect(eye.getAttribute("aria-label")).toBe("Population");
     });
@@ -962,11 +998,11 @@ describe("layers store", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const row = crossRow("resilience", RECOVERY.label);
       row.querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
       mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
 
       row.querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
       warn.mockRestore();
 
       expect(announced()).toBe("Could not change Recovery Speed. It is still on as before.");
@@ -979,7 +1015,7 @@ describe("layers store", () => {
       const row = crossRow("resilience", "Crops");
 
       row.querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
+      await waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
       warn.mockRestore();
 
       expect(announced()).toBe("Could not load Crops. It is off.");
@@ -992,21 +1028,19 @@ describe("layers store", () => {
     try {
       showTab("risk");
       homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
 
       const slowAdd = deferred();
       mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
       homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
       // Flood is in the gap between its views: on, but with no view in openViews.
-      await vi.waitFor(() =>
-        expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: null }),
-      );
+      await waitFor(() => expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: null }));
       expect(store.openViews.size).toBe(0);
 
       homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
-      await vi.waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
       slowAdd.resolve();
-      await vi.waitFor(() => expect(sidebar.store.get("flood").viewId).toBe("MX-F100"));
+      await waitFor(() => expect(sidebar.store.get("flood").viewId).toBe("MX-F100"));
 
       expect(counts).toEqual([1, 2]);
     } finally {
@@ -1018,14 +1052,14 @@ describe("layers store", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
 
     // The new source and the rollback to the old one both fail: nothing of the
     // layer is on the map, so it is recorded as off, never on without a view.
     mocks.viewAdd.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
-    await tick();
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await quiet();
     expect(sidebar.store.get("flood")).toMatchObject({
       desired: false,
       applied: false,
@@ -1038,17 +1072,17 @@ describe("layers store", () => {
 
     // Turning it on again adds the kept source and lists it in the hash.
     home.querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
-    await tick();
+    await waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
+    await quiet();
     warn.mockRestore();
     expect(sidebar.store.get("flood")).toMatchObject({ applied: true, status: "idle", error: null });
     expect(hashSegments()).toEqual(["flood"]);
   });
 
   it("finishes updating the UI when the hash write throws", async () => {
-    // Let beforeEach's queued hashchange run first: with the write failing, the
-    // hash would not list the layer, and a late reconcile would turn it off.
-    await tick();
+    // Start from a settled hash: with the write failing, the hash would not
+    // list the layer, and a late reconcile would turn it off.
+    await quiet();
     // Browsers throw SecurityError from pushState when history calls are rate-limited.
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const pushState = vi.spyOn(history, "pushState").mockImplementationOnce(() => {
@@ -1058,7 +1092,7 @@ describe("layers store", () => {
 
     row.querySelector(".layer-eye").click();
 
-    await vi.waitFor(() => expect(row.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    await waitFor(() => expect(row.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
     pushState.mockRestore();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
@@ -1070,20 +1104,20 @@ describe("layers store", () => {
     expect(home.classList.contains("layer-active")).toBe(true);
     // The home row's legend renders once its tab is shown.
     showTab("risk");
-    await vi.waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    await waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
     expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
   });
 
   it("records a failed turn-off as an error, resets intent, and clears it on the next success", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
     const failure = new Error("postMessage timeout");
     mocks.viewRemove.mockRejectedValueOnce(failure);
 
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
 
-    await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
     expect(sidebar.store.get("recovery")).toMatchObject({
       desired: true,
       applied: true,
@@ -1092,7 +1126,7 @@ describe("layers store", () => {
     });
 
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual([]));
+    await waitFor(() => expect(hashSegments()).toEqual([]));
     warn.mockRestore();
     expect(sidebar.store.get("recovery")).toMatchObject({
       desired: false,
@@ -1106,13 +1140,13 @@ describe("layers store", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     showTab("risk");
     homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
     const failure = new Error("offline");
     mocks.viewAdd.mockRejectedValueOnce(failure);
 
     homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
 
-    await vi.waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
     warn.mockRestore();
     expect(sidebar.store.get("flood")).toMatchObject({
       desired: true,
@@ -1136,14 +1170,14 @@ describe("layers store", () => {
     showTab("risk");
     const crops = homeItem("risk", "Crops");
     crops.querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("crops").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("crops").applied).toBe(true));
 
     const select = crops.querySelector("select[data-external-control='crop']");
     select.value = "MAIZE";
     select.dispatchEvent(new Event("change"));
 
-    await vi.waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
-    await vi.waitFor(() => expect(select.disabled).toBe(false));
+    await waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
+    await waitFor(() => expect(select.disabled).toBe(false));
     warn.mockRestore();
     expect(sidebar.store.get("crops")).toMatchObject({
       desired: true,
@@ -1166,7 +1200,7 @@ describe("layers store", () => {
 
     crossRow("resilience", POP.label).querySelector(".layer-eye").click();
 
-    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
     warn.mockRestore();
     expect(sidebar.store.get("pop")).toMatchObject({ desired: false, applied: false, error: failure });
     expect(location.hash).toBe("#resilience");
@@ -1175,11 +1209,11 @@ describe("layers store", () => {
   it("matches the UI after clear-all", async () => {
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
     crossRow("resilience", POP.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery", "pop"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery", "pop"]));
 
     document.getElementById("layer-clear-btn").click();
 
-    await vi.waitFor(() => expect(location.hash).toBe("#resilience"));
+    await waitFor(() => expect(location.hash).toBe("#resilience"));
     expectStoreMatchesUi();
     expect(sidebar.store.openViewIds()).toEqual([]);
   });
@@ -1196,20 +1230,20 @@ describe("layers store", () => {
 
   it("matches the UI after back/forward", async () => {
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
 
     // Forward to an entry with other layers, then back to the first one.
     history.pushState(null, "", "#exposure?layers=flood:1,pop");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await vi.waitFor(() => expect(sidebar.store.openViewIds().sort()).toEqual(["MX-F100", "MX-POP"]));
-    await tick();
+    await waitFor(() => expect(sidebar.store.openViewIds().sort()).toEqual(["MX-F100", "MX-POP"]));
+    await quiet();
     expect(location.hash).toBe("#exposure?layers=flood:1,pop");
     expectStoreMatchesUi();
 
     history.pushState(null, "", "#resilience?layers=recovery");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await vi.waitFor(() => expect(sidebar.store.openViewIds()).toEqual(["MX-REC"]));
-    await tick();
+    await waitFor(() => expect(sidebar.store.openViewIds()).toEqual(["MX-REC"]));
+    await quiet();
     expect(location.hash).toBe("#resilience?layers=recovery");
     expectStoreMatchesUi();
   });
@@ -1218,14 +1252,14 @@ describe("layers store", () => {
     sidebar.destroy();
     history.pushState(null, "", "#exposure?layers=pop");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await tick();
+    await quiet();
 
     expect(mocks.viewAdd).not.toHaveBeenCalled();
     expect(sidebar.activeTab).toBe("resilience");
   });
 
   it("ignores switch clicks after destroy instead of recreating state", async () => {
-    await tick();
+    await quiet();
     const lengthBefore = history.length;
     // destroy() removes the panel, so keep a reference to the old switch.
     const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
@@ -1234,7 +1268,7 @@ describe("layers store", () => {
     expect(eye.isConnected).toBe(false);
 
     eye.click();
-    await tick();
+    await quiet();
 
     expect(mocks.viewAdd).not.toHaveBeenCalled();
     expect(sidebar.store).toBeNull();
@@ -1243,7 +1277,7 @@ describe("layers store", () => {
   });
 
   it("drops a MapX response that settles after destroy", async () => {
-    await tick();
+    await quiet();
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
@@ -1253,7 +1287,7 @@ describe("layers store", () => {
 
     sidebar.destroy();
     slowAdd.resolve();
-    for (let i = 0; i < 3; i++) await tick();
+    await quiet();
 
     // Nothing is written into the destroyed store, openViews, the URL or the
     // row. The switch keeps showing the intent from the click; no controls are built.
@@ -1265,7 +1299,7 @@ describe("layers store", () => {
   });
 
   it("drops a MapX response that settles after a rebuild", async () => {
-    await tick();
+    await quiet();
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
@@ -1274,10 +1308,10 @@ describe("layers store", () => {
     document.body.innerHTML = SHELL;
     build();
     showTab("resilience");
-    await tick();
+    await quiet();
     const hashBefore = location.hash;
     slowAdd.resolve();
-    for (let i = 0; i < 3; i++) await tick();
+    await quiet();
 
     // Neither the old nor the new store, openViews, the URL or the new rows see it.
     expect(orphan.get("recovery").applied).toBe(false);
@@ -1290,7 +1324,7 @@ describe("layers store", () => {
 
   it("clears openViews left by a previous build", async () => {
     crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
 
     document.body.innerHTML = SHELL;
     build();

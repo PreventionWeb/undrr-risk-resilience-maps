@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 import { createLayersStore } from "../state/layers-store.js";
 import { createLayerController, settingsMatch } from "./layer-controller.js";
 
@@ -361,7 +362,7 @@ describe("createLayerController", () => {
         appliedSourceIdx: 0,
       });
       remove.resolve();
-      await vi.waitFor(() => expect(views.add).toHaveBeenCalledWith("MX-F100"));
+      await waitFor(() => expect(views.add).toHaveBeenCalledWith("MX-F100"));
       // Gap between views: on, no view, URL state unchanged.
       expect(store.get("flood")).toMatchObject({ applied: true, viewId: null, appliedSourceIdx: 0 });
       add.resolve();
@@ -400,7 +401,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
 
       controller.setSource("flood", 1);
-      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
+      await waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const last = controller.setSource("flood", 2);
       add.resolve();
       await last;
@@ -415,7 +416,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
 
       controller.setSource("flood", 1);
-      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
+      await waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const off = controller.setOn("flood", false);
       add.resolve();
       await off;
@@ -469,7 +470,7 @@ describe("createLayerController", () => {
       views.failNext("add", "MX-F100");
 
       controller.setSource("flood", 1);
-      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
+      await waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const last = controller.setSource("flood", 2);
       add.resolve();
       const record = await last;
@@ -871,7 +872,7 @@ describe("createLayerController", () => {
       const add = views.hold("add", "MX-F100");
       views.failNext("add", "MX-F100");
       const switched = controller.setSource("flood", 1);
-      await vi.waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
+      await waitFor(() => expect(views.add).toHaveBeenLastCalledWith("MX-F100"));
       const before = store.get("flood");
 
       controller.destroy();

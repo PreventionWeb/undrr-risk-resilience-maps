@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 
 const { viewAdd, viewRemove } = vi.hoisted(() => ({
   viewAdd: vi.fn().mockResolvedValue(undefined),
@@ -78,6 +79,8 @@ describe("layer accordion activation", () => {
   const getLayersStore = () => sidebar.store;
 
   beforeEach(() => {
+    // A settled, known URL per test: the suite shares one jsdom document.
+    history.replaceState(null, "", "#");
     store.openViews.clear();
     viewAdd.mockClear();
     viewRemove.mockClear();
@@ -94,7 +97,7 @@ describe("layer accordion activation", () => {
     const body = wrapper.querySelector(".layer-body");
 
     header.click();
-    await vi.waitFor(() => expect(store.openViews.has(layer.id)).toBe(true));
+    await waitFor(() => expect(store.openViews.has(layer.id)).toBe(true));
     expect(viewAdd).toHaveBeenCalledWith(layer.id);
     expect(body.style.display).toBe("block");
     expect(eyeBtn.getAttribute("role")).toBe("switch");
@@ -112,7 +115,7 @@ describe("layer accordion activation", () => {
     expect(viewAdd).toHaveBeenCalledTimes(1);
 
     eyeBtn.click();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(getLayersStore().get(layer.key)).toMatchObject({ applied: false, status: "idle" }),
     );
     expect(viewRemove).toHaveBeenCalledWith(layer.id);
@@ -135,7 +138,7 @@ describe("layer accordion activation", () => {
 
       eyeBtn.click();
 
-      await vi.waitFor(() => expect(getLayersStore().get(unknown.key).status).toBe("error"));
+      await waitFor(() => expect(getLayersStore().get(unknown.key).status).toBe("error"));
       expect(getLayersStore().get(unknown.key)).toMatchObject({ desired: false, applied: false });
       expect(eyeBtn.checked).toBe(false);
       expect(eyeBtn.getAttribute("aria-busy")).toBe("false");
@@ -167,7 +170,7 @@ describe("layer accordion activation", () => {
     expect(body.style.display).toBe("none");
 
     finishAdd();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(getLayersStore().get(layer.key)).toMatchObject({ applied: true, status: "idle" }),
     );
     expect(eyeBtn.checked).toBe(true);
@@ -201,11 +204,11 @@ describe("layer accordion activation", () => {
     const body = wrapper.querySelector(".layer-body");
 
     pressKey(eyeBtn, key);
-    await vi.waitFor(() => expect(getLayersStore().get(layer.key).applied).toBe(true));
+    await waitFor(() => expect(getLayersStore().get(layer.key).applied).toBe(true));
     expect(eyeBtn.checked).toBe(true);
 
     pressKey(eyeBtn, key);
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(getLayersStore().get(layer.key)).toMatchObject({
         desired: false,
         applied: false,
