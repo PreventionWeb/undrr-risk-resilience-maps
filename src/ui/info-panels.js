@@ -43,16 +43,16 @@ function buildSourcesTable(layers) {
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
       const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
-      const idCell = ids.includes("\n")
-        ? ids
-            .split("\n")
-            .map((id) => `<code>${escapeHtml(id)}</code>`)
-            .join("<br>")
-        : `<code>${escapeHtml(ids)}</code>`;
+      // `mg-table__td--code` puts the cell in Mangrove's code face, so the ids
+      // no longer need a `<code>` element each.
+      const idCell = ids
+        .split("\n")
+        .map((id) => escapeHtml(id))
+        .join("<br>");
       return `
       <tr${rowClass}>
         <td>${statusBadge}${escapeHtml(layer.label)}</td>
-        <td class="data-table__mapx-id">${idCell}</td>
+        <td class="data-table__mapx-id mg-table__td--code">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
@@ -63,15 +63,15 @@ function buildSourcesTable(layers) {
 
   return `
     <div class="data-table-wrap mg-table-scroll-region" role="region" aria-label="Dataset sources table" tabindex="0">
-      <table class="data-table mg-table">
+      <table class="data-table mg-table mg-table--data">
         <thead>
           <tr>
-            <th scope="col">Dataset</th>
-            <th scope="col" class="data-table__mapx-id">MapX ID</th>
-            <th scope="col">Source</th>
-            <th scope="col">Citation</th>
-            <th scope="col">License</th>
-            <th scope="col">Notes</th>
+            <th scope="col" class="mg-table__th--sticky">Dataset</th>
+            <th scope="col" class="data-table__mapx-id mg-table__th--sticky">MapX ID</th>
+            <th scope="col" class="mg-table__th--sticky">Source</th>
+            <th scope="col" class="mg-table__th--sticky">Citation</th>
+            <th scope="col" class="mg-table__th--sticky">License</th>
+            <th scope="col" class="mg-table__th--sticky">Notes</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

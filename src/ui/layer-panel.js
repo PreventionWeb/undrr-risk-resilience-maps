@@ -89,6 +89,14 @@ export function buildTabPanel(tab, { addRow, showDisabled = false }) {
   };
 
   if (tab.groups) {
+    // Mangrove's accordion, flush variant (documented for sidebars and panels):
+    // one container around the whole disclosure stack. It supplies the summary
+    // chevron and its reduced-motion handling, the 2.75rem hit target and the
+    // inset focus ring; layer-accordion.css only scales the type back to panel
+    // size. The `<details>` elements stay exactly as they were.
+    const groups = document.createElement("div");
+    groups.className = "layer-groups mg-accordion mg-accordion--flush";
+
     for (const group of tab.groups) {
       const groupEl = document.createElement("details");
       groupEl.className = "layer-group";
@@ -104,8 +112,10 @@ export function buildTabPanel(tab, { addRow, showDisabled = false }) {
       addLayersToContainer(group.layers, groupItems);
       groupEl.appendChild(groupItems);
 
-      tabPanel.appendChild(groupEl);
+      groups.appendChild(groupEl);
     }
+
+    tabPanel.appendChild(groups);
   } else {
     addLayersToContainer(tab.layers, tabPanel);
   }
@@ -148,8 +158,9 @@ export function updateDisabledLayerVisibility(tabPanel, tab, showDisabled) {
  * @returns {HTMLElement}
  */
 export function buildCrossTabSections(currentTab, tabs, { addRow }) {
+  // The same flush Mangrove accordion as the layer groups above.
   const container = document.createElement("div");
-  container.className = "cross-tab-sections";
+  container.className = "cross-tab-sections mg-accordion mg-accordion--flush";
 
   for (const tab of tabs) {
     if (tab.id === currentTab.id) continue;

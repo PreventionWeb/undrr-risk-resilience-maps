@@ -266,12 +266,39 @@
   min-width: 0;
 }
 
-/* ── Data table (Sources page) ── */
+/* ── Data table (Sources page) ──
+   The table is Mangrove's `mg-table mg-table--data` inside its
+   `mg-table-scroll-region`: the compact cell padding, the subtle dividers, the
+   uppercase neutral-50 header band and the row hover are the utility's, and
+   `mg-table__th--sticky` pins the header row while the region scrolls. What
+   stays here is the six-column geometry, the striping and the two states
+   Mangrove has no opinion about (a planned row, the MapX-ID column). */
 
 .data-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 0.5rem;
+  /* `mg-table__th--sticky` pins to the nearest scroll container, which is this
+     wrapper -- it only sticks if the wrapper can actually scroll vertically. */
+  max-block-size: 70vh;
+}
+
+/* On paper there is no scroll container, so the 70vh cap above would simply
+   cut the table off — Sources is the citations and licences page, the one most
+   likely to be printed or archived, and it lost roughly a third of its rows.
+   Release the cap, let the overflow spill onto the page, and unpin the sticky
+   header (a `position: sticky` header has nothing to stick to in paged media
+   and browsers differ on what they do with it; `static` repeats nothing but
+   prints where it belongs, above row one). */
+@media print {
+  .data-table-wrap {
+    max-block-size: none;
+    overflow: visible;
+  }
+
+  .data-table .mg-table__th--sticky {
+    position: static;
+  }
 }
 
 .data-table {
@@ -282,23 +309,11 @@
   min-width: 46rem;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.82rem;
   line-height: 1.45;
 }
 
-.data-table th {
-  background-color: var(--color-primary);
-  color: rgb(var(--mg-color-neutral-0));
-  font-weight: 600;
-  text-align: left;
-  padding: 0.55rem 0.75rem;
-  white-space: nowrap;
-}
-
 .data-table td {
-  padding: 0.6rem 0.75rem;
   vertical-align: top;
-  border-bottom: 1px solid rgb(var(--mg-color-neutral-50));
   color: rgb(var(--mg-color-neutral-700));
 }
 
@@ -367,16 +382,20 @@
   display: none;
 }
 
+/* The ids themselves are `mg-table__td--code`: Mangrove's code face and size.
+   The local rule that repainted the body cells so the heading stayed readable
+   on the old dark blue header band is gone with the band -- `mg-table--data`
+   puts the header on neutral-50 with neutral-800 text. */
 .show-mapx-ids .data-table__mapx-id {
   display: table-cell;
   white-space: nowrap;
-  font-size: 0.78rem;
 }
 
-/* Body cells only: the column header sits on the table's dark blue band and
-   keeps its own (white) colour. */
-.show-mapx-ids td.data-table__mapx-id {
-  color: rgb(var(--mg-color-neutral-600));
+/* `mg-table__td--code` carries Mangrove's code face and its own smaller size,
+   but `.mg-table td` is one element more specific and wins the size back to
+   1rem. Restate the utility's own value at a specificity that holds. */
+.data-table td.mg-table__td--code {
+  font-size: var(--mg-font-size-200);
 }
 
 /* The hero is mid-blue, so Mangrove's default track colours and focus ring

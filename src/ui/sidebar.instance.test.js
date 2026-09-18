@@ -164,6 +164,31 @@ describe("createSidebar", () => {
     expect($("#global-footer").hidden).toBe(false);
   });
 
+  /**
+   * `#site-inspector` is built lazily, long after the first tab renders, so a
+   * one-shot loop over `#app-map`'s children never reaches it. The map's own
+   * `inert` covers it in normal use — but the per-child loop exists precisely
+   * because Mangrove's preview gate strips that one from every child of
+   * `<body>` when the PIN is accepted, and then the late child would be the one
+   * reachable thing behind the information page.
+   */
+  it("marks a map child appended after the warm-up started", async () => {
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    expect($("#app-map").classList.contains("is-warming")).toBe(true);
+
+    const late = document.createElement("div");
+    late.id = "site-inspector";
+    $("#app-map").appendChild(late);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(late.hasAttribute("inert")).toBe(true);
+    expect([...$("#app-map").children].every((el) => el.hasAttribute("inert"))).toBe(true);
+
+    // And it is released with the rest when the map comes back to the front.
+    sidebar.showTab("hazard");
+    expect([...$("#app-map").children].some((el) => el.hasAttribute("inert"))).toBe(false);
+  });
+
   it("re-renders the layer switches when the map becomes ready", () => {
     mocks.sdk.ready = false;
     sidebar = createSidebar(document.body, {

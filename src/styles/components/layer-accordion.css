@@ -214,71 +214,109 @@
   line-height: 1.4;
 }
 
-/* ── Layer groups (Risk / Resilience subheadings) ─── */
+/* ── Disclosure stacks (Mangrove .mg-accordion --flush) ──────────────
+   Both stacks -- the R2R group subheadings and the cross-tab sections -- are
+   `.mg-accordion.mg-accordion--flush` containers of plain `<details>`.
+   Mangrove owns the summary's flex row, the rotating chevron and its
+   reduced-motion handling, the hover tint, the inset focus ring and its
+   forced-colours fallback, and the open/closed divider. `mg-details` is
+   deliberately not added: inside a panel it would restyle every `<p>` in the
+   stack (`details.mg-details p` sets a 1rem font size and its own padding),
+   which is the layer descriptions and the cross-tab group labels.
 
-.layer-group + .layer-group {
-  margin-top: 0.25rem;
+   The hit target is Mangrove's: `.mg-accordion > details > summary` sets
+   `min-height: 2.75rem`, and nothing here overrides it, so both summaries
+   measure 44px (1400x900, Chromium). Before this PR the group headings were
+   36.2px and the cross-tab summaries 41.6px, both from padding alone; both now
+   clear WCAG 2.5.8's 24px minimum with room to spare. The summary *type* is
+   still scaled down — panel chrome is much smaller than Mangrove's page-level
+   summary — so the rules below restate font size, weight and colour. Each needs
+   both the container class and the summary class to beat
+   `.mg-accordion > details > summary`.
+
+   `.mg-accordion` also sets `overflow: hidden`, which is inherited here and
+   deliberately left alone: nothing in either stack paints outside the container
+   today. If a tooltip, a popover or an outward focus ring is ever added to a
+   summary at the top or bottom edge of a stack it would be clipped, and the
+   reset belongs here. */
+
+/* Both class names are doubled with `.mg-accordion`. The container rules below
+   fight `.mg-accordion`'s own declarations, which are (0,1,0) — the same as a
+   bare `.layer-groups` — so without the doubling the winner would depend on
+   whether the bundler emits this file after the CDN stylesheet. Same reason as
+   `map-service-notice.css`. */
+.mg-accordion.layer-groups,
+.mg-accordion.cross-tab-sections {
+  /* The stack sits flush inside the panel; the panel draws its own edges. */
+  border-block: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.layer-group-heading {
-  margin: 0;
-  padding: 0.4rem 0.75rem 0.3rem 0.5rem;
-  font-size: 0.65rem;
+/* The leading padding is 1.25rem, and it matters more than it looks. Before
+   the accordion, the chevron was a leading `::before` glyph, so the heading
+   text started after it, 32.6px from the panel edge. Mangrove's chevron is a
+   trailing `::after`, which makes the text itself the leading ink — and a
+   0.6rem padding then put it at 21.6px, further left than the rows the heading
+   labels (their expand arrow starts at 24px and their label at 42.4px), so the
+   heading read as falling off the left edge of the panel. 1.25rem puts the
+   text back at 32px: within a pixel of what the group headings rendered before
+   this PR, between a row's arrow and its label, and — applied to both stacks
+   rather than only one — level with a cross-tab row's own label at 31.2px.
+   Mangrove's own summary padding (`--mg-spacing-150`, 15px) is not used,
+   because 27px matches neither. The block padding is a floor only: the height
+   comes from Mangrove's 2.75rem minimum. */
+.layer-groups > .layer-group > .layer-group-heading,
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary {
+  padding: 0.35rem 0.75rem 0.35rem 1.25rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-text-muted);
+}
+
+/* Mangrove's chevron is sized from the summary's own font size. */
+.layer-groups > .layer-group > .layer-group-heading::after,
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary::after {
+  height: 0.4rem;
+  width: 0.4rem;
+}
+
+/* An open `<details>` in a Mangrove accordion pads its body. The rows and
+   group labels carry their own padding, so reset it. */
+.layer-groups > .layer-group[open] > :not(summary),
+.cross-tab-sections > .cross-tab-section[open] > :not(summary) {
+  padding: 0;
+}
+
+/* ── Layer groups (Risk / Resilience subheadings) ─── */
+
+.layer-groups > .layer-group > .layer-group-heading {
+  font-size: 0.65rem;
   background: rgb(var(--mg-color-neutral-50) / 0.5);
-  border-bottom: 1px solid var(--color-border-light);
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  user-select: none;
-}
-
-.layer-group-heading::-webkit-details-marker {
-  display: none;
-}
-
-.layer-group-heading::before {
-  content: "▾";
-  font-size: 0.7rem;
-  transition: transform 0.15s;
-}
-
-.layer-group:not([open]) .layer-group-heading::before {
-  transform: rotate(-90deg);
 }
 
 /* ------------------------------------------------------------------ */
 /* Cross-tab sections — collapsed layer lists from other tabs          */
 /* ------------------------------------------------------------------ */
 
-.cross-tab-sections {
+.mg-accordion.cross-tab-sections {
   border-top: 2px solid var(--color-border);
   margin-top: 0.5rem;
 }
 
-.cross-tab-section {
-  border-bottom: 1px solid var(--color-border-light);
+/* Mangrove draws its divider with `.mg-accordion > details:not(:last-child)`,
+   so the stack's own last section has no closing line — it did before this PR
+   (`.cross-tab-section { border-bottom }` applied to all of them). The panel
+   ends on a rule again. */
+.mg-accordion.cross-tab-sections > .cross-tab-section:last-child {
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-300));
 }
 
-.cross-tab-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.75rem;
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary {
   font-size: 0.7rem;
-  font-weight: 700;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: rgb(var(--mg-color-neutral-600));
-}
-
-.cross-tab-summary:hover {
-  background: rgb(var(--mg-color-blue-900) / 0.04);
 }
 
 .cross-tab-group-label {

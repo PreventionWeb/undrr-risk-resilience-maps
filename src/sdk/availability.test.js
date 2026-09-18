@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   canMapLoad,
   isMapOnScreen,
@@ -213,5 +215,73 @@ describe("MapX availability", () => {
     mapIsActive = true;
     vi.advanceTimersByTime(2_000);
     expect(reload).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * The notice in index.html is Mangrove's ServiceNotice, CSS-only: its markup
+ * has to keep matching the component's published contract, and the ids this
+ * module drives have to keep existing inside it.
+ */
+describe("the map-service notice markup in index.html", () => {
+  let notice;
+
+  beforeAll(() => {
+    // Vitest runs from the project root, and `import.meta.url` is an http URL
+    // under jsdom, so resolve the entry point from the working directory.
+    const html = readFileSync(join(process.cwd(), "index.html"), "utf8");
+    const page = document.implementation.createHTMLDocument("index");
+    page.documentElement.innerHTML = html;
+    notice = page.getElementById("map-service-notice");
+  });
+
+  it("is a Mangrove warning notice in the overlay variant", () => {
+    expect(notice).not.toBeNull();
+    expect(notice.hasAttribute("hidden")).toBe(true);
+    expect(notice.getAttribute("role")).toBe("alert");
+    for (const className of ["mg-notice", "mg-notice--warning", "mg-notice--overlay"]) {
+      expect(notice.classList.contains(className)).toBe(true);
+    }
+    // Our own class is positioning only; it must stay for the panel inset.
+    expect(notice.classList.contains("map-service-notice")).toBe(true);
+  });
+
+  it("uses the component's header, description and action blocks", () => {
+    const header = notice.querySelector(".mg-notice__header");
+    expect(header.querySelector(".mg-notice__icon.mg-icon.mg-icon-exclamation-triangle")).not.toBeNull();
+    expect(header.querySelector(".mg-notice__title").textContent.trim()).toBe(
+      "The map is temporarily unavailable",
+    );
+    expect(header.querySelector(".mg-status-label.mg-status-label--warning")).not.toBeNull();
+    expect(header.querySelector(".mg-status-label__indicator").getAttribute("aria-hidden")).toBe("true");
+    expect(notice.querySelector(".mg-notice__description p")).not.toBeNull();
+    expect(notice.querySelector(".mg-notice__actions.mg-buttons")).not.toBeNull();
+  });
+
+  it("carries the component's visually hidden status region", () => {
+    const status = notice.querySelector(".mg-u-sr-only[role='status']");
+    expect(status).not.toBeNull();
+    expect(status.textContent).toBe("");
+  });
+
+  it("keeps the ids and the countdown politeness this module drives", () => {
+    expect(notice.querySelector("#map-service-retry")?.type).toBe("button");
+    const countdown = notice.querySelector("#map-service-countdown");
+    expect(countdown).not.toBeNull();
+    // role="alert" already announces the notice; a per-second countdown on top
+    // of it would interrupt.
+    expect(countdown.getAttribute("aria-live")).toBe("off");
+  });
+
+  it("opens the status link in a new tab and says so", () => {
+    const link = notice.querySelector(".mg-notice__actions a");
+    expect(link.getAttribute("href")).toBe("https://app.mapx.org/");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.querySelector(".mg-u-sr-only").textContent).toBe("(opens in a new tab)");
+  });
+
+  it("does not opt into the React hydration path", () => {
+    expect(notice.hasAttribute("data-mg-service-notice")).toBe(false);
   });
 });

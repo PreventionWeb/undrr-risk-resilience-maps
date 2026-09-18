@@ -74,15 +74,37 @@ const ROOT_ATTR = "data-ui-root";
  * accepted, which strips the map's own; and a child appended after this runs
  * (`buildSiteInspectorPanel()` does exactly that) is only covered by the map's.
  *
+ * A one-shot loop over `children` would leave exactly that second case half
+ * done — `#site-inspector` is built lazily, so on an info page it was the one
+ * child without its own `inert`, and a PIN unlock landing after the map had
+ * started warming would have made it the one reachable thing behind the info
+ * page. While warming, an observer marks children appended later too.
+ *
  * @param {HTMLElement} appMap
  * @param {boolean} warming
  */
+const warmingObservers = new WeakMap();
+
 function setMapWarming(appMap, warming) {
   appMap.classList.toggle(MAP_WARMING_CLASS, warming);
   if (warming) appMap.setAttribute("aria-hidden", "true");
   else appMap.removeAttribute("aria-hidden");
   appMap.toggleAttribute("inert", warming);
   for (const child of appMap.children) child.toggleAttribute("inert", warming);
+
+  warmingObservers.get(appMap)?.disconnect();
+  warmingObservers.delete(appMap);
+  if (!warming || typeof MutationObserver !== "function") return;
+
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node.nodeType === 1) node.toggleAttribute("inert", true);
+      }
+    }
+  });
+  observer.observe(appMap, { childList: true });
+  warmingObservers.set(appMap, observer);
 }
 
 /**

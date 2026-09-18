@@ -18,6 +18,7 @@
 
 import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
+import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
 import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
 
@@ -56,6 +57,8 @@ function attributeValue(value) {
 }
 
 let _escHandler = null;
+/** Aborted before each render, so a slow module load never wires stale markup. */
+let _renderController = null;
 
 /** Create the site inspector DOM and append it to #app-map. */
 export function buildSiteInspectorPanel() {
@@ -96,18 +99,42 @@ export function showSiteInspector(result) {
 
   const { lngLat, views, openViewsSnapshot } = result;
 
-  // Coordinates row
+  // A new render replaces this markup, so drop the previous one's pending work.
+  _renderController?.abort();
+  _renderController = new AbortController();
+
+  // Coordinates row. The copy control is Mangrove's CopyButton in its vanilla
+  // form: the component owns the clipboard write, its fallback for
+  // non-secure contexts, the transient feedback tooltip and the aria-live
+  // announcement. The copied text is the same "lat, lng" as before.
+  //
+  // Its behaviour comes from a CDN module, so until that module lands — and
+  // for good if it never does — a local handler does the same job. It is
+  // dropped the moment the module reports it applied, so only one of the two
+  // is ever listening and a click is never copied or announced twice.
   const coordsEl = panel.querySelector(".site-inspector-coords");
   const lat = lngLat.lat.toFixed(5);
   const lng = lngLat.lng.toFixed(5);
   coordsEl.innerHTML = `
     <span class="site-inspector-coords-label">Coordinates</span>
     <span class="site-inspector-coords-value">${escapeHtml(lat)}, ${escapeHtml(lng)}</span>
-    <button class="site-inspector-coords-copy" title="Copy to clipboard" aria-label="Copy coordinates"
-      type="button">&#128203;</button>
+    <button
+      class="site-inspector-coords-copy mg-button mg-button-primary mg-button-outline mg-button--icon mg-copy-button"
+      type="button"
+      data-mg-copy-button
+      data-text-to-copy="${escapeHtml(`${lat}, ${lng}`)}"
+      data-tooltip-label="Copied!"
+      data-copied-label="Coordinates copied to clipboard."
+      aria-label="Copy coordinates"
+    >
+      <span class="mg-icon mg-icon-copy mg-button__icon" aria-hidden="true"></span
+      ><span class="mg-copy-button__feedback" aria-hidden="true">Copied!</span
+      ><span class="mg-u-sr-only" aria-live="polite"></span>
+    </button>
   `;
-  coordsEl.querySelector(".site-inspector-coords-copy").addEventListener("click", () => {
-    navigator.clipboard?.writeText(`${lat}, ${lng}`).catch(() => {});
+  const detachCopyFallback = attachCopyButtonFallback(coordsEl.querySelector(".site-inspector-coords-copy"));
+  initMangroveCopyButtons(coordsEl, { signal: _renderController.signal }).then((applied) => {
+    if (applied) detachCopyFallback();
   });
 
   // Layer rows
@@ -209,6 +236,8 @@ function buildLayerRow(idView, views) {
 export function hideSiteInspector() {
   const panel = document.getElementById("site-inspector");
   if (panel) panel.hidden = true;
+  _renderController?.abort();
+  _renderController = null;
   if (_escHandler) {
     document.removeEventListener("keydown", _escHandler);
     _escHandler = null;
