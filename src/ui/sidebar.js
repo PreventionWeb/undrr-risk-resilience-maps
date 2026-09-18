@@ -76,9 +76,15 @@ const ROOT_ATTR = "data-ui-root";
  *   number of layers on the map whenever that number changes
  * @param {string} [options.initialTab] - the tab shown when URL state names
  *   none (or an unknown one); default "home"
+ * @param {(key: string, error: Error, action: string) => void} [options.onLayerError] -
+ *   a layer's MapX call failed (default: a console warning). `createRiskMap`
+ *   passes one that reports the failure to an embed host.
  * @returns {{
  *   restoreFromUrl(): Promise<void>,
  *   showTab(tabId: string): void,
+ *   setTab(tabId: string): void,
+ *   setLayers(layers: Array<object>, options?: { tab?: string }): void,
+ *   onTabChange(fn: (tabId: string) => void): () => void,
  *   destroy(): void,
  *   readonly store: ReturnType<typeof createLayersStore>|null,
  *   readonly controller: ReturnType<typeof createLayerController>|null,
@@ -87,7 +93,14 @@ const ROOT_ATTR = "data-ui-root";
  */
 export function createSidebar(
   root,
-  { stateAdapter, registry = getLayerRegistry(), tabs = TABS, onViewsChanged, initialTab = "home" } = {},
+  {
+    stateAdapter,
+    registry = getLayerRegistry(),
+    tabs = TABS,
+    onViewsChanged,
+    initialTab = "home",
+    onLayerError = (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
+  } = {},
 ) {
   // The root is marked `data-ui-root`, and a part belongs to the nearest marked
   // ancestor, so an instance skips the parts of an instance nested inside its
@@ -177,7 +190,7 @@ export function createSidebar(
       close: closeExternalLayer,
       replace: replaceExternalLayer,
     },
-    onError: (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
+    onError: onLayerError,
   });
 
   // The only module that reads or writes URL state. It owns the active tab and
@@ -589,6 +602,33 @@ export function createSidebar(
      * for tests and future embeds (`createRiskMap`).
      */
     showTab: navigateTo,
+    /**
+     * Switch to a tab without touching the layer panel, as a user action (one
+     * history entry). Unlike `showTab` it never expands a collapsed panel, so an
+     * embed configured to start collapsed stays that way when its host switches
+     * tabs. Unknown tab ids are ignored.
+     */
+    setTab(tabId) {
+      if (allTabs.includes(tabId)) switchTab(tabId);
+    },
+    /**
+     * Reconcile the open layers to exactly `layers`, the way a back/forward
+     * navigation does: unknown keys dropped, source indices clamped, one URL
+     * write in place when it settles, and nothing before the map is ready. The
+     * seam `createRiskMap().setLayers()` (and so an embed host's `set-layers`
+     * command) uses.
+     * @param {Array<{key: string, sourceIdx?: number, settings?: object}>} layers
+     * @param {{ tab?: string }} [options] - switch to this tab in the same change
+     */
+    setLayers(layers, { tab } = {}) {
+      router.applyState({ tab: tab ?? router.activeTab, layers: layers ?? [] });
+    },
+    /**
+     * Render-agnostic tab notification, for a caller that mirrors the active tab
+     * somewhere else (the embed reports it to its host).
+     * @returns {() => void} unsubscribe
+     */
+    onTabChange: (fn) => router.onTabChange(fn),
     destroy,
     /** The layers store (null after destroy). */
     get store() {

@@ -56,6 +56,10 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: "index.html",
+        // The iframe embed (docs/embedding.md phase 1): a second HTML entry over
+        // the same modules, so it shares this bundle and its cache headers and
+        // needs no pipeline of its own.
+        embed: "embed.html",
       },
     },
   },

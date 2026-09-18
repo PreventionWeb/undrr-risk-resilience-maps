@@ -257,12 +257,19 @@ const reloadPage = () => window.location.reload();
 /**
  * Wire the notice's "Try again" button.
  * @param {Document} [documentRef]
- * @param {() => void} [reload] - how to retry (default: reload the page)
+ * @param {() => void} [reload] - how to retry (default: reload the page). An
+ *   embed passes its own, so the retry never reloads the host page.
+ * @param {{ signal?: AbortSignal }} [options] - aborting it removes the listener,
+ *   so an instance's `destroy()` can take it back
  */
-export function initMapServiceRetry(documentRef = document, reload = reloadPage) {
-  documentRef.getElementById("map-service-retry")?.addEventListener("click", () => {
-    reload();
-  });
+export function initMapServiceRetry(documentRef = document, reload = reloadPage, { signal } = {}) {
+  documentRef.getElementById("map-service-retry")?.addEventListener(
+    "click",
+    () => {
+      reload();
+    },
+    { signal },
+  );
 }
 
 export function startMapServiceRetryCountdown({

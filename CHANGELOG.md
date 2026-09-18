@@ -6,6 +6,13 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Added
+
+- The map can be placed inside another site. `embed.html` is a version of the viewer built for an iframe: the same map, layer panel and category tabs, without the page header, the information pages, the syndicated footer or the preview PIN gate, and with a small attribution line and a link that opens the full viewer on whatever is on screen. A host pastes one `<iframe>`; which category, which layers, which sources, which categories and layers are offered at all, and whether the layer panel starts collapsed, are all set in the embed's address. Anything the address gets wrong is ignored rather than breaking the map.
+- An embedded map never touches the page it sits in. Turning a layer on inside the frame used to be the kind of thing that would add entries to the host page's Back button; it now keeps its state to itself, so Back on the host page does what the host page's visitor expects.
+- A host page can talk to an embedded map, and only its own host page can: it is told when the map is ready and whenever what is shown changes, it can ask for a category or a set of layers, ask what is currently shown, and be told if a layer or the map service fails. Every message says which version of that conversation it speaks, and an embed accepts instructions only from the page that frames it — another widget on the same page cannot drive it.
+- An embed records that it loaded and which site it is running in, so we can see where the map is being used. There is no analytics platform in the project yet, so the event is written to the browser console until one is chosen.
+
 ### Fixed
 
 - "Skip to map" no longer drops you into the map while you are reading one of the information pages. The map is kept loading invisibly behind those pages, and the preview PIN gate removed the attribute that kept it out of reach, so in the session in which the PIN was entered the skip link moved focus into a region nobody could see and the next Tab jumped past the page. The map is now held out of reach for as long as it is invisible, and the skip link points at the information page you are reading -- "Skip to content" -- while there is no map to skip to, so it still skips the header and the category navigation.

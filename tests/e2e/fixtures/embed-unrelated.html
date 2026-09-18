@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Unrelated frame</title>
+  </head>
+  <body>
+    <!--
+      A third party on the host page, on an origin of its own: an ad, a video
+      player, anything. It is *not* the embed's parent, but it can reach the
+      embed's window through `parent.frames[0]` and post to it with `"*"`.
+
+      The embed must ignore it — `event.source !== window.parent` — and that is
+      what `tests/e2e/embed.spec.js` checks with this page. It keeps trying, so
+      the spec can prove the command never lands rather than racing it once.
+    -->
+    <script>
+      setInterval(function () {
+        try {
+          parent.frames[0].postMessage(
+            { type: "undrr-risk-map", v: 1, name: "set-tab", payload: { tab: "exposure" } },
+            "*",
+          );
+        } catch (error) {
+          // Cross-origin frames refuse most access; posting is all we need.
+        }
+      }, 100);
+    </script>
+  </body>
+</html>
