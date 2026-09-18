@@ -13,8 +13,8 @@
   z-index: var(--z-infobox);
   width: 20rem;
   max-height: calc(60% - 3rem);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  background: rgb(var(--mg-color-neutral-0));
+  box-shadow: 0 2px 12px rgb(var(--mg-color-neutral-900) / 0.2);
   border-radius: 4px;
   display: flex;
   flex-direction: column;
@@ -54,7 +54,7 @@
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: #999;
+  color: rgb(var(--mg-color-neutral-500));
   padding: 0.25rem;
   line-height: 1;
   border-radius: 3px;
@@ -62,7 +62,7 @@
 
 .site-inspector-close:hover {
   color: var(--color-primary);
-  background: #f0f0f0;
+  background: rgb(var(--mg-color-neutral-25));
 }
 
 .site-inspector-close:focus-visible {
@@ -107,7 +107,7 @@
 }
 
 .site-inspector-coords-copy:hover {
-  background: rgba(0, 0, 0, 0.07);
+  background: rgb(var(--mg-color-neutral-900) / 0.07);
 }
 
 .site-inspector-coords-copy:focus-visible {
@@ -144,9 +144,15 @@
   gap: 0.4rem;
 }
 
-/* Data-presence indicator dot */
+/* Data-presence indicator dot. It is aria-hidden and every row also says in
+   words whether there is data here ("No data at this location."), so it repeats
+   rather than carries the meaning. It still has to clear 3:1 as a non-text
+   indicator, and the two states differ in shape as well as colour: filled for
+   data, hollow ring for none — the same fill/ring treatment Mangrove's own
+   mg-status-label indicator uses. */
 .site-inspector-indicator {
   display: inline-block;
+  box-sizing: border-box;
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
@@ -154,11 +160,13 @@
 }
 
 .site-inspector-indicator--has-data {
-  background: #2e7d32;
+  /* Mangrove's "published" status indicator colour. */
+  background: rgb(var(--mg-color-accent-400));
 }
 
 .site-inspector-indicator--no-data {
-  background: #bbb;
+  background: transparent;
+  border: 2px solid rgb(var(--mg-color-neutral-400));
 }
 
 .site-inspector-layer-name {
@@ -171,7 +179,7 @@
 .site-inspector-layer-desc,
 .site-inspector-layer-links {
   margin: 0.25rem 0 0 0.95rem;
-  color: #5f6872;
+  color: rgb(var(--mg-color-neutral-500));
   font-size: 0.68rem;
   line-height: 1.35;
 }
@@ -208,7 +216,7 @@
 
 .site-inspector-attrs td:first-child {
   font-weight: 500;
-  color: #666;
+  color: rgb(var(--mg-color-neutral-500));
   width: 45%;
 }
 
@@ -223,7 +231,7 @@
   left: calc(0.75rem + 20rem + 0.35rem);
   z-index: var(--z-panel);
   background-color: rgb(var(--mg-color-neutral-0));
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 5px rgb(var(--mg-color-neutral-900) / 0.15);
   transition:
     left 0.2s ease,
     background-color 0.2s ease,

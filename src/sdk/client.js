@@ -28,7 +28,35 @@ export function initSDK(container, projectId) {
       border: "none",
     },
   });
+  titleMapXFrame(container);
   return _mapx;
+}
+
+/**
+ * Name the iframe the SDK embeds.
+ *
+ * The Manager builds it itself and gives it no `title`, which axe reports as a
+ * serious `frame-title` violation and which leaves screen-reader users with an
+ * unnamed frame in the frames list. The element may not exist yet when the
+ * Manager returns, so watch the container until it does.
+ *
+ * @param {HTMLElement|string} container - the element (or its id) the map is in
+ */
+function titleMapXFrame(container) {
+  const host = typeof container === "string" ? document.getElementById(container) : container;
+  if (!host) return;
+  const title = "Interactive map (MapX)";
+  const apply = () => {
+    const frame = host.querySelector("iframe");
+    if (!frame) return false;
+    if (!frame.title) frame.title = title;
+    return true;
+  };
+  if (apply()) return;
+  const observer = new MutationObserver(() => {
+    if (apply()) observer.disconnect();
+  });
+  observer.observe(host, { childList: true, subtree: true });
 }
 
 export function getSDK() {
