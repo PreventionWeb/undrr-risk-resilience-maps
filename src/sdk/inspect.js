@@ -7,7 +7,7 @@
  *
  * Usage (from main.js):
  *   initInspection(mapxSDK)
- *   onInspectionResult((result) => showSiteInspector(result))
+ *   const off = onInspectionResult((result) => showSiteInspector(result))
  *   // wire a toggle button:
  *   enableInspection() / disableInspection()
  *   // in the click_attributes handler:
@@ -21,7 +21,8 @@ let _active = false;
 let _generation = 0;
 /** { generation, lngLat, parts: Map<idView, attrs[]>, openViewsSnapshot: Set } */
 let _batch = null;
-let _callback = null;
+/** Every subscriber, in registration order (see onInspectionResult). */
+const _subscribers = new Set();
 
 export function initInspection(mapx) {
   _mapx = mapx;
@@ -53,9 +54,22 @@ export function isInspectionActive() {
   return _active;
 }
 
-/** Register a callback invoked with a completed batch result. */
-export function onInspectionResult(cb) {
-  _callback = cb;
+/**
+ * Subscribe to completed batch results. Every subscriber is called, in
+ * registration order, so a second registration adds a listener instead of
+ * silently replacing the first.
+ *
+ * @param {(result: {lngLat: object, views: object, openViewsSnapshot: Set<string>}) => void} cb
+ * @param {{ signal?: AbortSignal }} [options] - aborting it unsubscribes, the
+ *   way the UI modules take a signal
+ * @returns {() => void} unsubscribe (idempotent)
+ */
+export function onInspectionResult(cb, { signal } = {}) {
+  if (typeof cb !== "function" || signal?.aborted) return () => {};
+  _subscribers.add(cb);
+  const off = () => _subscribers.delete(cb);
+  signal?.addEventListener("abort", off, { once: true });
+  return off;
 }
 
 /**
@@ -96,6 +110,8 @@ export function handleClickEvent(data, openViews) {
       openViewsSnapshot: _batch.openViewsSnapshot,
     };
     _batch = null;
-    _callback?.(result);
+    // A snapshot, so a subscriber that unsubscribes (or subscribes) while the
+    // result is being delivered cannot change who is called for this batch.
+    for (const subscriber of [..._subscribers]) subscriber(result);
   }
 }

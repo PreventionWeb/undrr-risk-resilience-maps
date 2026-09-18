@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import {
   initInspection,
   enableInspection,
@@ -10,11 +10,25 @@ import {
 
 const mockMapx = { ask: vi.fn().mockResolvedValue(undefined) };
 
+/**
+ * Subscribing returns a disposer, so each test's subscribers are removed after
+ * it instead of being replaced by the next registration.
+ */
+let unsubscribers = [];
+function subscribe(cb, options) {
+  const off = onInspectionResult(cb, options);
+  unsubscribers.push(off);
+  return off;
+}
+
 beforeEach(() => {
   initInspection(mockMapx);
   disableInspection();
-  onInspectionResult(null);
   mockMapx.ask.mockClear();
+});
+
+afterEach(() => {
+  for (const off of unsubscribers.splice(0)) off();
 });
 
 describe("initial state", () => {
@@ -51,7 +65,7 @@ describe("enableInspection / disableInspection", () => {
 describe("handleClickEvent — single view", () => {
   it("fires callback with coordinates and attributes", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     handleClickEvent(
@@ -67,7 +81,7 @@ describe("handleClickEvent — single view", () => {
 
   it("treats null attributes as an empty array", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     handleClickEvent(
@@ -82,7 +96,7 @@ describe("handleClickEvent — single view", () => {
 describe("handleClickEvent — multi-view batch", () => {
   it("waits for all views before firing callback", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     const views = new Set(["view-1", "view-2"]);
@@ -105,7 +119,7 @@ describe("handleClickEvent — multi-view batch", () => {
 
   it("handles out-of-order delivery (counts by unique idView, not by part number)", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     const views = new Set(["view-1", "view-2"]);
@@ -131,7 +145,7 @@ describe("handleClickEvent — multi-view batch", () => {
 describe("handleClickEvent — openViews snapshot", () => {
   it("snapshots openViews at batch start, not at callback time", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     const openViews = new Set(["view-1"]);
@@ -152,7 +166,7 @@ describe("handleClickEvent — openViews snapshot", () => {
 describe("handleClickEvent — generation guard", () => {
   it("discards events that arrive after disableInspection", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     const views = new Set(["view-1", "view-2"]);
@@ -176,7 +190,7 @@ describe("handleClickEvent — generation guard", () => {
 
   it("discards events from previous enable/disable cycle", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     const views = new Set(["view-1", "view-2"]);
@@ -202,7 +216,7 @@ describe("handleClickEvent — generation guard", () => {
 describe("handleClickEvent — inactive guard", () => {
   it("does nothing when inspection is not active", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     // Not calling enableInspection
 
     handleClickEvent(
@@ -215,7 +229,7 @@ describe("handleClickEvent — inactive guard", () => {
 
   it("ignores events that arrive after part=1 if no batch is in progress", () => {
     const cb = vi.fn();
-    onInspectionResult(cb);
+    subscribe(cb);
     enableInspection();
 
     // part=2 with no prior part=1 — no batch started, should be ignored safely
@@ -225,5 +239,93 @@ describe("handleClickEvent — inactive guard", () => {
     );
 
     expect(cb).not.toHaveBeenCalled();
+  });
+});
+
+describe("onInspectionResult subscribers", () => {
+  const click = () =>
+    handleClickEvent(
+      { part: 1, nPart: 1, idView: "view-1", attributes: [{ a: 1 }], lngLat: { lat: 1, lng: 2 } },
+      new Set(["view-1"]),
+    );
+
+  it("calls every subscriber in registration order, instead of replacing the first", () => {
+    const calls = [];
+    const first = vi.fn(() => calls.push("first"));
+    const second = vi.fn(() => calls.push("second"));
+    subscribe(first);
+    subscribe(second);
+    enableInspection();
+
+    click();
+
+    expect(calls).toEqual(["first", "second"]);
+    expect(first).toHaveBeenCalledOnce();
+    expect(second.mock.calls[0][0]).toMatchObject({ views: { "view-1": [{ a: 1 }] } });
+  });
+
+  it("registers a callback once, however often it is passed", () => {
+    const cb = vi.fn();
+    subscribe(cb);
+    subscribe(cb);
+    enableInspection();
+
+    click();
+
+    expect(cb).toHaveBeenCalledOnce();
+  });
+
+  it("stops calling a subscriber that used its disposer, and leaves the others", () => {
+    const stays = vi.fn();
+    const goes = vi.fn();
+    subscribe(stays);
+    const off = subscribe(goes);
+    enableInspection();
+
+    off();
+    off(); // idempotent
+    click();
+
+    expect(goes).not.toHaveBeenCalled();
+    expect(stays).toHaveBeenCalledOnce();
+  });
+
+  it("unsubscribes when the caller's signal aborts, and never subscribes an aborted one", () => {
+    const aborting = vi.fn();
+    const alreadyAborted = vi.fn();
+    const listeners = new AbortController();
+    subscribe(aborting, { signal: listeners.signal });
+    const done = new AbortController();
+    done.abort();
+    subscribe(alreadyAborted, { signal: done.signal });
+    enableInspection();
+
+    listeners.abort();
+    click();
+
+    expect(aborting).not.toHaveBeenCalled();
+    expect(alreadyAborted).not.toHaveBeenCalled();
+  });
+
+  it("ignores anything that is not a function", () => {
+    expect(() => subscribe(null)).not.toThrow();
+    expect(() => subscribe(undefined)).not.toThrow();
+    enableInspection();
+    expect(() => click()).not.toThrow();
+  });
+
+  it("delivers a batch to the subscribers registered when it completed", () => {
+    const late = vi.fn();
+    const early = vi.fn(() => subscribe(late));
+    subscribe(early);
+    enableInspection();
+
+    click();
+
+    expect(early).toHaveBeenCalledOnce();
+    // The snapshot is taken before delivery, so `late` only hears the next batch.
+    expect(late).not.toHaveBeenCalled();
+    click();
+    expect(late).toHaveBeenCalledOnce();
   });
 });
