@@ -93,3 +93,72 @@ describe("SDK readiness", () => {
     expect(once).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("titleMapXFrame", () => {
+  it("names an iframe that is already there without starting a watch", async () => {
+    const { titleMapXFrame } = await freshClient();
+    const host = document.createElement("div");
+    host.appendChild(document.createElement("iframe"));
+    const observe = vi.spyOn(MutationObserver.prototype, "observe");
+
+    const dispose = titleMapXFrame(host);
+
+    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(observe).not.toHaveBeenCalled();
+    dispose();
+    observe.mockRestore();
+  });
+
+  it("does not overwrite a title the SDK already set", async () => {
+    const { titleMapXFrame } = await freshClient();
+    const host = document.createElement("div");
+    const frame = document.createElement("iframe");
+    frame.title = "Theirs";
+    host.appendChild(frame);
+
+    titleMapXFrame(host);
+
+    expect(frame.title).toBe("Theirs");
+  });
+
+  it("names an iframe that appears later, then stops watching", async () => {
+    const { titleMapXFrame } = await freshClient();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+
+    titleMapXFrame(host);
+    host.appendChild(document.createElement("iframe"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(disconnect).toHaveBeenCalled();
+    host.remove();
+    disconnect.mockRestore();
+  });
+
+  it("gives up after a bounded wait rather than observing forever", async () => {
+    const { titleMapXFrame, FRAME_TITLE_WATCH_MS } = await freshClient();
+    vi.useFakeTimers();
+    try {
+      const host = document.createElement("div");
+      document.body.appendChild(host);
+      const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
+
+      titleMapXFrame(host);
+      expect(disconnect).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(FRAME_TITLE_WATCH_MS);
+
+      expect(disconnect).toHaveBeenCalled();
+      host.remove();
+      disconnect.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("is a no-op, and safely disposable, when the container is missing", async () => {
+    const { titleMapXFrame } = await freshClient();
+    expect(() => titleMapXFrame("no-such-element")()).not.toThrow();
+  });
+});
