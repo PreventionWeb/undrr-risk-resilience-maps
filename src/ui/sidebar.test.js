@@ -139,7 +139,9 @@ describe("layer accordion activation", () => {
       expect(getLayersStore().get(unknown.key)).toMatchObject({ desired: false, applied: false });
       expect(eyeBtn.checked).toBe(false);
       expect(eyeBtn.getAttribute("aria-busy")).toBe("false");
-      expect(wrapper.querySelector(".layer-announcer").textContent).toBe(
+      // The instance owns one live region; the rows announce through it.
+      expect(wrapper.querySelector(".layer-announcer")).toBeNull();
+      expect(document.querySelector(".layer-announcer").textContent).toBe(
         "Could not load Test Layer. It is off.",
       );
       expect(viewAdd).not.toHaveBeenCalled();

@@ -10,6 +10,8 @@ import { isLayerAvailable, isLayerPublished } from "./layers/status.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
+/** What a tab's home-page card needs to render (see src/ui/home.js). */
+const CARD_FIELDS = ["icon", "color", "desc"];
 
 export function validateLayers(tabs, primaryProject) {
   const errors = [];
@@ -21,6 +23,18 @@ export function validateLayers(tabs, primaryProject) {
     if (!tab.id || !tab.label || !Array.isArray(tab.layers)) {
       errors.push(`Tab missing id, label, or layers: ${JSON.stringify(tab)}`);
       continue;
+    }
+
+    // The tab's home-page card (see src/config/layers/index.js). Optional — a
+    // tab may legitimately be left off the home grid, and an embed may pass a
+    // subset of tabs — but a half-filled card would render a blank card, so its
+    // shape is checked.
+    if (tab.card) {
+      for (const field of CARD_FIELDS) {
+        if (!tab.card[field] || typeof tab.card[field] !== "string") {
+          errors.push(`[${tab.id}] -- card missing ${field} (a non-empty string)`);
+        }
+      }
     }
 
     for (const layer of tab.layers) {

@@ -22,12 +22,15 @@ vi.mock("../config/layers.js", () => ({
       id: "hazard",
       label: "Hazard",
       description: "Hazard layers",
+      // The home card's visual lives on the tab (see src/config/layers/index.js).
+      card: { icon: "01", color: "#c72236", desc: "Hazards." },
       layers: [{ key: "quake", id: "MX-QUAKE", label: "Earthquake", type: "rt", desc: "Quake." }],
     },
     {
       id: "exposure",
       label: "Exposure",
       description: "Exposure layers",
+      card: { icon: "02", color: "#ed833f", desc: "Exposure." },
       layers: [{ key: "pop", id: "MX-POP", label: "Population", type: "vt", desc: "Pop." }],
     },
   ],
