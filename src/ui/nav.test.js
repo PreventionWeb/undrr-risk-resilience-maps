@@ -137,8 +137,12 @@ describe("createNav", () => {
   it("leaves the topbar and its links with their native semantics", () => {
     createNav(root, { tabs: TABS, onSelect: vi.fn() });
     // Mangrove's MegaMenu puts no roles on the topbar or its items; a menubar
-    // would promise arrow-key navigation this nav does not implement.
-    expect(root.querySelectorAll("[role]")).toHaveLength(0);
+    // would promise arrow-key navigation this nav does not implement. Only the
+    // four menu roles are asserted absent, so a legitimate role added later
+    // (say `role="img"` on an icon) does not fail this.
+    for (const role of ["menubar", "menu", "menuitem", "none", "separator"]) {
+      expect(root.querySelectorAll(`[role="${role}"]`)).toHaveLength(0);
+    }
   });
 
   it("restores the markup links' active state on destroy", () => {
