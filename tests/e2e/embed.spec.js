@@ -428,6 +428,9 @@ test.describe("embed: the preview gate", () => {
     const [ready] = await named(page, "ready");
     expect(ready.payload).toMatchObject({ version: 1, locked: true });
     expect(ready.payload.tabs).toContain("hazard");
+    // `locked` is the gate's answer, not a constant written by whoever posts
+    // the message: while the gate is shut, no `ready` may ever claim otherwise.
+    for (const message of await named(page, "ready")) expect(message.payload.locked).toBe(true);
 
     await hostSend(page, "set-tab", { tab: "exposure" });
     await hostSend(page, "set-layers", { layers: [{ key: "landslides" }] });
@@ -441,14 +444,40 @@ test.describe("embed: the preview gate", () => {
   });
 
   test("answers the host once its PIN is entered inside the frame", async ({ page, origins }) => {
+    // Hold the map's `ready` until the PIN has been answered, which is what real
+    // MapX does behind the gate: it cannot paint, so it makes no progress (#24).
+    // The stub is local JavaScript and would otherwise be ready a tick after the
+    // frame loaded — and this spec would then be reading a `ready` posted while
+    // the embed was still locked, and proving nothing about the unlock at all.
+    await page.addInitScript(() => {
+      window.__mapxStubHoldReady = true;
+    });
     const embed = await gotoHost(page, origins, "?tab=hazard");
-    await unlockPreviewGate(embed);
 
-    // The real `ready` follows, from the map this time.
+    // Locked, so the only `ready` so far is the gate's, and it says so.
+    expect((await named(page, "ready")).map((message) => message.payload.locked)).toEqual([true]);
+
+    await unlockPreviewGate(embed);
+    const frame = page.frames().find((candidate) => candidate.url().includes("/embed.html"));
+    await frame.evaluate(() => window.__mapxStub.releaseReady());
+
+    // The real `ready` follows, from the map this time, and reports an open gate.
     await expect.poll(async () => (await named(page, "ready")).at(-1)?.payload.locked).toBe(false);
 
     await hostSend(page, "set-tab", { tab: "exposure" });
     await expect(embed.locator('.nav-tab-link[data-tab="exposure"]')).toHaveClass(/is-active/);
+  });
+
+  test("never claims an open gate on a map that became ready while locked", async ({ page, origins }) => {
+    // The stub is ready a tick after the frame loads, gate or no gate, so a
+    // locked embed really does post a second `ready` here. It has to say the
+    // gate is shut: the field is a claim about the gate, and a host that was
+    // told otherwise would show its visitor a map behind a PIN prompt.
+    const embed = await gotoHost(page, origins, "?tab=hazard");
+    await expect.poll(async () => (await named(page, "ready")).length).toBe(2);
+
+    for (const message of await named(page, "ready")) expect(message.payload.locked).toBe(true);
+    await expect(embed.locator(".mg-preview-access__overlay")).toBeVisible();
   });
 
   test("the way out to the full viewer lands on a page that is gated too", async ({ page }) => {
