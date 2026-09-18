@@ -87,6 +87,8 @@ undrr-risk-resilience-maps/
 │       ├── fixtures/
 │       │   ├── app.js          # The shared test fixture: MapX stub routing, preview-gate unlock, selectors
 │       │   └── mapx-stub.js    # Served as mxsdk.umd.js; the only fake MapX in the suite
+│       ├── dev-server.js       # Port, reuse policy and identity path, shared with both configs
+│       ├── global-setup.js     # Refuses the run if the port serves another checkout
 │       └── *.spec.js
 ├── .github/workflows/deploy.yml # GitHub Pages CI
 ├── playwright.config.js        # E2E suite: chromium, its own Vite server on port 3040
@@ -578,9 +580,14 @@ Two suites, with a deliberate split of labour:
 
 ### Unit tests (vitest + jsdom)
 
-Configured in `vite.config.js` (which also excludes `tests/e2e/`, since those
-specs match vitest's `*.spec.js` pattern). Test files cover pure and near-pure
-modules:
+Configured in `vite.config.js`, whose `include` is anchored at
+`{src,scripts}/**` and whose `exclude` covers `tests/e2e/` (those specs match
+vitest's `*.spec.js` pattern but are the browser suite) and `.claude/**`. Both
+halves exist because this repo is worked on through git worktrees created
+_inside_ the checkout, each with its own full `src/`: with vitest's default
+`include` a run collected every worktree's tests and failed on another branch's
+in-progress code. A new top-level directory holding unit tests must be added to
+`include`. Test files cover pure and near-pure modules:
 
 | File                                      | What it tests                                                                                                                                                                                                                                                                                    |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -621,6 +628,18 @@ Vite dev server on port 3040 (started by the config's `webServer`, so there is
 nothing to launch by hand). CI retries twice and records a trace on the first
 retry; `test-results/` and `playwright-report/` are git-ignored and uploaded as
 an artifact when the job fails.
+
+**Reuse is verified, not assumed.** Locally `reuseExistingServer` is on, because
+starting a server per run costs several seconds of every iteration — but a dev
+server from another worktree answers on that port just as happily, and the suite
+then reports failures about code that is not on the branch under test. So
+`vite.config.js` adds a dev-only middleware at `/__dev-server-identity` that
+reports the root the server is serving, and `tests/e2e/global-setup.js` (which
+Playwright runs after `webServer`) refuses the whole run when that is not this
+checkout, naming the other checkout, its pid and the ways out. `E2E_PORT` moves
+the suite to another port and `E2E_REUSE_SERVER=0` forces a fresh server; the
+shared constants live in `tests/e2e/dev-server.js`. CI (`process.env.CI`) never
+reuses a server, so the check is a no-op there.
 
 **MapX is stubbed, always.** `tests/e2e/fixtures/mapx-stub.js` is served from
 the real SDK URL (`https://app.mapx.org/sdk/mxsdk.umd.js`) by Playwright

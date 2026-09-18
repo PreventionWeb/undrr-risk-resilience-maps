@@ -16,6 +16,24 @@
   `npx playwright install chromium`.
 - `yarn test:all` — both.
 
+### Running the tests next to other checkouts
+
+Several people (and agents) work on this repo through git worktrees, sometimes
+nested inside the main checkout. Two things there used to make a test run lie,
+and both are now handled by the configuration:
+
+- **`yarn test` only ever collects this checkout's tests.** `vite.config.js`
+  anchors vitest's `include` at `{src,scripts}/**` and excludes `.claude/**`,
+  so a worktree with its own full `src/` is not swept into the run. Unit tests
+  in a new top-level directory have to be added to that `include`.
+- **`yarn test:e2e` checks whose dev server it is talking to.** It reuses a
+  server already listening on its port (fast local iteration), so the dev server
+  exposes `/__dev-server-identity` and `tests/e2e/global-setup.js` refuses the
+  run when the answer is not this checkout. If you see that refusal, either stop
+  the other server, or follow the message: `E2E_PORT=3041 yarn test:e2e` runs on
+  a port of your own, and adding `E2E_REUSE_SERVER=0` never reuses a server at
+  all (which then requires the port to be free). CI never reuses a server.
+
 CI runs them as two jobs. Add a case to the unit suite by default; the E2E suite
 is only for guarantees that need a real browser (URL and history, focus and
 keys, what actually renders). MapX is stubbed there and must stay stubbed — no

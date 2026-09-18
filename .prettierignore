@@ -2,3 +2,7 @@ dist/
 node_modules/
 test-results/
 yarn.lock
+
+# Git worktrees of this repo, each a full copy of the tree: without this,
+# `yarn format:check` reports another branch's files.
+.claude/
