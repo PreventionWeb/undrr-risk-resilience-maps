@@ -314,6 +314,38 @@ describe("onInspectionResult subscribers", () => {
     expect(() => click()).not.toThrow();
   });
 
+  it("drops the previous run's subscribers when initInspection runs again", () => {
+    const old = vi.fn();
+    subscribe(old);
+    enableInspection();
+
+    // A second run: HMR, a second embed, or a UI that was torn down. Its
+    // subscribers would otherwise keep delivering into a detached panel.
+    initInspection(mockMapx);
+    enableInspection();
+    click();
+
+    expect(old).not.toHaveBeenCalled();
+  });
+
+  it("keeps calling the other subscribers when one of them throws", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = vi.fn(() => {
+      throw new Error("panel gone");
+    });
+    const second = vi.fn();
+    subscribe(first);
+    subscribe(second);
+    enableInspection();
+
+    expect(() => click()).not.toThrow();
+
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("delivers a batch to the subscribers registered when it completed", () => {
     const late = vi.fn();
     const early = vi.fn(() => subscribe(late));

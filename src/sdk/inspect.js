@@ -24,8 +24,17 @@ let _batch = null;
 /** Every subscriber, in registration order (see onInspectionResult). */
 const _subscribers = new Set();
 
+/**
+ * Point the module at an SDK client and start from no subscribers.
+ *
+ * The subscriber Set is module state, so a second run (HMR, a second embed, a
+ * torn-down panel) would otherwise leave the previous run's subscribers
+ * delivering results into a detached panel. Callers that want to keep a
+ * subscription register it after this call, the way `main.js` does.
+ */
 export function initInspection(mapx) {
   _mapx = mapx;
+  _subscribers.clear();
 }
 
 export function enableInspection() {
@@ -112,6 +121,14 @@ export function handleClickEvent(data, openViews) {
     _batch = null;
     // A snapshot, so a subscriber that unsubscribes (or subscribes) while the
     // result is being delivered cannot change who is called for this batch.
-    for (const subscriber of [..._subscribers]) subscriber(result);
+    // One subscriber that throws must not starve the ones after it, the way the
+    // layers store already isolates its subscribers.
+    for (const subscriber of [..._subscribers]) {
+      try {
+        subscriber(result);
+      } catch (error) {
+        console.error("An inspection-result subscriber threw:", error);
+      }
+    }
   }
 }
