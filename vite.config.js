@@ -15,9 +15,22 @@ function gitValue(format, fallback) {
 const lastUpdated = gitValue("%cI", new Date().toISOString());
 const commitHash = gitValue("%h", "local");
 
-// GitHub Pages deploys to /<repo-name>/ subpath.
-// Local dev uses "/" via the server config override.
-const base = process.env.GITHUB_ACTIONS ? "/undrr-risk-resilience-maps/" : "/";
+/**
+ * GitHub Pages deploys to /<repo-name>/, so a build made on GitHub Actions has
+ * to carry that base. A *dev server* must not: it is only ever a local server,
+ * on Actions as much as here, and the E2E suite addresses it at "/".
+ *
+ * Keying this on `GITHUB_ACTIONS` alone moved the dev server's whole app under
+ * `/undrr-risk-resilience-maps/` in CI. `page.goto("/")` survived that (Vite
+ * redirects the root to the base), so every spec that opens the app kept
+ * passing and the breakage was invisible — but `page.goto("/embed.html")` got
+ * Vite's "did you mean /undrr-risk-resilience-maps/embed.html?" page instead of
+ * the embed, and every embed spec timed out waiting for a map that no page was
+ * building. `tests/e2e/global-setup.js` now refuses a dev server whose base is
+ * not "/", so this cannot come back as a 20-minute timeout again.
+ */
+const base = (command) =>
+  command === "build" && process.env.GITHUB_ACTIONS ? "/undrr-risk-resilience-maps/" : "/";
 
 /**
  * Says which checkout this dev server is serving.
@@ -36,16 +49,23 @@ function devServerIdentity() {
       server.middlewares.use(DEV_IDENTITY_PATH, (_req, res) => {
         res.setHeader("content-type", "application/json");
         res.setHeader("cache-control", "no-store");
-        res.end(JSON.stringify({ root: server.config.root, pid: process.pid, commit: commitHash }));
+        res.end(
+          JSON.stringify({
+            root: server.config.root,
+            base: server.config.base,
+            pid: process.pid,
+            commit: commitHash,
+          }),
+        );
       });
     },
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [devServerIdentity()],
   root: ".",
-  base,
+  base: base(command),
   define: {
     __APP_LAST_UPDATED__: JSON.stringify(lastUpdated),
     __APP_COMMIT_HASH__: JSON.stringify(commitHash),
@@ -97,4 +117,4 @@ export default defineConfig({
       "tests/e2e/**",
     ],
   },
-});
+}));

@@ -27,6 +27,10 @@ jobs:
   # two report independently.
   e2e:
     runs-on: ubuntu-latest
+    # A backstop on the whole job (install, browser download, suite). The suite's
+    # own budget is on its step, so that a suite that overruns still reaches the
+    # upload step below.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -37,7 +41,14 @@ jobs:
 
       - run: yarn install --frozen-lockfile
       - run: npx playwright install --with-deps chromium
+
+      # The suite is ~1 minute on two workers. `retries: 2` means a suite that is
+      # broken rather than failing spends 30 s per attempt per spec, so it can run
+      # for hours (a wrong dev-server base once made every embed spec time out and
+      # the job ran 20+ minutes before it was killed). A step timeout fails the
+      # step, not the job, so the report below still uploads.
       - run: yarn test:e2e
+        timeout-minutes: 10
 
       # A failure is otherwise a stack trace with no page: the HTML report has
       # the run, and `test-results/` the trace Playwright records on the first
