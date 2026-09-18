@@ -106,3 +106,18 @@ describe("initMangroveCopyButtons with a signal", () => {
     }
   });
 });
+
+/**
+ * Every test above injects `importImpl`, which skips the memoised CDN import
+ * entirely, so the `modulePromise` memo and its reset-on-failure had no
+ * coverage. This takes the branch the browser takes: Node refuses an `https:`
+ * specifier, so the import rejects without a network call — exactly the failure
+ * the loader absorbs. It returns false, drops the memo, and the next call is
+ * free to try again rather than being served the rejection for ever.
+ */
+describe("the real CDN import", () => {
+  it("absorbs a failed load and stays retryable", async () => {
+    await expect(initMangroveCopyButtons(document.createElement("div"))).resolves.toBe(false);
+    await expect(initMangroveCopyButtons(document.createElement("div"))).resolves.toBe(false);
+  });
+});

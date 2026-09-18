@@ -114,3 +114,16 @@ describe("initMangroveTabs with a signal", () => {
     expect(() => lifetime.abort()).not.toThrow();
   });
 });
+
+/**
+ * Same gap as mangrove-copy-button.js: every test above injects `importImpl`
+ * and never reaches the memoised CDN import. Node refuses an `https:`
+ * specifier, so the import rejects without a network call, and the loader has
+ * to absorb it — false, memo dropped, next call free to retry.
+ */
+describe("the real CDN import", () => {
+  it("absorbs a failed load and stays retryable", async () => {
+    await expect(initMangroveTabs(document.createElement("div"))).resolves.toBe(false);
+    await expect(initMangroveTabs(document.createElement("div"))).resolves.toBe(false);
+  });
+});
