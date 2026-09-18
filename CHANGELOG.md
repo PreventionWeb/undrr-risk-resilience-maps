@@ -8,6 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- A screen reader now hears a layer's loading or failure message once. A layer appears in its own category and in every other category's cross-tab list, and each of those rows said the same thing, so the message was read out several times.
 - Layers shown by "Show disabled" are readable again: the whole row used to be dimmed with a transparency, which took its name and badge below the minimum text contrast (axe reported `color-contrast` on four more rows). The row is greyed with colours instead, and its badge says "not published" rather than the layer type.
 - The "Show disabled" switch's off state, the type badge's size, and the focus ring on a switch whose last load failed all met less than the minimum contrast, size or visibility they needed.
 - A screen reader is told when a layer starts and stops loading. The switch says so in its name, but the same attribute that draws the spinner also stops assistive technology reporting changes there, so the row's live region says it instead.
