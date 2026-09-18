@@ -30,7 +30,10 @@
   padding: 0.25rem 1.4rem 0.25rem 0.35rem;
   border: 1px solid var(--mg-form-input-border-color);
   border-radius: 3px;
-  background: var(--mg-form-input-background--focus);
+  /* Not `--mg-form-input-background--focus`: it resolves to the same white
+     today, but it names the focused state, so a future tint upstream would
+     move every select at rest. */
+  background: rgb(var(--mg-color-neutral-0));
   color: rgb(var(--mg-color-neutral-800));
   font: inherit;
 }
