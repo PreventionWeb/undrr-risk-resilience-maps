@@ -428,8 +428,17 @@ Mangrove 2.0 notes that affect this app: colour tokens are sRGB channel triples
 and must be wrapped — `rgb(var(--mg-color-focus-ring))`, or
 `rgb(var(--mg-color-neutral-900) / 0.1)` for a translucent one — except the ~24
 complete-expression tokens on `tokens.json`'s exception list, such as
-`--mg-form-input-border-color`, which are used bare. No component stylesheet
-declares a raw hex or `rgba()` colour; z-index 10-22 is frozen for Mangrove's
+`--mg-form-input-border-color`, which are used bare. Only tokens that name the
+state being styled are used: an `--mg-…--focus` token is not borrowed for a
+resting background even where the two resolve alike today. No component
+stylesheet declares a raw hex or `rgba()` colour, with one exception —
+`map-service-notice.css`, which a follow-on change replaces with `mg-notice`
+outright, so it was left alone rather than tokenised twice. Where no token
+matches a value, the nearest token is used translucently rather than a hex kept
+(`--color-primary-light` is `rgb(var(--mg-color-blue-900) / 0.06)`), and drop
+shadows keep their geometry with a tokenised colour, since Mangrove's
+`--mg-card-shadow` / `--mg-shadow-raised` are inset hairline rings rather than
+drop shadows and are not substitutes. Z-index 10-22 is frozen for Mangrove's
 navigation zone, so app chrome uses 30+ (see `tokens.css`); and fonts come from
 role tokens (`--mg-font-family-code` and friends) rather than per-component
 typeface declarations.
@@ -438,11 +447,29 @@ Two places overrule a Mangrove default, and both say why in the stylesheet. The
 Sources hero's switch has no inverse variant upstream, so `.sources-mapx-toggle`
 darkens the off track and adds a white inset ring: over the mid-blue hero the
 default (and an earlier translucent-white track) left both the thumb and the
-track boundary under the 3:1 a UI component needs. The layer panel's
+track boundary under the 3:1 a UI component needs. The darkened fill itself
+composites to `rgb(17,63,101)` against the hero — 1.7:1, nowhere near 3:1 — so
+it is the ring, not the fill, that carries the track's outer boundary (6.49:1),
+and the ring is therefore two device-independent pixels rather than one, so it
+cannot land sub-pixel at a fractional zoom or DPR. The layer panel's
 `.layer-review-switch` re-declares the switch geometry one size down because
 Mangrove has no size hook yet (unisdr/undrr-mangrove#1199); the thumb's travel is
-derived with `calc()` from the track and thumb sizes, and a `[dir=rtl]` rule
-mirrors it, because the override would otherwise beat Mangrove's own RTL rule.
+derived with `calc()` from the track width, padding, border and thumb size, and a
+`[dir=rtl]` rule mirrors it, because the override would otherwise beat Mangrove's
+own RTL rule. The border term exists for `forced-colors: active`, where Mangrove
+adds a 1px track border but its padding reset loses to this override, so the
+travel has to shrink by 2px or the thumb sits flush with the track's edge.
+
+**Labelling controls.** Several panel controls show a word beside themselves
+rather than above an associated `<label>`: the opacity slider, the stepped
+slider's "Return period", the sub-tabs' metric name. Mangrove's `mg-form-label`
+carries `for`, which needs an id, and the same layer can render the same control
+twice at once (its home tab and another tab's cross-tab section), so a fixed id
+would be duplicated. The convention across all of them is therefore one shape:
+the visible text is a decorative `<span class="… mg-form-label" aria-hidden>`,
+and the control alongside it is named by an `aria-label` carrying the same words,
+which satisfies WCAG 2.5.3. No bare `<label>` without a `for` is left anywhere —
+it names nothing and only reads as an orphan to assistive technology.
 
 ### Layer panel controls
 
