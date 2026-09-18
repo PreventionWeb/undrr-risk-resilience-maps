@@ -77,8 +77,9 @@ const SKIP_TO_CONTENT_LABEL = "Skip to content";
  * Is the warm-up worth its cost here?
  *
  * Measured on `#home` over 25s without ever opening a data tab, the warm-up
- * costs +47 requests, +4.33 MB and +14 MB of JS heap on every visit, including
- * a bounce, and it multiplies load on `app.mapx.org` by the share of visitors
+ * costs +47 requests and +4.33 MB on every visit, including a bounce (and, on
+ * the hardware it was measured on, +14 MB of JS heap -- a figure that does not
+ * reproduce reliably, so it is not the reason for any of this), and it multiplies load on `app.mapx.org` by the share of visitors
  * who never open a map. It buys 2.5-2.9s off the first data-tab click. That is
  * a good trade on a desktop on an unmetered connection, and a bad one for
  * someone who asked for less data or is on a phone.
