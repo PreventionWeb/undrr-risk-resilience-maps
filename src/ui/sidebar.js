@@ -93,6 +93,9 @@ export function createSidebar(
   // nested instance first. A root that is not an element (a document) owns
   // the parts outside every marked root.
   const rootEl = root instanceof Element ? root : null;
+  // The root's document: a Document is its own (its `ownerDocument` is null),
+  // and a fragment's is the document it was created in.
+  const rootDoc = root.ownerDocument ?? (root.nodeType === 9 ? root : document);
   const marksRoot = Boolean(rootEl) && !rootEl.hasAttribute(ROOT_ATTR);
   if (marksRoot) rootEl.setAttribute(ROOT_ATTR, "");
   const part = (name) =>
@@ -216,7 +219,7 @@ export function createSidebar(
   // to the root rather than to a panel, so it is never inside something hidden
   // (an information page replaces the map; a cross-tab section starts collapsed)
   // and can still speak. See announcer.js; the visible message stays per row.
-  const announcer = createLayerAnnouncer(rootEl?.ownerDocument ?? document);
+  const announcer = createLayerAnnouncer(rootDoc);
   disposers.push(() => announcer.destroy());
   let showDisabledLayers = false;
   // Active-state and click wiring for the nav links (created after the panels).
@@ -433,10 +436,13 @@ export function createSidebar(
     { signal },
   );
 
-  // The instance's live region, at the end of its root (or, for a root that is
-  // not an element, of the layer panel). Visually hidden, and removed by
-  // announcer.destroy().
-  (rootEl ?? sidebarBody).appendChild(announcer.element);
+  // The instance's live region, at the end of its root — or of the root's
+  // `<body>` when the root is not an element (a document or a fragment), never
+  // of the layer panel: the panel sits inside `#app-map`, which an information
+  // page hides, and a region inside something hidden is never announced, which
+  // is the silent behaviour this region exists to fix. Visually hidden, and
+  // removed by announcer.destroy().
+  (rootEl ?? rootDoc.body ?? sidebarBody).appendChild(announcer.element);
 
   // Populate info page with all info panels
   if (infoPage) {

@@ -9,6 +9,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Fixed
 
 - A screen reader now hears a layer's loading or failure message once. A layer appears in its own category and in every other category's cross-tab list, and each of those rows said the same thing, so the message was read out several times.
+- When two layers have something to say at the same time — both failing, or a shared link opening both while the map service is down — a screen reader now hears both. The second message replaced the first, and one layer finishing could also take another layer's "Loading…" away before it was read.
 - The opacity slider under a layer had no name a screen reader could use: it sat next to the word "Opacity" but nothing tied the two together (axe reported a critical `label` violation on every layer that was on). It is now named "Opacity" and reads its value as a percentage.
 - The category navigation is announced as links again. It claimed to be a menu bar, which promises arrow-key navigation the app does not implement and stops the eight links being announced as links. The link for the page you are on now says so.
 - The map itself had no name, so a screen reader listed it as an unnamed frame.

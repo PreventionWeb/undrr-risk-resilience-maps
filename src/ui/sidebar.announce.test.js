@@ -247,7 +247,13 @@ describe("layer announcements", () => {
     }
   });
 
-  it("does not let one layer settling wipe another layer's message", async () => {
+  /** Earthquake's compact row in Population's tab. */
+  const quakeRow = () =>
+    [...document.querySelectorAll('[data-tab-panel="exposure"] .cross-tab-item')].find(
+      (item) => item.querySelector(".cross-tab-label").textContent === "Earthquake",
+    );
+
+  it("does not let the layer that settles last wipe the other layer's message", async () => {
     const slowPop = deferred();
     const slowQuake = deferred();
     mocks.viewAdd.mockImplementation((id) => (id === "MX-POP" ? slowPop.promise : slowQuake.promise));
@@ -256,13 +262,11 @@ describe("layer announcements", () => {
     homeRow().querySelector(".layer-eye").click();
     expect(region.textContent).toBe("Loading Population…");
 
-    // Earthquake starts loading too, from its compact row in this tab: the
-    // newest event is the one the region carries.
-    const quake = [...document.querySelectorAll('[data-tab-panel="exposure"] .cross-tab-item')].find(
-      (item) => item.querySelector(".cross-tab-label").textContent === "Earthquake",
-    );
-    quake.querySelector(".layer-eye").click();
-    expect(region.textContent).toBe("Loading Earthquake…");
+    // Earthquake starts loading too, from its compact row in this tab. Both
+    // layers have something to say, so the region carries both sentences:
+    // overwriting one with the other would lose it.
+    quakeRow().querySelector(".layer-eye").click();
+    expect(region.textContent).toBe("Loading Population… Loading Earthquake…");
 
     // Population arrives first; dropping its busy sentence must not take
     // Earthquake's standing message with it.
@@ -273,6 +277,53 @@ describe("layer announcements", () => {
     slowQuake.resolve();
     await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
     expect(region.textContent).toBe("");
+  });
+
+  it("keeps a standing message when the layer that spoke last settles first", async () => {
+    const slowPop = deferred();
+    const slowQuake = deferred();
+    mocks.viewAdd.mockImplementation((id) => (id === "MX-POP" ? slowPop.promise : slowQuake.promise));
+    const region = document.querySelector(".layer-announcer");
+
+    homeRow().querySelector(".layer-eye").click();
+    quakeRow().querySelector(".layer-eye").click();
+
+    // The other order: Earthquake, which spoke last, settles first. Population
+    // is still loading, so its "Loading…" has to be left standing.
+    slowQuake.resolve();
+    await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
+    expect(region.textContent).toBe("Loading Population…");
+
+    slowPop.resolve();
+    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    expect(region.textContent).toBe("");
+  });
+
+  it("announces two layers failing together without losing either", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.viewAdd.mockRejectedValue(new Error("offline"));
+    const region = document.querySelector(".layer-announcer");
+
+    homeRow().querySelector(".layer-eye").click();
+    quakeRow().querySelector(".layer-eye").click();
+    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await vi.waitFor(() => expect(sidebar.store.get("quake").status).toBe("error"));
+    warn.mockRestore();
+
+    expect(region.textContent).toContain("Could not load Population. It is off.");
+    expect(region.textContent).toContain("Could not load Earthquake. It is off.");
+  });
+
+  it("puts the region in the root's body when the root is not an element", () => {
+    // An embed may pass a document or a fragment. Falling back to the layer
+    // panel would put the region inside `#app-map`, which an information page
+    // hides, so nothing would be announced there — the bug this region fixes.
+    sidebar.destroy();
+    sidebar = createSidebar(document, { stateAdapter: memoryAdapter() });
+
+    const region = document.querySelector(".layer-announcer");
+    expect(region.parentElement).toBe(document.body);
+    expect(region.closest('[data-ui="panel-body"]')).toBeNull();
   });
 
   it("takes its region out of the page on destroy, and the next instance brings one", () => {

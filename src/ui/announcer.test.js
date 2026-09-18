@@ -11,6 +11,7 @@ describe("createLayerAnnouncer", () => {
   it("builds a visually hidden polite region with no id", () => {
     const { element } = createLayerAnnouncer();
     expect(element.tagName).toBe("P");
+    expect(element.getAttribute("role")).toBe("status");
     expect(element.getAttribute("aria-live")).toBe("polite");
     expect(element.classList.contains("mg-u-sr-only")).toBe(true);
     expect(element.id).toBe("");
@@ -37,9 +38,20 @@ describe("createLayerAnnouncer", () => {
     expect(announcer.announce("pop", message, record({ status: "error" }))).toBe(true);
   });
 
+  it("announces a message with no record every time, instead of deduping on undefined", () => {
+    const announcer = createLayerAnnouncer();
+
+    // Two unrelated events both pass `undefined`; they are not the same event,
+    // so the second must not be dropped as a repeat of the first.
+    expect(announcer.announce("pop", "Loading Population…")).toBe(true);
+    expect(announcer.announce("pop", "Loading Population…")).toBe(true);
+  });
+
   it("lets one record carry a clear and then a failure, once each", () => {
     const announcer = createLayerAnnouncer();
     const settled = record({ status: "error" });
+    // The clear has something of this layer's to drop.
+    announcer.announce("pop", "Loading Population…", record());
 
     expect(announcer.announce("pop", "", settled)).toBe(true);
     expect(announcer.announce("pop", "Could not load Population. It is off.", settled)).toBe(true);
@@ -49,7 +61,7 @@ describe("createLayerAnnouncer", () => {
     expect(announcer.element.textContent).toBe("Could not load Population. It is off.");
   });
 
-  it("does not let one layer's clear wipe another layer's message", () => {
+  it("does not let a layer that said nothing wipe another layer's message", () => {
     const announcer = createLayerAnnouncer();
     announcer.announce("quake", "Loading Earthquake…", record({ key: "quake" }));
 
@@ -59,6 +71,40 @@ describe("createLayerAnnouncer", () => {
     // Its own clear does empty it.
     expect(announcer.announce("quake", "", record({ key: "quake" }))).toBe(true);
     expect(announcer.element.textContent).toBe("");
+  });
+
+  it("carries both layers' messages when two speak at once, losing neither", () => {
+    const announcer = createLayerAnnouncer();
+    const failedPop = "Could not load Population. It is off.";
+    const failedQuake = "Could not load Earthquake. It is off.";
+
+    expect(announcer.announce("pop", failedPop, record({ status: "error" }))).toBe(true);
+    expect(announcer.announce("quake", failedQuake, record({ key: "quake", status: "error" }))).toBe(true);
+
+    // The second write must not leave the region holding Earthquake alone:
+    // Population's sentence would then very likely never be spoken.
+    expect(announcer.element.textContent).toBe(`${failedPop} ${failedQuake}`);
+  });
+
+  it("writes a standing message back when the other layer settles, in either order", () => {
+    // Both layers are loading, so both sentences are in the region.
+    const start = () => {
+      const announcer = createLayerAnnouncer();
+      announcer.announce("pop", "Loading Population…", record());
+      announcer.announce("quake", "Loading Earthquake…", record({ key: "quake" }));
+      expect(announcer.element.textContent).toBe("Loading Population… Loading Earthquake…");
+      return announcer;
+    };
+
+    // The layer that spoke last settles first: the older message stays.
+    const quakeFirst = start();
+    expect(quakeFirst.announce("quake", "", record({ key: "quake", applied: true }))).toBe(true);
+    expect(quakeFirst.element.textContent).toBe("Loading Population…");
+
+    // And the other way round.
+    const popFirst = start();
+    expect(popFirst.announce("pop", "", record({ applied: true }))).toBe(true);
+    expect(popFirst.element.textContent).toBe("Loading Earthquake…");
   });
 
   it("forgets what it said and leaves the page on destroy", () => {

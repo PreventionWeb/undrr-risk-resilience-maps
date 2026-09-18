@@ -395,7 +395,9 @@ export function createLayerRow(
   // layer with rows in several tabs is announced once (see announcer.js).
   // Without one, the row builds its own and puts it outside the header and the
   // body (hidden while collapsed), so it can speak while the row is collapsed.
-  const ownAnnouncer = published && !announceTo ? createLayerAnnouncer(document) : null;
+  // The row's own document, not the global one: an embed may build its rows in
+  // another document (see announcer.js, which takes the document for that reason).
+  const ownAnnouncer = published && !announceTo ? createLayerAnnouncer(element.ownerDocument) : null;
   if (ownAnnouncer) element.appendChild(ownAnnouncer.element);
   /**
    * Say something about this layer. The record it came from is passed on so the
