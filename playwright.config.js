@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
+import { PORT, REUSE_EXISTING_SERVER } from "./tests/e2e/dev-server.js";
 
-const PORT = 3040;
 const isCI = Boolean(process.env.CI);
 
 /**
@@ -11,6 +11,9 @@ const isCI = Boolean(process.env.CI);
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // Runs after `webServer`, and fails the run if the server on PORT belongs to
+  // another checkout. See tests/e2e/dev-server.js.
+  globalSetup: "./tests/e2e/global-setup.js",
   testMatch: "**/*.spec.js",
   // Every spec drives one page; the suite has no shared server state.
   fullyParallel: true,
@@ -29,9 +32,10 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // A port of its own, so a dev server on 3001 and the suite can coexist.
+    // `E2E_PORT` moves it; `E2E_REUSE_SERVER=0` forces a fresh server.
     command: `yarn vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/`,
-    reuseExistingServer: !isCI,
+    reuseExistingServer: REUSE_EXISTING_SERVER,
     timeout: 60_000,
     stdout: "ignore",
     stderr: "pipe",
