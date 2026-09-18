@@ -75,8 +75,15 @@
   --layer-switch-track-width: 2rem;
   --layer-switch-track-padding: 0.0625rem;
   --layer-switch-thumb-size: 1rem;
+  /* Mangrove's forced-colors rules add a 1px border to the track but leave the
+     padding at 1px -- and its padding declaration loses to ours -- so the
+     content box the thumb travels in narrows by 2px there. The track is
+     border-box, so the border has to come out of the travel like the padding
+     does; see the forced-colors block below. */
+  --layer-switch-track-border: 0px;
   --layer-switch-travel: calc(
-    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) - var(--layer-switch-thumb-size)
+    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) - 2 *
+      var(--layer-switch-track-border) - var(--layer-switch-thumb-size)
   );
   gap: 0.35rem;
   min-height: 1.75rem;
@@ -100,6 +107,17 @@
 
 [dir="rtl"] .layer-review-switch .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
   transform: translateX(calc(-1 * var(--layer-switch-travel)));
+}
+
+/* Mangrove's `@media (forced-colors: active)` sets
+   `.mg-switch__track { border: 1px solid CanvasText; padding: 1px }`, but that
+   padding rule (0,1,0) loses to the one above (0,2,0), so the border is added
+   rather than absorbed. Feeding it back into the formula keeps the thumb inside
+   the track instead of flush with its edge. */
+@media (forced-colors: active) {
+  .layer-review-switch {
+    --layer-switch-track-border: 1px;
+  }
 }
 
 .layer-review-switch .mg-switch__label {
