@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  canMapLoad,
   hideMapServiceNotice,
   initMapServiceRetry,
   loadMapXSdk,
@@ -59,10 +60,78 @@ describe("MapX availability", () => {
   it("can cancel the ready-event timeout", () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
-    const cancel = watchForMapReady(onTimeout, 100);
+    const cancel = watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
     cancel();
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(1_000);
     expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  it("gives up once MapX has had its full loading time", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
+
+    vi.advanceTimersByTime(90);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(10);
+    expect(onTimeout).toHaveBeenCalledOnce();
+
+    // The watch stops itself: no repeat failures.
+    vi.advanceTimersByTime(1_000);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  it("does not spend the ready budget while the map cannot load", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    let visible = false;
+
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, shouldCount: () => visible });
+
+    // A user sitting behind the PIN gate, or reading an info page, for a long
+    // time must not trip the failure notice.
+    vi.advanceTimersByTime(10_000);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    visible = true;
+    vi.advanceTimersByTime(90);
+    expect(onTimeout).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  describe("canMapLoad", () => {
+    const setMap = (markup) => {
+      document.body.innerHTML = markup;
+      return document.getElementById("app-map");
+    };
+
+    it("is true when the map container is on screen", () => {
+      setMap(`<div id="app-map"></div>`);
+      expect(canMapLoad(document)).toBe(true);
+    });
+
+    it("is true when there is no map container to reason about", () => {
+      document.body.replaceChildren();
+      expect(canMapLoad(document)).toBe(true);
+    });
+
+    it("is false while an information page hides the map", () => {
+      setMap(`<div id="app-map" style="display: none"></div>`);
+      expect(canMapLoad(document)).toBe(false);
+    });
+
+    it("is false while the preview gate hides the page", () => {
+      setMap(`<div id="app-map" style="visibility: hidden"></div>`);
+      expect(canMapLoad(document)).toBe(false);
+    });
+
+    it("is false while the tab is in the background", () => {
+      setMap(`<div id="app-map"></div>`);
+      const documentRef = { visibilityState: "hidden", getElementById: () => null };
+      expect(canMapLoad(documentRef)).toBe(false);
+    });
   });
 
   it("shows, hides, and retries from the service notice", () => {

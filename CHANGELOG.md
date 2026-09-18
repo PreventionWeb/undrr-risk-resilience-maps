@@ -8,6 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- "The map is temporarily unavailable" no longer appears on a working map service. MapX loads in a cross-origin iframe, and a browser stops that iframe making any progress while it is not being painted -- which is what happens behind the preview PIN gate, while an information page is open (the page the app opens on), and while the tab is in the background. The 30-second limit counted that time, so reading the home page for half a minute was enough to be told the map had failed. The limit now counts only time the map is actually on screen and loading, which is 1-4 seconds in practice. The automatic retry countdown pauses at the PIN gate for the same reason.
 - The opacity slider under a layer had no name a screen reader could use: it sat next to the word "Opacity" but nothing tied the two together (axe reported a critical `label` violation on every layer that was on). It is now named "Opacity" and reads its value as a percentage.
 - The category navigation is announced as links again. It claimed to be a menu bar, which promises arrow-key navigation the app does not implement and stops the eight links being announced as links. The link for the page you are on now says so.
 - The map itself had no name, so a screen reader listed it as an unnamed frame.
