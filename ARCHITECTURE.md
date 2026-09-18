@@ -54,15 +54,17 @@ undrr-risk-resilience-maps/
 │   ├── ui/
 │   │   ├── sidebar.js          # createSidebar(root, options): composes store, controller, router, nav and panels; one instance
 │   │   ├── nav.js              # createNav(): generates data tab links from TABS, wires nav clicks and active state within a root
-│   │   ├── layer-panel.js      # Data tab panels (intro, groups, empty state, Show disabled) and cross-tab sections
+│   │   ├── layer-panel.js      # Data tab panels (intro, groups, empty state, Show disabled) and cross-tab sections, both stacks in an mg-accordion
 │   │   ├── layer-row.js        # createLayerRow(): one row component, full (home tab) or compact (cross-tab)
 │   │   ├── announcer.js        # createLayerAnnouncer(): the instance's one polite live region for layer events
 │   │   ├── layer-controls.js   # Per-layer opacity slider and legend renderer
 │   │   ├── external-controls.js # Provider-neutral external-layer controls
+│   │   ├── mangrove-tabs.js    # Loads Mangrove's js/tabs.js from the CDN and applies it to a scope (with mgTabsDestroy on abort)
+│   │   ├── mangrove-copy-button.js # Loads Mangrove's js/copy-button.js from the CDN and applies it to a scope
 │   │   ├── home.js             # Home page cards from each tab's `card` field (navigate through an onNavigate callback)
 │   │   ├── info-panels.js      # Sources and About full-page views
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
-│   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel
+│   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel (coordinates copied by Mangrove's CopyButton)
 │   │   └── widgets/            # Source-switching widgets (registry pattern)
 │   │       ├── index.js        # Widget registry + isCompound helper
 │   │       ├── source-selection.js # Shared selection state; shows the source the layer ends up on
@@ -418,23 +420,43 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-form-help` — layer descriptions and the row-level "Turning on" / "Turning off" pending text
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
 - `mg-icon` (`-close`, `-exclamation-triangle`) — the close buttons on the infobox and site inspector, and the map-service notice's warning symbol. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
-- `mg-status-label` — publication status for planned datasets on the Sources page
+- `mg-status-label` — publication status for planned datasets on the Sources page, and the "Offline" badge in the map-service notice
+- `mg-notice` (`--warning`, `--overlay`, `__header`, `__icon`, `__title`, `__description`, `__meta`, `__actions`) — the map-service notice, as ServiceNotice's CSS-only markup. `--overlay` gives the absolute inset, the centring, the 94% neutral-0 wash and its `backdrop-filter`; `map-service-notice.css` adds only the stacking order, the 22rem inline-start inset that clears the layer panel and the `[hidden]` rule. The React hydration path (`data-mg-service-notice`) is deliberately not used: the retry, the countdown and the capped retries are `src/sdk/availability.js`
+- `mg-buttons` — the action row inside the notice
+- `mg-copy-button` (`__feedback`) — the "copy coordinates" control in the site inspector, initialised by `mgCopyButton()` (see Mangrove JavaScript)
 - `mg-details` — expandable planning sections on the Sources page
+- `mg-accordion` (`--flush`) — the layer panel's two disclosure stacks: the R2R group subheadings and the collapsed cross-tab sections. It supplies the summary's flex row, the rotating chevron with reduced-motion handling, the minimum hit target, the inset focus ring and the open/closed divider; `layer-accordion.css` scales the summary type back to panel size. `mg-details` is deliberately not combined with it here, because `details.mg-details p` would restyle the layer descriptions and cross-tab group labels inside the stack
 - `mg-container` — centred layout
 - `mg-skip-link` — accessible skip navigation link revealing on keyboard focus
 - `mg-table`, `mg-table-scroll-region` — feature attribute table in the infobox and accessible scroll region for wide data tables
+- `mg-table--data`, `mg-table__th--sticky`, `mg-table__td--code` — the Sources tables: compact padding, subtle dividers and an uppercase header band, headers pinned while the region scrolls (which is why `.data-table-wrap` caps at 70vh), and the MapX-ID cells in the code face. `mg-table__th--sortable` is not used: it styles a header containing a sorting button and reflects `aria-sort`, but nothing sorts the rows and the script to do so is out of scope
 - `mg-tabs` — category tabs on the Sources page, stacking below 480px
 - `mg-footer` — UNDRR global footer, syndicated from PreventionWeb
 - `mg-preview-access` — preview PIN gate, configured from `data-mg-preview-*` attributes
 
 ### Mangrove JavaScript
 
-Mangrove ships vanilla behaviour scripts alongside the CSS. We load
-`js/tabs.js` for the Sources page tabs. It auto-initialises `[data-mg-js-tabs]`
-containers on `DOMContentLoaded`, but our info panels are built from JavaScript
-after that event, so `src/ui/mangrove-tabs.js` imports the module from the CDN
-and calls `mgTabs()` once the markup is in the document. Enhancement is
-optional — without it the panels render in sequence.
+Mangrove ships vanilla behaviour scripts alongside the CSS. Two are loaded, both
+pinned to the same release as the stylesheet, both fetched from the CDN rather
+than bundled so they stay in step with it, and both optional — a load failure
+leaves the authored markup working, not broken.
+
+- `js/tabs.js` for the Sources page tabs. It auto-initialises `[data-mg-js-tabs]`
+  containers on `DOMContentLoaded`, but our info panels are built from JavaScript
+  after that event, so `src/ui/mangrove-tabs.js` imports the module and calls
+  `mgTabs()` once the markup is in the document. Without it the panels render in
+  sequence. The sidebar's `destroy()` aborts the signal that runs `mgTabsDestroy`,
+  which is what removes the module's window and font listeners.
+- `js/copy-button.js` for the site inspector's copy control, through
+  `src/ui/mangrove-copy-button.js`, which mirrors the tabs loader. Importing the
+  module initialises the document once, but the inspector builds its button
+  later, so the wrapper calls `mgCopyButton(scope)` over the coordinates row it
+  has just written. rc.2 exports only `mgCopyButton`: there is no destroy, and
+  nothing global to undo, because its one listener is a `click` on the button
+  element and goes with the markup. The `signal` therefore guards the part that
+  can outlive its markup — the inspector aborts the previous render's controller
+  before each rebuild and on close, so a slow module load never wires a row that
+  is already gone. A destroy export is still called if a later release adds one.
 
 ### Preview access gate
 
