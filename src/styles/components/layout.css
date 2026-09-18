@@ -18,8 +18,8 @@ body {
   align-items: center;
   justify-content: flex-end;
   padding: 0.2rem 0.75rem;
-  background: #fff;
-  color: #666;
+  background: rgb(var(--mg-color-neutral-0));
+  color: rgb(var(--mg-color-neutral-500));
   font-size: 0.6875rem;
   line-height: 1.25;
   font-variant-numeric: tabular-nums;
@@ -74,7 +74,7 @@ nav.mg-container {
   display: flex;
   margin-left: auto;
   width: 1px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgb(var(--mg-color-neutral-0) / 0.25);
   align-self: stretch;
   margin-top: 0.4rem;
   margin-bottom: 0.4rem;
@@ -112,7 +112,7 @@ nav.mg-container {
   width: 100%;
   min-height: calc(100vh - var(--header-height) - var(--nav-height) - var(--build-info-height));
   overflow-y: auto;
-  background: #fff;
+  background: rgb(var(--mg-color-neutral-0));
   box-sizing: border-box;
 }
 
