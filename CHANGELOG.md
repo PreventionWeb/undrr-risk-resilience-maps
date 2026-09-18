@@ -36,6 +36,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- The "copy coordinates" control in the site inspector is Mangrove's copy button. It now says "Copied!" in a small tooltip when it works, tells a screen reader the same thing, and says so if the copy fails instead of doing nothing visible. It copies the same "latitude, longitude" text as before.
+- The group headings in the layer panel and the collapsed sections for other tabs use Mangrove's accordion. The heading is now a full-width row with a chevron on the right that turns as the section opens (the sections for other tabs had no chevron at all), it is easier to hit, and it shows a clear focus outline when you reach it with the keyboard.
+- The "map is temporarily unavailable" message is Mangrove's service-notice component: a soft wash over the map with the warning symbol, an "Offline" badge, the retry countdown and the two actions. It retries and recovers exactly as before.
 - The Sources tables are Mangrove's data-table styling: a compact grey header band in small caps in place of the dark blue one, quieter row dividers, and MapX view IDs in a monospaced column. A long table now scrolls inside its own region with the column headings pinned to the top, so you can still tell which column you are reading. (The blue band was the reason the MapX-ID heading needed a colour fix of its own; there is no band left to fix.)
 - The page header now matches Mangrove's own markup, including the logo's canonical address and a preload so it paints without waiting for the stylesheet. The close buttons on the infobox and site inspector, and the map-service notice's warning symbol, use Mangrove's icons instead of hand-drawn shapes and the `×` character.
 - Every colour in the app's own stylesheets now comes from a Mangrove token rather than a hard-coded hex value, so a palette change reaches the whole app.

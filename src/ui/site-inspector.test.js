@@ -31,6 +31,16 @@ vi.mock("../config/layers.js", () => ({
   ],
 }));
 
+// The copy button's behaviour comes from Mangrove's CDN module; record how the
+// panel asks for it instead of fetching it.
+const copyButton = vi.hoisted(() => ({ calls: [] }));
+vi.mock("./mangrove-copy-button.js", () => ({
+  initMangroveCopyButtons: (scope, options) => {
+    copyButton.calls.push({ scope, options });
+    return Promise.resolve(true);
+  },
+}));
+
 import {
   buildSiteInspectorPanel,
   showSiteInspector,
@@ -44,6 +54,7 @@ function setupDOM() {
 
 beforeEach(() => {
   setupDOM();
+  copyButton.calls.length = 0;
 });
 
 describe("buildSiteInspectorPanel", () => {
@@ -113,6 +124,90 @@ describe("showSiteInspector / hideSiteInspector", () => {
     hideSiteInspector();
     // Should not throw
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  });
+});
+
+describe("the coordinates copy button", () => {
+  const show = (lat = 12.34567, lng = -56.78901) =>
+    showSiteInspector({ lngLat: { lat, lng }, views: {}, openViewsSnapshot: new Set() });
+
+  beforeEach(() => buildSiteInspectorPanel());
+
+  it("is Mangrove's CopyButton in its vanilla form", () => {
+    show();
+    const button = document.querySelector(".site-inspector-coords-copy");
+
+    expect(button.type).toBe("button");
+    for (const className of [
+      "mg-button",
+      "mg-button-primary",
+      "mg-button-outline",
+      "mg-button--icon",
+      "mg-copy-button",
+    ]) {
+      expect(button.classList.contains(className)).toBe(true);
+    }
+    expect(button.hasAttribute("data-mg-copy-button")).toBe(true);
+    expect(button.getAttribute("aria-label")).toBe("Copy coordinates");
+    expect(button.querySelector(".mg-icon.mg-icon-copy.mg-button__icon")).not.toBeNull();
+
+    const feedback = button.querySelector(".mg-copy-button__feedback");
+    expect(feedback.getAttribute("aria-hidden")).toBe("true");
+    expect(feedback.textContent).toBe("Copied!");
+
+    const live = button.querySelector(".mg-u-sr-only");
+    expect(live.getAttribute("aria-live")).toBe("polite");
+    expect(live.textContent).toBe("");
+  });
+
+  it("copies exactly the coordinates it shows", () => {
+    show();
+    const button = document.querySelector(".site-inspector-coords-copy");
+    const shown = document.querySelector(".site-inspector-coords-value").textContent;
+
+    expect(button.dataset.textToCopy).toBe("12.34567, -56.78901");
+    expect(button.dataset.textToCopy).toBe(shown);
+    expect(button.dataset.copiedLabel).toBe("Coordinates copied to clipboard.");
+  });
+
+  it("initialises the Mangrove module over the coordinates row it just built", () => {
+    show();
+
+    expect(copyButton.calls).toHaveLength(1);
+    const [{ scope, options }] = copyButton.calls;
+    expect(scope).toBe(document.querySelector(".site-inspector-coords"));
+    expect(scope.contains(document.querySelector("[data-mg-copy-button]"))).toBe(true);
+    expect(options.signal.aborted).toBe(false);
+  });
+
+  it("abandons a pending initialisation when the row is rebuilt or the panel closes", () => {
+    show();
+    const first = copyButton.calls[0].options.signal;
+
+    show(1, 2);
+    expect(first.aborted).toBe(true);
+    const second = copyButton.calls[1].options.signal;
+    expect(second.aborted).toBe(false);
+
+    hideSiteInspector();
+    expect(second.aborted).toBe(true);
+  });
+
+  it("does not add a click listener of its own", () => {
+    show();
+    const button = document.querySelector(".site-inspector-coords-copy");
+    const writeText = vi.fn(() => Promise.resolve());
+    const clipboard = navigator.clipboard;
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      button.click();
+      // Only the Mangrove module writes to the clipboard, and it is mocked out
+      // here, so nothing should have been written.
+      expect(writeText).not.toHaveBeenCalled();
+    } finally {
+      if (clipboard === undefined) delete navigator.clipboard;
+      else Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+    }
   });
 });
 

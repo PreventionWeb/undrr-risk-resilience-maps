@@ -99,24 +99,15 @@
   flex: 1;
 }
 
+/* Mangrove's CopyButton (outline icon button). It owns the frame, the hover
+   and focus treatment, the copied state and the feedback tooltip; the panel
+   only asks it to be small enough for a 20rem floating strip. */
 .site-inspector-coords-copy {
-  background: none;
-  border: none;
-  cursor: pointer;
+  flex-shrink: 0;
+  min-block-size: 1.75rem;
+  min-inline-size: 1.75rem;
   padding: 0.15rem 0.3rem;
-  border-radius: 3px;
-  line-height: 1;
   font-size: 0.85rem;
-  color: var(--color-text-muted);
-}
-
-.site-inspector-coords-copy:hover {
-  background: rgb(var(--mg-color-neutral-900) / 0.07);
-}
-
-.site-inspector-coords-copy:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
 }
 
 /* ── Layer list ──────────────────────────────────── */
