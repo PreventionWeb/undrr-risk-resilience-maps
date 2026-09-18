@@ -28,6 +28,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- A layer that is slow to come on or go off now says so in writing: "Turning on" or "Turning off" appears under the row, in the wording Mangrove uses for a pending switch. It waits until the layer has been loading for almost half a second, so quick layers show only the spinner and nothing flickers, and a row that already shows its own loading message (an EDRA layer) is left as it is.
 - Upgraded the UNDRR Mangrove component library from `2.0.0-rc.1` to `2.0.0-rc.2` across the stylesheet, `preview-access.js`, and `tabs.js` modules. rc.2 adds the `.mg-switch` pending and `aria-disabled` states, forced-colours support and `--mg-switch-*` custom properties; no classes or tokens we use were renamed or removed.
 - Rebuilt every on/off control on Mangrove's switch component, so the layer switches, "Show disabled" and the Sources MapX-ID switch look and behave alike: a clear on/off track, a spinner ring while a layer loads (static when the browser asks for reduced motion), a red outline and message after a failed load, a dimmed state while the map is still starting up, and a 46 × 40 px hit target (44 px tall on touch) that is the same in the home tab and in cross-tab rows.
 - A layer's switch is now announced by the layer's name, with its on/off state coming from the control instead of from wording that changed ("Turn on …" / "Turn off …"). It still says "Loading …" or "Turning off …" while the map is working.

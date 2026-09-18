@@ -33,6 +33,21 @@ import { offRecord } from "../state/layers-store.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
+
+/**
+ * How long a call has to be in flight before the row says so in writing.
+ *
+ * Mangrove's switch-pending story pairs a pending switch with visible text, but
+ * it pairs it with a save that always takes a moment. Most of our layers do
+ * not: a MapX vector or raster view is usually on the map in about 150 ms, and
+ * text that appears and disappears inside that window is noise, not feedback.
+ * 450 ms is the middle of the range the maintainer asked for: three times the
+ * usual MapX call, so ordinary loads never reach it, and still well inside the
+ * one second after which a wait stops feeling like a direct response and starts
+ * needing an explanation. The spinning ring on the thumb carries the first
+ * moments on its own.
+ */
+export const PENDING_TEXT_DELAY_MS = 450;
 const GEOMETRY_LABELS = { point: "points", polygon: "polygons", line: "lines" };
 
 function layerBadgeLabel(layer) {
@@ -88,6 +103,8 @@ function buildLayerSwitch(layer) {
  * is in flight (`busy`) the switch is `aria-busy` — which Mangrove draws as a
  * pending ring on the thumb, static under `prefers-reduced-motion` — and its
  * label says what is happening, since the layer is not on (or off) the map yet.
+ * A call that is still in flight after PENDING_TEXT_DELAY_MS also says so in
+ * writing, under the head (see renderPendingText).
  * A layer whose last call failed keeps an error outline until the next call,
  * and a switch is `aria-disabled` (still focusable, so it can be explained)
  * while the map cannot accept layer changes.
@@ -142,6 +159,26 @@ function buildErrorLine() {
   error.className = "layer-error mg-form-error";
   error.setAttribute("aria-hidden", "true");
   return error;
+}
+
+/**
+ * The seen half of a slow call: Mangrove's form help text under the row's head,
+ * in the wording of the library's switch-pending story ("Turning on" /
+ * "Turning off"). The layer's name is left out — the row shows it right above,
+ * and the announcer, which is read out of context, keeps it.
+ *
+ * `aria-hidden`, so the row's live region is the only thing that speaks.
+ */
+function buildPendingLine() {
+  const line = document.createElement("p");
+  line.className = "layer-pending mg-form-help";
+  line.setAttribute("aria-hidden", "true");
+  return line;
+}
+
+/** The visible wording for a call in flight, from the intent it is applying. */
+function pendingText(record) {
+  return record.desired ? "Turning on" : "Turning off";
 }
 
 /**
@@ -263,6 +300,8 @@ export function createLayerRow(
   let rendered = null;
   // Compact rows: an external layer's loading or error message.
   let status = null;
+  // The delay before a call in flight is described in writing (null: none).
+  let pendingTimer = null;
   // Full rows: whether the accordion opens when the layer comes on (not when
   // the header turned it on, since the header manages expansion itself), and
   // what the source widget or external controls show.
@@ -351,6 +390,12 @@ export function createLayerRow(
   }
   element.appendChild(header);
 
+  // Its own line under the head, so the head — label, type tag and switch —
+  // stays exactly where it is when the text appears, and the text cannot be
+  // squeezed into the switch's column. Reserved height, so swapping it for the
+  // error line below does not resize anything either.
+  const pendingLine = published ? buildPendingLine() : null;
+  if (pendingLine) element.appendChild(pendingLine);
   // Outside the header and the body (hidden while collapsed), so it can speak
   // (and, for rows without controls of their own, show) while the row is
   // collapsed.
@@ -508,6 +553,74 @@ export function createLayerRow(
     renderToggle(store.get(layer.key));
   }
 
+  // ── Visible pending text ───────────────────────────────────────────────
+
+  /**
+   * Whether the row already shows a loading or error message of its own, where
+   * an external layer's controls go. One visible message per row: an EDRA row
+   * saying "Loading Agriculture…" must not also say "Turning on".
+   */
+  function externalStatusShown() {
+    if (!external) return false;
+    if (full) {
+      // A full row's status line is in its body, so it says nothing while the
+      // row is collapsed — and the external controls carry an empty one of
+      // their own, which only speaks while a settings change is in flight.
+      if (!expanded) return false;
+      const statusP = widgetSlot.querySelector(".external-layer-status");
+      return Boolean(statusP) && statusP.textContent !== "";
+    }
+    return Boolean(statusEl) && !statusEl.hidden && statusEl.textContent !== "";
+  }
+
+  /** Drop the pending text and the delay still counting down towards it. */
+  function clearPendingText() {
+    if (pendingTimer !== null) {
+      clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+    if (pendingLine) setText(pendingLine, "");
+  }
+
+  /** Write the pending text, unless the row has stopped wanting it. */
+  function showPendingText() {
+    if (destroyed || !pendingLine) return;
+    // The call may have settled, or turned into one the row describes elsewhere,
+    // while the delay was counting down.
+    if (!isBusyStatus(last.status) || externalStatusShown()) {
+      setText(pendingLine, "");
+      return;
+    }
+    setText(pendingLine, pendingText(last));
+  }
+
+  /**
+   * Keep the pending text in line with the record. A call that settles (either
+   * way) drops it at once; a new call starts the delay again from zero; and a
+   * call whose direction flipped while it was in flight — latest intent wins —
+   * rewords text already on screen without making the reader wait again.
+   */
+  function renderPendingText(busy, wasBusy) {
+    if (!pendingLine) return;
+    if (!busy) {
+      clearPendingText();
+      return;
+    }
+    if (!wasBusy) {
+      clearPendingText();
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        showPendingText();
+      }, PENDING_TEXT_DELAY_MS);
+      return;
+    }
+    if (pendingLine.textContent) showPendingText();
+  }
+
+  // destroy() aborts this, which is also how the delay is cancelled and the
+  // text removed: no timer survives the row, and nothing is written after it.
+  signal.addEventListener("abort", clearPendingText, { once: true });
+
   function update(next) {
     if (destroyed) return;
     const prev = last;
@@ -566,6 +679,9 @@ export function createLayerRow(
     }
 
     renderDetails();
+    // Last: it asks what the row now shows where an external layer's controls
+    // go, so the external status line must already be rendered (or cleared).
+    renderPendingText(busy, wasBusy);
   }
 
   /** The layer came on: reveal the row and build its controls. */

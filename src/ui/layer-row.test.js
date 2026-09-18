@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn((_idView, container) => {
@@ -35,7 +35,7 @@ vi.mock("../external/index.js", () => ({
   }),
 }));
 
-import { createLayerRow } from "./layer-row.js";
+import { createLayerRow, PENDING_TEXT_DELAY_MS } from "./layer-row.js";
 import { createLayersStore } from "../state/layers-store.js";
 
 const simple = { key: "pop", id: "MX-POP", label: "Population", type: "vt", desc: "People." };
@@ -594,5 +594,135 @@ describe("createLayerRow compact variant", () => {
     store.set("crops", { desired: false, status: "idle" });
     expect(body(el).hidden).toBe(true);
     expect(status.hidden).toBe(true);
+  });
+});
+
+/**
+ * The visible pending text: Mangrove's switch-pending wording, shown only once a
+ * call has been in flight long enough to be worth explaining. Fake timers, so
+ * the delay is asserted rather than waited out.
+ */
+describe.each(["full", "compact"])("createLayerRow (%s) visible pending text", (variant) => {
+  const pending = (el) => el.querySelector(".layer-pending");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("says nothing before the delay and 'Turning on' after it", () => {
+    const { store, el } = setup(simple, { variant });
+    expect(pending(el).textContent).toBe("");
+
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS - 1);
+    expect(pending(el).textContent).toBe("");
+
+    vi.advanceTimersByTime(1);
+    expect(pending(el).textContent).toBe("Turning on");
+    // Said once, by the row's live region — which keeps the layer's name,
+    // since it is read out of context.
+    expect(pending(el).getAttribute("aria-hidden")).toBe("true");
+    expect(pending(el).classList.contains("mg-form-help")).toBe(true);
+    expect(announcer(el)).toBe("Loading Population…");
+  });
+
+  it("says 'Turning off' while a slow removal is in flight", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, applied: true, viewId: "MX-POP", status: "idle" });
+    store.set("pop", { desired: false, status: "removing" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("drops the text, and its timer, as soon as the call succeeds", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("shows the error line instead of the pending text when the call fails", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    store.set("pop", { desired: false, status: "error", error: new Error("offline") });
+    expect(pending(el).textContent).toBe("");
+    expect(el.querySelector(".layer-error").textContent).toBe("Could not load Population. It is off.");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("never shows the text for a call that settles inside the delay", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    // A MapX vector or raster view is usually on the map in about this long.
+    vi.advanceTimersByTime(150);
+    store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("rewords text already shown when the intent flips mid-flight, without waiting again", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    // Latest intent wins: the call in flight is now applying "off".
+    store.set("pop", { desired: false, status: "removing" });
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("leaves no text and no timer behind after destroy()", () => {
+    const { store, row, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    row.destroy();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS * 2);
+    expect(pending(el).textContent).toBe("");
+  });
+
+  it("removes text already shown when the row is destroyed", () => {
+    const { store, row, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    row.destroy();
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("adds no second message to an external row that already shows its own", () => {
+    const { store, el } = setup(external, { variant });
+    store.set("crops", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+
+    // The row's own status line, where its controls go, is the one message.
+    expect(el.querySelector(".external-layer-status").textContent).toBe("Loading Crops…");
+    expect(pending(el).textContent).toBe("");
+  });
+
+  it("describes an external row's removal, which has no status line of its own", () => {
+    const { store, el } = setup(external, { variant });
+    store.set("crops", { desired: true, applied: true, viewId: "GJ-1", status: "idle" });
+    store.set("crops", { desired: false, status: "removing" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("builds no pending line for an unpublished layer", () => {
+    const { el } = setup(draft, { variant });
+    expect(pending(el)).toBeNull();
   });
 });

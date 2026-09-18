@@ -148,6 +148,23 @@
   display: none;
 }
 
+/* The seen half of a slow call, in Mangrove's form help colour and the wording
+   of its switch-pending story. Its own line under the head, aligned with the
+   error line it can be followed by and with the same reserved height, so the
+   head — label, type tag and switch — never moves and one message never
+   resizes into the other. It only ever appears after a wait long enough to be
+   worth explaining, so nothing flashes on an ordinary load. */
+.layer-pending {
+  margin: 0 0.75rem 0.4rem 1.75rem;
+  min-block-size: 0.98rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.layer-pending:empty {
+  display: none;
+}
+
 /* ── Expanded body ────────────────────────────────── */
 
 .layer-body {
@@ -289,8 +306,16 @@
 }
 
 /* An expanded row reads as one unit: no divider between it and its details. */
-.cross-tab-item:has(> .cross-tab-body:not([hidden])) .cross-tab-row {
+.cross-tab-item:has(> .cross-tab-body:not([hidden])) .cross-tab-row,
+.cross-tab-item:has(> .layer-pending:not(:empty)) .cross-tab-row {
   border-bottom: none;
+}
+
+/* Cross-tab rows are indented less than home-tab ones; line the message up
+   with the row's label rather than with the home tab's. */
+.cross-tab-item > .layer-pending,
+.cross-tab-item > .layer-error {
+  margin-inline-start: 1.2rem;
 }
 
 .cross-tab-body {
