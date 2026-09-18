@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   canMapLoad,
+  isMapOnScreen,
   hideMapServiceNotice,
   initMapServiceRetry,
   loadMapXSdk,
@@ -117,9 +118,16 @@ describe("MapX availability", () => {
       expect(canMapLoad(document)).toBe(true);
     });
 
-    it("is false while an information page hides the map", () => {
+    it("is false while the map is hidden outright", () => {
       setMap(`<div id="app-map" style="display: none"></div>`);
       expect(canMapLoad(document)).toBe(false);
+    });
+
+    it("is true while the map warms up behind an information page", () => {
+      // The warm-up state leaves the map laid out and rendering: MapX makes
+      // real progress there, so the ready budget is allowed to run.
+      setMap(`<div id="app-map" class="is-warming" aria-hidden="true"><div inert></div></div>`);
+      expect(canMapLoad(document)).toBe(true);
     });
 
     it("is false while the preview gate hides the page", () => {
@@ -131,6 +139,26 @@ describe("MapX availability", () => {
       setMap(`<div id="app-map"></div>`);
       const documentRef = { visibilityState: "hidden", getElementById: () => null };
       expect(canMapLoad(documentRef)).toBe(false);
+    });
+  });
+
+  describe("isMapOnScreen", () => {
+    it("is true when the map is the view the user is on", () => {
+      document.body.innerHTML = `<div id="app-map"></div>`;
+      expect(isMapOnScreen(document)).toBe(true);
+    });
+
+    it("is false while the map warms up behind an information page", () => {
+      // It can load, but the user cannot see it: nothing may reload the page
+      // under them while they read.
+      document.body.innerHTML = `<div id="app-map" class="is-warming"><div inert></div></div>`;
+      expect(canMapLoad(document)).toBe(true);
+      expect(isMapOnScreen(document)).toBe(false);
+    });
+
+    it("is false whenever the map cannot load at all", () => {
+      document.body.innerHTML = `<div id="app-map" style="display: none"></div>`;
+      expect(isMapOnScreen(document)).toBe(false);
     });
   });
 

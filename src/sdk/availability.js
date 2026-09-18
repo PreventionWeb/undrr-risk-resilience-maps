@@ -13,6 +13,13 @@ const SDK_LOAD_TIMEOUT_MS = 15_000;
  */
 const SDK_READY_TIMEOUT_MS = 30_000;
 
+/**
+ * Marks `#app-map` as laid out and loading but not shown to the user, which is
+ * how the app keeps MapX warming up behind an information page. Set by the
+ * sidebar's `switchTab`; see `.app-map.is-warming` in `layout.css`.
+ */
+export const MAP_WARMING_CLASS = "is-warming";
+
 /** How often the ready watch re-checks whether MapX can make progress. */
 const READY_TICK_MS = 500;
 
@@ -58,16 +65,19 @@ export function loadMapXSdk({
  *
  * MapX renders inside a cross-origin iframe, and browsers throttle rendering
  * (rAF, and with it MapX's own start-up) to a standstill whenever that iframe
- * is not being painted. Three states in this app do exactly that:
+ * is not laid out inside the viewport. Two states in this app do exactly that:
  *
  * - the Mangrove preview gate, which sets `visibility: hidden` on the body's
  *   children until the PIN is entered;
- * - an information page (Home, Sources, About) being active, which sets
- *   `display: none` on `#app-map` -- this is the *default landing state*;
  * - the browser tab being in the background.
  *
- * In all three the iframe makes zero progress, so time spent in them must not
- * count against the ready budget.
+ * In both the iframe makes zero progress, so time spent in them must not count
+ * against the ready budget.
+ *
+ * An information page being active is *not* one of them: the map stays laid out
+ * in the viewport and keeps loading behind it (see `.app-map.is-warming` in
+ * `layout.css`). Being invisible to the user is a different question -- see
+ * `isMapOnScreen`.
  *
  * @param {Document} [documentRef]
  * @returns {boolean}
@@ -84,6 +94,24 @@ export function canMapLoad(documentRef = document) {
   if (styles && (styles.display === "none" || styles.visibility === "hidden")) return false;
 
   return true;
+}
+
+/**
+ * Is the map on screen *for the user* right now?
+ *
+ * Narrower than `canMapLoad`: while an information page is shown the map is
+ * still loading, but it is behind the page, transparent and inert, so nothing
+ * may happen that the user would only understand if they could see the map --
+ * in particular the retry countdown must not reload the page out from under
+ * someone who is reading.
+ *
+ * @param {Document} [documentRef]
+ * @returns {boolean}
+ */
+export function isMapOnScreen(documentRef = document) {
+  if (!canMapLoad(documentRef)) return false;
+  const container = documentRef.getElementById("app-map");
+  return !container?.classList?.contains(MAP_WARMING_CLASS);
 }
 
 /**
@@ -153,10 +181,9 @@ export function startMapServiceRetryCountdown({
   documentRef = document,
   reload = reloadPage,
   seconds = 60,
-  // Same question as the ready watch asks: is the map on screen for the user?
   // Don't reload out from under someone reading an info page, looking at
   // another tab, or still at the preview PIN gate.
-  shouldCountDown = () => canMapLoad(documentRef),
+  shouldCountDown = () => isMapOnScreen(documentRef),
 } = {}) {
   const countdown = documentRef.getElementById("map-service-countdown");
   let remaining = seconds;

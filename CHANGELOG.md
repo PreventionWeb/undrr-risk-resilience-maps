@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
-- "The map is temporarily unavailable" no longer appears on a working map service. MapX loads in a cross-origin iframe, and a browser stops that iframe making any progress while it is not being painted -- which is what happens behind the preview PIN gate, while an information page is open (the page the app opens on), and while the tab is in the background. The 30-second limit counted that time, so reading the home page for half a minute was enough to be told the map had failed. The limit now counts only time the map is actually on screen and loading, which is 1-4 seconds in practice. The automatic retry countdown pauses at the PIN gate for the same reason.
+- "The map is temporarily unavailable" no longer appears on a working map service. MapX loads in a cross-origin iframe, and a browser stops that iframe making any progress while it is not being painted -- which is what happens behind the preview PIN gate and while the tab is in the background. The 30-second limit counted that time, so leaving the page open for half a minute was enough to be told the map had failed. The limit now counts only time in which the map can really load, which is 1-4 seconds in practice. The automatic retry countdown pauses at the PIN gate for the same reason, and never reloads the page while you are reading one of the information pages.
 - The opacity slider under a layer had no name a screen reader could use: it sat next to the word "Opacity" but nothing tied the two together (axe reported a critical `label` violation on every layer that was on). It is now named "Opacity" and reads its value as a percentage.
 - The category navigation is announced as links again. It claimed to be a menu bar, which promises arrow-key navigation the app does not implement and stops the eight links being announced as links. The link for the page you are on now says so.
 - The map itself had no name, so a screen reader listed it as an unnamed frame.
@@ -36,6 +36,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- The map is ready as soon as you open a category tab. It now loads quietly behind the home, Sources and About pages instead of waiting for the first tab click, so the two to three seconds that used to follow that click are gone.
 - The page header now matches Mangrove's own markup, including the logo's canonical address and a preload so it paints without waiting for the stylesheet. The close buttons on the infobox and site inspector, and the map-service notice's warning symbol, use Mangrove's icons instead of hand-drawn shapes and the `×` character.
 - Every colour in the app's own stylesheets now comes from a Mangrove token rather than a hard-coded hex value, so a palette change reaches the whole app.
 - A layer that is slow to come on or go off now says so in writing: "Turning on" or "Turning off" appears under the row, in the wording Mangrove uses for a pending switch. It waits until the layer has been loading for almost half a second, so quick layers show only the spinner and nothing flickers, and a row that already shows its own loading message (an EDRA layer) is left as it is.

@@ -11,6 +11,34 @@ body {
   height: calc(100vh - var(--header-height) - var(--nav-height) - var(--build-info-height));
 }
 
+/*
+ * Warm-up state, while an information page is shown (set by switchTab()).
+ *
+ * MapX renders in a cross-origin iframe, and the browser throttles rendering --
+ * and with it MapX's own start-up -- to a standstill unless that iframe is laid
+ * out inside the viewport. Hiding the map with `display: none` therefore meant
+ * MapX did not begin loading until the first data-tab click, and the user paid
+ * the whole 1-4s load then. So the map is kept in the viewport, pinned there
+ * with `position: fixed` (in normal flow it would sit below the information
+ * page, out of the viewport, and be throttled just the same) and simply made
+ * invisible. Measured: `ready` lands ~4-6s after load with the information page
+ * open, instead of never.
+ *
+ * `opacity: 0` keeps it rendering -- `display: none`, `visibility: hidden`, a
+ * zero-size box and being scrolled out of the viewport do not. It takes itself
+ * out of the flow but not out of the layout, so the information page, the
+ * global footer and the document's scrolling are exactly as they were.
+ */
+.app-map.is-warming {
+  position: fixed;
+  top: calc(var(--header-height) + var(--nav-height));
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  /* `inert` already blocks hit-testing; belt and braces for older browsers. */
+  pointer-events: none;
+}
+
 .build-info {
   display: flex;
   min-height: var(--build-info-height);
