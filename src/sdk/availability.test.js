@@ -108,7 +108,7 @@ describe("MapX availability", () => {
 
   // The warm-up keeps MapX loading behind an information page, but that time is
   // the user's reading time: counting it armed the notice on a healthy service
-  // that was still loading (measured: armed at 75s, ready at 193s).
+  // that was still loading (measured: armed at 78s, ready at 174s).
   it("does not spend the ready budget while the map warms up behind an information page", () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();

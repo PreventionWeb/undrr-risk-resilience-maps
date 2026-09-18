@@ -161,8 +161,8 @@ export function isMapOnScreen(documentRef = document) {
  * time in which the map is the view the user is on -- not merely on time in
  * which it could load. The map also loads while it warms up behind an
  * information page, but that time is the user's reading time, not MapX's
- * loading time: on a 400 kbps / 400 ms link, counting it armed the notice 75s
- * in, while still on `#home`, for a service that became ready at 193s. The
+ * loading time: on a 400 kbps / 400 ms link, counting it armed the notice 78s
+ * in, while still on `#home`, for a service that became ready at 174s. The
  * first thing a data-tab click would then show is "The map is temporarily
  * unavailable", with a reload countdown, before the map had a second on
  * screen. Spending the budget on-screen keeps 30s as a ~10x margin over a real

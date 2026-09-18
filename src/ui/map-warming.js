@@ -35,7 +35,7 @@
  */
 import { MAP_WARMING_CLASS } from "../sdk/availability.js";
 
-/** Connection types on which the warm-up's ~4.6 MB is not a fair trade. */
+/** Connection types on which the warm-up's ~4.3 MB is not a fair trade. */
 const SLOW_CONNECTIONS = ["slow-2g", "2g"];
 
 /** Below this the map is not the desktop-sized main event, and data is likelier to be metered. */
@@ -51,7 +51,7 @@ const IDLE_TIMEOUT_MS = 2_000;
  * Is the warm-up worth its cost here?
  *
  * Measured on `#home` over 25s without ever opening a data tab, the warm-up
- * costs +45 requests, +4.6 MB and +40 MB of JS heap on every visit, including
+ * costs +47 requests, +4.33 MB and +14 MB of JS heap on every visit, including
  * a bounce, and it multiplies load on `app.mapx.org` by the share of visitors
  * who never open a map. It buys 2.5-2.9s off the first data-tab click. That is
  * a good trade on a desktop on an unmetered connection, and a bad one for
