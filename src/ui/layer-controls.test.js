@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 vi.mock("../sdk/filters.js", () => ({
@@ -382,7 +383,7 @@ describe("addLegend", () => {
 
     details.open = true;
     details.dispatchEvent(new Event("toggle"));
-    await vi.waitFor(() => expect(details.querySelector("img")).not.toBeNull());
+    await waitFor(() => expect(details.querySelector("img")).not.toBeNull());
 
     expect(getViewLegendImage).toHaveBeenCalledTimes(1);
     expect(getViewLegendImage).toHaveBeenCalledWith("view-1");
@@ -395,7 +396,7 @@ describe("addLegend", () => {
 
     details.open = true;
     details.dispatchEvent(new Event("toggle"));
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(details.querySelector(".legend-diagnostic-status").textContent).toBe(
         "MapX image legend is not available.",
       ),

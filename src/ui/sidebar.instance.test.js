@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settle, waitFor } from "../../tests/support/async.js";
 
 // The sidebar instance lifecycle: root-scoped lookups, rebuilds, destroy()
 // removing listeners and DOM, and home card navigation through a callback.
@@ -106,7 +107,6 @@ function memoryAdapter(initial = { tab: null, layers: [] }) {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function duplicateIds() {
   const counts = new Map();
@@ -131,9 +131,13 @@ describe("createSidebar", () => {
     mocks.sdk.listeners.clear();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     sidebar?.destroy();
     sidebar = null;
+    // Real timers again whatever the test did, and let work the instance had in
+    // flight settle here rather than inside the next test.
+    vi.useRealTimers();
+    await settle(() => [store.openViews.size, mocks.viewAdd.mock.calls.length]);
   });
 
   it("builds panels, info pages and nav links within the root", () => {
@@ -255,33 +259,40 @@ describe("createSidebar", () => {
     expect(panelsOnAbort).toBe(3);
   });
 
-  it("keeps the active tab per instance: a new instance starts on home, or on initialTab", () => {
-    const first = createSidebar(document.body, { stateAdapter: memoryAdapter() });
-    $(".nav-info-link[data-panel='sources']").click();
-    expect($("[data-tab-panel='sources']").style.display).toBe("block");
-    first.destroy();
+  // The active tab is per instance, not module state. One case per rule: five
+  // build-and-destroy cycles in a single test were the most expensive test in
+  // the suite, and the first to blow vitest's timeout on a loaded machine.
+  describe("the active tab is per instance", () => {
+    it("starts a new instance on home, not on the previous instance's tab", () => {
+      const first = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+      $(".nav-info-link[data-panel='sources']").click();
+      expect($("[data-tab-panel='sources']").style.display).toBe("block");
+      first.destroy();
 
-    // No tab in the URL: home, not the previous instance's tab.
-    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
-    expect($("[data-tab-panel='home']").style.display).toBe("block");
-    expect(sidebar.activeTab).toBe("home");
-    sidebar.destroy();
-
-    const adapter = memoryAdapter();
-    sidebar = createSidebar(document.body, { stateAdapter: adapter, initialTab: "exposure" });
-    expect(sidebar.activeTab).toBe("exposure");
-    expect(adapter.write).toHaveBeenCalledWith({ tab: "exposure", layers: [] }, { replace: true });
-    sidebar.destroy();
-
-    // A tab in the URL wins; an unknown initialTab falls back to home.
-    sidebar = createSidebar(document.body, {
-      stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }),
-      initialTab: "exposure",
+      sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+      expect($("[data-tab-panel='home']").style.display).toBe("block");
+      expect(sidebar.activeTab).toBe("home");
     });
-    expect(sidebar.activeTab).toBe("hazard");
-    sidebar.destroy();
-    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter(), initialTab: "nope" });
-    expect(sidebar.activeTab).toBe("home");
+
+    it("starts on initialTab and writes it as a replacement", () => {
+      const adapter = memoryAdapter();
+      sidebar = createSidebar(document.body, { stateAdapter: adapter, initialTab: "exposure" });
+      expect(sidebar.activeTab).toBe("exposure");
+      expect(adapter.write).toHaveBeenCalledWith({ tab: "exposure", layers: [] }, { replace: true });
+    });
+
+    it("lets a tab in the URL win over initialTab", () => {
+      sidebar = createSidebar(document.body, {
+        stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }),
+        initialTab: "exposure",
+      });
+      expect(sidebar.activeTab).toBe("hazard");
+    });
+
+    it("falls back to home for an unknown initialTab", () => {
+      sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter(), initialTab: "nope" });
+      expect(sidebar.activeTab).toBe("home");
+    });
   });
 
   it("restores the page state it changed on destroy", () => {
@@ -359,7 +370,7 @@ describe("createSidebar", () => {
     sidebar = createSidebar(document.body, { stateAdapter: adapter });
     const quakeSwitch = $("[data-tab-panel='hazard'] .layer-item .layer-eye");
     quakeSwitch.click();
-    await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
     expect($("#layer-clear-btn").hidden).toBe(false);
 
     const oldTabLink = $(".nav-tab-link[data-tab='exposure']");
@@ -394,7 +405,9 @@ describe("createSidebar", () => {
     }
     sidebar.showTab("exposure");
     adapter.navigate({ tab: "exposure", layers: [] });
-    await tick();
+    // Nothing should happen, so there is no outcome to wait for: wait for quiet
+    // instead of guessing at a number of ticks.
+    await settle(() => [adapter.write.mock.calls.length, mocks.viewRemove.mock.calls.length]);
 
     expect(adapter.write).not.toHaveBeenCalled();
     expect(adapter.listenerCount()).toBe(0);
@@ -555,9 +568,9 @@ describe("createSidebar", () => {
     });
 
     $("[data-tab-panel='hazard'] .layer-item .layer-eye").click();
-    await vi.waitFor(() => expect(counts).toEqual([1]));
+    await waitFor(() => expect(counts).toEqual([1]));
     $("#layer-clear-btn").click();
-    await vi.waitFor(() => expect(counts).toEqual([1, 0]));
+    await waitFor(() => expect(counts).toEqual([1, 0]));
   });
 
   it("owns only the adapter it creates", () => {
@@ -599,7 +612,7 @@ describe("createSidebar", () => {
     document.body.innerHTML = `<div id="a">${noIds}</div><div id="b">${noIds}</div>`;
     sidebar = createSidebar($("#a"), { stateAdapter: memoryAdapter({ tab: "hazard", layers: [] }) });
     $("#a [data-tab-panel='hazard'] .layer-item .layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-QUAKE")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-QUAKE")).toBe(true));
 
     const second = createSidebar($("#b"), { stateAdapter: memoryAdapter() });
     try {

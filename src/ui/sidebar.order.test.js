@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settle, waitFor } from "../../tests/support/async.js";
 
 // The order the sidebar's store subscribers run in, which the store guarantees
 // by running them in subscription order:
@@ -107,7 +108,9 @@ function recordingAdapter() {
 
 describe("sidebar subscriber order", () => {
   beforeEach(() => {
-    window.location.hash = "";
+    // replaceState, not `location.hash = ""`: assigning the hash makes jsdom
+    // queue a `hashchange` task that can land inside a later test.
+    history.replaceState(null, "", "#");
     document.body.innerHTML = SHELL;
     store.openViews.clear();
     atWrite = [];
@@ -120,11 +123,19 @@ describe("sidebar subscriber order", () => {
     sidebar.showTab("exposure");
   });
 
+  // Teardown belongs to the test that started the work: destroy the instance
+  // and let its in-flight SDK replies settle here, not inside the next test.
+  afterEach(async () => {
+    sidebar?.destroy();
+    sidebar = null;
+    await settle(() => [store.openViews.size, atWrite.length]);
+  });
+
   it("writes the URL after openViews and before the rows render", async () => {
     row().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
     // The row did render its slider and legend, just not before the URL write.
-    await vi.waitFor(() => expect(mocks.addLegend).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.addLegend).toHaveBeenCalled());
 
     const write = atWrite.findLast((entry) => entry.keys.includes("pop"));
     expect(write).toBeDefined();
@@ -139,13 +150,13 @@ describe("sidebar subscriber order", () => {
 
   it("writes the URL after openViews and before the rows render when a layer goes off", async () => {
     row().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
-    await vi.waitFor(() => expect(mocks.addLegend).toHaveBeenCalled());
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(mocks.addLegend).toHaveBeenCalled());
     const legendsBefore = mocks.addLegend.mock.calls.length;
     atWrite = [];
 
     row().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(false));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(false));
 
     const write = atWrite.at(-1);
     expect(write.keys).toEqual([]);

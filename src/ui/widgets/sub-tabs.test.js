@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { waitFor } from "../../../tests/support/async.js";
 import { buildSubTabs } from "./sub-tabs.js";
 
 const SOURCES = [
@@ -121,7 +122,7 @@ describe("buildSubTabs", () => {
     buttons[2].click();
     expect(buttons[2].classList.contains("is-active")).toBe(true);
 
-    await vi.waitFor(() => expect(buttons[0].classList.contains("is-active")).toBe(true));
+    await waitFor(() => expect(buttons[0].classList.contains("is-active")).toBe(true));
     expect(buttons[2].classList.contains("is-active")).toBe(false);
     expect(buttons[2].getAttribute("aria-selected")).toBe("false");
   });
@@ -133,7 +134,7 @@ describe("buildSubTabs", () => {
 
     select.value = "3";
     select.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(select.value).toBe("1"));
+    await waitFor(() => expect(select.value).toBe("1"));
   });
 
   it("removes its listeners when the signal aborts", () => {
