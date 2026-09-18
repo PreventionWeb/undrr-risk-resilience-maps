@@ -3,7 +3,6 @@ import * as store from "./store.js";
 
 beforeEach(() => {
   store.openViews.clear();
-  store.setActiveTab("home");
 });
 
 // ---------------------------------------------------------------------------
@@ -33,45 +32,8 @@ describe("openViews", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// activeTab
-// ---------------------------------------------------------------------------
-
-describe("activeTab", () => {
-  it("defaults to home", () => {
-    expect(store.activeTab).toBe("home");
-  });
-
-  it("updates via setActiveTab", () => {
-    store.setActiveTab("hazard");
-    expect(store.activeTab).toBe("hazard");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// active source index (compound layers)
-// ---------------------------------------------------------------------------
-
-describe("getActiveSource / setActiveSource", () => {
-  it("defaults to 0 for unknown keys", () => {
-    expect(store.getActiveSource("never-set")).toBe(0);
-  });
-
-  it("returns the index set for a key", () => {
-    store.setActiveSource("flood", 2);
-    expect(store.getActiveSource("flood")).toBe(2);
-  });
-
-  it("tracks indices independently per key", () => {
-    store.setActiveSource("flood", 1);
-    store.setActiveSource("cyclone", 3);
-    expect(store.getActiveSource("flood")).toBe(1);
-    expect(store.getActiveSource("cyclone")).toBe(3);
-  });
-
-  it("overwrites a previously set index", () => {
-    store.setActiveSource("flood", 1);
-    store.setActiveSource("flood", 0);
-    expect(store.getActiveSource("flood")).toBe(0);
+describe("module state", () => {
+  it("holds no active tab (each sidebar instance owns its own)", () => {
+    expect(Object.keys(store)).toEqual(["openViews"]);
   });
 });

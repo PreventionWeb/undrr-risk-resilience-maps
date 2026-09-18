@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settle, tick, waitFor } from "../../tests/support/async.js";
 
 const mocks = vi.hoisted(() => ({
   viewAdd: vi.fn(),
@@ -6,7 +7,12 @@ const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn(),
   addLegend: vi.fn(),
   openExternalLayer: vi.fn(),
+  closeExternalLayer: vi.fn(),
+  replaceExternalLayer: vi.fn(),
 }));
+
+// Runtime views of open external layers, like the real registry keeps.
+const externalRuntimes = vi.hoisted(() => new Map());
 
 vi.mock("../config/layers.js", () => ({
   TABS: [
@@ -31,6 +37,7 @@ vi.mock("../config/layers.js", () => ({
           sources: [
             { id: "MX-F10", label: "10y", desc: "Ten." },
             { id: "MX-F100", label: "100y", desc: "Hundred." },
+            { id: "MX-F500", label: "500y", desc: "Five hundred." },
           ],
         },
         { key: "crops", label: "Crops", type: "cc", desc: "Crops.", external: { defaults: {} } },
@@ -45,7 +52,7 @@ vi.mock("../config/layers.js", () => ({
   ],
 }));
 vi.mock("../sdk/views.js", () => ({ viewAdd: mocks.viewAdd, viewRemove: mocks.viewRemove }));
-vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true }));
+vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({
   addOpacitySlider: mocks.addOpacitySlider,
   addLegend: mocks.addLegend,
@@ -66,16 +73,92 @@ vi.mock("../utils/panels.js", () => ({
 vi.mock("../external/index.js", () => ({
   isExternalLayer: (layer) => Boolean(layer.external),
   openExternalLayer: mocks.openExternalLayer,
-  closeExternalLayer: vi.fn(),
-  replaceExternalLayer: vi.fn(),
-  getExternalLayerDefinition: () => ({}),
-  getExternalLayerRuntime: () => null,
+  closeExternalLayer: mocks.closeExternalLayer,
+  replaceExternalLayer: mocks.replaceExternalLayer,
+  getExternalLayerDefinition: () => ({
+    controls: [
+      {
+        key: "crop",
+        label: "Crop",
+        options: [
+          { value: "WHEAT", label: "Wheat" },
+          { value: "MAIZE", label: "Maize" },
+        ],
+      },
+    ],
+  }),
+  getExternalLayerRuntime: (layer) => externalRuntimes.get(layer.key) ?? null,
 }));
 
-import { buildSidebar, restoreLayersFromHash } from "./sidebar.js";
+/** Default external registry behaviour: open registers a runtime view, close drops it. */
+function mockExternalRegistry() {
+  externalRuntimes.clear();
+  mocks.openExternalLayer.mockImplementation(async (layer, settings) => {
+    const runtime = { idView: `GJ-${layer.key}`, settings: { ...settings } };
+    externalRuntimes.set(layer.key, runtime);
+    return runtime;
+  });
+  mocks.closeExternalLayer.mockImplementation(async (layer) => {
+    externalRuntimes.delete(layer.key);
+  });
+}
+
+import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** The page elements a sidebar looks up under its root, by `data-ui` hook. */
+const SHELL = `
+  <div id="sidebar" data-ui="layer-panel">
+    <div class="layer-panel-header"></div>
+    <div id="panel-body" data-ui="panel-body"></div>
+  </div>
+  <button id="panel-toggle" data-ui="panel-toggle"></button>
+  <button id="layer-clear-btn" data-ui="clear-layers" hidden></button>
+  <div id="app-map" data-ui="app-map"></div>
+  <div id="info-page" data-ui="info-page"></div>`;
+
+/** The sidebar under test; build() destroys the previous one first. */
+let sidebar = null;
+/** Receives the sidebar's onViewsChanged counts while a test sets it. */
+let viewsChangedListener = null;
+
+function build(options = {}) {
+  sidebar?.destroy();
+  sidebar = createSidebar(document.body, {
+    onViewsChanged: (count) => viewsChangedListener?.(count),
+    ...options,
+  });
+  return sidebar;
+}
+
+// Teardown is part of the test, not of the next one: destroy the instance and
+// then let whatever it had in flight settle here, so a late SDK reply cannot
+// write the hash or `store.openViews` while another test is running. Without
+// this the suite's result depended on how fast the machine was.
+afterEach(async () => {
+  sidebar?.destroy();
+  sidebar = null;
+  viewsChangedListener = null;
+  await settle(() => [location.hash, history.length, store.openViews.size]);
+});
+
+/**
+ * Wait until the app stops changing anything a test in this file looks at: the
+ * URL, the history, the store and the SDK calls.
+ *
+ * Assertions that nothing *more* happened — one history entry, no second
+ * render, no further `viewAdd` — have no outcome to wait for. A fixed
+ * `await tick()` is a guess at how many event-loop turns the work needs, and a
+ * loaded machine needs more of them than an idle one, which is how this suite
+ * came to fail only under load. See unisdr/undrr-risk-resilience-maps#15.
+ */
+const quiet = () =>
+  settle(() => [
+    location.hash,
+    history.length,
+    sidebar?.store?.all() ?? null,
+    ...Object.values(mocks).map((fn) => fn.mock.calls.length),
+  ]);
 
 function deferred() {
   let resolve;
@@ -95,33 +178,33 @@ function asyncRender(className) {
   };
 }
 
+/** Open a tab the way a home card does (switch and expand the panel). */
 function showTab(tabId) {
-  document.dispatchEvent(new CustomEvent("navigate-tab", { detail: tabId }));
+  sidebar.showTab(tabId);
 }
 
 /** The cross-tab row for a layer inside a given tab panel. */
 function crossRow(tabId, label) {
-  return [...document.querySelectorAll(`#tab-${tabId} .cross-tab-item`)].find(
+  return [...document.querySelectorAll(`[data-tab-panel="${tabId}"] .cross-tab-item`)].find(
     (item) => item.querySelector(".cross-tab-label").textContent === label,
   );
 }
 
 describe("cross-tab layer rows", () => {
   beforeEach(() => {
-    window.location.hash = "";
-    document.body.innerHTML = `
-      <div id="sidebar"><div class="layer-panel-header"></div><div id="panel-body"></div></div>
-      <button id="panel-toggle"></button>
-      <button id="layer-clear-btn" hidden></button>
-      <div id="app-map"></div>
-      <div id="info-page"></div>`;
+    // replaceState, not `location.hash = ""`: assigning the hash makes jsdom
+    // queue a `hashchange` task, which landed in the middle of a later test on
+    // a loaded machine and reconciled the sidebar back to an empty URL.
+    history.replaceState(null, "", "#");
+    document.body.innerHTML = SHELL;
     store.openViews.clear();
     for (const fn of Object.values(mocks)) fn.mockReset();
     mocks.viewAdd.mockResolvedValue(undefined);
     mocks.viewRemove.mockResolvedValue(undefined);
     mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
     mocks.addLegend.mockImplementation(asyncRender("html-legend"));
-    buildSidebar();
+    mockExternalRegistry();
+    build();
     showTab("resilience");
   });
 
@@ -132,28 +215,36 @@ describe("cross-tab layer rows", () => {
 
     row.querySelector(".layer-eye").click();
 
-    await vi.waitFor(() => expect(body.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    // The slider and the legend render independently, so wait for both: the
+    // legend arriving says nothing about the slider.
+    await waitFor(() => {
+      expect(body.querySelector(".layer-legend-slot .html-legend")).not.toBeNull();
+      expect(body.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
+    });
     expect(body.hidden).toBe(false);
-    expect(body.querySelector(".layer-slider-slot .opacity-row")).not.toBeNull();
     expect(body.querySelector(".layer-desc").textContent).toBe("Recovery.");
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("true");
+    expect(row.querySelector(".layer-eye").checked).toBe(true);
 
     row.querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(body.hidden).toBe(true));
+    await waitFor(() => expect(body.hidden).toBe(true));
     expect(body.querySelector(".html-legend")).toBeNull();
   });
 
-  it("renders cross-tab controls only in the visible tab", async () => {
+  it("renders layer controls only in the visible tab", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
 
-    // Home accordion + the visible Resilience row; not the hidden Exposure row.
-    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
+    // Only the visible Resilience row: not the hidden Exposure row, and not the
+    // home accordion in the hidden Risk tab.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(1);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(true);
 
     showTab("exposure");
-    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addLegend).toHaveBeenCalledTimes(2);
     expect(crossRow("exposure", "Recovery Speed").querySelector(".cross-tab-body").hidden).toBe(false);
+
+    showTab("risk");
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
 
     // Rows keep their rendered controls while their tab is hidden, so switching
     // tabs does not re-request them.
@@ -163,6 +254,77 @@ describe("cross-tab layer rows", () => {
     expect(mocks.addLegend).toHaveBeenCalledTimes(3);
   });
 
+  it("renders the hidden home row's slider and legend once, when its tab is shown", async () => {
+    const home = homeItem("risk", "Recovery Speed");
+    const inHome = (mock) => mock.mock.calls.filter(([, container]) => home.contains(container)).length;
+
+    crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
+    await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+    await quiet();
+
+    // Activating from a cross-tab row renders nothing into the hidden home accordion.
+    expect(inHome(mocks.addLegend)).toBe(0);
+    expect(inHome(mocks.addOpacitySlider)).toBe(0);
+    expect(home.querySelector(".html-legend")).toBeNull();
+    // The accordion still opens and shows the switch state.
+    expect(home.classList.contains("layer-active")).toBe(true);
+    expect(home.querySelector(".layer-body").style.display).toBe("block");
+
+    showTab("risk");
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    await waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+
+    for (const tab of ["resilience", "risk", "exposure", "risk", "resilience"]) showTab(tab);
+    expect(inHome(mocks.addLegend)).toBe(1);
+    expect(inHome(mocks.addOpacitySlider)).toBe(1);
+    // Resilience and Exposure rows once each, plus the home row.
+    expect(mocks.addLegend).toHaveBeenCalledTimes(3);
+    expect(mocks.addOpacitySlider).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders no slider or legend when a link is restored on an info tab, then one per row shown", async () => {
+    showTab("sources");
+    history.replaceState(null, "", "#sources?layers=recovery,pop");
+
+    await sidebar.restoreFromUrl();
+    await quiet();
+
+    expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
+
+    /** How many times each rendered row received a slider or legend. */
+    const perRow = (mock) => {
+      const counts = new Map();
+      for (const [, container] of mock.mock.calls) {
+        const row = container.closest(".layer-item, .cross-tab-item");
+        counts.set(row, (counts.get(row) ?? 0) + 1);
+      }
+      return counts;
+    };
+    const resilienceRows = [crossRow("resilience", "Recovery Speed"), crossRow("resilience", "Population")];
+
+    showTab("resilience");
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      expect([...perRow(mock).keys()]).toEqual(expect.arrayContaining(resilienceRows));
+      expect([...perRow(mock).values()]).toEqual([1, 1]);
+    }
+
+    showTab("exposure");
+    const exposureRows = [homeItem("exposure", "Population"), crossRow("exposure", "Recovery Speed")];
+    for (const mock of [mocks.addLegend, mocks.addOpacitySlider]) {
+      const counts = perRow(mock);
+      expect([...counts.keys()]).toEqual(expect.arrayContaining([...resilienceRows, ...exposureRows]));
+      expect([...counts.values()]).toEqual([1, 1, 1, 1]);
+    }
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll("[data-tab-panel='exposure'] .layer-legend-slot .html-legend"),
+      ).toHaveLength(2),
+    );
+  });
+
   it("shows an external layer's load error in the cross-tab row", async () => {
     mocks.openExternalLayer.mockRejectedValue(new Error("offline"));
     const row = crossRow("resilience", "Crops");
@@ -170,45 +332,47 @@ describe("cross-tab layer rows", () => {
     row.querySelector(".layer-eye").click();
 
     const status = row.querySelector(".cross-tab-body .external-layer-status");
-    await vi.waitFor(() => expect(status.textContent).toBe("Could not load Crops. Please try again."));
+    await waitFor(() => expect(status.textContent).toBe("Could not load Crops. Please try again."));
     expect(status.hidden).toBe(false);
     expect(status.classList.contains("is-error")).toBe(true);
     expect(row.querySelector(".cross-tab-body").hidden).toBe(false);
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+    expect(row.querySelector(".layer-eye").checked).toBe(false);
   });
 
   it("turns a layer off after a source switch that was in flight settles", async () => {
     showTab("risk");
-    const floodEye = [...document.querySelectorAll("#tab-risk .layer-item")]
+    const floodEye = [...document.querySelectorAll("[data-tab-panel='risk'] .layer-item")]
       .find((item) => item.querySelector(".layer-label").textContent === "Flood")
       .querySelector(".layer-eye");
     floodEye.click();
-    await vi.waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
+    await waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
     showTab("resilience");
 
     const slowAdd = deferred();
     mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
     const tabs = floodEye.closest(".layer-item").querySelectorAll(".widget-sub-tab");
     tabs[1].click();
-    await vi.waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
 
     // "Clear all" while the new source is still loading.
     document.getElementById("layer-clear-btn").click();
     slowAdd.resolve();
 
     const row = crossRow("resilience", "Flood");
-    await vi.waitFor(() => expect(floodEye.getAttribute("aria-checked")).toBe("false"));
+    // The switch follows intent at once; the map catches up once the switch settles.
+    expect(floodEye.checked).toBe(false);
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
     expect(store.openViews.size).toBe(0);
     expect(mocks.viewRemove).toHaveBeenLastCalledWith("MX-F100");
     expect(row.querySelector(".cross-tab-body").hidden).toBe(true);
-    expect(row.querySelector(".layer-eye").getAttribute("aria-checked")).toBe("false");
+    expect(row.querySelector(".layer-eye").checked).toBe(false);
   });
 
   it("restores a shared link without adding history entries", async () => {
     history.replaceState(null, "", "#resilience?layers=recovery,flood:1");
     const lengthBefore = history.length;
 
-    await restoreLayersFromHash();
+    await sidebar.restoreFromUrl();
 
     expect(store.openViews).toEqual(new Set(["MX-REC", "MX-F100"]));
     expect(history.length).toBe(lengthBefore);
@@ -218,29 +382,984 @@ describe("cross-tab layer rows", () => {
   it("clears several layers as a single history entry", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
     crossRow("resilience", "Population").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(store.openViews.size).toBe(2));
+    await waitFor(() => expect(store.openViews.size).toBe(2));
     const lengthBefore = history.length;
 
     document.getElementById("layer-clear-btn").click();
 
-    await vi.waitFor(() => expect(location.hash).toBe("#resilience"));
+    await waitFor(() => expect(location.hash).toBe("#resilience"));
     expect(store.openViews.size).toBe(0);
     expect(history.length).toBe(lengthBefore + 1);
   });
 
   it("applies back/forward navigation without writing intermediate history", async () => {
     crossRow("resilience", "Recovery Speed").querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(location.hash).toBe("#resilience?layers=recovery"));
+    await waitFor(() => expect(location.hash).toBe("#resilience?layers=recovery"));
 
     // Simulate the browser moving to another entry.
     history.pushState(null, "", "#exposure?layers=pop");
     const lengthBefore = history.length;
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
-    await vi.waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
-    await tick();
-    expect(store.activeTab).toBe("exposure");
+    await waitFor(() => expect(store.openViews).toEqual(new Set(["MX-POP"])));
+    await quiet();
+    expect(sidebar.activeTab).toBe("exposure");
     expect(location.hash).toBe("#exposure?layers=pop");
     expect(history.length).toBe(lengthBefore);
+  });
+});
+
+/** Layer keys in the current hash's `layers` param. */
+function hashLayerKeys() {
+  const query = location.hash.split("?")[1];
+  const layers = new URLSearchParams(query ?? "").get("layers");
+  return layers ? layers.split(",").map((segment) => segment.split(":")[0]) : [];
+}
+
+/** The layer's own accordion in its home tab. */
+function homeItem(tabId, label) {
+  return [...document.querySelectorAll(`[data-tab-panel="${tabId}"] .layer-item`)].find(
+    (item) => item.querySelector(".layer-label").textContent === label,
+  );
+}
+
+/**
+ * Assert a layer reads the same everywhere: openViews, its home switch, a
+ * cross-tab row and the URL hash.
+ */
+function expectLayerState({ key, label, homeTab, viewIds, on }) {
+  expect(viewIds.some((id) => store.openViews.has(id))).toBe(on);
+  expect(homeItem(homeTab, label).querySelector(".layer-eye").checked).toBe(on);
+  expect(crossRow("resilience", label).querySelector(".layer-eye").checked).toBe(on);
+  expect(hashLayerKeys().includes(key)).toBe(on);
+}
+
+const RECOVERY = { key: "recovery", label: "Recovery Speed", homeTab: "risk", viewIds: ["MX-REC"] };
+const FLOOD = { key: "flood", label: "Flood", homeTab: "risk", viewIds: ["MX-F10", "MX-F100"] };
+const POP = { key: "pop", label: "Population", homeTab: "exposure", viewIds: ["MX-POP"] };
+
+// Safety net for the layer state refactor (unisdr/undrr-risk-resilience-maps#14):
+// pins the current contract between openViews, the toggles and the URL hash.
+describe("layer state consistency", () => {
+  let warn;
+
+  beforeEach(() => {
+    history.replaceState(null, "", "#");
+    document.body.innerHTML = SHELL;
+    store.openViews.clear();
+    for (const fn of Object.values(mocks)) fn.mockReset();
+    mocks.viewAdd.mockResolvedValue(undefined);
+    mocks.viewRemove.mockResolvedValue(undefined);
+    mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
+    mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockExternalRegistry();
+    build();
+    showTab("resilience");
+    return () => warn.mockRestore();
+  });
+
+  async function turnOn(layer) {
+    crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+  }
+
+  async function turnOnHome(layer) {
+    homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashLayerKeys()).toContain(layer.key));
+    await waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
+  }
+
+  describe("rapid double toggle", () => {
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("leaves a %s layer off, as the last click asked", async (_kind, layer) => {
+      const eye = crossRow("resilience", layer.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+
+      // The second click lands while the first is in flight and is applied after it.
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(sidebar.store.get(layer.key).status).toBe("idle"));
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+      expectLayerState({ ...layer, on: false });
+    });
+
+    it("ends on the last of three clicks without touching the map again", async () => {
+      const slowAdd = deferred();
+      mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+      eye.click();
+      slowAdd.resolve();
+
+      await waitFor(() => expect(hashLayerKeys()).toContain(RECOVERY.key));
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+      expectLayerState({ ...RECOVERY, on: true });
+    });
+
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("turns a %s layer off when the second click follows the first settling", async (_kind, layer) => {
+      await turnOn(layer);
+      crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+
+      await waitFor(() => expect(hashLayerKeys()).not.toContain(layer.key));
+      expectLayerState({ ...layer, on: false });
+    });
+  });
+
+  describe("viewRemove rejection", () => {
+    it.each([
+      ["simple", RECOVERY],
+      ["compound", FLOOD],
+    ])("keeps a %s layer on when MapX fails to remove it", async (_kind, layer) => {
+      await turnOn(layer);
+      mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
+
+      crossRow("resilience", layer.label).querySelector(".layer-eye").click();
+
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+      await quiet();
+      expectLayerState({ ...layer, on: true });
+      expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
+    });
+  });
+
+  it("adds views in the order of the shared link's layers on restore", async () => {
+    history.replaceState(null, "", "#risk?layers=pop,flood:1,recovery");
+
+    await sidebar.restoreFromUrl();
+
+    expect(mocks.viewAdd.mock.calls.map(([id]) => id)).toEqual(["MX-POP", "MX-F100", "MX-REC"]);
+  });
+
+  it("turns off a layer that is still loading when Clear all is clicked", async () => {
+    await turnOn(FLOOD);
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-REC");
+    const lengthBefore = history.length;
+
+    document.getElementById("layer-clear-btn").click();
+    slowAdd.resolve();
+    await waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
+    await quiet();
+
+    expectLayerState({ ...FLOOD, on: false });
+    expectLayerState({ ...RECOVERY, on: false });
+    expect(location.hash).toBe("#resilience");
+    // Clear-all is still one history entry, even though a layer was loading.
+    expect(history.length).toBe(lengthBefore + 1);
+  });
+
+  it("shows Clear all while the only layer is still loading", async () => {
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const clearBtn = document.getElementById("layer-clear-btn");
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+
+    expect(clearBtn.hidden).toBe(false);
+    clearBtn.click();
+    expect(clearBtn.hidden).toBe(true);
+    slowAdd.resolve();
+    await waitFor(() => expect(sidebar.store.get(RECOVERY.key).status).toBe("idle"));
+    expectLayerState({ ...RECOVERY, on: false });
+  });
+
+  it("turns off an external layer that is turned off while it is still loading", async () => {
+    const slowOpen = deferred();
+    const open = mocks.openExternalLayer.getMockImplementation();
+    mocks.openExternalLayer.mockImplementationOnce(async (...args) => {
+      await slowOpen.promise;
+      return open(...args);
+    });
+    const eye = crossRow("resilience", "Crops").querySelector(".layer-eye");
+
+    eye.click();
+    expect(eye.disabled).toBe(false);
+    eye.click();
+    expect(eye.checked).toBe(false);
+    slowOpen.resolve();
+
+    await waitFor(() => expect(mocks.closeExternalLayer).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(sidebar.store.get("crops").status).toBe("idle"));
+    expect(externalRuntimes.size).toBe(0);
+    expect(sidebar.store.get("crops")).toMatchObject({ desired: false, applied: false, viewId: null });
+    expect(hashLayerKeys()).not.toContain("crops");
+    expect(crossRow("resilience", "Crops").querySelector(".cross-tab-body").hidden).toBe(true);
+  });
+
+  it("ends on the last source picked when sources are clicked quickly", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const lengthBefore = history.length;
+
+    const tabs = item.querySelectorAll(".widget-sub-tab");
+    tabs[1].click();
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+    tabs[2].click();
+    expect(tabs[2].classList.contains("is-active")).toBe(true);
+    slowAdd.resolve();
+
+    await waitFor(() => expect(location.hash).toBe("#risk?layers=flood:2"));
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+    await quiet();
+    const shown = [...item.querySelectorAll(".widget-sub-tab")].map((tab) =>
+      tab.classList.contains("is-active"),
+    );
+    expect(shown).toEqual([false, false, true]);
+    expect(sidebar.store.get("flood")).toMatchObject({
+      viewId: "MX-F500",
+      sourceIdx: 2,
+      appliedSourceIdx: 2,
+    });
+    expect(store.openViews).toEqual(new Set(["MX-F500"]));
+    expect(mocks.addLegend).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "MX-F500" }),
+      item.querySelector(".layer-legend-slot"),
+    );
+    // 100y reached the map while 500y was already picked: its entry is
+    // replaced by 500y's, so the quick picks are one entry, as on main.
+    expect(history.length).toBe(lengthBefore + 1);
+  });
+
+  it("shows the kept source in the widget when a switch fails", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+    mocks.viewAdd.mockRejectedValueOnce(new Error("offline"));
+
+    item.querySelectorAll(".widget-sub-tab")[1].click();
+
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await waitFor(() =>
+      expect(item.querySelectorAll(".widget-sub-tab")[0].classList.contains("is-active")).toBe(true),
+    );
+    expect(item.querySelectorAll(".widget-sub-tab")[1].classList.contains("is-active")).toBe(false);
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
+    expect(location.hash).toBe("#risk?layers=flood");
+  });
+
+  it("keeps a row collapsed when back/forward asks for the layer its header is loading", async () => {
+    // The header started the activation and the user collapsed the row; a
+    // history entry asking for the same layer is not a new activation, so it
+    // does not reopen the row (ARCHITECTURE.md, "Expand rules").
+    showTab("risk");
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const item = homeItem("risk", RECOVERY.label);
+    const header = item.querySelector(".layer-expand");
+    header.click();
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-REC"));
+    header.click();
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+
+    history.pushState(null, "", "#risk?layers=recovery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await quiet();
+    slowAdd.resolve();
+
+    await waitFor(() =>
+      expect(sidebar.store.get("recovery")).toMatchObject({ applied: true, status: "idle" }),
+    );
+    await quiet();
+    expect(mocks.viewAdd).toHaveBeenCalledTimes(1);
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(item.querySelector(".layer-body").style.display).toBe("none");
+    expect(item.querySelector(".layer-eye").checked).toBe(true);
+    expect(location.hash).toBe("#risk?layers=recovery");
+  });
+
+  it("updates the source widget on back/forward", async () => {
+    showTab("risk");
+    await turnOnHome(FLOOD);
+    const item = homeItem("risk", FLOOD.label);
+
+    history.pushState(null, "", "#risk?layers=flood:2");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
+    await waitFor(() =>
+      expect(item.querySelectorAll(".widget-sub-tab")[2].classList.contains("is-active")).toBe(true),
+    );
+  });
+
+  describe("hashes that are not app state", () => {
+    beforeEach(async () => {
+      await turnOn(RECOVERY);
+      await turnOn(POP);
+    });
+
+    function navigateTo(hash) {
+      history.pushState(null, "", hash);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
+
+    it("keeps layers for a bare info tab hash and rewrites it in place", async () => {
+      const lengthBefore = history.length;
+      navigateTo("#sources");
+      await quiet();
+
+      expect(sidebar.activeTab).toBe("sources");
+      expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+      expect(location.hash).toBe("#sources?layers=recovery,pop");
+      expect(history.length).toBe(lengthBefore + 1);
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+    });
+
+    it("ignores in-page anchors and unknown ids", async () => {
+      for (const hash of ["#mg-tabs__section-sources-1", "#not-a-tab?layers=ews", "#"]) {
+        navigateTo(hash);
+        await quiet();
+        expect(sidebar.activeTab).toBe("resilience");
+        expect(store.openViews).toEqual(new Set(["MX-REC", "MX-POP"]));
+      }
+      expect(mocks.viewRemove).not.toHaveBeenCalled();
+      expect(mocks.viewAdd).toHaveBeenCalledTimes(2);
+    });
+
+    it("opens Sources from a layer's citation link without touching layers", async () => {
+      const lengthBefore = history.length;
+      homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a[href='#sources']").click();
+      await quiet();
+
+      expect(sidebar.activeTab).toBe("sources");
+      expect(location.hash).toBe("#sources?layers=recovery,pop");
+      expect(history.length).toBe(lengthBefore + 1);
+      expectLayerState({ ...RECOVERY, on: true });
+    });
+
+    it("still reconciles a data tab hash without layers", async () => {
+      navigateTo("#exposure");
+
+      await waitFor(() => expect(store.openViews.size).toBe(0));
+      expect(sidebar.activeTab).toBe("exposure");
+      expect(location.hash).toBe("#exposure");
+    });
+  });
+});
+
+// Step 1 of the layer state refactor: the layers store is written alongside
+// the existing state, so its records must agree with what the UI shows.
+describe("layers store", () => {
+  beforeEach(() => {
+    history.replaceState(null, "", "#");
+    document.body.innerHTML = SHELL;
+    store.openViews.clear();
+    for (const fn of Object.values(mocks)) fn.mockReset();
+    mocks.viewAdd.mockResolvedValue(undefined);
+    mocks.viewRemove.mockResolvedValue(undefined);
+    mocks.addOpacitySlider.mockImplementation(asyncRender("opacity-row"));
+    mocks.addLegend.mockImplementation(asyncRender("html-legend"));
+    mockExternalRegistry();
+    build();
+    showTab("resilience");
+  });
+
+  /** Hash entries as `key` or `key:idx`, as written. */
+  function hashSegments() {
+    const layers = new URLSearchParams(location.hash.split("?")[1] ?? "").get("layers");
+    return layers ? layers.split(",") : [];
+  }
+
+  /** Every layer's record agrees with its switches, openViews and the hash. */
+  function expectStoreMatchesUi() {
+    const layersStore = sidebar.store;
+    for (const layer of [RECOVERY, FLOOD, POP]) {
+      const record = layersStore.get(layer.key);
+      const on = record.applied;
+      expect(homeItem(layer.homeTab, layer.label).querySelector(".layer-eye").checked).toBe(on);
+      expect(crossRow("resilience", layer.label).querySelector(".layer-eye").checked).toBe(on);
+      expect(hashLayerKeys().includes(layer.key)).toBe(record.applied);
+      expect(record.status).toBe("idle");
+      if (record.applied) {
+        expect(record.desired).toBe(true);
+        expect(layer.viewIds).toContain(record.viewId);
+        expect(store.openViews.has(record.viewId)).toBe(true);
+      } else {
+        expect(record.viewId).toBeNull();
+        expect(layer.viewIds.some((id) => store.openViews.has(id))).toBe(false);
+      }
+    }
+    expect(new Set(layersStore.openViewIds())).toEqual(store.openViews);
+  }
+
+  it("matches the UI after toggling on and off", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    crossRow("resilience", FLOOD.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery", "flood"]));
+    expectStoreMatchesUi();
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F10", sourceIdx: 0 });
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    expectStoreMatchesUi();
+  });
+
+  it("matches the UI after a source switch", async () => {
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    const lengthBefore = history.length;
+
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+
+    await waitFor(() => expect(hashSegments()).toEqual(["flood:1"]));
+    await quiet();
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    // One entry for the switch; the transient gap between views writes nothing.
+    expect(history.length).toBe(lengthBefore + 1);
+    showTab("resilience");
+    expectStoreMatchesUi();
+  });
+
+  it("puts a layer back in the hash when its view returns after another layer wrote the hash", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+
+    // The new source is slow and then fails; the old one is put back.
+    const slowAdd = deferred();
+    mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+    await waitFor(() => expect(mocks.viewAdd).toHaveBeenCalledWith("MX-F100"));
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: null });
+
+    // Another toggle during the switch rewrites the hash without Flood, which
+    // has no view on the map at that moment.
+    homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+
+    // The rollback re-adds MX-F10: nothing but the view changed, and the hash
+    // lists Flood again.
+    slowAdd.resolve(Promise.reject(new Error("offline")));
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await quiet();
+    warn.mockRestore();
+    expect(sidebar.store.get("flood")).toMatchObject({
+      applied: true,
+      viewId: "MX-F10",
+      appliedSourceIdx: 0,
+    });
+    expect(hashSegments()).toEqual(["recovery", "flood"]);
+  });
+
+  describe("one history entry per user action", () => {
+    beforeEach(async () => {
+      // Count entries from a settled starting point, not from the middle of
+      // the setup's own writes.
+      await quiet();
+    });
+
+    it("pushes one entry for a single toggle", async () => {
+      const lengthBefore = history.length;
+      crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes one entry for a single source switch", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const lengthBefore = history.length;
+
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(1));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:1");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("ends a double-click where it started, with one entry that Back cannot turn the layer on from", async () => {
+      const lengthBefore = history.length;
+      const hashBefore = location.hash;
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+
+      eye.click();
+      eye.click();
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+
+      // The add reached the map and pushed an entry listing the layer; the
+      // removal replaced it. One entry, holding the pre-click state.
+      expect(location.hash).toBe(hashBefore);
+      expect(history.length).toBe(lengthBefore + 1);
+
+      history.back();
+      await quiet();
+      await quiet();
+      expect(location.hash).toBe(hashBefore);
+      expect(sidebar.store.get("recovery")).toMatchObject({ desired: false, applied: false });
+    });
+
+    it("pushes one entry for quick A→B→C source picks where B reaches the map first", async () => {
+      showTab("risk");
+      await turnOnHomeFlood();
+      const item = homeItem("risk", FLOOD.label);
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      const lengthBefore = history.length;
+
+      item.querySelectorAll(".widget-sub-tab")[1].click();
+      await waitFor(() => expect(mocks.viewAdd).toHaveBeenLastCalledWith("MX-F100"));
+      item.querySelectorAll(".widget-sub-tab")[2].click();
+      slowAdd.resolve();
+      await waitFor(() => expect(sidebar.store.get("flood").appliedSourceIdx).toBe(2));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+
+      expect(location.hash).toBe("#risk?layers=flood:2");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    it("pushes a new entry for the next action after a double-click", async () => {
+      const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+      eye.click();
+      eye.click();
+      await waitFor(() => expect(mocks.viewRemove).toHaveBeenCalledWith("MX-REC"));
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("idle"));
+      const lengthBefore = history.length;
+
+      eye.click();
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+
+      expect(location.hash).toBe("#resilience?layers=recovery");
+      expect(history.length).toBe(lengthBefore + 1);
+    });
+
+    async function turnOnHomeFlood() {
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
+      await waitFor(() => expect(sidebar.store.get("flood").status).toBe("idle"));
+    }
+  });
+
+  describe("accessibility while loading", () => {
+    // The instance owns one live region (see announcer.js), so a layer with a
+    // row in several tabs is announced once.
+    const liveRegion = () => document.querySelector(".layer-announcer");
+    const announced = () => liveRegion().textContent;
+
+    it("marks the switch busy while loading and announces a failed load once for every row", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const slowAdd = deferred();
+      mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+      const row = crossRow("resilience", POP.label);
+      const eye = row.querySelector(".layer-eye");
+
+      eye.click();
+
+      expect(eye.checked).toBe(true);
+      expect(eye.getAttribute("aria-busy")).toBe("true");
+      expect(eye.getAttribute("aria-label")).toBe("Loading Population…");
+      const home = homeItem("exposure", POP.label);
+      expect(home.querySelector(".layer-eye").getAttribute("aria-busy")).toBe("true");
+
+      slowAdd.resolve(Promise.reject(new Error("offline")));
+      await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(eye.checked).toBe(false);
+      expect(eye.getAttribute("aria-busy")).toBe("false");
+      expect(eye.getAttribute("aria-label")).toBe("Population");
+      expect(announced()).toBe("Could not load Population. It is off.");
+      // Neither row owns a region, so neither repeats the message.
+      expect(row.querySelector(".layer-announcer")).toBeNull();
+      expect(home.querySelector(".layer-announcer")).toBeNull();
+      expect(document.querySelectorAll(".layer-announcer")).toHaveLength(1);
+      const announcer = liveRegion();
+      expect(announcer.getAttribute("aria-live")).toBe("polite");
+      expect(announcer.classList.contains("mg-u-sr-only")).toBe(true);
+      expect(announcer.id).toBe("");
+
+      // The next attempt replaces the message with its own busy sentence
+      // (`aria-busy` stops the switch's name being reported); success clears it.
+      eye.click();
+      expect(announced()).toBe("Loading Population…");
+      await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+      expect(announced()).toBe("");
+      expect(eye.getAttribute("aria-label")).toBe("Population");
+    });
+
+    it("announces a failed turn-off", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const row = crossRow("resilience", RECOVERY.label);
+      row.querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+      mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
+
+      row.querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announced()).toBe("Could not change Recovery Speed. It is still on as before.");
+      expect(row.querySelector(".layer-eye").checked).toBe(true);
+    });
+
+    it("announces a failed external layer load", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      mocks.openExternalLayer.mockRejectedValueOnce(new Error("offline"));
+      const row = crossRow("resilience", "Crops");
+
+      row.querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
+      warn.mockRestore();
+
+      expect(announced()).toBe("Could not load Crops. It is off.");
+    });
+  });
+
+  it("never reports zero layers while one is on, even mid source switch", async () => {
+    const counts = [];
+    viewsChangedListener = (count) => counts.push(count);
+    try {
+      showTab("risk");
+      homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("flood").applied).toBe(true));
+
+      const slowAdd = deferred();
+      mocks.viewAdd.mockImplementation((id) => (id === "MX-F100" ? slowAdd.promise : Promise.resolve()));
+      homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+      // Flood is in the gap between its views: on, but with no view in openViews.
+      await waitFor(() => expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: null }));
+      expect(store.openViews.size).toBe(0);
+
+      homeItem("risk", RECOVERY.label).querySelector(".layer-eye").click();
+      await waitFor(() => expect(sidebar.store.get("recovery").applied).toBe(true));
+      slowAdd.resolve();
+      await waitFor(() => expect(sidebar.store.get("flood").viewId).toBe("MX-F100"));
+
+      expect(counts).toEqual([1, 2]);
+    } finally {
+      viewsChangedListener = null;
+    }
+  });
+
+  it("ends off after a double switch failure, and can be turned on again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+
+    // The new source and the rollback to the old one both fail: nothing of the
+    // layer is on the map, so it is recorded as off, never on without a view.
+    mocks.viewAdd.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("offline"));
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    await quiet();
+    expect(sidebar.store.get("flood")).toMatchObject({
+      desired: false,
+      applied: false,
+      viewId: null,
+      sourceIdx: 0,
+    });
+    expect(hashSegments()).toEqual([]);
+    const home = homeItem("risk", FLOOD.label);
+    expect(home.querySelector(".layer-eye").checked).toBe(false);
+
+    // Turning it on again adds the kept source and lists it in the hash.
+    home.querySelector(".layer-eye").click();
+    await waitFor(() => expect(store.openViews.has("MX-F10")).toBe(true));
+    await quiet();
+    warn.mockRestore();
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, status: "idle", error: null });
+    expect(hashSegments()).toEqual(["flood"]);
+  });
+
+  it("finishes updating the UI when the hash write throws", async () => {
+    // Start from a settled hash: with the write failing, the hash would not
+    // list the layer, and a late reconcile would turn it off.
+    await quiet();
+    // Browsers throw SecurityError from pushState when history calls are rate-limited.
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const pushState = vi.spyOn(history, "pushState").mockImplementationOnce(() => {
+      throw new DOMException("Too many calls", "SecurityError");
+    });
+    const row = crossRow("resilience", RECOVERY.label);
+
+    row.querySelector(".layer-eye").click();
+
+    await waitFor(() => expect(row.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    pushState.mockRestore();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+    expect(sidebar.store.get("recovery")).toMatchObject({ applied: true, viewId: "MX-REC" });
+    expect(store.openViews.has("MX-REC")).toBe(true);
+    expect(row.querySelector(".layer-eye").checked).toBe(true);
+    const home = homeItem("risk", RECOVERY.label);
+    expect(home.querySelector(".layer-eye").checked).toBe(true);
+    expect(home.classList.contains("layer-active")).toBe(true);
+    // The home row's legend renders once its tab is shown.
+    showTab("risk");
+    await waitFor(() => expect(home.querySelector(".layer-legend-slot .html-legend")).not.toBeNull());
+    expect(document.getElementById("layer-clear-btn").hidden).toBe(false);
+  });
+
+  it("records a failed turn-off as an error, resets intent, and clears it on the next success", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+    const failure = new Error("postMessage timeout");
+    mocks.viewRemove.mockRejectedValueOnce(failure);
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+
+    await waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
+    expect(sidebar.store.get("recovery")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-REC",
+      error: failure,
+    });
+
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual([]));
+    warn.mockRestore();
+    expect(sidebar.store.get("recovery")).toMatchObject({
+      desired: false,
+      applied: false,
+      status: "idle",
+      error: null,
+    });
+  });
+
+  it("records a failed source switch as an error and keeps the previous source", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    homeItem("risk", FLOOD.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["flood"]));
+    const failure = new Error("offline");
+    mocks.viewAdd.mockRejectedValueOnce(failure);
+
+    homeItem("risk", FLOOD.label).querySelectorAll(".widget-sub-tab")[1].click();
+
+    await waitFor(() => expect(sidebar.store.get("flood").status).toBe("error"));
+    warn.mockRestore();
+    expect(sidebar.store.get("flood")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-F10",
+      sourceIdx: 0,
+      error: failure,
+    });
+    expect(hashSegments()).toEqual(["flood"]);
+  });
+
+  it("records a failed external variant change as an error", async () => {
+    mocks.openExternalLayer.mockImplementation(async (layer) => {
+      const runtime = { idView: "MX-GJ-1", settings: { crop: "WHEAT" } };
+      externalRuntimes.set(layer.key, runtime);
+      return runtime;
+    });
+    const failure = new Error("provider down");
+    mocks.replaceExternalLayer.mockRejectedValueOnce(failure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    showTab("risk");
+    const crops = homeItem("risk", "Crops");
+    crops.querySelector(".layer-eye").click();
+    await waitFor(() => expect(sidebar.store.get("crops").applied).toBe(true));
+
+    const select = crops.querySelector("select[data-external-control='crop']");
+    select.value = "MAIZE";
+    select.dispatchEvent(new Event("change"));
+
+    await waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
+    await waitFor(() => expect(select.disabled).toBe(false));
+    warn.mockRestore();
+    expect(sidebar.store.get("crops")).toMatchObject({
+      desired: true,
+      applied: true,
+      viewId: "MX-GJ-1",
+      // Intent is reset to the settings of the view the registry still has.
+      settings: { crop: "WHEAT" },
+      appliedSettings: { crop: "WHEAT" },
+      error: failure,
+    });
+    expect(select.value).toBe("WHEAT");
+    // The controls announce their own error; the row does not repeat it.
+    expect(document.querySelector(".layer-announcer").textContent).toBe("");
+  });
+
+  it("records a failed load as an error and leaves the layer off", async () => {
+    const failure = new Error("offline");
+    mocks.viewAdd.mockRejectedValueOnce(failure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    crossRow("resilience", POP.label).querySelector(".layer-eye").click();
+
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    warn.mockRestore();
+    expect(sidebar.store.get("pop")).toMatchObject({ desired: false, applied: false, error: failure });
+    expect(location.hash).toBe("#resilience");
+  });
+
+  it("matches the UI after clear-all", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    crossRow("resilience", POP.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery", "pop"]));
+
+    document.getElementById("layer-clear-btn").click();
+
+    await waitFor(() => expect(location.hash).toBe("#resilience"));
+    expectStoreMatchesUi();
+    expect(sidebar.store.openViewIds()).toEqual([]);
+  });
+
+  it("matches the UI after restoring a shared link", async () => {
+    history.replaceState(null, "", "#resilience?layers=flood:1,pop");
+
+    await sidebar.restoreFromUrl();
+
+    expect(location.hash).toBe("#resilience?layers=flood:1,pop");
+    expect(sidebar.store.get("flood")).toMatchObject({ applied: true, viewId: "MX-F100", sourceIdx: 1 });
+    expectStoreMatchesUi();
+  });
+
+  it("matches the UI after back/forward", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(hashSegments()).toEqual(["recovery"]));
+
+    // Forward to an entry with other layers, then back to the first one.
+    history.pushState(null, "", "#exposure?layers=flood:1,pop");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(sidebar.store.openViewIds().sort()).toEqual(["MX-F100", "MX-POP"]));
+    await quiet();
+    expect(location.hash).toBe("#exposure?layers=flood:1,pop");
+    expectStoreMatchesUi();
+
+    history.pushState(null, "", "#resilience?layers=recovery");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(sidebar.store.openViewIds()).toEqual(["MX-REC"]));
+    await quiet();
+    expect(location.hash).toBe("#resilience?layers=recovery");
+    expectStoreMatchesUi();
+  });
+
+  it("stops following the hash once destroyed", async () => {
+    sidebar.destroy();
+    history.pushState(null, "", "#exposure?layers=pop");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await quiet();
+
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(sidebar.activeTab).toBe("resilience");
+  });
+
+  it("ignores switch clicks after destroy instead of recreating state", async () => {
+    await quiet();
+    const lengthBefore = history.length;
+    // destroy() removes the panel, so keep a reference to the old switch.
+    const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+    sidebar.destroy();
+    expect(sidebar.store).toBeNull();
+    expect(eye.isConnected).toBe(false);
+
+    eye.click();
+    await quiet();
+
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(sidebar.store).toBeNull();
+    expect(store.openViews.size).toBe(0);
+    expect(history.length).toBe(lengthBefore);
+  });
+
+  it("drops a MapX response that settles after destroy", async () => {
+    await quiet();
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    const eye = crossRow("resilience", RECOVERY.label).querySelector(".layer-eye");
+    eye.click();
+    const orphan = sidebar.store;
+    expect(orphan.get("recovery").status).toBe("loading");
+
+    sidebar.destroy();
+    slowAdd.resolve();
+    await quiet();
+
+    // Nothing is written into the destroyed store, openViews, the URL or the
+    // row. The switch keeps showing the intent from the click; no controls are built.
+    expect(orphan.get("recovery")).toMatchObject({ desired: true, applied: false, status: "loading" });
+    expect(store.openViews.size).toBe(0);
+    expect(location.hash).toBe("#resilience");
+    expect(eye.checked).toBe(true);
+    expect(mocks.addLegend).not.toHaveBeenCalled();
+  });
+
+  it("drops a MapX response that settles after a rebuild", async () => {
+    await quiet();
+    const slowAdd = deferred();
+    mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    const orphan = sidebar.store;
+
+    document.body.innerHTML = SHELL;
+    build();
+    showTab("resilience");
+    await quiet();
+    const hashBefore = location.hash;
+    slowAdd.resolve();
+    await quiet();
+
+    // Neither the old nor the new store, openViews, the URL or the new rows see it.
+    expect(orphan.get("recovery").applied).toBe(false);
+    expect(sidebar.store).not.toBe(orphan);
+    expect(sidebar.store.all()).toEqual([]);
+    expect(store.openViews.size).toBe(0);
+    expect(location.hash).toBe(hashBefore);
+    expect(crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").checked).toBe(false);
+  });
+
+  it("clears openViews left by a previous build", async () => {
+    crossRow("resilience", RECOVERY.label).querySelector(".layer-eye").click();
+    await waitFor(() => expect(store.openViews.has("MX-REC")).toBe(true));
+
+    document.body.innerHTML = SHELL;
+    build();
+
+    expect(store.openViews.size).toBe(0);
+    expect(sidebar.store.openViewIds()).toEqual([]);
+  });
+
+  it("leaves an injected adapter to its owner on destroy", () => {
+    const unsubscribe = vi.fn();
+    const adapter = {
+      read: () => ({ tab: "exposure", layers: [] }),
+      write: vi.fn(),
+      subscribe: vi.fn(() => unsubscribe),
+      destroy: vi.fn(),
+    };
+    build({ stateAdapter: adapter });
+
+    sidebar.destroy();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(adapter.destroy).not.toHaveBeenCalled();
+    expect(sidebar.store).toBeNull();
+  });
+
+  it("does not restore from the URL once destroyed", async () => {
+    sidebar.destroy();
+    history.replaceState(null, "", "#exposure?layers=pop");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await sidebar.restoreFromUrl();
+
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+    expect(mocks.viewAdd).not.toHaveBeenCalled();
+    expect(sidebar.store).toBeNull();
   });
 });

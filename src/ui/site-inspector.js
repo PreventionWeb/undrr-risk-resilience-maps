@@ -16,8 +16,9 @@
  *   - Other layer not in batch          → "No data returned."
  */
 
-import { TABS } from "../config/layers.js";
+import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
+import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
 import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
 
@@ -55,30 +56,9 @@ function attributeValue(value) {
   return value;
 }
 
-/**
- * Build a flat index from MapX view ID → { tab, layer, source }.
- * Compound layers register all source IDs.
- */
-function buildViewIndex(tabs) {
-  const map = new Map();
-  for (const tab of tabs) {
-    for (const layer of tab.layers) {
-      if (layer.id) {
-        map.set(layer.id, { tab, layer, source: null });
-      }
-      for (const src of layer.sources ?? []) {
-        if (src.id) {
-          map.set(src.id, { tab, layer, source: src });
-        }
-      }
-    }
-  }
-  return map;
-}
-
-const VIEW_INDEX = buildViewIndex(TABS);
-
 let _escHandler = null;
+/** Aborted before each render, so a slow module load never wires stale markup. */
+let _renderController = null;
 
 /** Create the site inspector DOM and append it to #app-map. */
 export function buildSiteInspectorPanel() {
@@ -95,7 +75,9 @@ export function buildSiteInspectorPanel() {
   panel.innerHTML = `
     <div class="site-inspector-header">
       <h3 class="site-inspector-title">Site Details</h3>
-      <button class="site-inspector-close" aria-label="Close inspection panel">&times;</button>
+      <button class="site-inspector-close" type="button" aria-label="Close inspection panel">
+        <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+      </button>
     </div>
     <div class="site-inspector-coords" aria-label="Coordinates"></div>
     <div class="site-inspector-layers"></div>
@@ -117,18 +99,42 @@ export function showSiteInspector(result) {
 
   const { lngLat, views, openViewsSnapshot } = result;
 
-  // Coordinates row
+  // A new render replaces this markup, so drop the previous one's pending work.
+  _renderController?.abort();
+  _renderController = new AbortController();
+
+  // Coordinates row. The copy control is Mangrove's CopyButton in its vanilla
+  // form: the component owns the clipboard write, its fallback for
+  // non-secure contexts, the transient feedback tooltip and the aria-live
+  // announcement. The copied text is the same "lat, lng" as before.
+  //
+  // Its behaviour comes from a CDN module, so until that module lands — and
+  // for good if it never does — a local handler does the same job. It is
+  // dropped the moment the module reports it applied, so only one of the two
+  // is ever listening and a click is never copied or announced twice.
   const coordsEl = panel.querySelector(".site-inspector-coords");
   const lat = lngLat.lat.toFixed(5);
   const lng = lngLat.lng.toFixed(5);
   coordsEl.innerHTML = `
     <span class="site-inspector-coords-label">Coordinates</span>
     <span class="site-inspector-coords-value">${escapeHtml(lat)}, ${escapeHtml(lng)}</span>
-    <button class="site-inspector-coords-copy" title="Copy to clipboard" aria-label="Copy coordinates"
-      type="button">&#128203;</button>
+    <button
+      class="site-inspector-coords-copy mg-button mg-button-primary mg-button-outline mg-button--icon mg-copy-button"
+      type="button"
+      data-mg-copy-button
+      data-text-to-copy="${escapeHtml(`${lat}, ${lng}`)}"
+      data-tooltip-label="Copied!"
+      data-copied-label="Coordinates copied to clipboard."
+      aria-label="Copy coordinates"
+    >
+      <span class="mg-icon mg-icon-copy mg-button__icon" aria-hidden="true"></span
+      ><span class="mg-copy-button__feedback" aria-hidden="true">Copied!</span
+      ><span class="mg-u-sr-only" aria-live="polite"></span>
+    </button>
   `;
-  coordsEl.querySelector(".site-inspector-coords-copy").addEventListener("click", () => {
-    navigator.clipboard?.writeText(`${lat}, ${lng}`).catch(() => {});
+  const detachCopyFallback = attachCopyButtonFallback(coordsEl.querySelector(".site-inspector-coords-copy"));
+  initMangroveCopyButtons(coordsEl, { signal: _renderController.signal }).then((applied) => {
+    if (applied) detachCopyFallback();
   });
 
   // Layer rows
@@ -155,7 +161,8 @@ export function showSiteInspector(result) {
 
 function buildLayerRow(idView, views) {
   const runtime = getExternalRuntimeByViewId(idView);
-  const entry = VIEW_INDEX.get(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
+  const entry =
+    getLayerRegistry().byViewId(idView) ?? (runtime ? { layer: runtime.layer, source: null } : null);
   const label = entry
     ? entry.source
       ? `${entry.layer.label} — ${entry.source.label}`
@@ -229,6 +236,8 @@ function buildLayerRow(idView, views) {
 export function hideSiteInspector() {
   const panel = document.getElementById("site-inspector");
   if (panel) panel.hidden = true;
+  _renderController?.abort();
+  _renderController = null;
   if (_escHandler) {
     document.removeEventListener("keydown", _escHandler);
     _escHandler = null;

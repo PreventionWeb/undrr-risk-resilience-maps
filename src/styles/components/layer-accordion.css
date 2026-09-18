@@ -1,40 +1,75 @@
 /**
- * Layer accordion items — header, eye toggle, body, description.
+ * Layer accordion items — header, expand button, Mangrove switch, body,
+ * description. Colours and spacing come from Mangrove tokens; the switch
+ * itself is Mangrove's `.mg-switch` component.
  */
 
 .layer-item {
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
+/* Not published ("Show disabled"). Dimmed by colour, not by `opacity`: an
+   opacity on the wrapper dimmed the row's text too, which dropped the label
+   and the type tag to 2.5:1 (axe `color-contrast`). The label takes the muted
+   token (5.16:1 on the tint, against 12.63:1 for a published row), the tag
+   keeps Mangrove's subtle colours at 14.02:1, and the tag's wording — "not
+   published" instead of the layer type — carries the reason the row is greyed
+   out, as does the row having no switch at all. */
 .layer-item.layer-disabled {
-  opacity: 0.45;
+  background: rgb(var(--mg-color-neutral-25));
+}
+
+.layer-item.layer-disabled .layer-label {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.layer-item.layer-disabled .layer-arrow {
+  color: rgb(var(--mg-color-neutral-400));
 }
 
 .layer-item.layer-active {
-  background: #f0f6fc;
+  background: rgb(var(--mg-color-blue-900) / 0.05);
 }
 
+/* The row head: the expand button takes the free space, the switch sits
+   beside it. Both are real controls, so neither steals the other's keys. */
 .layer-header {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.layer-expand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  padding: 0.35rem 0.25rem 0.35rem 0.5rem;
+  border: 0;
+  border-radius: var(--mg-radius-button);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: start;
   cursor: pointer;
-  user-select: none;
 }
 
-.layer-header:hover {
-  background: #f5f5f5;
+.layer-expand:hover {
+  background: rgb(var(--mg-color-blue-900) / 0.06);
 }
 
-.layer-header:focus-visible {
+.layer-expand:focus-visible {
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: -2px;
+  outline-offset: calc(-1 * var(--mg-focus-ring-width));
 }
 
 .layer-arrow {
   font-size: 0.6rem;
-  color: #999;
+  color: var(--color-text-muted);
   width: 0.75rem;
   flex-shrink: 0;
 }
@@ -45,77 +80,89 @@
   font-weight: 500;
 }
 
+/* Mangrove's subtle tag, at panel scale. The smallest Mangrove type token
+   that still reads (11.25px); 0.6rem rendered at 9.6px. */
 .layer-type-tag {
-  font-size: 0.55rem;
-  padding: 0.05rem 0.25rem;
+  font-size: var(--mg-font-size-150);
+  min-block-size: 1.25rem;
+  min-inline-size: 0;
+  padding: 0 var(--mg-spacing-50);
   flex-shrink: 0;
+  letter-spacing: 0.01em;
 }
 
-.layer-eye {
-  position: relative;
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 1.25rem;
-  cursor: pointer;
+/* ── Layer switch (Mangrove .mg-switch) ───────────── */
+
+/* Mangrove owns the track, thumb, checked fill, pending ring, aria-disabled
+   dimming, focus ring, forced colours and reduced motion. Locally: the hit
+   target, and the error outline for a layer whose last call failed. */
+.layer-switch {
   flex-shrink: 0;
-  transition-property: scale;
-  transition-duration: 120ms;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  justify-content: center;
+  min-block-size: 2.5rem;
+  min-inline-size: 2.75rem;
+  padding-inline: 0.125rem;
 }
 
-.layer-eye::before {
-  content: "";
-  position: absolute;
-  inset: 0.625rem 0.125rem;
-  border-radius: 0.75rem;
-  background-color: rgb(var(--mg-color-neutral-400));
-  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 8%);
-  transition: background-color var(--mg-motion-duration-fast, 180ms)
-    var(--mg-motion-easing-standard, cubic-bezier(0.2, 0, 0, 1));
+@media (pointer: coarse) {
+  .layer-switch {
+    min-block-size: 2.75rem;
+  }
 }
 
-.layer-eye::after {
-  content: "";
-  position: absolute;
-  top: 0.75rem;
-  left: 0.25rem;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background-color: rgb(var(--mg-color-neutral-0));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transform: translateX(0);
-  transition: transform var(--mg-motion-duration-fast, 180ms)
-    var(--mg-motion-easing-standard, cubic-bezier(0.2, 0, 0, 1));
+.layer-switch.is-error .mg-switch__track {
+  box-shadow: inset 0 0 0 2px rgb(var(--mg-color-red-900));
 }
 
-.layer-eye:hover::before {
-  background-color: rgb(var(--mg-color-neutral-500));
+/* Mangrove's focus rule (`.mg-switch__input:focus-visible + .mg-switch__track`)
+   draws the white band that separates the focus ring from the track with a
+   `box-shadow` of its own, at the same specificity as the error ring above and
+   earlier in the cascade — so on an errored switch the band was dropped. Draw
+   both here, at a specificity that beats either. */
+.layer-switch.is-error .mg-switch__input:focus-visible + .mg-switch__track {
+  box-shadow:
+    0 0 0 var(--mg-focus-ring-offset) rgb(var(--mg-color-neutral-0)),
+    inset 0 0 0 2px rgb(var(--mg-color-red-900));
 }
 
-.layer-eye:active {
-  scale: 0.96;
+/* Forced colours drop `box-shadow`, and `.is-error` is the one switch state
+   Mangrove does not cover, so a failure would become invisible. Redraw it on
+   the track's border, which Mangrove sets in the same mode. */
+@media (forced-colors: active) {
+  .layer-switch.is-error .mg-switch__track,
+  .layer-switch.is-error .mg-switch__input:focus-visible + .mg-switch__track {
+    border-color: Mark;
+    border-width: 2px;
+  }
 }
 
-.layer-eye:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
+/* The seen half of a failed call (Mangrove's form error colour), at panel
+   scale. The row's live region says the same thing to screen readers. */
+.layer-error {
+  margin: 0 0.75rem 0.4rem 1.75rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
 }
 
-.layer-eye.is-active::before {
-  background-color: rgb(var(--mg-color-interactive));
+.layer-error:empty {
+  display: none;
 }
 
-.layer-eye.is-active::after {
-  transform: translateX(1rem);
+/* The seen half of a slow call, in Mangrove's form help colour and the wording
+   of its switch-pending story. Its own line under the head, aligned with the
+   error line it can be followed by and with the same reserved height, so the
+   head — label, type tag and switch — never moves and one message never
+   resizes into the other. It only ever appears after a wait long enough to be
+   worth explaining, so nothing flashes on an ordinary load. */
+.layer-pending {
+  margin: 0 0.75rem 0.4rem 1.75rem;
+  min-block-size: 0.98rem;
+  font-size: 0.7rem;
+  line-height: 1.4;
 }
 
-.layer-eye:disabled {
-  cursor: wait;
-  opacity: 0.55;
+.layer-pending:empty {
+  display: none;
 }
 
 /* ── Expanded body ────────────────────────────────── */
@@ -127,16 +174,16 @@
 .layer-desc {
   margin: 0 0 0.4rem 0;
   font-size: 0.7rem;
-  color: #666;
+  color: var(--color-text-muted);
   line-height: 1.4;
   text-wrap: pretty;
 }
 
 .tab-panel-intro {
   padding: 0.7rem 0.75rem;
-  color: #3f4e5e;
-  background: #f5f8fb;
-  border-bottom: 1px solid #dce5ed;
+  color: var(--color-text);
+  background: rgb(var(--mg-color-blue-900) / 0.04);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 0.72rem;
   line-height: 1.45;
   text-wrap: pretty;
@@ -158,7 +205,7 @@
 }
 
 .tab-panel-glossary {
-  color: #5a6876;
+  color: var(--color-text-muted);
 }
 
 .layer-meta-links {
@@ -167,71 +214,109 @@
   line-height: 1.4;
 }
 
-/* ── Layer groups (Risk / Resilience subheadings) ─── */
+/* ── Disclosure stacks (Mangrove .mg-accordion --flush) ──────────────
+   Both stacks -- the R2R group subheadings and the cross-tab sections -- are
+   `.mg-accordion.mg-accordion--flush` containers of plain `<details>`.
+   Mangrove owns the summary's flex row, the rotating chevron and its
+   reduced-motion handling, the hover tint, the inset focus ring and its
+   forced-colours fallback, and the open/closed divider. `mg-details` is
+   deliberately not added: inside a panel it would restyle every `<p>` in the
+   stack (`details.mg-details p` sets a 1rem font size and its own padding),
+   which is the layer descriptions and the cross-tab group labels.
 
-.layer-group + .layer-group {
-  margin-top: 0.25rem;
+   The hit target is Mangrove's: `.mg-accordion > details > summary` sets
+   `min-height: 2.75rem`, and nothing here overrides it, so both summaries
+   measure 44px (1400x900, Chromium). Before this PR the group headings were
+   36.2px and the cross-tab summaries 41.6px, both from padding alone; both now
+   clear WCAG 2.5.8's 24px minimum with room to spare. The summary *type* is
+   still scaled down — panel chrome is much smaller than Mangrove's page-level
+   summary — so the rules below restate font size, weight and colour. Each needs
+   both the container class and the summary class to beat
+   `.mg-accordion > details > summary`.
+
+   `.mg-accordion` also sets `overflow: hidden`, which is inherited here and
+   deliberately left alone: nothing in either stack paints outside the container
+   today. If a tooltip, a popover or an outward focus ring is ever added to a
+   summary at the top or bottom edge of a stack it would be clipped, and the
+   reset belongs here. */
+
+/* Both class names are doubled with `.mg-accordion`. The container rules below
+   fight `.mg-accordion`'s own declarations, which are (0,1,0) — the same as a
+   bare `.layer-groups` — so without the doubling the winner would depend on
+   whether the bundler emits this file after the CDN stylesheet. Same reason as
+   `map-service-notice.css`. */
+.mg-accordion.layer-groups,
+.mg-accordion.cross-tab-sections {
+  /* The stack sits flush inside the panel; the panel draws its own edges. */
+  border-block: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
-.layer-group-heading {
-  margin: 0;
-  padding: 0.4rem 0.75rem 0.3rem 0.5rem;
-  font-size: 0.65rem;
+/* The leading padding is 1.25rem, and it matters more than it looks. Before
+   the accordion, the chevron was a leading `::before` glyph, so the heading
+   text started after it, 32.6px from the panel edge. Mangrove's chevron is a
+   trailing `::after`, which makes the text itself the leading ink — and a
+   0.6rem padding then put it at 21.6px, further left than the rows the heading
+   labels (their expand arrow starts at 24px and their label at 42.4px), so the
+   heading read as falling off the left edge of the panel. 1.25rem puts the
+   text back at 32px: within a pixel of what the group headings rendered before
+   this PR, between a row's arrow and its label, and — applied to both stacks
+   rather than only one — level with a cross-tab row's own label at 31.2px.
+   Mangrove's own summary padding (`--mg-spacing-150`, 15px) is not used,
+   because 27px matches neither. The block padding is a floor only: the height
+   comes from Mangrove's 2.75rem minimum. */
+.layer-groups > .layer-group > .layer-group-heading,
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary {
+  padding: 0.35rem 0.75rem 0.35rem 1.25rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #777;
-  background: #f9f9f9;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  user-select: none;
+  color: var(--color-text-muted);
 }
 
-.layer-group-heading::-webkit-details-marker {
-  display: none;
+/* Mangrove's chevron is sized from the summary's own font size. */
+.layer-groups > .layer-group > .layer-group-heading::after,
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary::after {
+  height: 0.4rem;
+  width: 0.4rem;
 }
 
-.layer-group-heading::before {
-  content: "▾";
-  font-size: 0.7rem;
-  transition: transform 0.15s;
+/* An open `<details>` in a Mangrove accordion pads its body. The rows and
+   group labels carry their own padding, so reset it. */
+.layer-groups > .layer-group[open] > :not(summary),
+.cross-tab-sections > .cross-tab-section[open] > :not(summary) {
+  padding: 0;
 }
 
-.layer-group:not([open]) .layer-group-heading::before {
-  transform: rotate(-90deg);
+/* ── Layer groups (Risk / Resilience subheadings) ─── */
+
+.layer-groups > .layer-group > .layer-group-heading {
+  font-size: 0.65rem;
+  background: rgb(var(--mg-color-neutral-50) / 0.5);
 }
 
 /* ------------------------------------------------------------------ */
 /* Cross-tab sections — collapsed layer lists from other tabs          */
 /* ------------------------------------------------------------------ */
 
-.cross-tab-sections {
-  border-top: 2px solid #ddd;
+.mg-accordion.cross-tab-sections {
+  border-top: 2px solid var(--color-border);
   margin-top: 0.5rem;
 }
 
-.cross-tab-section {
-  border-bottom: 1px solid #eee;
+/* Mangrove draws its divider with `.mg-accordion > details:not(:last-child)`,
+   so the stack's own last section has no closing line — it did before this PR
+   (`.cross-tab-section { border-bottom }` applied to all of them). The panel
+   ends on a rule again. */
+.mg-accordion.cross-tab-sections > .cross-tab-section:last-child {
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-300));
 }
 
-.cross-tab-summary {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.75rem;
+.cross-tab-sections > .cross-tab-section > .cross-tab-summary {
   font-size: 0.7rem;
-  font-weight: 700;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #555;
-}
-
-.cross-tab-summary:hover {
-  background: #f5f5f5;
+  color: rgb(var(--mg-color-neutral-600));
 }
 
 .cross-tab-group-label {
@@ -241,17 +326,17 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #999;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--color-text-muted);
+  background: rgb(var(--mg-color-neutral-50) / 0.35);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.35rem 0.5rem 0.35rem 1.2rem;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 0.1rem 0.5rem 0.1rem 1.2rem;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-item:last-child .cross-tab-row {
@@ -259,13 +344,21 @@
 }
 
 /* An expanded row reads as one unit: no divider between it and its details. */
-.cross-tab-item:has(> .cross-tab-body:not([hidden])) .cross-tab-row {
+.cross-tab-item:has(> .cross-tab-body:not([hidden])) .cross-tab-row,
+.cross-tab-item:has(> .layer-pending:not(:empty)) .cross-tab-row {
   border-bottom: none;
+}
+
+/* Cross-tab rows are indented less than home-tab ones; line the message up
+   with the row's label rather than with the home tab's. */
+.cross-tab-item > .layer-pending,
+.cross-tab-item > .layer-error {
+  margin-inline-start: 1.2rem;
 }
 
 .cross-tab-body {
   padding: 0.25rem 0.75rem 0.6rem 1.2rem;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .cross-tab-item:last-child .cross-tab-body {
@@ -279,6 +372,6 @@
 .cross-tab-label {
   flex: 1;
   font-size: 0.78rem;
-  color: #333;
+  color: var(--color-text);
   line-height: 1.3;
 }

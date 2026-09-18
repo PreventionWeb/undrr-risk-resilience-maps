@@ -10,13 +10,17 @@ import { createSourceSelection } from "./source-selection.js";
 
 const DEBOUNCE_MS = 200;
 
-export function buildSteppedSlider(sources, initialIndex, onSourceChange, config) {
+export function buildSteppedSlider(sources, initialIndex, onSourceChange, config, { signal } = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "widget-stepped-slider";
 
   if (config.label) {
-    const lbl = document.createElement("label");
-    lbl.className = "widget-label";
+    // Decorative, as on the opacity slider: a bare <label> with no `for` names
+    // nothing, and the control below carries the same words in `aria-label`
+    // (WCAG 2.5.3). See ARCHITECTURE.md, "Labelling controls".
+    const lbl = document.createElement("span");
+    lbl.className = "widget-label mg-form-label";
+    lbl.setAttribute("aria-hidden", "true");
     lbl.textContent = config.label;
     wrapper.appendChild(lbl);
   }
@@ -44,20 +48,26 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
   let lastFired = initialIndex;
   const select = createSourceSelection(initialIndex, onSourceChange);
 
-  slider.addEventListener("input", () => {
-    clearTimeout(debounceTimer);
-    const idx = Number(slider.value);
-    debounceTimer = setTimeout(async () => {
-      if (idx === lastFired) return;
-      lastFired = idx;
-      const shown = await select(idx);
-      // Leave the thumb alone if the user has dragged on since this fired.
-      if (shown !== idx && Number(slider.value) === idx) {
-        lastFired = shown;
-        slider.value = String(shown);
-      }
-    }, DEBOUNCE_MS);
-  });
+  // Aborting removes the listener and drops a pick still waiting on the debounce.
+  signal?.addEventListener("abort", () => clearTimeout(debounceTimer), { once: true });
+  slider.addEventListener(
+    "input",
+    () => {
+      clearTimeout(debounceTimer);
+      const idx = Number(slider.value);
+      debounceTimer = setTimeout(async () => {
+        if (idx === lastFired) return;
+        lastFired = idx;
+        const shown = await select(idx);
+        // Leave the thumb alone if the user has dragged on since this fired.
+        if (shown !== idx && Number(slider.value) === idx) {
+          lastFired = shown;
+          slider.value = String(shown);
+        }
+      }, DEBOUNCE_MS);
+    },
+    { signal },
+  );
 
   wrapper.appendChild(slider);
   wrapper.appendChild(ticks);

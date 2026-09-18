@@ -4,10 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css" />
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.2/css/style.css" />
+    <!-- Mangrove's PageHeader preloads the logo: it is the first paint in the
+         header and otherwise waits on the stylesheet above. -->
+    <link rel="preload" as="image" href="https://assets.undrr.org/logos/undrr/undrr-logo-horizontal.svg" />
   </head>
   <body>
-    <a href="#app-map" class="mg-skip-link">Skip to map</a>
+    <!-- The page's only bypass-blocks mechanism. The sidebar re-points it at
+         `#info-page` ("Skip to content") while an information page is the view,
+         because there is no map to skip to then and `#app-map` is the invisible
+         warm-up region; it goes back to the map on a data tab. -->
+    <a href="#app-map" class="mg-skip-link" data-ui="skip-link">Skip to map</a>
 
     <!-- Preview access gate (Mangrove). The runtime builds the overlay from
          these attributes and persists the unlock in sessionStorage. Soft
@@ -23,8 +30,8 @@
     ></div>
 
     <!-- UNDRR page header -->
-    <header class="mg-page-header">
-      <div class="mg-page-header__decoration">
+    <header class="mg-page-header mg-page-header--default">
+      <div class="mg-page-header__decoration" aria-hidden="true">
         <div></div>
         <div></div>
         <div></div>
@@ -33,17 +40,21 @@
       <div class="mg-page-header__toolbar-wrapper">
         <div class="mg-page-header__container mg-container">
           <div class="mg-page-header__region mg-page-header__region--toolbar">
-            <section class="mg-page-header__block mg-page-header__block--logo">
+            <div class="mg-page-header__block mg-page-header__block--logo">
+              <!-- `title` repeats `alt`, which normally adds nothing, but this
+                   block is byte-identical to Mangrove's own rendered PageHeader
+                   markup. Kept so the header does not drift from upstream. -->
               <a href="https://www.undrr.org">
                 <img
-                  src="https://assets.undrr.org/static/logos/undrr/undrr-logo-horizontal.svg"
+                  src="https://assets.undrr.org/logos/undrr/undrr-logo-horizontal.svg"
                   alt="UNDRR Logo"
+                  title="UNDRR Logo"
                   width="324"
                   height="47"
-                  class="mg-page-header__logo-img"
+                  class="mg-logo mg-logo--autocrop mg-page-header__logo-img"
                 />
               </a>
-            </section>
+            </div>
           </div>
         </div>
       </div>
@@ -51,141 +62,100 @@
 
     <!-- Category navigation bar -->
     <nav class="mg-container" aria-label="Map navigation">
-      <ul class="mg-mega-topbar" role="menubar" aria-label="Map category menu">
-        <li class="mg-mega-topbar__item" role="none">
-          <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">
-            Risk &amp; Resilience Metrics
-          </a>
+      <!-- Data tab links (Risk, Resilience, Hazard, ...) are generated from TABS
+           by src/ui/nav.js and inserted before the separator. -->
+      <ul class="mg-mega-topbar" data-ui="nav">
+        <li class="mg-mega-topbar__item">
+          <a href="#" class="mg-mega-topbar__item-link nav-home-link">Risk &amp; Resilience Metrics</a>
         </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a
-            href="#risk-resilience"
-            role="menuitem"
-            class="mg-mega-topbar__item-link nav-tab-link is-active"
-            data-tab="risk-resilience"
-          >
-            Risk
-          </a>
-        </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a
-            href="#resilience"
-            role="menuitem"
-            class="mg-mega-topbar__item-link nav-tab-link"
-            data-tab="resilience"
-          >
-            Resilience
-          </a>
-        </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a href="#hazard" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="hazard">
-            Hazard
-          </a>
-        </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a
-            href="#exposure"
-            role="menuitem"
-            class="mg-mega-topbar__item-link nav-tab-link"
-            data-tab="exposure"
-          >
-            Exposure
-          </a>
-        </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a
-            href="#vulnerability"
-            role="menuitem"
-            class="mg-mega-topbar__item-link nav-tab-link"
-            data-tab="vulnerability"
-          >
-            Vulnerability
-          </a>
-        </li>
-        <li class="nav-info-sep" role="separator" aria-hidden="true"></li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a
-            href="#sources"
-            role="menuitem"
-            class="mg-mega-topbar__item-link nav-info-link"
-            data-panel="sources"
-          >
+        <li class="nav-info-sep" aria-hidden="true"></li>
+        <li class="mg-mega-topbar__item">
+          <a href="#sources" class="mg-mega-topbar__item-link nav-info-link" data-panel="sources">
             Sources
           </a>
         </li>
-        <li class="mg-mega-topbar__item" role="none">
-          <a href="#about" role="menuitem" class="mg-mega-topbar__item-link nav-info-link" data-panel="about">
-            About
-          </a>
+        <li class="mg-mega-topbar__item">
+          <a href="#about" class="mg-mega-topbar__item-link nav-info-link" data-panel="about"> About </a>
         </li>
       </ul>
     </nav>
 
     <!-- Info pages (home, sources, about) — full-page, map hidden -->
-    <div id="info-page"><!-- populated by JS --></div>
+    <div id="info-page" data-ui="info-page"><!-- populated by JS --></div>
 
     <!-- App layout: full-width map with floating layer panel -->
-    <div class="app-map" id="app-map" tabindex="-1">
+    <div class="app-map" id="app-map" data-ui="app-map" tabindex="-1">
       <div id="mapx" style="width: 100%; height: 100%"></div>
 
-      <section id="map-service-notice" class="map-service-notice" role="alert" hidden>
-        <div class="map-service-notice__card">
-          <svg
-            class="map-service-notice__icon"
-            aria-hidden="true"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <div>
-            <h2 class="map-service-notice__title">The map is temporarily unavailable</h2>
-            <p class="map-service-notice__body">
-              This site is powered by MapX, which could not be reached. The rest of this site remains
-              available while the map service recovers.
-            </p>
-            <p id="map-service-countdown" class="map-service-notice__countdown" aria-live="off">
-              Retrying in 60 seconds
-            </p>
-            <div class="map-service-notice__actions">
-              <button
-                id="map-service-retry"
-                class="map-service-notice__retry mg-button mg-button-primary"
-                type="button"
-              >
-                Try again
-              </button>
-              <a href="https://app.mapx.org/" target="_blank" rel="noopener">Check MapX availability</a>
-            </div>
-          </div>
+      <!-- Mangrove ServiceNotice, CSS-only: the markup its manifest renders for
+           an interactive map whose remote service is unreachable, in the
+           `--overlay` variant that covers a positioned embed container. The
+           retry button, the countdown and the capped retries stay ours
+           (src/sdk/availability.js), so the React hydration path is not loaded
+           and `data-mg-service-notice` is deliberately absent. -->
+      <section
+        id="map-service-notice"
+        class="map-service-notice mg-notice mg-notice--warning mg-notice--overlay"
+        role="alert"
+        hidden
+      >
+        <div class="mg-notice__header">
+          <span class="mg-icon mg-notice__icon mg-icon-exclamation-triangle" aria-hidden="true"></span>
+          <h2 class="mg-notice__title">The map is temporarily unavailable</h2>
+          <span class="mg-status-label mg-status-label--warning"
+            ><span class="mg-status-label__indicator" aria-hidden="true"></span>Offline</span
+          ><span class="mg-u-sr-only" role="status"></span>
+        </div>
+        <div class="mg-notice__description">
+          <p>
+            This site is powered by MapX, which could not be reached. The rest of this site remains available
+            while the map service recovers.
+          </p>
+        </div>
+        <!-- aria-live="off": the section is role="alert", so the whole notice is
+             announced once when it appears; a per-second countdown must not
+             interrupt on top of that. -->
+        <p id="map-service-countdown" class="mg-notice__meta" aria-live="off">Retrying in 60 seconds</p>
+        <div class="mg-notice__actions mg-buttons">
+          <button id="map-service-retry" class="mg-button mg-button-primary" type="button">
+            <span class="mg-icon mg-icon-refresh mg-button__icon" aria-hidden="true"></span>Try again
+          </button>
+          <a
+            href="https://app.mapx.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mg-button mg-button-secondary mg-button-outline"
+            >Check MapX availability <span class="mg-u-sr-only">(opens in a new tab)</span
+            ><span class="mg-icon mg-icon-external-link mg-button__icon" aria-hidden="true"></span
+          ></a>
         </div>
       </section>
 
       <!-- Floating layer panel -->
-      <div class="layer-panel" id="sidebar">
+      <div class="layer-panel" id="sidebar" data-ui="layer-panel">
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
           <div class="layer-panel-actions">
-            <button
-              class="layer-review-btn mg-button mg-button-primary mg-button-outline"
-              id="layer-disabled-toggle"
-              type="button"
-              aria-pressed="false"
-              title="Show disabled layers for review"
-            >
-              Show disabled
-            </button>
+            <!-- Same Mangrove switch as the layer rows: a setting that stays
+                 on, with one label that does not change with its state. -->
+            <label class="layer-review-switch mg-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                class="mg-switch__input"
+                id="layer-disabled-toggle"
+                data-ui="show-disabled"
+                title="Show layers that are planned but not published yet"
+              />
+              <span class="mg-switch__track" aria-hidden="true">
+                <span class="mg-switch__thumb"></span>
+              </span>
+              <span class="mg-switch__label">Show disabled</span>
+            </label>
             <button
               class="layer-clear-btn"
               id="layer-clear-btn"
+              data-ui="clear-layers"
               aria-label="Turn off all layers"
               title="Turn off all layers"
               hidden
@@ -195,7 +165,11 @@
             <button
               class="layer-panel-toggle mg-button mg-button-primary mg-button-outline mg-button--icon mg-button--icon--small"
               id="panel-toggle"
-              aria-label="Collapse panel"
+              data-ui="panel-toggle"
+              type="button"
+              aria-expanded="true"
+              aria-controls="panel-body"
+              aria-label="Collapse the layers panel"
             >
               <svg
                 aria-hidden="true"
@@ -213,7 +187,7 @@
             </button>
           </div>
         </div>
-        <div class="layer-panel-body" id="panel-body" aria-live="polite"></div>
+        <div class="layer-panel-body" id="panel-body" data-ui="panel-body" aria-live="polite"></div>
       </div>
 
       <!-- Inspect toggle — floats as an icon tool to the right of the layer panel -->
@@ -248,7 +222,9 @@
       <div id="infobox" class="infobox">
         <div class="infobox-header">
           <h3 class="infobox-title">Feature</h3>
-          <button class="infobox-close" aria-label="Close">&times;</button>
+          <button class="infobox-close" type="button" aria-label="Close">
+            <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+          </button>
         </div>
         <div class="infobox-body"></div>
       </div>
@@ -257,7 +233,7 @@
     <!-- UNDRR global footer, syndicated from PreventionWeb. Content pages only;
          src/ui/global-footer.js toggles it. Markup follows Mangrove's Footer
          component embed exactly -- the structure is a branding requirement. -->
-    <div id="global-footer" hidden>
+    <div id="global-footer" data-ui="global-footer" hidden>
       <footer class="mg-footer">
         <div class="pw-widget-footer"></div>
       </footer>
@@ -280,7 +256,7 @@
       </a>
     </footer>
 
-    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.1/js/preview-access.js"></script>
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.2/js/preview-access.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

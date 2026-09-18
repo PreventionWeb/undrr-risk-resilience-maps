@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 import { buildExternalControls } from "./external-controls.js";
 
 const definition = {
@@ -44,7 +45,7 @@ describe("buildExternalControls", () => {
     expect(controls.querySelector(".external-layer-status").textContent).toBe("Updating external layer…");
 
     resolveChange({ settings: { scenario: "20" } });
-    await vi.waitFor(() => expect(select.disabled).toBe(false));
+    await waitFor(() => expect(select.disabled).toBe(false));
     expect(select.value).toBe("20");
   });
 
@@ -54,11 +55,25 @@ describe("buildExternalControls", () => {
     const select = controls.querySelector("select");
 
     change(select, "20");
-    await vi.waitFor(() => expect(select.disabled).toBe(false));
+    await waitFor(() => expect(select.disabled).toBe(false));
 
     expect(select.value).toBe("CURRENT");
     expect(controls.querySelector(".external-layer-status").textContent).toBe(
       "Could not update the external layer. Please try again.",
     );
+  });
+
+  it("removes its listeners when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const controls = buildExternalControls(definition, { scenario: "CURRENT" }, onChange, {
+      signal: controller.signal,
+    });
+    controller.abort();
+    const select = controls.querySelector("select");
+    change(select, "20");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(select.disabled).toBe(false);
+    expect(controls.querySelector(".external-layer-status").textContent).toBe("");
   });
 });

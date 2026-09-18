@@ -1,14 +1,18 @@
 /**
- * App entry point.
+ * App entry point (standalone site).
  *
  * Builds the sidebar UI immediately (nav, info pages), then initialises the
  * MapX SDK iframe. Layer-specific operations (add/remove views, feature
  * inspection, hash restore) are gated on the SDK "ready" event.
+ *
+ * This is the one module that owns the page: it passes `document.body` as the
+ * sidebar's root and looks up the map container and inspect toggle by id. UI
+ * modules receive a root or elements instead (see docs/embedding.md).
  */
 import { initSDK, setSDKReady } from "./sdk/client.js";
 import { TABS, PRIMARY_PROJECT } from "./config/layers.js";
 import { validateLayers } from "./config/validate.js";
-import { buildSidebar, restoreLayersFromHash, onViewsChanged } from "./ui/sidebar.js";
+import { createSidebar } from "./ui/sidebar.js";
 import { showInfobox, closeInfobox } from "./ui/infobox.js";
 import {
   initInspection,
@@ -34,9 +38,32 @@ import "./styles/shared.css";
 // Fail fast if layer config has problems (typos, missing IDs, wrong project, etc.)
 validateLayers(TABS, PRIMARY_PROJECT);
 
+const inspectToggle = document.getElementById("inspect-toggle");
+const appMap = document.getElementById("app-map");
+
+function setInspectionMode(active) {
+  if (active) {
+    closeInfobox();
+    enableInspection();
+  } else {
+    disableInspection();
+    hideSiteInspector();
+  }
+  appMap?.classList.toggle("inspection-active", active);
+  inspectToggle?.classList.toggle("is-active", active);
+  inspectToggle?.setAttribute("aria-pressed", String(active));
+}
+
 // Build the shell immediately -- nav, info pages, and sidebar panels don't
 // require the SDK to be ready.
-buildSidebar();
+const sidebar = createSidebar(document.body, {
+  // Keep the inspect button enabled/disabled in sync with the layers on the map.
+  onViewsChanged(count) {
+    if (!inspectToggle) return;
+    inspectToggle.disabled = count === 0;
+    if (count === 0 && isInspectionActive()) setInspectionMode(false);
+  },
+});
 buildSiteInspectorPanel();
 initBuildInfo();
 initMapServiceRetry();
@@ -59,32 +86,26 @@ async function startMapX() {
     return;
   }
 
+  // The budget only runs while the map is the view the user is on, so reaching
+  // this really does mean MapX had its full loading time, in front of someone
+  // waiting for it, and never answered.
   const cancelReadyTimeout = watchForMapReady(() => {
-    console.error("MapX did not become ready within the expected time");
+    console.error(
+      "MapX did not become ready within the ~30s of loading time it was given while the map was on screen",
+    );
     showMapFailure();
   });
 
   initInspection(mapx);
 
+  // One subscriber among however many register (onInspectionResult returns a
+  // disposer, or takes a signal). The standalone app lives as long as the page,
+  // so it never unsubscribes.
   onInspectionResult((result) => {
     showSiteInspector(result);
   });
 
   // Wire inspect toggle button
-  const inspectToggle = document.getElementById("inspect-toggle");
-
-  function setInspectionMode(active) {
-    if (active) {
-      closeInfobox();
-      enableInspection();
-    } else {
-      disableInspection();
-      hideSiteInspector();
-    }
-    document.getElementById("app-map")?.classList.toggle("inspection-active", active);
-    inspectToggle?.classList.toggle("is-active", active);
-    inspectToggle?.setAttribute("aria-pressed", String(active));
-  }
   if (inspectToggle) {
     inspectToggle.addEventListener("click", () => setInspectionMode(!isInspectionActive()));
   }
@@ -104,20 +125,13 @@ async function startMapX() {
       await mapx.ask("set_vector_highlight", { enable: true });
 
       // Restore any layers encoded in the URL hash (e.g. shared link)
-      await restoreLayersFromHash();
+      await sidebar.restoreFromUrl();
     } catch (err) {
       console.error("MapX ready-handler setup failed:", err);
     }
 
     // Enable the inspect button only if layers are already open (e.g. hash restore).
     if (inspectToggle) inspectToggle.disabled = store.openViews.size === 0;
-
-    // Keep inspect button enabled/disabled in sync with active layers.
-    onViewsChanged((count) => {
-      if (!inspectToggle) return;
-      inspectToggle.disabled = count === 0;
-      if (count === 0 && isInspectionActive()) setInspectionMode(false);
-    });
   });
 
   // Route click_attributes based on inspection mode.

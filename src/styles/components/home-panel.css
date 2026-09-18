@@ -6,8 +6,8 @@
 /* ── Breadcrumb — uses mg-breadcrumb from Mangrove ── */
 
 .info-page-breadcrumb {
-  background: #f5f7fa;
-  border-bottom: 1px solid #dde2ea;
+  background: rgb(var(--mg-color-neutral-25));
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-50));
   padding: 0.5rem 1rem;
   font-size: 0.8125rem;
 }
@@ -16,12 +16,12 @@
 
 .info-page-hero {
   background-color: var(--color-primary);
-  color: #fff;
+  color: rgb(var(--mg-color-neutral-0));
   padding: 3rem 1rem 2.5rem;
 }
 
 .info-page-hero--secondary {
-  background-color: #1a6faa;
+  background-color: rgb(var(--mg-color-blue-800));
 }
 
 .info-page-hero .mg-container {
@@ -38,20 +38,20 @@
 
 /* Mangrove's h1 already sets size, weight and line height. */
 .info-page-hero__title {
-  color: #fff;
+  color: rgb(var(--mg-color-neutral-0));
   margin: 0 0 0.75rem;
 }
 
 .info-page-hero__intro {
   font-size: 1.05rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgb(var(--mg-color-neutral-0) / 0.9);
   max-width: 44rem;
   margin: 0;
   line-height: 1.6;
 }
 
 .info-page-hero a {
-  color: #fff;
+  color: rgb(var(--mg-color-neutral-0));
 }
 
 /* Body links in the hero keep an underline for contrast on the blue ground;
@@ -77,7 +77,7 @@
 }
 
 .info-page-section--grey {
-  background-color: #f2f5f8;
+  background-color: rgb(var(--mg-color-neutral-25));
 }
 
 .info-page-section .mg-container {
@@ -87,6 +87,16 @@
 .info-page-section.info-page-section--wide .mg-container {
   width: 100%;
   max-width: none;
+}
+
+/* UNDRR blue on the body's near-black is 2.09:1, so colour alone cannot mark a
+   link inside a paragraph (WCAG 1.4.1). The hero already underlines its prose
+   links for the same reason; these are the rest of them. */
+.info-page-section p a,
+.info-plain-list a,
+.info-step__desc a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Size and weight come from Mangrove's own h2 rules; only the UNDRR blue and
@@ -168,7 +178,7 @@
   align-items: flex-start;
   gap: 1.25rem;
   padding: 1.25rem 0;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-50));
 }
 
 .info-step:last-child {
@@ -189,14 +199,14 @@
   display: block;
   font-size: 1rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: rgb(var(--mg-color-neutral-800));
   margin-bottom: 0.25rem;
 }
 
 .info-step__desc {
   margin: 0;
   font-size: 0.9rem;
-  color: #4d4d4d;
+  color: rgb(var(--mg-color-neutral-600));
   line-height: 1.5;
 }
 
@@ -212,27 +222,27 @@
 
 .info-source-subtitle {
   margin: 0 0 0.7rem;
-  color: #263746;
+  color: rgb(var(--mg-color-neutral-700));
   font-size: 1rem;
 }
 
 .info-source-empty,
 .sources-planned__intro {
-  color: #5f6d7a;
+  color: rgb(var(--mg-color-neutral-500));
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .sources-planned {
   margin-top: 1.25rem;
-  border: 1px solid #d8e1e9;
+  border: 1px solid rgb(var(--mg-color-blue-100));
   border-radius: 4px;
-  background: #f8fafc;
+  background: rgb(var(--mg-color-neutral-25));
 }
 
 .sources-planned > summary {
   padding: 0.7rem 0.85rem;
-  color: #40556a;
+  color: rgb(var(--mg-color-neutral-600));
   cursor: pointer;
   font-size: 0.88rem;
   font-weight: 600;
@@ -245,7 +255,7 @@
 
 .sources-planned .data-table-wrap {
   margin: 0 0.85rem 0.85rem;
-  background: #fff;
+  background: rgb(var(--mg-color-neutral-0));
 }
 
 /* Mangrove renders each tab panel as a grid item, which defaults to
@@ -256,12 +266,39 @@
   min-width: 0;
 }
 
-/* ── Data table (Sources page) ── */
+/* ── Data table (Sources page) ──
+   The table is Mangrove's `mg-table mg-table--data` inside its
+   `mg-table-scroll-region`: the compact cell padding, the subtle dividers, the
+   uppercase neutral-50 header band and the row hover are the utility's, and
+   `mg-table__th--sticky` pins the header row while the region scrolls. What
+   stays here is the six-column geometry, the striping and the two states
+   Mangrove has no opinion about (a planned row, the MapX-ID column). */
 
 .data-table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 0.5rem;
+  /* `mg-table__th--sticky` pins to the nearest scroll container, which is this
+     wrapper -- it only sticks if the wrapper can actually scroll vertically. */
+  max-block-size: 70vh;
+}
+
+/* On paper there is no scroll container, so the 70vh cap above would simply
+   cut the table off — Sources is the citations and licences page, the one most
+   likely to be printed or archived, and it lost roughly a third of its rows.
+   Release the cap, let the overflow spill onto the page, and unpin the sticky
+   header (a `position: sticky` header has nothing to stick to in paged media
+   and browsers differ on what they do with it; `static` repeats nothing but
+   prints where it belongs, above row one). */
+@media print {
+  .data-table-wrap {
+    max-block-size: none;
+    overflow: visible;
+  }
+
+  .data-table .mg-table__th--sticky {
+    position: static;
+  }
 }
 
 .data-table {
@@ -272,24 +309,12 @@
   min-width: 46rem;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.82rem;
   line-height: 1.45;
 }
 
-.data-table th {
-  background-color: var(--color-primary);
-  color: #fff;
-  font-weight: 600;
-  text-align: left;
-  padding: 0.55rem 0.75rem;
-  white-space: nowrap;
-}
-
 .data-table td {
-  padding: 0.6rem 0.75rem;
   vertical-align: top;
-  border-bottom: 1px solid #dde4ea;
-  color: #2d2d2d;
+  color: rgb(var(--mg-color-neutral-700));
 }
 
 .data-table tr:last-child td {
@@ -297,7 +322,7 @@
 }
 
 .data-table tr:nth-child(even) td {
-  background-color: #f7fafc;
+  background-color: rgb(var(--mg-color-neutral-25));
 }
 
 .data-table a {
@@ -332,19 +357,19 @@
 }
 
 .data-table__row--planned td {
-  color: #6b7a8d;
-  background-color: #f9fafb !important;
+  color: rgb(var(--mg-color-neutral-500));
+  background-color: rgb(var(--mg-color-neutral-25)) !important;
 }
 
 .data-table__row--planned td:first-child {
-  color: #4d5f75;
+  color: rgb(var(--mg-color-neutral-600));
 }
 
 /* Status label (mg-status-label) sits on its own line above the dataset name,
    sized down to stay secondary to it. Mangrove supplies the indicator colour. */
 .data-table__badge {
   --mg-status-label-font-size: 0.78rem;
-  --mg-status-label-color: #4d5f75;
+  --mg-status-label-color: rgb(var(--mg-color-neutral-600));
   display: flex;
   margin-bottom: 0.25rem;
   font-weight: 400;
@@ -357,37 +382,62 @@
   display: none;
 }
 
+/* The ids themselves are `mg-table__td--code`: Mangrove's code face and size.
+   The local rule that repainted the body cells so the heading stayed readable
+   on the old dark blue header band is gone with the band -- `mg-table--data`
+   puts the header on neutral-50 with neutral-800 text. */
 .show-mapx-ids .data-table__mapx-id {
   display: table-cell;
   white-space: nowrap;
-  font-size: 0.78rem;
-  color: #555;
 }
 
+/* `mg-table__td--code` carries Mangrove's code face and its own smaller size,
+   but `.mg-table td` is one element more specific and wins the size back to
+   1rem. Restate the utility's own value at a specificity that holds. */
+.data-table td.mg-table__td--code {
+  font-size: var(--mg-font-size-200);
+}
+
+/* The hero is mid-blue, so Mangrove's default track colours and focus ring
+   would fall below 3:1 on it. rc.2 exposes --mg-switch-* properties, so the
+   inversion is a handful of token overrides rather than overridden rules. */
 .sources-mapx-toggle {
+  /* Off: a white track let through at 35% measured 2.78:1 against its own
+     white thumb and 1.94:1 against the hero, so neither boundary of the
+     control was visible. Darkening the fill instead gives the thumb 10.9:1.
+     The darkened fill composites to rgb(17,63,101) over the hero -- 1.7:1 -- so
+     it is the white ring below, at 6.49:1, that is the track's own boundary
+     against the hero, and the ring is also what keeps the inverted,
+     light-on-blue look. */
+  --mg-switch-track-background: rgb(var(--mg-color-neutral-900) / 0.35);
+  --mg-switch-track-background--checked: rgb(var(--mg-color-neutral-0));
+  --mg-switch-thumb-background: rgb(var(--mg-color-interactive));
+  --mg-switch-pending-ring-color: rgb(var(--mg-color-neutral-0));
   margin-top: 1rem;
 }
 
 .sources-mapx-toggle .mg-switch__label {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgb(var(--mg-color-neutral-0) / 0.9);
 }
 
+/* Inset, so it costs the thumb no room. Invisible on the white checked track,
+   which reaches the hero's 3:1 on its own. Two pixels rather than one: the
+   darkened fill only reaches 1.7:1 against the hero, so this ring is the whole
+   of the off track's outer boundary, and a hairline can land sub-pixel at a
+   fractional zoom or device pixel ratio. */
 .sources-mapx-toggle .mg-switch__track {
-  background-color: rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 0.125rem rgb(var(--mg-color-neutral-0));
 }
 
-/* The hero is mid-blue, so Mangrove's default checked track (interactive blue)
-   and focus ring (dark gold) both fall below 3:1. Invert them for this surface. */
-.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track {
+/* Off: the thumb has to read against the track as well. */
+.sources-mapx-toggle .mg-switch__input:not(:checked) + .mg-switch__track .mg-switch__thumb {
   background-color: rgb(var(--mg-color-neutral-0));
 }
 
-.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
-  background-color: rgb(var(--mg-color-interactive));
-}
-
+/* Mangrove's focus ring puts a white halo in box-shadow; on the hero the
+   outline alone reads, and the track keeps its own ring. */
 .sources-mapx-toggle .mg-switch__input:focus-visible + .mg-switch__track {
-  box-shadow: none;
+  box-shadow: inset 0 0 0 0.125rem rgb(var(--mg-color-neutral-0));
   outline-color: rgb(var(--mg-color-focus-ring-inverse));
 }
 

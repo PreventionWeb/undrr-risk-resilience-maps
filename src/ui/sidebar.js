@@ -1,1095 +1,606 @@
 /**
- * Floating layer panel + info page routing.
+ * Sidebar instance: composes the layers store, the layer controller, the
+ * router, the nav, the info pages and the layer panel within one root element.
  *
- * - Data tabs (from layer config): show map + sidebar.
- * - Info tabs (home / sources / about): show full-page view, hide map.
+ * `createSidebar(root, options)` finds its elements under `root` by `data-ui`
+ * hooks, keeps all of its state (rows, tab panels, "Show disabled") in its
+ * closure, and registers every listener with one AbortController. `destroy()`
+ * removes the listeners, the rows, the controller, the router (with an adapter
+ * it created) and the DOM it built.
  *
- * Layer definitions come from config/layers.js; this module is purely UI.
+ * URL state lives in `src/services/router.js`: the active tab, the one
+ * history-entry-per-action rule, restore and reconcile-from-URL. The sidebar
+ * never reads or writes URL state; it asks the router for a tab and renders the
+ * tab the router reports.
  */
 import { TABS } from "../config/layers.js";
+import { getLayerRegistry, urlKeyOrder } from "../config/registry.js";
 import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
-import { isSDKReady } from "../sdk/client.js";
+import { isSDKReady, onSDKReadyChange } from "../sdk/client.js";
+import { createMapWarming } from "./map-warming.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
-import { buildWidget, isCompound, compoundKey } from "./widgets/index.js";
+import { createLayerAnnouncer } from "./announcer.js";
+import { createLayerRow } from "./layer-row.js";
+import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
+import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { parseHash, writeHash } from "../state/hash.js";
-import { addOpacitySlider, addLegend } from "./layer-controls.js";
-import { buildExternalControls } from "./external-controls.js";
+import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
+import { createLayerController } from "../services/layer-controller.js";
+import { createRouter } from "../services/router.js";
 import { isLayerAvailable } from "../config/layers/status.js";
 import {
   closeExternalLayer,
-  getExternalLayerDefinition,
   getExternalLayerRuntime,
   isExternalLayer,
   openExternalLayer,
   replaceExternalLayer,
 } from "../external/index.js";
 
-// MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
+/**
+ * The elements a sidebar uses, by their `data-ui` hook under the root. Only
+ * the panel body is required; a missing optional element's feature is skipped.
+ */
+const PARTS = {
+  nav: "nav",
+  infoPage: "info-page",
+  appMap: "app-map",
+  panel: "layer-panel",
+  panelBody: "panel-body",
+  toggle: "panel-toggle",
+  clearBtn: "clear-layers",
+  disabledToggleBtn: "show-disabled",
+  globalFooter: "global-footer",
+  skipLink: "skip-link",
+};
 
-let _viewsChangeCallback = null;
-
-/** Register a callback invoked whenever the set of open views changes. */
-export function onViewsChanged(fn) {
-  _viewsChangeCallback = fn;
-}
-const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
-const GEOMETRY_LABELS = { point: "points", polygon: "polygons", line: "lines" };
-
-function layerBadgeLabel(layer) {
-  return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
-}
-
-/** Build the type/geometry badge shown next to a layer label. */
-function buildLayerTypeTag(layer) {
-  const tag = document.createElement("span");
-  tag.className = "mg-tag layer-type-tag";
-  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
-  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = layerBadgeLabel(layer);
-  return tag;
-}
-
-const INFO_TABS = ["home", "sources", "about"];
-
-// All valid tab IDs for hash routing
-const DATA_TABS = TABS.map((tab) => tab.id);
-const ALL_TABS = [...INFO_TABS, ...DATA_TABS];
-
-// Built by buildSidebar(); maps layer.key → { layer, eyeBtn, wrapper }
-// Used by restoreLayersFromHash and reconcileLayersFromHash to avoid
-// positional DOM queries that break when layer order changes in config.
-const layerElementMap = new Map();
-// Maps layer.key → [{ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot }]
-// for the compact rows in cross-tab sections, so layers activated outside their
-// home tab still show their details, opacity slider and legend.
-const secondaryRows = new Map();
-// Maps layer.key → { layer, viewId, legendLayer, status, version }: what the
-// cross-tab rows should show. Only rows in the visible tab are rendered.
-const secondaryState = new Map();
-// Keys of layers whose toggle is currently in-flight (prevents race on rapid clicks).
-const toggleInFlight = new Set();
-// Keys of compound layers mid source-switch, and those asked to turn off meanwhile.
-const sourceSwitchInFlight = new Set();
-const pendingToggleOff = new Set();
-let showDisabledLayers = false;
-// Depth of batched layer changes (restore, back/forward, clear-all). Hash
-// writes inside a batch are skipped and replaced by one write when it ends,
-// so a multi-layer change creates at most one history entry.
-let hashBatchDepth = 0;
-
-function setLayerToggleDisabled(layer, eyeBtn, disabled) {
-  eyeBtn.disabled = disabled;
-  for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-    btn.disabled = disabled;
-  }
-}
+/** Marks a sidebar root, so an outer instance can tell a nested one's parts from its own. */
+const ROOT_ATTR = "data-ui-root";
 
 /**
- * Record what a layer's cross-tab rows should show and re-render them.
- * Pass null to clear. `status` is a { text, isError } message shown in place
- * of the controls while an external layer loads or after it fails.
+ * Create a sidebar within `root`.
+ *
+ * @param {ParentNode} root - contains the `data-ui` elements (see PARTS)
+ * @param {object} [options]
+ * @param {{ read: Function, write: Function, subscribe: Function, destroy: Function }} [options.stateAdapter] -
+ *   URL state adapter, owned by the caller; by default the router creates a
+ *   hash adapter and destroys it with itself
+ * @param {ReturnType<typeof getLayerRegistry>} [options.registry] - layer
+ *   lookups for the controller and the URL key order (default: the shared registry)
+ * @param {object[]} [options.tabs] - data tabs to build (default: TABS); the
+ *   registry must index the same layer objects
+ * @param {(count: number) => void} [options.onViewsChanged] - called with the
+ *   number of layers on the map whenever that number changes
+ * @param {string} [options.initialTab] - the tab shown when URL state names
+ *   none (or an unknown one); default "home"
+ * @returns {{
+ *   restoreFromUrl(): Promise<void>,
+ *   showTab(tabId: string): void,
+ *   destroy(): void,
+ *   readonly store: ReturnType<typeof createLayersStore>|null,
+ *   readonly controller: ReturnType<typeof createLayerController>|null,
+ *   readonly activeTab: string,
+ * }}
  */
-function setSecondaryState(layer, state) {
-  if (!layer.key) return;
-  if (state) {
-    const version = (secondaryState.get(layer.key)?.version ?? 0) + 1;
-    secondaryState.set(layer.key, {
-      layer,
-      viewId: null,
-      legendLayer: null,
-      status: null,
-      ...state,
-      version,
+export function createSidebar(
+  root,
+  { stateAdapter, registry = getLayerRegistry(), tabs = TABS, onViewsChanged, initialTab = "home" } = {},
+) {
+  // The root is marked `data-ui-root`, and a part belongs to the nearest marked
+  // ancestor, so an instance skips the parts of an instance nested inside its
+  // root. That holds once the nested root is marked: create (or mark) the
+  // nested instance first. A root that is not an element (a document) owns
+  // the parts outside every marked root.
+  const rootEl = root instanceof Element ? root : null;
+  // The root's document: a Document is its own (its `ownerDocument` is null),
+  // and a fragment's is the document it was created in.
+  const rootDoc = root.ownerDocument ?? (root.nodeType === 9 ? root : document);
+  const marksRoot = Boolean(rootEl) && !rootEl.hasAttribute(ROOT_ATTR);
+  if (marksRoot) rootEl.setAttribute(ROOT_ATTR, "");
+  const part = (name) =>
+    [...root.querySelectorAll(`[data-ui="${PARTS[name]}"]`)].find(
+      (el) => el.closest(`[${ROOT_ATTR}]`) === rootEl,
+    );
+  const sidebarBody = part("panelBody");
+  if (!sidebarBody) {
+    if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);
+    throw new Error('createSidebar: no [data-ui="panel-body"] element under the root');
+  }
+  const panel = part("panel");
+  const toggle = part("toggle");
+  const infoPage = part("infoPage");
+  const appMap = part("appMap");
+  const clearBtn = part("clearBtn");
+  const disabledToggleBtn = part("disabledToggleBtn");
+  const navRoot = part("nav");
+  const globalFooter = part("globalFooter");
+  // "Skip to map": re-pointed at the information page while that is the view,
+  // because there is no map to skip to and its usual target is the invisible
+  // warm-up region. It is the page's only bypass-blocks mechanism, so it stays.
+  const skipLink = part("skipLink");
+
+  // The map container's warm-up state, and everything that keeps the warming
+  // map out of reach (see ui/map-warming.js).
+  const mapWarming = appMap ? createMapWarming(appMap, { skipLink, infoTarget: infoPage }) : null;
+
+  // Page state the instance changes, restored by destroy(): which view is
+  // shown, the footer and the panel's collapsed state.
+  const initialPage = {
+    infoPageDisplay: infoPage?.style.display,
+    footerHidden: globalFooter?.hidden,
+    panelCollapsed: panel?.classList.contains("is-collapsed"),
+  };
+
+  const dataTabs = tabs.map((tab) => tab.id);
+  // The layers this instance can turn on: the published, keyed layers of the
+  // tabs it was given, in config order. The same walk the URL key order is
+  // built from, so it is exactly the set of layers the rows cover — without
+  // asking the rows, which are grouped by R2R category and built later.
+  const urlKeys = urlKeyOrder(tabs);
+  const allTabs = [...INFO_TABS, ...dataTabs];
+
+  // Every listener this instance adds, directly or through nav, panels, pages
+  // and rows, is removed by aborting this.
+  const lifetime = new AbortController();
+  const { signal } = lifetime;
+  // Store subscriptions, the URL subscription and owned resources, run in
+  // reverse on destroy.
+  const disposers = [];
+  let destroyed = false;
+
+  // --- State ---------------------------------------------------------------
+
+  // The new store starts empty, so drop view ids a previous instance (HMR,
+  // tests) left in the compatibility Set.
+  store.openViews.clear();
+
+  // Per-layer records: what the user asked for and what MapX shows. The layer
+  // controller reconciles one into the other; `store.openViews`, the URL state
+  // and the layer rows are derived from the records by subscribers.
+  let layersStore = createLayersStore();
+
+  let layerController = createLayerController({
+    store: layersStore,
+    // Published layers only: they are the ones with rows.
+    getLayer: (key) => {
+      const layer = registry.byKey(key);
+      return layer && isLayerAvailable(layer) ? layer : undefined;
+    },
+    views: { add: viewAdd, remove: viewRemove },
+    external: {
+      isExternal: isExternalLayer,
+      getRuntime: getExternalLayerRuntime,
+      open: openExternalLayer,
+      close: closeExternalLayer,
+      replace: replaceExternalLayer,
+    },
+    onError: (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
+  });
+
+  // The only module that reads or writes URL state. It owns the active tab and
+  // the one-history-entry-per-action rule; the sidebar renders what it reports.
+  // It reads and writes nothing until attachTo() below.
+  const router = createRouter({
+    controller: layerController,
+    registry,
+    // An injected adapter belongs to the caller; the router creates and owns
+    // one otherwise, and destroys it with itself.
+    adapter: stateAdapter,
+    dataTabs,
+    infoTabs: INFO_TABS,
+    initialTab,
+    isReady: isSDKReady,
+    isExternal: isExternalLayer,
+    // Only published, keyed layers of the configured tabs can be turned on, so
+    // only they are restored from, or reconciled against, URL state. Taken from
+    // the config (the same walk the URL key order is built from) rather than
+    // asking the UI which rows it built.
+    layerKeys: () => urlKeys,
+  });
+
+  // Store subscribers, in the order the store calls them (it calls them
+  // synchronously in subscription order), which is why these four lines are
+  // adjacent and their order is the whole invariant:
+  //   1. `store.openViews` must be current before anything reads it,
+  //   2. the views-changed callback reports the new count,
+  //   3. the router writes the URL,
+  //   4. the rows render the switches, the slider and the legend.
+  // The URL is therefore written before the rows update. It used to depend on
+  // where `createRouter()` happened to sit; `attachTo` says it here instead.
+  // See sidebar.order.test.js, which fails if 3 and 4 are swapped.
+  disposers.push(mirrorOpenViews(layersStore, store.openViews));
+  disposers.push(layersStore.subscribe(notifyViewsChanged));
+  // Dropped by router.destroy(), which is a disposer below.
+  router.attachTo(layersStore);
+  disposers.push(layersStore.subscribe(renderLayerRows));
+
+  // Layer switches are aria-disabled until the map can accept changes, so they
+  // are re-rendered when it becomes (or stops being) ready.
+  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
+  disposers.push(() => router.destroy());
+  // Runs first on destroy (disposers run in reverse), so a MapX call that
+  // settles afterwards is dropped before anything else is torn down.
+  const controllerToDestroy = layerController;
+  disposers.push(() => controllerToDestroy.destroy());
+
+  // The layer rows (see createLayerRow): every row built, for destroy, and the
+  // published rows by layer key (the home row first, then its cross-tab rows),
+  // which the store subscriber fans records out to. Filled in sidebar row order
+  // (grouped tabs list rows by R2R category), so it is not the hash order; that
+  // is the registry's urlKeyOrder().
+  const allRows = [];
+  const rowsByKey = new Map();
+  /** Layer keys addLayerRow has already warned about, so each is reported once. */
+  const rowKeysWarned = new Set();
+  // Panels this instance built, by tab id, and every element it appended.
+  const tabPanels = new Map();
+  const infoPanels = new Map();
+  const createdElements = [];
+  // One live region for the whole instance: a layer has a row in its own tab and
+  // a compact row in every other tab, and each of them renders the same record,
+  // so a region per row announced the same message several times. It is appended
+  // to the root rather than to a panel, so it is never inside something hidden
+  // (an information page replaces the map; a cross-tab section starts collapsed)
+  // and can still speak. See announcer.js; the visible message stays per row.
+  const announcer = createLayerAnnouncer(rootDoc);
+  disposers.push(() => announcer.destroy());
+  let showDisabledLayers = false;
+  // Active-state and click wiring for the nav links (created after the panels).
+  let nav = null;
+
+  // --- Rows ----------------------------------------------------------------
+
+  /**
+   * Store subscriber: hand a layer's record to each of its rows (they render
+   * themselves from it, see createLayerRow), then update "Clear all".
+   */
+  function renderLayerRows(key, next, prev) {
+    for (const row of rowsByKey.get(key) ?? []) row.update(next);
+    if (next.desired !== prev.desired || next.applied !== prev.applied) updateClearBtn();
+  }
+
+  /**
+   * Re-render every row from its record, after a tab switch. Rows are
+   * idempotent, so this only builds the slider and legend of rows that just
+   * became visible and have not rendered their layer's current view yet.
+   */
+  function refreshLayerRows() {
+    if (!layersStore) return;
+    for (const [key, rows] of rowsByKey) {
+      const record = layersStore.get(key);
+      for (const row of rows) row.update(record);
+    }
+  }
+
+  /**
+   * The controller looks layers up in the registry, so a published row for a
+   * layer object that is not the registry's (not in its tabs, or a copy)
+   * cannot turn anything on: its switch ends in an error. Say so during
+   * development instead of leaving it to be found by clicking.
+   */
+  function warnIfNotInConfig(layer) {
+    if (!layer.key || !isLayerAvailable(layer) || rowKeysWarned.has(layer.key)) return;
+    if (registry.byKey(layer.key) === layer) return;
+    rowKeysWarned.add(layer.key);
+    console.warn(
+      `Layer row "${layer.key}" is not the layer config's entry for that key; the controller will not find it, so its switch cannot turn it on.`,
+    );
+  }
+
+  /**
+   * Create a layer row wired to this instance's store and controller, and
+   * register it for record updates and destroy.
+   * @param {object} layer
+   * @param {"full"|"compact"} variant
+   * @param {string} tabId - the tab panel the row is in (its slider and legend
+   *   render only while that tab is shown)
+   */
+  function addLayerRow(layer, variant, tabId) {
+    warnIfNotInConfig(layer);
+    const row = createLayerRow(layer, {
+      variant,
+      store: layersStore,
+      controller: layerController,
+      isReady: isSDKReady,
+      isVisible: () => router.activeTab === tabId,
+      onNavigate: (target) => switchTab(target),
+      // The home row's external controls announce failures of their own picks.
+      selectionPending: () =>
+        [...(rowsByKey.get(layer.key) ?? [])].some((other) => other.hasPendingSelection()),
+      // Every row of a layer announces through the instance's one region, which
+      // drops the repeats, so one event is heard once.
+      announce: (message, record) => announcer.announce(layer.key, message, record),
     });
-  } else {
-    secondaryState.delete(layer.key);
-  }
-  syncSecondaryRows(layer.key);
-}
-
-/**
- * Render a layer's cross-tab controls into the row in the visible tab only.
- * Each render triggers SDK calls (transparency, legend), so rows in hidden tabs
- * are filled lazily when their tab is shown, and keep their controls once
- * rendered so switching back and forth does not re-request them.
- */
-function syncSecondaryRows(key) {
-  const state = secondaryState.get(key);
-  for (const row of secondaryRows.get(key) ?? []) {
-    if (!state) {
-      if (row.renderedVersion != null || !row.body.hidden) clearSecondaryRow(row);
-      continue;
+    allRows.push(row);
+    if (isLayerAvailable(layer) && layer.key) {
+      if (!rowsByKey.has(layer.key)) rowsByKey.set(layer.key, new Set());
+      rowsByKey.get(layer.key).add(row);
     }
-    if (row.tabId != null && row.tabId !== store.activeTab) continue;
-    if (row.renderedVersion === state.version) continue;
+    return row;
+  }
 
-    clearSecondaryRow(row);
-    row.renderedVersion = state.version;
-    row.body.hidden = false;
-    if (row.desc) setLayerDescription(row.desc, state.layer, state.legendLayer?.desc || state.layer.desc);
-    if (state.status) {
-      row.status.hidden = false;
-      row.status.textContent = state.status.text;
-      row.status.classList.toggle("is-error", Boolean(state.status.isError));
-    }
-    if (state.viewId) {
-      addOpacitySlider(state.viewId, row.sliderSlot);
-      addLegend(state.legendLayer, row.legendSlot);
+  // --- Tabs and panels -----------------------------------------------------
+
+  function expandPanel() {
+    if (!panel) return;
+    panel.classList.remove("is-collapsed");
+    onPanelExpand(panel);
+    renderToggleState(false);
+  }
+
+  /**
+   * Show a tab as a user action: the router writes URL state (one history
+   * entry) and calls renderTab below.
+   */
+  function switchTab(tabId) {
+    router.setActiveTab(tabId);
+  }
+
+  /**
+   * The router's tab-change subscriber: render the tab it made active. It is
+   * the only place the sidebar reacts to a tab change, so a switch, a home
+   * card, a nav link and a back/forward navigation all render the same way.
+   */
+  function renderTab(tabId) {
+    if (destroyed) return;
+    const isInfoTab = INFO_TABS.includes(tabId);
+
+    // Toggle map vs full-page info view. Where it is worth its cost the map is
+    // not hidden behind an information page but kept laid out and loading,
+    // transparent and inert; where it is not, it is hidden as it used to be.
+    // ui/map-warming.js owns that choice and the invariants that go with it.
+    mapWarming?.set(isInfoTab);
+    if (infoPage) infoPage.style.display = isInfoTab ? "block" : "none";
+
+    // The UNDRR global footer belongs to the content pages; the map view is
+    // full-bleed. The syndication widget populates it independently.
+    if (globalFooter) setGlobalFooterVisible(isInfoTab, globalFooter);
+
+    nav?.setActive(tabId);
+
+    if (isInfoTab) {
+      // Show the right info panel, hide the others
+      for (const [id, el] of infoPanels) el.style.display = id === tabId ? "block" : "none";
+    } else {
+      // Show the right layer panel in the sidebar, hide the others
+      for (const [id, el] of tabPanels) el.style.display = id === tabId ? "block" : "none";
+      refreshLayerRows();
     }
   }
-}
 
-function clearSecondaryRow(row) {
-  row.renderedVersion = null;
-  row.body.hidden = true;
-  row.status.hidden = true;
-  row.status.textContent = "";
-  row.status.classList.remove("is-error");
-  row.sliderSlot.innerHTML = "";
-  row.legendSlot.innerHTML = "";
-}
-
-function setLayerToggleState(layer, button, active) {
-  button.classList.toggle("is-active", active);
-  button.setAttribute("aria-checked", String(active));
-  button.setAttribute("aria-label", `${active ? "Turn off" : "Turn on"} ${layer.label}`);
-  button.title = active ? "Turn layer off" : "Turn layer on";
-}
-
-/** Expand or collapse a layer accordion's body. */
-function setAccordionExpanded(wrapper, expanded) {
-  wrapper.querySelector(".layer-body").style.display = expanded ? "block" : "none";
-  wrapper.querySelector(".layer-arrow").textContent = expanded ? "\u25BC" : "\u25B6"; // ▼ / ▶
-  wrapper.querySelector(".layer-header").setAttribute("aria-expanded", String(expanded));
-}
-
-function externalSettingsMatch(left, right) {
-  if (!left || !right) return false;
-  return Object.keys(right).every((key) => left[key] === right[key]);
-}
-
-async function updateExternalVariant(layer, settings, eyeBtn, wrapper) {
-  const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-  const legendSlot = wrapper.querySelector(".layer-legend-slot");
-  if (layer.key) toggleInFlight.add(layer.key);
-  setLayerToggleDisabled(layer, eyeBtn, true);
-  try {
-    const result = await replaceExternalLayer(layer, settings);
-    store.openViews.delete(result.previousIdView);
-    store.openViews.add(result.runtime.idView);
-
-    sliderSlot.innerHTML = "";
-    addOpacitySlider(result.runtime.idView, sliderSlot);
-    legendSlot.innerHTML = "";
-    const legendLayer = { ...layer, id: result.runtime.idView, legend: result.runtime.legend };
-    addLegend(legendLayer, legendSlot);
-    setSecondaryState(layer, { viewId: result.runtime.idView, legendLayer });
-    syncHashFromState();
-    return result.runtime;
-  } finally {
-    setLayerToggleDisabled(layer, eyeBtn, false);
-    if (layer.key) toggleInFlight.delete(layer.key);
+  /** Open a tab from the home page's cards (and showTab()): switch and expand the panel. */
+  function navigateTo(tabId) {
+    if (!tabId || !allTabs.includes(tabId)) return;
+    switchTab(tabId);
+    expandPanel();
   }
-}
 
-function renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition) {
-  const widgetSlot = wrapper.querySelector(".layer-widget-slot");
-  widgetSlot.innerHTML = "";
-  const controls = buildExternalControls(externalDefinition, runtime.settings, (settings) =>
-    updateExternalVariant(layer, settings, eyeBtn, wrapper),
-  );
-  widgetSlot.appendChild(controls);
-}
+  function applyDisabledLayerVisibility() {
+    for (const tab of tabs) {
+      const tabPanel = tabPanels.get(tab.id);
+      if (tabPanel) updateDisabledLayerVisibility(tabPanel, tab, showDisabledLayers);
+    }
+  }
 
-/**
- * Build the UI and wire up all nav links.
- */
-export function buildSidebar() {
-  const sidebarBody = document.getElementById("panel-body");
-  const panel = document.getElementById("sidebar");
-  const toggle = document.getElementById("panel-toggle");
-  const infoPage = document.getElementById("info-page");
-  const clearBtn = document.getElementById("layer-clear-btn");
-  const disabledToggleBtn = document.getElementById("layer-disabled-toggle");
+  /**
+   * Show "Clear all" while any layer is on or asked to be on. It follows intent
+   * as well as the map so a layer that is still loading can be cleared, and it
+   * stays while a failing turn-off leaves a layer on. It does not report views;
+   * see notifyViewsChanged.
+   */
+  function updateClearBtn() {
+    if (clearBtn && layersStore) {
+      clearBtn.hidden = !layersStore.all().some((record) => record.desired || record.applied);
+    }
+  }
+
+  /**
+   * Store subscriber: tell `onViewsChanged` how many layers are on the map,
+   * whenever that number changes (a layer's `applied` flips). Intent alone
+   * never fires it, and neither does a source switch: the layer stays on
+   * through the gap between its old and new view, so a switch cannot report 0
+   * while a layer is on (which would disable inspect mode).
+   */
+  function notifyViewsChanged(_key, next, prev) {
+    if (next.applied === prev.applied || !onViewsChanged || !layersStore) return;
+    onViewsChanged(layersStore.all().filter((record) => record.applied).length);
+  }
+
+  // --- Build ---------------------------------------------------------------
+
+  const append = (parent, el) => {
+    parent.appendChild(el);
+    createdElements.push(el);
+    return el;
+  };
 
   // Collapse / expand sidebar — clear/restore inline resize dimensions so the
   // collapsed CSS width isn't overridden by a prior user resize.
-  toggle.addEventListener("click", () => {
-    if (panel.classList.contains("is-collapsed")) {
-      panel.classList.remove("is-collapsed");
-      onPanelExpand(panel);
-    } else {
-      onPanelCollapse(panel);
-      panel.classList.add("is-collapsed");
-    }
-  });
-
-  // "Clear all" turns off every active layer across all tabs
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      batchHashWrites(() =>
-        Promise.all(
-          Array.from(layerElementMap.values())
-            .filter(({ eyeBtn }) => eyeBtn.classList.contains("is-active"))
-            .map(({ layer, eyeBtn, wrapper }) => toggleLayer(layer, eyeBtn, wrapper)),
-        ),
-      );
-    });
+  /** Keep the collapse control telling the truth about what it does next. */
+  function renderToggleState(collapsed) {
+    if (!toggle) return;
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.setAttribute("aria-label", collapsed ? "Expand the layers panel" : "Collapse the layers panel");
   }
 
-  if (disabledToggleBtn) {
-    disabledToggleBtn.addEventListener("click", () => {
-      showDisabledLayers = !showDisabledLayers;
-      disabledToggleBtn.setAttribute("aria-pressed", String(showDisabledLayers));
-      disabledToggleBtn.textContent = showDisabledLayers ? "Hide disabled" : "Show disabled";
-      updateDisabledLayerVisibility();
-    });
-  }
+  toggle?.addEventListener(
+    "click",
+    () => {
+      if (!panel) return;
+      if (panel.classList.contains("is-collapsed")) {
+        panel.classList.remove("is-collapsed");
+        onPanelExpand(panel);
+        renderToggleState(false);
+      } else {
+        onPanelCollapse(panel);
+        panel.classList.add("is-collapsed");
+        renderToggleState(true);
+      }
+    },
+    { signal },
+  );
+  renderToggleState(Boolean(panel?.classList.contains("is-collapsed")));
 
-  // Clear stale state (guards against HMR / test re-runs)
-  layerElementMap.clear();
-  secondaryRows.clear();
-  secondaryState.clear();
+  // "Clear all" turns off every layer that is on or still loading, across all tabs
+  clearBtn?.addEventListener(
+    "click",
+    () => {
+      if (destroyed) return;
+      // The router batches; the sidebar drives the layers.
+      router.asOneEntry(() => layerController.clearAll());
+    },
+    { signal },
+  );
+
+  // A Mangrove switch (a checkbox): its own state is the setting, and its
+  // label stays "Show disabled" whichever way it is set.
+  disabledToggleBtn?.addEventListener(
+    "change",
+    () => {
+      showDisabledLayers = Boolean(disabledToggleBtn.checked);
+      applyDisabledLayerVisibility();
+    },
+    { signal },
+  );
+
+  // The instance's live region, at the end of its root — or of the root's
+  // `<body>` when the root is not an element (a document or a fragment), never
+  // of the layer panel: the panel sits inside `#app-map`, which an information
+  // page hides, and a region inside something hidden is never announced, which
+  // is the silent behaviour this region exists to fix. Visually hidden, and
+  // removed by announcer.destroy().
+  (rootEl ?? rootDoc.body ?? sidebarBody).appendChild(announcer.element);
 
   // Populate info page with all info panels
-  infoPage.appendChild(buildHomePanel());
-  infoPage.appendChild(buildSourcesPanel());
-  infoPage.appendChild(buildAboutPanel());
+  if (infoPage) {
+    infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
+    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
+    infoPanels.set("about", append(infoPage, buildAboutPanel()));
 
-  // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which has
-  // already fired by the time these panels exist. Enhancement is optional, so
-  // the promise is not awaited.
-  void initMangroveTabs(infoPage);
+    // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which
+    // has already fired by the time these panels exist. Enhancement is
+    // optional, so the promise is not awaited. Aborting the signal runs
+    // Mangrove's destroy, which removes its window and font listeners; destroy()
+    // aborts before removing the panels, so Mangrove still finds its containers.
+    void initMangroveTabs(infoPage, { signal });
+  }
 
   // Populate sidebar with layer panels (data tabs only)
-  for (const tab of TABS) {
-    const tabPanel = document.createElement("div");
-    tabPanel.className = "tab-panel";
-    tabPanel.id = `tab-${tab.id}`;
-    tabPanel.style.display = "none";
-
-    const intro = document.createElement("div");
-    intro.className = "tab-panel-intro";
-    const introText = document.createElement("p");
-    introText.textContent = tab.description;
-    intro.appendChild(introText);
-    if (tab.glossary) {
-      const glossary = document.createElement("p");
-      glossary.className = "tab-panel-glossary";
-      glossary.textContent = tab.glossary;
-      intro.appendChild(glossary);
-    }
-    if (tab.definitionUrl) {
-      const definitionLink = document.createElement("a");
-      definitionLink.href = tab.definitionUrl;
-      definitionLink.target = "_blank";
-      definitionLink.rel = "noopener";
-      definitionLink.textContent = "UNDRR definition";
-      intro.appendChild(definitionLink);
-    }
-    tabPanel.appendChild(intro);
-
-    const publishedLayers = tab.layers.filter(isLayerAvailable);
-    const empty = document.createElement("p");
-    empty.className = "tab-panel-empty mg-form-help";
-    empty.textContent =
-      'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
-    empty.hidden = publishedLayers.length > 0;
-    tabPanel.appendChild(empty);
-
-    const addLayersToContainer = (layers, container) => {
-      for (const layer of layers) {
-        const { wrapper, eyeBtn } = buildLayerAccordion(layer);
-        if (!isLayerAvailable(layer)) {
-          wrapper.hidden = !showDisabledLayers;
-          wrapper.dataset.layerDisabled = "true";
-          wrapper.classList.add("layer-disabled");
-        } else if (layer.key) {
-          layerElementMap.set(layer.key, { layer, eyeBtn, wrapper });
-        }
-        container.appendChild(wrapper);
-      }
-    };
-
-    if (tab.groups) {
-      for (const group of tab.groups) {
-        const groupEl = document.createElement("details");
-        groupEl.className = "layer-group";
-        groupEl.open = true;
-
-        const groupHeading = document.createElement("summary");
-        groupHeading.className = "layer-group-heading";
-        groupHeading.textContent = group.label;
-        groupEl.appendChild(groupHeading);
-
-        const groupItems = document.createElement("div");
-        groupItems.className = "layer-group-items";
-        addLayersToContainer(group.layers, groupItems);
-        groupEl.appendChild(groupItems);
-
-        tabPanel.appendChild(groupEl);
-      }
-    } else {
-      addLayersToContainer(tab.layers, tabPanel);
-    }
-
-    sidebarBody.appendChild(tabPanel);
+  for (const tab of tabs) {
+    const tabPanel = buildTabPanel(tab, {
+      addRow: addLayerRow,
+      showDisabled: showDisabledLayers,
+    });
+    tabPanels.set(tab.id, append(sidebarBody, tabPanel));
   }
 
-  updateDisabledLayerVisibility();
+  applyDisabledLayerVisibility();
 
-  // Second pass: append collapsed cross-tab sections to each tab panel.
-  // Built after the first pass so layerElementMap is fully populated.
-  for (const tab of TABS) {
-    const tabPanel = document.getElementById(`tab-${tab.id}`);
-    tabPanel.appendChild(buildCrossTabSections(tab));
+  // Second pass: append collapsed cross-tab sections to each tab panel, so a
+  // layer's home row comes first among its rows.
+  for (const tab of tabs) {
+    tabPanels.get(tab.id).appendChild(buildCrossTabSections(tab, tabs, { addRow: addLayerRow }));
   }
 
-  // Wire nav home link
-  const homeLink = document.querySelector(".nav-home-link");
-  if (homeLink) {
-    homeLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      switchTab("home");
+  if (navRoot) {
+    nav = createNav(navRoot, {
+      tabs,
+      signal,
+      onSelect: (tabId, source) => {
+        switchTab(tabId);
+        // A category link expands the panel if it is collapsed.
+        if (source === "tab" && panel?.classList.contains("is-collapsed")) expandPanel();
+      },
     });
   }
 
-  // Wire nav info links
-  for (const link of document.querySelectorAll(".nav-info-link")) {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      switchTab(link.dataset.panel);
-    });
+  // Everything the sidebar renders now exists: show the tab the router picks
+  // from URL state (or the initialTab option) and let it watch for external
+  // changes (back/forward, links, typed URLs).
+  router.onTabChange(renderTab);
+  router.start();
+
+  // Make the layer panel draggable and resizable
+  if (panel) {
+    makeDraggable(panel, panel.querySelector(".layer-panel-header"), { signal });
+    makeResizable(panel, { signal });
   }
 
-  // Wire nav category links
-  for (const link of document.querySelectorAll(".nav-tab-link")) {
-    const tab = TABS.find((candidate) => candidate.id === link.dataset.tab);
-    if (tab?.description) {
-      link.title = tab.description;
-      link.setAttribute("aria-description", tab.description);
-    }
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      switchTab(link.dataset.tab);
-      // Expand panel if collapsed
-      panel.classList.remove("is-collapsed");
-    });
-  }
-
-  // Read initial tab from URL hash, fall back to default
-  const { tab: hashTab } = parseHash();
-  const initialTab = hashTab && ALL_TABS.includes(hashTab) ? hashTab : store.activeTab;
-  // Preserve a valid incoming hash until MapX is ready and can restore its
-  // layers. Writing empty runtime state here would erase the shared link.
-  switchTab(initialTab, { syncHash: !hashTab || !ALL_TABS.includes(hashTab), replaceHash: true });
-
-  // Browser back/forward: reconcile both tab and layer state from the new hash.
-  // The URL is already the target, so the tab switch must not write the old
-  // layers back, and the reconcile only corrects the current entry in place.
-  window.addEventListener("hashchange", () => {
-    const { tab, layers: hashLayers } = parseHash();
-    if (tab && ALL_TABS.includes(tab) && tab !== store.activeTab) switchTab(tab, { syncHash: false });
-    if (isSDKReady()) batchHashWrites(() => reconcileLayersFromHash(hashLayers), { replace: true });
-  });
-
-  // Home page category cards dispatch a custom event to navigate to a data tab
-  document.addEventListener("navigate-tab", (e) => {
-    const tabId = e.detail;
-    if (tabId && ALL_TABS.includes(tabId)) {
-      switchTab(tabId);
-      // Expand the sidebar panel if it was collapsed
-      const panel = document.getElementById("sidebar");
-      if (panel) {
+  /**
+   * Tear down the instance: every listener (nav, panel toggle and drag/resize,
+   * Clear all, Show disabled, home cards, Sources), the store subscriptions,
+   * the layer rows, the controller, the router (with the hash adapter it
+   * created; an injected adapter belongs to the caller), and the
+   * DOM it built (info pages, tab panels, generated nav links, resize grip).
+   *
+   * Afterwards `store` and `controller` are null and nothing is re-created:
+   * clicks on old elements, tab switches, clear-all and restoreFromUrl() (which
+   * warns) do nothing. A MapX call that settles after destroy, or after a new
+   * instance is created, is dropped: the old controller writes nothing to the
+   * old or new store, openViews, the URL or the rows, and starts no further
+   * MapX calls for intent still pending (a view MapX already added is not
+   * removed).
+   */
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true;
+    for (const dispose of disposers.splice(0).reverse()) dispose();
+    lifetime.abort();
+    for (const row of allRows.splice(0)) row.destroy();
+    rowsByKey.clear();
+    nav?.destroy();
+    for (const el of createdElements.splice(0)) el.remove();
+    tabPanels.clear();
+    infoPanels.clear();
+    // Leave the page and the static controls as they were before the instance,
+    // for the next one (nav.destroy() restores the links' active state).
+    mapWarming?.destroy();
+    if (infoPage) infoPage.style.display = initialPage.infoPageDisplay;
+    if (globalFooter) globalFooter.hidden = initialPage.footerHidden;
+    if (panel && panel.classList.contains("is-collapsed") !== initialPage.panelCollapsed) {
+      if (initialPage.panelCollapsed) {
+        onPanelCollapse(panel);
+        panel.classList.add("is-collapsed");
+      } else {
         panel.classList.remove("is-collapsed");
         onPanelExpand(panel);
       }
     }
-  });
-
-  // Make the layer panel draggable and resizable
-  makeDraggable(panel, panel.querySelector(".layer-panel-header"));
-  makeResizable(panel);
-}
-
-function switchTab(tabId, { syncHash = true, replaceHash = false } = {}) {
-  store.setActiveTab(tabId);
-  if (syncHash) syncHashFromState({ replace: replaceHash });
-
-  const appMap = document.getElementById("app-map");
-  const infoPage = document.getElementById("info-page");
-  const isInfoTab = INFO_TABS.includes(tabId);
-
-  // Toggle map vs full-page info view
-  appMap.style.display = isInfoTab ? "none" : "";
-  infoPage.style.display = isInfoTab ? "block" : "none";
-
-  // The UNDRR global footer belongs to the content pages; the map view is
-  // full-bleed. The syndication widget populates it independently.
-  setGlobalFooterVisible(isInfoTab);
-
-  // Active state on all nav links
-  for (const link of document.querySelectorAll(".nav-tab-link")) {
-    link.classList.toggle("is-active", link.dataset.tab === tabId);
-  }
-  const homeLink = document.querySelector(".nav-home-link");
-  if (homeLink) homeLink.classList.toggle("is-active", tabId === "home");
-  for (const link of document.querySelectorAll(".nav-info-link")) {
-    link.classList.toggle("is-active", link.dataset.panel === tabId);
+    if (clearBtn) clearBtn.hidden = true;
+    if (disabledToggleBtn) disabledToggleBtn.checked = false;
+    // The collapse control's ARIA and label describe the panel's state, so
+    // they have to be restored with it, not left saying "Expand" over a panel
+    // that is open.
+    renderToggleState(Boolean(panel?.classList.contains("is-collapsed")));
+    layersStore = null;
+    layerController = null;
+    if (marksRoot) rootEl.removeAttribute(ROOT_ATTR);
   }
 
-  if (isInfoTab) {
-    // Show the right info panel, hide the others
-    for (const id of INFO_TABS) {
-      const el = document.getElementById(`tab-${id}`);
-      if (el) el.style.display = el.id === `tab-${tabId}` ? "block" : "none";
-    }
-  } else {
-    // Show the right layer panel in the sidebar, hide the others
-    for (const panel of document.querySelectorAll(".tab-panel")) {
-      panel.style.display = panel.id === `tab-${tabId}` ? "block" : "none";
-    }
-    for (const key of secondaryState.keys()) syncSecondaryRows(key);
-  }
-}
-
-function updateDisabledLayerVisibility() {
-  for (const tab of TABS) {
-    const tabPanel = document.getElementById(`tab-${tab.id}`);
-    if (!tabPanel) continue;
-
-    for (const wrapper of tabPanel.querySelectorAll("[data-layer-disabled='true']")) {
-      wrapper.hidden = !showDisabledLayers;
-    }
-
-    // Show/hide collapsible groups based on whether they have any visible items
-    for (const groupEl of tabPanel.querySelectorAll(".layer-group")) {
-      const items = groupEl.querySelector(".layer-group-items");
-      if (!items) continue;
-      groupEl.hidden = !Array.from(items.children).some((el) => !el.hidden);
-    }
-
-    const hasPublishedLayers = tab.layers.some(isLayerAvailable);
-    const empty = tabPanel.querySelector(".tab-panel-empty");
-    if (empty) empty.hidden = hasPublishedLayers || showDisabledLayers;
-  }
-}
-
-/**
- * Write current state (active tab + open layers) to the URL hash.
- * Called after every tab switch, layer toggle, and source switch. Inside a
- * batch only the Clear button is updated; the batch writes the hash once.
- * @param {{ replace?: boolean }} [options] - replace the history entry instead of pushing
- */
-function syncHashFromState({ replace = false } = {}) {
-  if (hashBatchDepth > 0) {
-    updateClearBtn();
-    return;
-  }
-  const layers = [];
-  for (const tab of TABS) {
-    for (const layer of tab.layers) {
-      if (!layer.key || !isLayerAvailable(layer)) continue;
-      const compound = isCompound(layer);
-      if (compound) {
-        const activeSource = layer.sources.find((s) => store.openViews.has(s.id));
-        if (activeSource) {
-          const idx = layer.sources.indexOf(activeSource);
-          layers.push({ key: layer.key, sourceIdx: idx });
-        }
-      } else if (isExternalLayer(layer)) {
-        const runtime = getExternalLayerRuntime(layer);
-        if (runtime) {
-          layers.push({ key: layer.key, sourceIdx: 0, settings: runtime.settings });
-        }
-      } else if (store.openViews.has(layer.id)) {
-        layers.push({ key: layer.key, sourceIdx: 0 });
-      }
-    }
-  }
-  writeHash(store.activeTab, layers, { replace });
-  updateClearBtn();
-}
-
-/**
- * Run a multi-layer change as one hash write: pushed for a user action
- * (clear-all), or replacing the current entry when restoring URL state.
- */
-async function batchHashWrites(fn, { replace = false } = {}) {
-  hashBatchDepth++;
-  try {
-    await fn();
-  } finally {
-    hashBatchDepth--;
-    if (hashBatchDepth === 0) syncHashFromState({ replace });
-  }
-}
-
-/** Show/hide the "Clear all" button based on whether any layers are active. */
-function updateClearBtn() {
-  const clearBtn = document.getElementById("layer-clear-btn");
-  if (clearBtn) clearBtn.hidden = store.openViews.size === 0;
-  if (_viewsChangeCallback) _viewsChangeCallback(store.openViews.size);
-}
-
-/**
- * Clamp a sourceIdx from the hash to valid bounds for the given layer.
- * Returns 0 if the value is invalid or out of range.
- */
-function safeSourceIdx(layer, sourceIdx) {
-  if (!isCompound(layer)) return 0;
-  const n = layer.sources.length;
-  return Number.isInteger(sourceIdx) && sourceIdx >= 0 && sourceIdx < n ? sourceIdx : 0;
-}
-
-/**
- * Restore layer state from the URL hash. Call after SDK is ready.
- * Uses layerElementMap (built during buildSidebar) for key-based lookup,
- * eliminating positional DOM queries that break when layer order changes.
- */
-export async function restoreLayersFromHash() {
-  const { layers } = parseHash();
-  if (layers.length === 0) return;
-
-  // Toggles start in hash order (MapX adds views in request order) and the
-  // URL is only rewritten once, in place, after they all settle.
-  await batchHashWrites(
-    () =>
-      Promise.all(
-        layers.map(({ key, sourceIdx, settings }) => {
-          const el = layerElementMap.get(key);
-          if (!el || el.eyeBtn.classList.contains("is-active")) return null;
-          const { layer, eyeBtn, wrapper } = el;
-          if (isCompound(layer)) {
-            // Always set source index — even 0, to clear any prior state
-            store.setActiveSource(compoundKey(layer), safeSourceIdx(layer, sourceIdx));
-          }
-          return toggleLayer(layer, eyeBtn, wrapper, settings);
-        }),
-      ),
-    { replace: true },
-  );
-}
-
-/**
- * Reconcile open layer state against a parsed hash layers array.
- * Called on hashchange (back/forward) after initial load.
- * - Turns off layers not in the hash.
- * - Turns on layers that should be on.
- * - Switches source index for compound layers that stay on but change source.
- */
-async function reconcileLayersFromHash(hashLayers) {
-  const targetMap = new Map(hashLayers.map((l) => [l.key, l]));
-  const changes = [];
-
-  for (const [key, { layer, eyeBtn, wrapper }] of layerElementMap) {
-    const isOn = eyeBtn.classList.contains("is-active");
-    const hashEntry = targetMap.get(key);
-    const shouldBeOn = Boolean(hashEntry);
-
-    if (isOn !== shouldBeOn) {
-      if (shouldBeOn && isCompound(layer)) {
-        // Always set — including 0 — so any prior source state is cleared
-        store.setActiveSource(compoundKey(layer), safeSourceIdx(layer, hashEntry.sourceIdx));
-      }
-      changes.push(toggleLayer(layer, eyeBtn, wrapper, hashEntry?.settings));
-    } else if (isOn && isCompound(layer)) {
-      // Layer stays on: switch source if hash encodes a different index
-      const safeIdx = safeSourceIdx(layer, hashEntry.sourceIdx);
-      if (safeIdx !== store.getActiveSource(compoundKey(layer))) {
-        changes.push(switchSource(layer, compoundKey(layer), safeIdx, wrapper));
-      }
-    } else if (isOn && isExternalLayer(layer) && hashEntry.settings) {
-      const runtime = getExternalLayerRuntime(layer);
-      if (runtime && !externalSettingsMatch(runtime.settings, hashEntry.settings)) {
-        changes.push(
-          updateExternalVariant(layer, hashEntry.settings, eyeBtn, wrapper)
-            .then((updated) =>
-              renderExternalControls(layer, updated, eyeBtn, wrapper, getExternalLayerDefinition(layer)),
-            )
-            .catch((error) => console.warn(`Failed to restore external variant for ${layer.key}:`, error)),
-        );
-      }
-    }
-  }
-
-  await Promise.all(changes);
-}
-
-export function buildLayerAccordion(layer) {
-  const published = isLayerAvailable(layer);
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "layer-item";
-
-  // Header row: expand arrow + label + type tag + eye toggle (published only)
-  const header = document.createElement("div");
-  header.className = "layer-header";
-
-  const arrow = document.createElement("span");
-  arrow.className = "layer-arrow";
-  arrow.textContent = "\u25B6"; // ▶
-  arrow.setAttribute("aria-hidden", "true");
-  header.appendChild(arrow);
-
-  const label = document.createElement("span");
-  label.className = "layer-label";
-  label.textContent = layer.label;
-  header.appendChild(label);
-
-  header.appendChild(buildLayerTypeTag(layer));
-
-  let eyeBtn = null;
-  if (published) {
-    eyeBtn = document.createElement("button");
-    eyeBtn.className = "layer-eye";
-    eyeBtn.setAttribute("role", "switch");
-    setLayerToggleState(layer, eyeBtn, false);
-    eyeBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleLayer(layer, eyeBtn, wrapper);
-    });
-    header.appendChild(eyeBtn);
-  }
-
-  wrapper.appendChild(header);
-
-  // Expandable body (description + controls)
-  const body = document.createElement("div");
-  body.className = "layer-body";
-  body.style.display = "none";
-
-  if (layer.initiative || layer.desc) {
-    const desc = document.createElement("p");
-    desc.className = "layer-desc mg-form-help";
-    setLayerDescription(desc, layer, layer.desc);
-    body.appendChild(desc);
-  }
-
-  const metadata = document.createElement("p");
-  metadata.className = "layer-meta-links";
-  if (layer.sourceUrl && layer.source && layer.source !== "Source to be confirmed.") {
-    const sourceLink = document.createElement("a");
-    sourceLink.href = layer.sourceUrl;
-    sourceLink.target = "_blank";
-    sourceLink.rel = "noopener";
-    sourceLink.textContent = "Source";
-    metadata.appendChild(sourceLink);
-    metadata.append(" · ");
-  }
-  const detailsLink = document.createElement("a");
-  detailsLink.href = "#sources";
-  detailsLink.textContent = "Citation and methodology details";
-  metadata.appendChild(detailsLink);
-  body.appendChild(metadata);
-
-  // Widget slot (compound layers render source-switcher here)
-  const widgetSlot = document.createElement("div");
-  widgetSlot.className = "layer-widget-slot";
-  body.appendChild(widgetSlot);
-
-  // Opacity slider placeholder (added when layer is active)
-  const sliderSlot = document.createElement("div");
-  sliderSlot.className = "layer-slider-slot";
-  body.appendChild(sliderSlot);
-
-  // Legend slot
-  const legendSlot = document.createElement("div");
-  legendSlot.className = "layer-legend-slot";
-  body.appendChild(legendSlot);
-
-  wrapper.appendChild(body);
-
-  // All layers support expand/collapse so reviewers can read descriptions
-  header.tabIndex = 0;
-  header.setAttribute("role", "button");
-  header.setAttribute("aria-expanded", "false");
-
-  const toggleAccordion = () => {
-    const open = body.style.display !== "none";
-    setAccordionExpanded(wrapper, !open);
-
-    // Expanding a published layer is an activation intent. Collapsing only
-    // hides its controls; the layer remains on until its switch is turned off.
-    if (!open && eyeBtn && !eyeBtn.classList.contains("is-active")) {
-      toggleLayer(layer, eyeBtn, wrapper, null, false);
-    }
+  return {
+    /** Restore the layers in URL state. Call after the SDK is ready. */
+    restoreFromUrl: () => router.restoreFromUrl(),
+    /**
+     * Open a tab as a home card does: switch to it and expand the layer panel.
+     * The app itself navigates through the nav and home cards; this is the seam
+     * for tests and future embeds (`createRiskMap`).
+     */
+    showTab: navigateTo,
+    destroy,
+    /** The layers store (null after destroy). */
+    get store() {
+      return layersStore;
+    },
+    /** The layer controller (null after destroy). */
+    get controller() {
+      return layerController;
+    },
+    /** The shown tab id (the last one shown, after destroy). */
+    get activeTab() {
+      return router.activeTab;
+    },
   };
-
-  header.addEventListener("click", toggleAccordion);
-  header.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      toggleAccordion();
-    }
-  });
-
-  return { wrapper, eyeBtn };
-}
-
-async function toggleLayer(layer, eyeBtn, wrapper, initialExternalSettings = null, expandOnActivate = true) {
-  // Guard: SDK must be ready before attempting map operations
-  if (!isSDKReady()) {
-    const label = wrapper.querySelector(".layer-label");
-    const msg = label
-      ? `${label.textContent} cannot be toggled yet — map is still loading.`
-      : "Map is still loading.";
-    console.warn(msg);
-    return;
-  }
-
-  // A source switch is mid-flight: defer a turn-off until it settles, otherwise
-  // the switch would re-add its new view after the layer was turned off.
-  if (layer.key && sourceSwitchInFlight.has(layer.key)) {
-    pendingToggleOff.add(layer.key);
-    return;
-  }
-
-  // Guard: prevent concurrent toggles for the same layer (rapid clicks / secondary + primary race)
-  if (layer.key && toggleInFlight.has(layer.key)) return;
-  if (layer.key) toggleInFlight.add(layer.key);
-  const external = isExternalLayer(layer);
-  if (external) setLayerToggleDisabled(layer, eyeBtn, true);
-
-  try {
-    const widgetSlot = wrapper.querySelector(".layer-widget-slot");
-    const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-    const legendSlot = wrapper.querySelector(".layer-legend-slot");
-    const compound = isCompound(layer);
-    const externalDefinition = external ? getExternalLayerDefinition(layer) : null;
-    // Determine which view ID is currently active
-    const key = compound ? compoundKey(layer) : null;
-    // Guard against an out-of-bounds index (defensive; config is validated)
-    const activeIdx = compound ? safeSourceIdx(layer, store.getActiveSource(key)) : 0;
-    let runtime = external ? getExternalLayerRuntime(layer) : null;
-    let activeViewId = external ? runtime?.idView : compound ? layer.sources[activeIdx].id : layer.id;
-
-    // Is this layer currently on? For compound layers, check if ANY source is open.
-    const isOn = external
-      ? Boolean(runtime)
-      : compound
-        ? layer.sources.some((s) => store.openViews.has(s.id))
-        : store.openViews.has(layer.id);
-
-    if (isOn) {
-      // Turn off -- remove whichever source view is active
-      const removeId = external
-        ? runtime.idView
-        : compound
-          ? layer.sources.find((s) => store.openViews.has(s.id))?.id
-          : layer.id;
-      if (removeId) {
-        try {
-          if (external) {
-            await closeExternalLayer(layer);
-          } else {
-            await viewRemove(removeId);
-          }
-        } catch (err) {
-          console.warn(`Failed to remove view ${removeId}:`, err);
-          if (external) return;
-        }
-        store.openViews.delete(removeId);
-      }
-      setLayerToggleState(layer, eyeBtn, false);
-      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-        setLayerToggleState(layer, btn, false);
-      }
-      setSecondaryState(layer, null);
-      wrapper.classList.remove("layer-active");
-      widgetSlot.innerHTML = "";
-      sliderSlot.innerHTML = "";
-      legendSlot.innerHTML = "";
-
-      // Turning a layer off ends the interaction and returns the row to its
-      // compact state. Collapsing alone still leaves an active layer on.
-      setAccordionExpanded(wrapper, false);
-      syncHashFromState();
-    } else {
-      // Turn on
-      let externalStatus = null;
-      if (external && expandOnActivate) {
-        setAccordionExpanded(wrapper, true);
-
-        widgetSlot.innerHTML = "";
-        externalStatus = document.createElement("p");
-        externalStatus.className = "external-layer-status";
-        externalStatus.setAttribute("aria-live", "polite");
-        externalStatus.textContent = `Loading ${layer.label}…`;
-        widgetSlot.appendChild(externalStatus);
-      }
-      if (external) setSecondaryState(layer, { status: { text: `Loading ${layer.label}…` } });
-
-      try {
-        if (external) {
-          runtime = await openExternalLayer(layer, initialExternalSettings ?? layer.external.defaults);
-          activeViewId = runtime.idView;
-        } else {
-          await viewAdd(activeViewId);
-        }
-      } catch (err) {
-        console.warn(`Failed to add layer ${layer.key || activeViewId}:`, err);
-        if (externalStatus) {
-          externalStatus.classList.add("is-error");
-          externalStatus.textContent = `Could not load ${layer.label}. Please try again.`;
-        }
-        if (external) {
-          setSecondaryState(layer, {
-            status: { text: `Could not load ${layer.label}. Please try again.`, isError: true },
-          });
-        }
-        return;
-      }
-      store.openViews.add(activeViewId);
-      setLayerToggleState(layer, eyeBtn, true);
-      for (const { eyeBtn: btn } of secondaryRows.get(layer.key) ?? []) {
-        setLayerToggleState(layer, btn, true);
-        // Auto-expand the cross-tab section containing this button
-        const section = btn.closest("details.cross-tab-section");
-        if (section) section.open = true;
-      }
-      wrapper.classList.add("layer-active");
-
-      // Direct switch activation reveals controls. Header activation already
-      // manages expansion and must not reopen after a slow MapX response.
-      if (expandOnActivate) setAccordionExpanded(wrapper, true);
-
-      // Build source-switching widget for compound layers
-      if (compound && layer.widget) {
-        const descEl = wrapper.querySelector(".layer-desc");
-        const widgetEl = buildWidget(layer.widget, layer.sources, activeIdx, (newIdx) =>
-          switchSource(layer, key, newIdx, wrapper),
-        );
-        if (widgetEl) widgetSlot.appendChild(widgetEl);
-
-        // Show the active source's description instead of the parent's
-        if (descEl) {
-          setLayerDescription(descEl, layer, layer.sources[activeIdx].desc || layer.desc);
-        }
-      }
-
-      if (external) {
-        renderExternalControls(layer, runtime, eyeBtn, wrapper, externalDefinition);
-      }
-
-      addOpacitySlider(activeViewId, sliderSlot);
-      // For compound layers, merge the active source's fields (desc, legend)
-      // onto the parent layer so addLegend sees the right data.
-      const legendLayer = external
-        ? { ...layer, id: activeViewId, legend: runtime.legend }
-        : compound
-          ? { ...layer, ...layer.sources[activeIdx], label: layer.label }
-          : layer;
-      addLegend(legendLayer, legendSlot);
-      setSecondaryState(layer, { viewId: activeViewId, legendLayer });
-      syncHashFromState();
-    }
-  } finally {
-    if (external) setLayerToggleDisabled(layer, eyeBtn, false);
-    if (layer.key) toggleInFlight.delete(layer.key);
-  }
-}
-
-/**
- * Switch between sources within a compound layer.
- * Removes the old view, adds the new one, and rebuilds controls.
- * @returns {Promise<boolean>} false if the switch was rejected (another change
- *   is in flight) or failed, so the source widget can show the actual source
- */
-async function switchSource(layer, key, newIdx, wrapper) {
-  if (layer.key && (toggleInFlight.has(layer.key) || sourceSwitchInFlight.has(layer.key))) return false;
-  if (layer.key) {
-    toggleInFlight.add(layer.key);
-    sourceSwitchInFlight.add(layer.key);
-  }
-  let switched;
-  try {
-    switched = await applySourceSwitch(layer, key, newIdx, wrapper);
-  } finally {
-    if (layer.key) {
-      toggleInFlight.delete(layer.key);
-      sourceSwitchInFlight.delete(layer.key);
-    }
-  }
-  if (layer.key && pendingToggleOff.delete(layer.key)) {
-    const el = layerElementMap.get(layer.key);
-    if (el?.eyeBtn.classList.contains("is-active")) await toggleLayer(layer, el.eyeBtn, el.wrapper);
-  }
-  return switched;
-}
-
-async function applySourceSwitch(layer, key, newIdx, wrapper) {
-  const oldIdx = store.getActiveSource(key);
-  const oldId = layer.sources[oldIdx].id;
-  const newId = layer.sources[newIdx].id;
-  if (oldId === newId) return true;
-
-  // Remove old, add new
-  try {
-    await viewRemove(oldId);
-  } catch (e) {
-    console.warn(e);
-  }
-  store.openViews.delete(oldId);
-
-  try {
-    await viewAdd(newId);
-  } catch (e) {
-    // Rollback: re-add old view if new one fails
-    console.warn(`Failed to switch to source ${newIdx}:`, e);
-    try {
-      await viewAdd(oldId);
-      store.openViews.add(oldId);
-    } catch {
-      /* */
-    }
-    return false;
-  }
-  store.openViews.add(newId);
-  store.setActiveSource(key, newIdx);
-  syncHashFromState();
-
-  // Update description to the new source's text
-  const descEl = wrapper.querySelector(".layer-desc");
-  if (descEl) {
-    setLayerDescription(descEl, layer, layer.sources[newIdx].desc || layer.desc);
-  }
-
-  // Rebuild opacity slider and legend for the new source
-  const sliderSlot = wrapper.querySelector(".layer-slider-slot");
-  const legendSlot = wrapper.querySelector(".layer-legend-slot");
-  sliderSlot.innerHTML = "";
-  addOpacitySlider(newId, sliderSlot);
-
-  legendSlot.innerHTML = "";
-  const legendLayer = { ...layer, ...layer.sources[newIdx], label: layer.label };
-  addLegend(legendLayer, legendSlot);
-  setSecondaryState(layer, { viewId: newId, legendLayer });
-  return true;
-}
-
-function setLayerDescription(element, layer, description) {
-  const initiative = layer.initiative?.trim();
-  const initiativeSentence = initiative ? (/[.!?]$/.test(initiative) ? initiative : `${initiative}.`) : "";
-  element.textContent = [initiativeSentence, description?.trim()].filter(Boolean).join(" ");
-}
-
-/**
- * Build collapsed <details> sections for all tabs other than the current one.
- * Each section shows a compact row per published layer (label + type tag + eye toggle).
- * Eye toggles delegate to the canonical eye button in layerElementMap.
- */
-function buildCrossTabSections(currentTab) {
-  const container = document.createElement("div");
-  container.className = "cross-tab-sections";
-
-  for (const tab of TABS) {
-    if (tab.id === currentTab.id) continue;
-
-    const publishedLayers = tab.layers.filter((l) => isLayerAvailable(l) && l.key);
-    if (publishedLayers.length === 0) continue;
-
-    const details = document.createElement("details");
-    details.className = "cross-tab-section";
-
-    const summary = document.createElement("summary");
-    summary.className = "cross-tab-summary";
-    summary.textContent = tab.label;
-    details.appendChild(summary);
-
-    if (tab.groups) {
-      for (const group of tab.groups) {
-        const groupLayers = group.layers.filter((l) => isLayerAvailable(l) && l.key);
-        if (groupLayers.length === 0) continue;
-
-        const groupHeading = document.createElement("p");
-        groupHeading.className = "cross-tab-group-label";
-        groupHeading.textContent = group.label;
-        details.appendChild(groupHeading);
-
-        for (const layer of groupLayers) {
-          details.appendChild(buildCrossTabRow(layer, currentTab.id));
-        }
-      }
-    } else {
-      for (const layer of publishedLayers) {
-        details.appendChild(buildCrossTabRow(layer, currentTab.id));
-      }
-    }
-
-    container.appendChild(details);
-  }
-
-  return container;
-}
-
-/**
- * Build a single compact row for a cross-tab section.
- * The row carries its own details area (description, opacity slider, legend)
- * that is shown while the layer is active; source/variant switching stays in
- * the layer's home tab. Registered in secondaryRows so toggleLayer keeps it in
- * sync; `tabId` is the tab panel the row lives in (rendered only when visible).
- */
-function buildCrossTabRow(layer, tabId = null) {
-  const item = document.createElement("div");
-  item.className = "cross-tab-item";
-
-  const row = document.createElement("div");
-  row.className = "cross-tab-row";
-
-  const labelEl = document.createElement("span");
-  labelEl.className = "cross-tab-label";
-  labelEl.textContent = layer.label;
-  row.appendChild(labelEl);
-
-  row.appendChild(buildLayerTypeTag(layer));
-
-  const eyeBtn = document.createElement("button");
-  eyeBtn.className = "layer-eye";
-  eyeBtn.setAttribute("role", "switch");
-  setLayerToggleState(layer, eyeBtn, false);
-  eyeBtn.title += " — switch to tab for sub-source controls";
-  eyeBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    layerElementMap.get(layer.key)?.eyeBtn.click();
-  });
-  row.appendChild(eyeBtn);
-  item.appendChild(row);
-
-  const body = document.createElement("div");
-  body.className = "cross-tab-body";
-  body.hidden = true;
-
-  let desc = null;
-  if (layer.initiative || layer.desc) {
-    desc = document.createElement("p");
-    desc.className = "layer-desc mg-form-help";
-    setLayerDescription(desc, layer, layer.desc);
-    body.appendChild(desc);
-  }
-
-  const status = document.createElement("p");
-  status.className = "external-layer-status";
-  status.setAttribute("aria-live", "polite");
-  status.hidden = true;
-  body.appendChild(status);
-
-  const sliderSlot = document.createElement("div");
-  sliderSlot.className = "layer-slider-slot";
-  body.appendChild(sliderSlot);
-
-  const legendSlot = document.createElement("div");
-  legendSlot.className = "layer-legend-slot";
-  body.appendChild(legendSlot);
-  item.appendChild(body);
-
-  if (!secondaryRows.has(layer.key)) secondaryRows.set(layer.key, []);
-  secondaryRows.get(layer.key).push({ tabId, eyeBtn, body, desc, status, sliderSlot, legendSlot });
-
-  return item;
 }

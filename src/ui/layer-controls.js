@@ -22,6 +22,14 @@ const IMAGE_FALLBACK_LABELS = {
 };
 
 /**
+ * The latest opacity a user set per view, with a count of changes. A slider
+ * whose transparency read was in flight while the user dragged another slider
+ * for the same view takes that value instead of the (now stale) read.
+ * @type {Map<string, { changes: number, opacity: number }>}
+ */
+const userOpacity = new Map();
+
+/**
  * Build an opacity slider for a view and append it to container.
  *
  * Reads the current transparency from the SDK (inverted to opacity for the
@@ -40,7 +48,14 @@ export async function addOpacitySlider(idView, container) {
   const row = document.createElement("div");
   row.className = "opacity-row";
 
-  const lbl = document.createElement("label");
+  // Mangrove's Range pairs `mg-range` with an `mg-form-label` carrying `for`,
+  // which needs an id. The same layer can show a slider in its home tab and in
+  // another tab's cross-tab section at the same time, so a fixed id would be
+  // duplicated; the visible "Opacity" text is therefore decorative and the name
+  // comes from aria-label, matching it word for word (WCAG 2.5.3).
+  const lbl = document.createElement("span");
+  lbl.className = "opacity-label";
+  lbl.setAttribute("aria-hidden", "true");
   lbl.textContent = "Opacity";
   row.appendChild(lbl);
 
@@ -50,27 +65,44 @@ export async function addOpacitySlider(idView, container) {
   slider.min = "0";
   slider.max = "100";
   slider.value = "100";
+  slider.setAttribute("aria-label", "Opacity");
+  // The native value announces as a bare number, so spell out the unit. Kept in
+  // step with `value` on every input event below.
+  slider.setAttribute("aria-valuetext", "100%");
   slider.dataset.viewId = idView;
 
   const valueDisplay = document.createElement("span");
   valueDisplay.className = "opacity-value";
+  valueDisplay.setAttribute("aria-hidden", "true");
   valueDisplay.textContent = "100%";
 
   // SDK uses "transparency" (0=opaque, 100=invisible); UI shows "opacity"
   // (0=invisible, 100=opaque). Convert: opacity = 100 - transparency.
+  const changesBefore = userOpacity.get(idView)?.changes ?? 0;
+  let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    if (typeof current === "number") {
-      slider.value = String(100 - current);
-      valueDisplay.textContent = `${100 - current}%`;
-    }
+    // MapX can answer with a fraction (0.98). The slider's step is 1, so it
+    // would round the thumb while the percentage beside it, and now
+    // aria-valuetext, still read "99.02%".
+    if (typeof current === "number") opacity = Math.round(100 - current);
   } catch {
     // Default to 100% opacity
+  }
+  // A slider for the same view was moved during the read: its value is newer.
+  const moved = userOpacity.get(idView);
+  if (moved && moved.changes !== changesBefore) opacity = moved.opacity;
+  if (opacity !== null) {
+    slider.value = String(opacity);
+    slider.setAttribute("aria-valuetext", `${opacity}%`);
+    valueDisplay.textContent = `${opacity}%`;
   }
 
   slider.addEventListener("input", async () => {
     const opacity = Number(slider.value);
+    slider.setAttribute("aria-valuetext", `${opacity}%`);
     valueDisplay.textContent = `${opacity}%`;
+    userOpacity.set(idView, { changes: (userOpacity.get(idView)?.changes ?? 0) + 1, opacity });
     syncOpacitySliders(idView, slider);
     try {
       await setViewLayerTransparency(idView, 100 - opacity);
@@ -93,7 +125,8 @@ function syncOpacitySliders(idView, source) {
   for (const other of document.querySelectorAll("input.mg-range[data-view-id]")) {
     if (other === source || other.dataset.viewId !== idView) continue;
     other.value = source.value;
-    const display = other.parentElement?.querySelector(".opacity-value");
+    other.setAttribute("aria-valuetext", `${source.value}%`);
+    const display = other.closest(".opacity-row")?.querySelector(".opacity-value");
     if (display) display.textContent = `${source.value}%`;
   }
 }

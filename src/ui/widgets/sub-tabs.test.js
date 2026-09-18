@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { waitFor } from "../../../tests/support/async.js";
 import { buildSubTabs } from "./sub-tabs.js";
 
 const SOURCES = [
@@ -67,6 +68,15 @@ describe("buildSubTabs", () => {
     expect(el.querySelector(".widget-label")).toBeNull();
   });
 
+  it("makes the visible label decorative and names the tablist instead", () => {
+    const el = buildSubTabs(SOURCES, 0, () => {}, CONFIG);
+    const lbl = el.querySelector(".widget-label");
+    expect(lbl.tagName).toBe("SPAN");
+    expect(lbl.getAttribute("aria-hidden")).toBe("true");
+    expect(el.querySelector("label")).toBeNull();
+    expect(el.querySelector("[role=tablist]").getAttribute("aria-label")).toBe(CONFIG.label);
+  });
+
   it("has the tablist role on the button bar", () => {
     const el = buildSubTabs(SOURCES, 0, () => {}, CONFIG);
     expect(el.querySelector(".widget-sub-tabs-bar")?.getAttribute("role")).toBe("tablist");
@@ -112,7 +122,7 @@ describe("buildSubTabs", () => {
     buttons[2].click();
     expect(buttons[2].classList.contains("is-active")).toBe(true);
 
-    await vi.waitFor(() => expect(buttons[0].classList.contains("is-active")).toBe(true));
+    await waitFor(() => expect(buttons[0].classList.contains("is-active")).toBe(true));
     expect(buttons[2].classList.contains("is-active")).toBe(false);
     expect(buttons[2].getAttribute("aria-selected")).toBe("false");
   });
@@ -124,6 +134,25 @@ describe("buildSubTabs", () => {
 
     select.value = "3";
     select.dispatchEvent(new Event("change"));
-    await vi.waitFor(() => expect(select.value).toBe("1"));
+    await waitFor(() => expect(select.value).toBe("1"));
+  });
+
+  it("removes its listeners when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const buttons = buildSubTabs(SOURCES, 0, onChange, CONFIG, { signal: controller.signal });
+    controller.abort();
+    buttons.querySelectorAll(".widget-sub-tab")[2].click();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(buttons.querySelectorAll(".widget-sub-tab")[2].classList.contains("is-active")).toBe(false);
+
+    const many = [...SOURCES, { id: "d", label: "Delta" }];
+    const dropdownController = new AbortController();
+    const dropdown = buildSubTabs(many, 0, onChange, CONFIG, { signal: dropdownController.signal });
+    dropdownController.abort();
+    const select = dropdown.querySelector("select");
+    select.value = "3";
+    select.dispatchEvent(new Event("change"));
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -19,23 +19,20 @@ const REGISTRY = {
  * @param {Array} sources - layer.sources array
  * @param {number} initialIndex - currently active source index
  * @param {function} onSourceChange - callback(newIndex) when user switches
+ * @param {{ signal?: AbortSignal }} [options] - aborting the signal removes the
+ *   widget's listeners (and drops a pick still waiting on a debounce)
  * @returns {HTMLElement|null}
  */
-export function buildWidget(widgetConfig, sources, initialIndex, onSourceChange) {
+export function buildWidget(widgetConfig, sources, initialIndex, onSourceChange, { signal } = {}) {
   const factory = REGISTRY[widgetConfig.type];
   if (!factory) {
     console.warn(`Unknown widget type: "${widgetConfig.type}"`);
     return null;
   }
-  return factory(sources, initialIndex, onSourceChange, widgetConfig);
+  return factory(sources, initialIndex, onSourceChange, widgetConfig, { signal });
 }
 
 /** True if a layer has multiple switchable sources. */
 export function isCompound(layer) {
   return Array.isArray(layer.sources) && layer.sources.length > 0;
-}
-
-/** Stable key for a compound layer (for state tracking). */
-export function compoundKey(layer) {
-  return layer.key || layer.label;
 }

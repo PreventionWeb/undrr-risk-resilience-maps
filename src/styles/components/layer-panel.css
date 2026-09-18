@@ -9,9 +9,9 @@
   z-index: var(--z-panel);
   width: 20rem;
   max-height: calc(100% - 1.5rem);
-  background: #fff;
+  background: rgb(var(--mg-color-neutral-0));
   border-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 12px rgb(var(--mg-color-neutral-900) / 0.15);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -60,18 +60,69 @@
   gap: 0.25rem;
 }
 
-/* Mangrove outline button (mg-button-primary mg-button-outline) owns colour,
-   hover and focus; compact sizing keeps it in the panel header. */
-.layer-review-btn {
-  min-block-size: 1.75rem;
-  padding: 0 0.5rem;
-  font-size: 0.72rem;
+/* "Show disabled" is the same Mangrove switch as a layer row's, one size
+   down: Mangrove owns the track, thumb, focus ring and states — including the
+   off track's colour, which must stay at Mangrove's neutral-400 (3.96:1
+   against the panel) to clear the 3:1 a UI component boundary needs. */
+/* Mangrove has no size hook for the switch yet (unisdr/undrr-mangrove#1199),
+   so the geometry is re-declared here. The three numbers below are the only
+   inputs; the thumb's travel is derived from them rather than written out, and
+   the RTL rule mirrors it. Without that rule Mangrove's own
+   `[dir=rtl] ... translateX(-1.125rem)` loses to this equal-specificity rule
+   that loads later, and the thumb would travel the wrong way by the wrong
+   distance. Delete all of this once the size hook lands. */
+.layer-review-switch {
+  --layer-switch-track-width: 2rem;
+  --layer-switch-track-padding: 0.0625rem;
+  --layer-switch-thumb-size: 1rem;
+  /* Mangrove's forced-colors rules add a 1px border to the track but leave the
+     padding at 1px -- and its padding declaration loses to ours -- so the
+     content box the thumb travels in narrows by 2px there. The track is
+     border-box, so the border has to come out of the travel like the padding
+     does; see the forced-colors block below. */
+  --layer-switch-track-border: 0px;
+  --layer-switch-travel: calc(
+    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) - 2 *
+      var(--layer-switch-track-border) - var(--layer-switch-thumb-size)
+  );
+  gap: 0.35rem;
+  min-height: 1.75rem;
   white-space: nowrap;
 }
 
-.layer-review-btn[aria-pressed="true"] {
-  background-color: var(--mg-color-button-background);
-  color: rgb(var(--mg-color-button));
+.layer-review-switch .mg-switch__track {
+  height: 1.125rem;
+  width: var(--layer-switch-track-width);
+  padding: var(--layer-switch-track-padding);
+}
+
+.layer-review-switch .mg-switch__thumb {
+  height: var(--layer-switch-thumb-size);
+  width: var(--layer-switch-thumb-size);
+}
+
+.layer-review-switch .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
+  transform: translateX(var(--layer-switch-travel));
+}
+
+[dir="rtl"] .layer-review-switch .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
+  transform: translateX(calc(-1 * var(--layer-switch-travel)));
+}
+
+/* Mangrove's `@media (forced-colors: active)` sets
+   `.mg-switch__track { border: 1px solid CanvasText; padding: 1px }`, but that
+   padding rule (0,1,0) loses to the one above (0,2,0), so the border is added
+   rather than absorbed. Feeding it back into the formula keeps the thumb inside
+   the track instead of flush with its edge. */
+@media (forced-colors: active) {
+  .layer-review-switch {
+    --layer-switch-track-border: 1px;
+  }
+}
+
+.layer-review-switch .mg-switch__label {
+  font-size: 0.72rem;
+  color: var(--color-text);
 }
 
 .layer-clear-btn {
@@ -99,7 +150,7 @@
   display: none;
 }
 
-.layer-panel.is-collapsed .layer-review-btn {
+.layer-panel.is-collapsed .layer-review-switch {
   display: none;
 }
 
@@ -117,9 +168,14 @@
   padding: 0;
 }
 
+/* Mangrove's empty state owns the background, radius and type; locally it is
+   inset in the panel and reads at panel scale. */
 .tab-panel-empty {
-  margin: 0;
-  padding: 0.85rem 0.75rem 1rem;
-  color: #666;
-  line-height: 1.5;
+  --mg-empty-state-compact-font-size: 0.72rem;
+  margin: 0.6rem 0.75rem 0.85rem;
+}
+
+/* mg-empty-state sets display: flex, which would beat the UA's [hidden]. */
+.tab-panel-empty[hidden] {
+  display: none;
 }

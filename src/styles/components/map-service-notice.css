@@ -1,87 +1,41 @@
-.map-service-notice {
-  position: absolute;
-  inset: 0;
+/**
+ * Map-service notice — positioning only.
+ *
+ * The notice itself is Mangrove's ServiceNotice markup in its `--overlay`
+ * variant (`.mg-notice.mg-notice--warning.mg-notice--overlay` in index.html),
+ * which supplies `position: absolute`, `inset: 0`, the centring, the 94%
+ * neutral-0 wash with its `backdrop-filter`, the icon and title type, the
+ * status label and the action row. Everything below is what `--overlay` cannot
+ * know about: this app's stacking order, the layer panel it has to clear, and
+ * the `hidden` attribute it is toggled with.
+ */
+
+/* Both classes, so these declarations beat `.mg-notice--overlay`'s own
+   `padding` and `z-index` whichever stylesheet the bundler emits last. */
+.map-service-notice.mg-notice--overlay {
+  /* Above the map, below the floating layer panel (--z-panel: 30). */
   z-index: 5;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem 1.5rem 1.5rem 22rem;
-  background: #f3f6f8;
+  /* `.mg-notice` gives every notice a 1px border in its severity colour, and
+     `--overlay` keeps it on all four sides. Mangrove's overlays sit on a card,
+     where that traces the card; ours sits on the whole map embed, where it drew
+     a gold hairline along the top of the map and down beside the layer panel —
+     a frame around the map, not around a notice. The card already reads from
+     its warning icon, its title and the "Offline" status label. */
+  border: 0;
+  /* `--overlay` centres in the whole embed. Ours has a 21rem layer panel
+     pinned to the inline start, so inset the content box past it: the notice
+     lands in the free part of the map rather than behind the panel. */
+  padding-inline-start: 22rem;
 }
 
+/* `.mg-notice` is `display: flex`, which beats the UA's `[hidden]` rule. */
 .map-service-notice[hidden] {
   display: none;
 }
 
-.map-service-notice__card {
-  display: flex;
-  width: min(100%, 32rem);
-  gap: 0.875rem;
-  padding: 1.25rem;
-  border-radius: 0.25rem;
-  background: #fff;
-  color: var(--color-text);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.08),
-    0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.map-service-notice__icon {
-  flex: 0 0 auto;
-  color: var(--color-primary);
-}
-
-.map-service-notice__title {
-  margin: 0 0 0.4rem;
-  color: var(--color-text);
-  font-size: 1.125rem;
-  line-height: 1.3;
-  text-wrap: balance;
-}
-
-.map-service-notice__body {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-
-.map-service-notice__countdown {
-  margin: 0.6rem 0 0;
-  color: var(--color-text-muted);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.4;
-}
-
-.map-service-notice__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  margin-top: 1rem;
-}
-
-.map-service-notice__actions a {
-  color: var(--color-primary);
-  font-size: 0.8125rem;
-  text-underline-offset: 2px;
-}
-
-.map-service-notice__retry {
-  min-height: 2.5rem;
-}
-
-.map-service-notice__actions a:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 3px;
-}
-
 @media (max-width: 720px) {
-  .map-service-notice {
+  .map-service-notice.mg-notice--overlay {
     align-items: flex-end;
-    padding: 1rem;
+    padding: var(--mg-spacing-150);
   }
 }

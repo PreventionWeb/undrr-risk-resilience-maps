@@ -93,9 +93,36 @@ describe("buildSteppedSlider", () => {
     expect(el.querySelector(".widget-label")).toBeNull();
   });
 
+  it("makes the visible label decorative and leaves no orphan <label>", () => {
+    const el = buildSteppedSlider(SOURCES, 0, () => {}, CONFIG);
+    const lbl = el.querySelector(".widget-label");
+    expect(lbl.tagName).toBe("SPAN");
+    expect(lbl.getAttribute("aria-hidden")).toBe("true");
+    expect(el.querySelector("label")).toBeNull();
+    expect(el.querySelector("input[type=range]").getAttribute("aria-label")).toBe(CONFIG.label);
+  });
+
   it("sets aria-label on the range input", () => {
     const el = buildSteppedSlider(SOURCES, 0, () => {}, CONFIG);
     const slider = el.querySelector("input[type=range]");
     expect(slider.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("removes its listener and drops a debounced pick when the signal aborts", () => {
+    const onChange = vi.fn();
+    const controller = new AbortController();
+    const el = buildSteppedSlider(SOURCES, 0, onChange, CONFIG, { signal: controller.signal });
+    const slider = el.querySelector("input[type=range]");
+
+    slider.value = "1";
+    slider.dispatchEvent(new Event("input"));
+    controller.abort();
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(onChange).not.toHaveBeenCalled();
+
+    slider.value = "2";
+    slider.dispatchEvent(new Event("input"));
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

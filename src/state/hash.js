@@ -16,31 +16,16 @@
  * selected scientific variant without changing the existing layer syntax.
  */
 
-import { TABS } from "../config/layers.js";
-
-/** Build a flat lookup: key → layer config object. */
-function buildLayerIndex() {
-  const index = new Map();
-  for (const tab of TABS) {
-    for (const layer of tab.layers) {
-      if (layer.key) index.set(layer.key, layer);
-    }
-  }
-  return index;
-}
-
-let _layerIndex = null;
-function getLayerIndex() {
-  if (!_layerIndex) _layerIndex = buildLayerIndex();
-  return _layerIndex;
-}
+import { getLayerRegistry } from "../config/registry.js";
 
 /**
  * Parse the URL hash into { tab, layers }.
+ * @param {{ location?: { hash: string } }} [options] - where to read the hash
+ *   (default: the global `location`)
  * @returns {{ tab: string|null, layers: Array<{key: string, sourceIdx: number, settings?: object}> }}
  */
-export function parseHash() {
-  const raw = location.hash.replace("#", "");
+export function parseHash({ location: loc = location } = {}) {
+  const raw = loc.hash.replace("#", "");
   if (!raw) return { tab: null, layers: [] };
 
   const [tab, query] = raw.split("?");
@@ -83,10 +68,15 @@ export function parseHash() {
  * Write the current state to the URL hash.
  * @param {string} tab - Active tab ID
  * @param {Array<{key: string, sourceIdx: number, settings?: object}>} layers - Active layers
- * @param {{ replace?: boolean }} [options] - replace the current history entry
- *   (restoring state already in the URL) instead of pushing a new one
+ * @param {{ replace?: boolean, location?: { hash: string }, history?: History }} [options] -
+ *   `replace` the current history entry (restoring state already in the URL)
+ *   instead of pushing a new one; `location` and `history` default to the globals
  */
-export function writeHash(tab, layers, { replace = false } = {}) {
+export function writeHash(
+  tab,
+  layers,
+  { replace = false, location: loc = location, history: hist = history } = {},
+) {
   let hash = `#${tab}`;
 
   if (layers.length > 0) {
@@ -103,11 +93,11 @@ export function writeHash(tab, layers, { replace = false } = {}) {
     }
   }
 
-  if (location.hash === hash) return;
+  if (loc.hash === hash) return;
   if (replace) {
-    history.replaceState(null, "", hash);
+    hist.replaceState(null, "", hash);
   } else {
-    history.pushState(null, "", hash);
+    hist.pushState(null, "", hash);
   }
 }
 
@@ -116,5 +106,5 @@ export function writeHash(tab, layers, { replace = false } = {}) {
  * @returns {object|undefined}
  */
 export function getLayerByKey(key) {
-  return getLayerIndex().get(key);
+  return getLayerRegistry().byKey(key);
 }
