@@ -65,6 +65,10 @@
   background: rgb(var(--mg-color-neutral-25));
 }
 
+.site-inspector-close .mg-icon {
+  font-size: 1rem;
+}
+
 .site-inspector-close:focus-visible {
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: 2px;

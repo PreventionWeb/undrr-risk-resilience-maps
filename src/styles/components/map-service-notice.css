@@ -29,6 +29,8 @@
 
 .map-service-notice__icon {
   flex: 0 0 auto;
+  /* .mg-icon is a 1em mask painted in currentColor. */
+  font-size: 1.5rem;
   color: var(--color-primary);
 }
 
