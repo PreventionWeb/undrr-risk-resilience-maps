@@ -24,7 +24,6 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - A layer's switch is no longer nested inside the row's expand control, which meant screen readers and other assistive technology could not present either of them reliably (axe reported `nested-interactive`). The row now has an expand button and a switch side by side; Enter and Space act on whichever one is focused.
 - The layer type badge for raster layers no longer falls below the minimum text contrast (axe reported `color-contrast` on six rows in the Hazard tab).
 - Dragging the layer panel by its header no longer swallows clicks on controls that are labelled rather than clicked directly, such as a switch's track.
-- The MapX-ID column heading on the Sources table is readable again on the table's blue header band.
 - Opening a shared link, pressing Back/Forward, or clicking "Clear all" no longer adds extra browser history entries, so Back returns to the previous view instead of an intermediate state.
 - A source switcher (sub-tabs, dropdown or stepped slider) now snaps back to the source shown on the map when a switch fails.
 - Clicking "Citation and methodology details", the Acknowledgements "Sources" link, or any link to an in-page anchor no longer turns off every active layer.
@@ -37,6 +36,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- The Sources tables are Mangrove's data-table styling: a compact grey header band in small caps in place of the dark blue one, quieter row dividers, and MapX view IDs in a monospaced column. A long table now scrolls inside its own region with the column headings pinned to the top, so you can still tell which column you are reading. (The blue band was the reason the MapX-ID heading needed a colour fix of its own; there is no band left to fix.)
 - The page header now matches Mangrove's own markup, including the logo's canonical address and a preload so it paints without waiting for the stylesheet. The close buttons on the infobox and site inspector, and the map-service notice's warning symbol, use Mangrove's icons instead of hand-drawn shapes and the `×` character.
 - Every colour in the app's own stylesheets now comes from a Mangrove token rather than a hard-coded hex value, so a palette change reaches the whole app.
 - A layer that is slow to come on or go off now says so in writing: "Turning on" or "Turning off" appears under the row, in the wording Mangrove uses for a pending switch. It waits until the layer has been loading for almost half a second, so quick layers show only the spinner and nothing flickers, and a row that already shows its own loading message (an EDRA layer) is left as it is.
