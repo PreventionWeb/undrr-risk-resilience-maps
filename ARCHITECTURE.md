@@ -489,9 +489,7 @@ complete-expression tokens on `tokens.json`'s exception list, such as
 `--mg-form-input-border-color`, which are used bare. Only tokens that name the
 state being styled are used: an `--mg-…--focus` token is not borrowed for a
 resting background even where the two resolve alike today. No component
-stylesheet declares a raw hex or `rgba()` colour, with one exception —
-`map-service-notice.css`, which a follow-on change replaces with `mg-notice`
-outright, so it was left alone rather than tokenised twice. Where no token
+stylesheet declares a raw hex or `rgba()` colour. Where no token
 matches a value, the nearest token is used translucently rather than a hex kept
 (`--color-primary-light` is `rgb(var(--mg-color-blue-900) / 0.06)`), and drop
 shadows keep their geometry with a tokenised colour, since Mangrove's
