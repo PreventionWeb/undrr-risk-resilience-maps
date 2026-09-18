@@ -598,10 +598,12 @@ what it rests on:
   Chrome 115, and `sessionStorage` is explicitly in scope. Firefox's State Partitioning, on by
   default since Firefox 103, partitions `sessionStorage` too. So the default answer in current Chrome
   and Firefox is the one above.
-- **Uncertain.** Safari was not measured here. Neither was any browser with partitioning turned off
-  — which is reachable: Chrome's `DisableThirdPartyStoragePartitioning3` deprecation trial lets a
-  _top-level site_ opt its embedded third parties back into unpartitioned storage, enterprise policy
-  can do the same, and older browsers never partitioned at all.
+- **Uncertain.** Safari was not measured here, and neither was any browser other than Chromium — the
+  Chrome and Firefox defaults above are read from their documentation, not from a run. What _was_
+  measured is that a browser with partitioning off shares the unlock, and that state is reachable in
+  the field: Chrome's `DisableThirdPartyStoragePartitioning3` deprecation trial lets a _top-level
+  site_ opt its embedded third parties back into unpartitioned storage, enterprise policy can do the
+  same, and older browsers never partitioned at all.
 
 **So partitioning is not a barrier this prototype may lean on.** Where it is absent — a host that
 took the deprecation trial, a managed browser with the policy off, an older browser, or simply a host
