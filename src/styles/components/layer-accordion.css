@@ -218,19 +218,35 @@
    Both stacks -- the R2R group subheadings and the cross-tab sections -- are
    `.mg-accordion.mg-accordion--flush` containers of plain `<details>`.
    Mangrove owns the summary's flex row, the rotating chevron and its
-   reduced-motion handling, the 2.75rem minimum hit target, the hover tint, the
-   inset focus ring and its forced-colours fallback, and the open/closed
-   divider. `mg-details` is deliberately not added: inside a panel it would
-   restyle every `<p>` in the stack (`details.mg-details p` sets a 1rem font
-   size and its own padding), which is the layer descriptions and the cross-tab
-   group labels.
+   reduced-motion handling, the hover tint, the inset focus ring and its
+   forced-colours fallback, and the open/closed divider. `mg-details` is
+   deliberately not added: inside a panel it would restyle every `<p>` in the
+   stack (`details.mg-details p` sets a 1rem font size and its own padding),
+   which is the layer descriptions and the cross-tab group labels.
 
-   Panel chrome is much smaller than Mangrove's page-level summary type, so the
-   rules below scale the summary back down. Each needs both the container class
-   and the summary class to beat `.mg-accordion > details > summary`. */
+   The hit target is Mangrove's: `.mg-accordion > details > summary` sets
+   `min-height: 2.75rem`, and nothing here overrides it, so both summaries
+   measure 44px (1400x900, Chromium). Before this PR the group headings were
+   36.2px and the cross-tab summaries 41.6px, both from padding alone; both now
+   clear WCAG 2.5.8's 24px minimum with room to spare. The summary *type* is
+   still scaled down — panel chrome is much smaller than Mangrove's page-level
+   summary — so the rules below restate font size, weight and colour. Each needs
+   both the container class and the summary class to beat
+   `.mg-accordion > details > summary`.
 
-.layer-groups,
-.cross-tab-sections {
+   `.mg-accordion` also sets `overflow: hidden`, which is inherited here and
+   deliberately left alone: nothing in either stack paints outside the container
+   today. If a tooltip, a popover or an outward focus ring is ever added to a
+   summary at the top or bottom edge of a stack it would be clipped, and the
+   reset belongs here. */
+
+/* Both class names are doubled with `.mg-accordion`. The container rules below
+   fight `.mg-accordion`'s own declarations, which are (0,1,0) — the same as a
+   bare `.layer-groups` — so without the doubling the winner would depend on
+   whether the bundler emits this file after the CDN stylesheet. Same reason as
+   `map-service-notice.css`. */
+.mg-accordion.layer-groups,
+.mg-accordion.cross-tab-sections {
   /* The stack sits flush inside the panel; the panel draws its own edges. */
   border-block: 0;
   border-radius: 0;
@@ -239,7 +255,6 @@
 
 .layer-groups > .layer-group > .layer-group-heading,
 .cross-tab-sections > .cross-tab-section > .cross-tab-summary {
-  min-block-size: 2.25rem;
   padding: 0.35rem 0.6rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -272,9 +287,17 @@
 /* Cross-tab sections — collapsed layer lists from other tabs          */
 /* ------------------------------------------------------------------ */
 
-.cross-tab-sections {
+.mg-accordion.cross-tab-sections {
   border-top: 2px solid var(--color-border);
   margin-top: 0.5rem;
+}
+
+/* Mangrove draws its divider with `.mg-accordion > details:not(:last-child)`,
+   so the stack's own last section has no closing line — it did before this PR
+   (`.cross-tab-section { border-bottom }` applied to all of them). The panel
+   ends on a rule again. */
+.mg-accordion.cross-tab-sections > .cross-tab-section:last-child {
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-300));
 }
 
 .cross-tab-sections > .cross-tab-section > .cross-tab-summary {

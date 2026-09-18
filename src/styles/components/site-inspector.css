@@ -100,14 +100,17 @@
 }
 
 /* Mangrove's CopyButton (outline icon button). It owns the frame, the hover
-   and focus treatment, the copied state and the feedback tooltip; the panel
-   only asks it to be small enough for a 20rem floating strip. */
+   and focus treatment, the copied state and the feedback tooltip.
+
+   The size is Mangrove's and is deliberate: `.mg-button--icon` sets a *used*
+   size of 2.25rem with `aspect-ratio: 1`, zero padding and a 1.125rem icon, so
+   the button measures 36x36px. rc.2 ships `mg-button--icon--small` (1.75rem,
+   28x28) for tighter strips and it is not used here — the control replaced one
+   that measured 27x18px and failed WCAG 2.5.8's 24px minimum, and 36px also
+   matches the inspect toggle this panel hangs off. A 20rem strip has the room.
+   Only the flex behaviour is ours. */
 .site-inspector-coords-copy {
   flex-shrink: 0;
-  min-block-size: 1.75rem;
-  min-inline-size: 1.75rem;
-  padding: 0.15rem 0.3rem;
-  font-size: 0.85rem;
 }
 
 /* ── Layer list ──────────────────────────────────── */

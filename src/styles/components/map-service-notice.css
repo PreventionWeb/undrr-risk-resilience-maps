@@ -10,11 +10,18 @@
  * the `hidden` attribute it is toggled with.
  */
 
-/* Both classes, so these three declarations beat `.mg-notice--overlay`'s own
+/* Both classes, so these declarations beat `.mg-notice--overlay`'s own
    `padding` and `z-index` whichever stylesheet the bundler emits last. */
 .map-service-notice.mg-notice--overlay {
   /* Above the map, below the floating layer panel (--z-panel: 30). */
   z-index: 5;
+  /* `.mg-notice` gives every notice a 1px border in its severity colour, and
+     `--overlay` keeps it on all four sides. Mangrove's overlays sit on a card,
+     where that traces the card; ours sits on the whole map embed, where it drew
+     a gold hairline along the top of the map and down beside the layer panel —
+     a frame around the map, not around a notice. The card already reads from
+     its warning icon, its title and the "Offline" status label. */
+  border: 0;
   /* `--overlay` centres in the whole embed. Ours has a 21rem layer panel
      pinned to the inline start, so inset the content box past it: the notice
      lands in the free part of the map rather than behind the panel. */

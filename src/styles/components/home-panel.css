@@ -283,6 +283,24 @@
   max-block-size: 70vh;
 }
 
+/* On paper there is no scroll container, so the 70vh cap above would simply
+   cut the table off — Sources is the citations and licences page, the one most
+   likely to be printed or archived, and it lost roughly a third of its rows.
+   Release the cap, let the overflow spill onto the page, and unpin the sticky
+   header (a `position: sticky` header has nothing to stick to in paged media
+   and browsers differ on what they do with it; `static` repeats nothing but
+   prints where it belongs, above row one). */
+@media print {
+  .data-table-wrap {
+    max-block-size: none;
+    overflow: visible;
+  }
+
+  .data-table .mg-table__th--sticky {
+    position: static;
+  }
+}
+
 .data-table {
   width: 100%;
   /* Six columns of citation and licence prose need room. Without a floor the
