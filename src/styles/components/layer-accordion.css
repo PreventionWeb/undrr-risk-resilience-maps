@@ -253,9 +253,22 @@
   background: transparent;
 }
 
+/* The leading padding is 1.25rem, and it matters more than it looks. Before
+   the accordion, the chevron was a leading `::before` glyph, so the heading
+   text started after it, 32.6px from the panel edge. Mangrove's chevron is a
+   trailing `::after`, which makes the text itself the leading ink — and a
+   0.6rem padding then put it at 21.6px, further left than the rows the heading
+   labels (their expand arrow starts at 24px and their label at 42.4px), so the
+   heading read as falling off the left edge of the panel. 1.25rem puts the
+   text back at 32px: within a pixel of what the group headings rendered before
+   this PR, between a row's arrow and its label, and — applied to both stacks
+   rather than only one — level with a cross-tab row's own label at 31.2px.
+   Mangrove's own summary padding (`--mg-spacing-150`, 15px) is not used,
+   because 27px matches neither. The block padding is a floor only: the height
+   comes from Mangrove's 2.75rem minimum. */
 .layer-groups > .layer-group > .layer-group-heading,
 .cross-tab-sections > .cross-tab-section > .cross-tab-summary {
-  padding: 0.35rem 0.6rem;
+  padding: 0.35rem 0.75rem 0.35rem 1.25rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
