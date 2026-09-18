@@ -423,7 +423,7 @@ export function createSidebar(
 
   // Populate info page with all info panels
   if (infoPage) {
-    infoPanels.set("home", append(infoPage, buildHomePanel({ onNavigate: navigateTo, signal })));
+    infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
     infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
 
