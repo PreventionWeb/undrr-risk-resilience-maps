@@ -60,8 +60,20 @@ import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
 import { initMangroveTabs } from "./mangrove-tabs.js";
 
+/**
+ * jsdom does not implement `inert`, and the warm-up feature-detects it (without
+ * it the map is hidden outright instead, because `pointer-events: none` leaves
+ * the keyboard able to reach an invisible overlay -- see ui/map-warming.js).
+ * These tests are about the warm-up path, so they declare the support jsdom's
+ * DOM otherwise lacks; `map-warming.test.js` covers both branches explicitly.
+ */
+if (!("inert" in HTMLElement.prototype)) {
+  Object.defineProperty(HTMLElement.prototype, "inert", { value: false, writable: true, configurable: true });
+}
+
 /** The page as index.html has it, reduced to what the sidebar uses. */
 const PAGE = `
+  <a href="#app-map" class="mg-skip-link" data-ui="skip-link">Skip to map</a>
   <nav>
     <ul class="mg-mega-topbar" data-ui="nav">
       <li class="mg-mega-topbar__item"><a href="#" class="nav-home-link">Home</a></li>
@@ -160,11 +172,17 @@ describe("createSidebar", () => {
     expect($("#app-map").style.display).toBe("");
     expect($("#app-map").classList.contains("is-warming")).toBe(true);
     expect($("#app-map").getAttribute("aria-hidden")).toBe("true");
-    // `inert` sits on the map and on each child: they cover each other's blind
-    // spot (Mangrove's preview gate strips it from every child of <body>; a
-    // panel appended later has only the map's).
+    // `inert` sits on the map and on each child, and a MutationObserver puts it
+    // back wherever it is removed or a child appears (Mangrove's preview gate
+    // strips it from every child of <body> when the PIN is accepted; the site
+    // inspector's panel is appended after this).
     expect($("#app-map").hasAttribute("inert")).toBe(true);
     expect([...$("#app-map").children].every((el) => el.hasAttribute("inert"))).toBe(true);
+    // No map to skip to, so the page's one skip link points at the content
+    // instead of at the invisible map.
+    expect($("[data-ui='skip-link']").hidden).toBe(false);
+    expect($("[data-ui='skip-link']").getAttribute("href")).toBe(`#${$("[data-ui='info-page']").id}`);
+    expect($("[data-ui='skip-link']").textContent).toBe("Skip to content");
     expect($("#global-footer").hidden).toBe(false);
   });
 
@@ -310,6 +328,7 @@ describe("createSidebar", () => {
     expect($("#app-map").classList.contains("is-warming")).toBe(false);
     expect($("#app-map").hasAttribute("inert")).toBe(false);
     expect([...$("#app-map").children].some((el) => el.hasAttribute("inert"))).toBe(false);
+    expect($("[data-ui='skip-link']").hidden).toBe(false);
     expect($("#info-page").style.display).toBe("");
     expect($("#global-footer").hidden).toBe(true);
     expect($$(".is-active")).toEqual([]);
@@ -509,6 +528,8 @@ describe("createSidebar", () => {
     expect($("#app-map").style.display).toBe("");
     expect($("#app-map").classList.contains("is-warming")).toBe(false);
     expect($("#app-map").hasAttribute("aria-hidden")).toBe(false);
+    // There is a map to skip to again.
+    expect($("[data-ui='skip-link']").hidden).toBe(false);
     expect($("#info-page").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(true);
     expect($(".nav-tab-link[data-tab='exposure']").classList.contains("is-active")).toBe(true);

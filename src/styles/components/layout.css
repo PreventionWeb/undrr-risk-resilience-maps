@@ -35,7 +35,14 @@ body {
   left: 0;
   width: 100%;
   opacity: 0;
-  /* `inert` already blocks hit-testing; belt and braces for older browsers. */
+  /*
+   * `inert` already blocks hit-testing. This covers the pointer and nothing
+   * else, so it is not the fallback for a browser without `inert` -- the
+   * keyboard would still tab into the layer switches, the collapse button, the
+   * inspect toggle and the MapX iframe. There the map is hidden outright
+   * instead and this class is never applied; see `supportsInert` in
+   * ui/map-warming.js.
+   */
   pointer-events: none;
 }
 

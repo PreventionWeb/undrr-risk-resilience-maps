@@ -86,12 +86,13 @@ async function startMapX() {
     return;
   }
 
-  // The budget only runs while the map is actually able to load (rendered by
-  // the browser, which includes warming up behind an information page), so
-  // reaching this really does mean MapX had its full loading time and never
-  // answered.
+  // The budget only runs while the map is the view the user is on, so reaching
+  // this really does mean MapX had its full loading time, in front of someone
+  // waiting for it, and never answered.
   const cancelReadyTimeout = watchForMapReady(() => {
-    console.error("MapX did not become ready within the expected loading time (30s in which it could load)");
+    console.error(
+      "MapX did not become ready within the ~30s of loading time it was given while the map was on screen",
+    );
     showMapFailure();
   });
 
