@@ -30,6 +30,7 @@ import { isLayerAvailable } from "../config/layers/status.js";
 import { getExternalLayerDefinition, getExternalLayerRuntime, isExternalLayer } from "../external/index.js";
 import { clampSourceIdx, isBusyStatus, settingsMatch } from "../services/layer-controller.js";
 import { offRecord } from "../state/layers-store.js";
+import { createLayerAnnouncer } from "./announcer.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -135,17 +136,6 @@ function setLayerToggleState(
   const description = ready ? hint : "The map is still loading";
   if (description) input.title = description;
   else input.removeAttribute("title");
-}
-
-/**
- * A visually hidden, polite live region for a layer row. Rows own their
- * announcer (no ids, no global region), so the one in the visible row speaks.
- */
-function buildAnnouncer() {
-  const announcer = document.createElement("p");
-  announcer.className = "layer-announcer mg-u-sr-only";
-  announcer.setAttribute("aria-live", "polite");
-  return announcer;
 }
 
 /**
@@ -261,6 +251,10 @@ function legendLayerFor(layer, record) {
  * @param {(tabId: string) => void} [options.onNavigate] - open another page (full row's citation link)
  * @param {() => boolean} [options.selectionPending] - a pick made through another
  *   row's controls for this layer is settling (its controls announce failures)
+ * @param {(message: string, record: object) => void} [options.announce] - say
+ *   something about this layer through a live region the caller owns (the
+ *   sidebar's, shared by every row of the layer, so one event is announced
+ *   once). Without it the row builds a region of its own.
  * @returns {LayerRow}
  */
 export function createLayerRow(
@@ -273,6 +267,7 @@ export function createLayerRow(
     isVisible = () => true,
     onNavigate = () => {},
     selectionPending = () => false,
+    announce: announceTo,
   },
 ) {
   const full = variant === "full";
@@ -396,11 +391,23 @@ export function createLayerRow(
   // error line below does not resize anything either.
   const pendingLine = published ? buildPendingLine() : null;
   if (pendingLine) element.appendChild(pendingLine);
-  // Outside the header and the body (hidden while collapsed), so it can speak
-  // (and, for rows without controls of their own, show) while the row is
-  // collapsed.
-  const announcer = published ? buildAnnouncer() : null;
-  if (announcer) element.appendChild(announcer);
+  // Announcements go to the region the caller owns when it gave one, so a
+  // layer with rows in several tabs is announced once (see announcer.js).
+  // Without one, the row builds its own and puts it outside the header and the
+  // body (hidden while collapsed), so it can speak while the row is collapsed.
+  // The row's own document, not the global one: an embed may build its rows in
+  // another document (see announcer.js, which takes the document for that reason).
+  const ownAnnouncer = published && !announceTo ? createLayerAnnouncer(element.ownerDocument) : null;
+  if (ownAnnouncer) element.appendChild(ownAnnouncer.element);
+  /**
+   * Say something about this layer. The record it came from is passed on so the
+   * region can tell another row repeating the same event (dropped) from the same
+   * event happening again (announced again). "" clears the message.
+   */
+  const announce = published
+    ? (message, record) =>
+        announceTo ? announceTo(message, record) : ownAnnouncer.announce(layer.key, message, record)
+    : null;
   // Every published row has one. An external layer normally shows its message
   // on its own status line, and only falls back to this when that line was
   // never rendered (see showExternalStatus).
@@ -632,23 +639,22 @@ export function createLayerRow(
     // Every new activation expands on apply unless the header starts it.
     if (!next.desired && prev.desired) expandOnApply = true;
 
-    if (announcer) {
-      // Failures are announced in the row for every kind of layer (a failed
-      // turn-on otherwise only flips the switch back). A new call replaces the
-      // message, so the same failure is announced again if it happens again.
+    if (announce) {
+      // Failures are announced for every kind of layer (a failed turn-on
+      // otherwise only flips the switch back). A new call replaces the message,
+      // so the same failure is announced again if it happens again.
       if (busy && !wasBusy) {
         // `aria-busy` is what Mangrove draws the pending ring from, but it
         // also tells assistive technology to stop reporting changes inside the
         // switch's subtree, so the "Loading X…" name may never be spoken. Say
-        // it from the row's live region instead, as rc.2's own
-        // switch-pending.js does.
-        setText(announcer, busyMessage(layer, next));
+        // it from the live region instead, as rc.2's own switch-pending.js does.
+        announce(busyMessage(layer, next), next);
         if (errorLine) setText(errorLine, "");
       } else if (!busy && wasBusy) {
         // The call settled: drop the busy sentence rather than leave it
         // standing. A failure replaces it just below, so it is not announced
         // twice.
-        setText(announcer, "");
+        announce("", next);
       }
       // External controls announce the failures of changes made through them.
       const announcedByControls = external && (pendingSelections > 0 || selectionPending());
@@ -657,7 +663,7 @@ export function createLayerRow(
         (prev.status !== "error" || next.error !== prev.error) &&
         !announcedByControls
       ) {
-        announcer.textContent = failureMessage(layer, next);
+        announce(failureMessage(layer, next), next);
         if (errorLine && !external) setText(errorLine, failureMessage(layer, next));
       }
     }

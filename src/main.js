@@ -93,6 +93,9 @@ async function startMapX() {
 
   initInspection(mapx);
 
+  // One subscriber among however many register (onInspectionResult returns a
+  // disposer, or takes a signal). The standalone app lives as long as the page,
+  // so it never unsubscribes.
   onInspectionResult((result) => {
     showSiteInspector(result);
   });

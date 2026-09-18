@@ -164,6 +164,27 @@ describe("validateLayers", () => {
     error.mockRestore();
   });
 
+  // --- the tab's home-page card ---
+
+  it("passes for a tab with a complete card, and for a tab with none", () => {
+    const withCard = {
+      ...makeTab("hazard", [makeSimpleLayer()]),
+      card: { icon: "02", color: "#c72236", desc: "Hazards." },
+    };
+    expect(() => validateLayers([withCard], PRIMARY)).not.toThrow();
+    expect(() => validateLayers([makeTab("hazard", [makeSimpleLayer()])], PRIMARY)).not.toThrow();
+  });
+
+  it("throws when a tab's card is missing a field it needs to render", () => {
+    const tab = { ...makeTab("hazard", [makeSimpleLayer()]), card: { icon: "02", color: "" } };
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => validateLayers([tab], PRIMARY)).toThrow();
+    const logged = error.mock.calls.flat().join("\n");
+    expect(logged).toMatch(/card missing color/);
+    expect(logged).toMatch(/card missing desc/);
+    error.mockRestore();
+  });
+
   it("throws on duplicate view IDs across different tabs", () => {
     const layer1 = makeSimpleLayer({ id: "MX-SAME", key: "k1", label: "L1" });
     const layer2 = makeSimpleLayer({ id: "MX-SAME", key: "k2", label: "L2" });

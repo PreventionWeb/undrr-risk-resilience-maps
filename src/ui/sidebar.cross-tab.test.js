@@ -912,9 +912,12 @@ describe("layers store", () => {
   });
 
   describe("accessibility while loading", () => {
-    const announcerText = (row) => row.querySelector(".layer-announcer").textContent;
+    // The instance owns one live region (see announcer.js), so a layer with a
+    // row in several tabs is announced once.
+    const liveRegion = () => document.querySelector(".layer-announcer");
+    const announced = () => liveRegion().textContent;
 
-    it("marks the switch busy while loading and announces a failed load in the rows", async () => {
+    it("marks the switch busy while loading and announces a failed load once for every row", async () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const slowAdd = deferred();
       mocks.viewAdd.mockReturnValueOnce(slowAdd.promise);
@@ -936,9 +939,12 @@ describe("layers store", () => {
       expect(eye.checked).toBe(false);
       expect(eye.getAttribute("aria-busy")).toBe("false");
       expect(eye.getAttribute("aria-label")).toBe("Population");
-      expect(announcerText(row)).toBe("Could not load Population. It is off.");
-      expect(announcerText(home)).toBe("Could not load Population. It is off.");
-      const announcer = row.querySelector(".layer-announcer");
+      expect(announced()).toBe("Could not load Population. It is off.");
+      // Neither row owns a region, so neither repeats the message.
+      expect(row.querySelector(".layer-announcer")).toBeNull();
+      expect(home.querySelector(".layer-announcer")).toBeNull();
+      expect(document.querySelectorAll(".layer-announcer")).toHaveLength(1);
+      const announcer = liveRegion();
       expect(announcer.getAttribute("aria-live")).toBe("polite");
       expect(announcer.classList.contains("mg-u-sr-only")).toBe(true);
       expect(announcer.id).toBe("");
@@ -946,9 +952,9 @@ describe("layers store", () => {
       // The next attempt replaces the message with its own busy sentence
       // (`aria-busy` stops the switch's name being reported); success clears it.
       eye.click();
-      expect(announcerText(row)).toBe("Loading Population…");
+      expect(announced()).toBe("Loading Population…");
       await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
-      expect(announcerText(row)).toBe("");
+      expect(announced()).toBe("");
       expect(eye.getAttribute("aria-label")).toBe("Population");
     });
 
@@ -963,7 +969,7 @@ describe("layers store", () => {
       await vi.waitFor(() => expect(sidebar.store.get("recovery").status).toBe("error"));
       warn.mockRestore();
 
-      expect(announcerText(row)).toBe("Could not change Recovery Speed. It is still on as before.");
+      expect(announced()).toBe("Could not change Recovery Speed. It is still on as before.");
       expect(row.querySelector(".layer-eye").checked).toBe(true);
     });
 
@@ -976,7 +982,7 @@ describe("layers store", () => {
       await vi.waitFor(() => expect(sidebar.store.get("crops").status).toBe("error"));
       warn.mockRestore();
 
-      expect(announcerText(row)).toBe("Could not load Crops. It is off.");
+      expect(announced()).toBe("Could not load Crops. It is off.");
     });
   });
 
@@ -1150,7 +1156,7 @@ describe("layers store", () => {
     });
     expect(select.value).toBe("WHEAT");
     // The controls announce their own error; the row does not repeat it.
-    expect(crops.querySelector(".layer-announcer").textContent).toBe("");
+    expect(document.querySelector(".layer-announcer").textContent).toBe("");
   });
 
   it("records a failed load as an error and leaves the layer off", async () => {

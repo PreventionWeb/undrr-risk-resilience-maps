@@ -31,6 +31,18 @@
  *              type: "sub-tabs" (button bar) or "stepped-slider" (range input)
  *   (all other fields same as simple layers)
  *
+ * Tab fields:
+ *   id            - hash routing id and the nav link's `data-tab`
+ *   label         - nav link and home card title
+ *   description   - panel intro and the nav link's description
+ *   definitionUrl - optional UNDRR terminology link
+ *   glossary      - optional abbreviation note under the intro
+ *   card          - the tab's home-page card: {icon, color, desc}. Optional; a
+ *                   tab without one gets no card. Keeping it here means adding
+ *                   a tab is one edit: the nav, the layer panel and the home
+ *                   card are all generated from this array (see src/ui/home.js).
+ *   layers/groups - from withR2rGroups() below
+ *
  * See ARCHITECTURE.md for details on the compound layer pattern.
  */
 import { HAZARD_LAYERS } from "./hazard.js";
@@ -73,6 +85,11 @@ export const TABS = [
       "Potential disaster losses, shaped by hazard, exposure, vulnerability and the capacity to reduce or manage risk.",
     definitionUrl: "https://www.undrr.org/terminology/disaster-risk",
     glossary: "AAL means average annual loss; PML means probable maximum loss.",
+    card: {
+      icon: "01",
+      color: "#004f91",
+      desc: "Analytics insights through approximately 20 metrics across 8 hazards highlighting key risks now up to 2050.",
+    },
     ...withR2rGroups(RISK_LAYERS),
   },
   {
@@ -82,6 +99,11 @@ export const TABS = [
       "The ability of systems and communities to resist, adapt to and recover from hazard impacts in a timely and efficient way.",
     definitionUrl: "https://www.undrr.org/terminology/resilience",
     glossary: "DRR means disaster risk reduction.",
+    card: {
+      icon: "05",
+      color: "#2d7d46",
+      desc: "Indicative metrics that help measure the movement from risk towards greater resilience in social, economic and planetary systems.",
+    },
     ...withR2rGroups(RESILIENCE_LAYERS),
   },
   {
@@ -89,6 +111,11 @@ export const TABS = [
     label: "Hazard",
     description: "Processes, phenomena or human activities that may cause harm, damage or disruption.",
     definitionUrl: "https://www.undrr.org/terminology/hazard",
+    card: {
+      icon: "02",
+      color: "#c72236",
+      desc: "Aims to provide current global hazard analysis for the 8 key hazards that cause more than 90% of economic costs.",
+    },
     ...withR2rGroups(HAZARD_LAYERS),
   },
   {
@@ -96,6 +123,11 @@ export const TABS = [
     label: "Exposure",
     description: "People, infrastructure and other tangible assets located in hazard-prone areas.",
     definitionUrl: "https://www.undrr.org/terminology/exposure",
+    card: {
+      icon: "03",
+      color: "#ed833f",
+      desc: "Demographic, infrastructure, housing, transport, cropland at risk.",
+    },
     ...withR2rGroups(EXPOSURE_LAYERS),
   },
   {
@@ -104,6 +136,11 @@ export const TABS = [
     description:
       "Physical, social, economic and environmental conditions that increase susceptibility to hazard impacts.",
     definitionUrl: "https://www.undrr.org/terminology/vulnerability",
+    card: {
+      icon: "04",
+      color: "#f0b429",
+      desc: "Social, economic and structural factors that amplify harm when hazards strike.",
+    },
     ...withR2rGroups(VULNERABILITY_LAYERS),
   },
 ];
