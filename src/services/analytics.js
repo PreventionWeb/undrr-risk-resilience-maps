@@ -77,8 +77,17 @@ export function createAnalytics({ sink = debugSink } = {}) {
  * @param {string} context.tab - the tab the embed opened on
  * @param {string[]} context.layers - the layer keys it opened with
  * @param {boolean} context.framed - is it actually inside a frame?
- * @returns {{ host: string|null, framed: boolean, tab: string, layers: string[] }}
+ * @param {boolean} [context.locked] - did it load behind the preview PIN gate?
+ *   Worth counting: it is the difference between a host whose visitors can see
+ *   the prototype and one whose visitors are looking at a PIN prompt.
+ * @returns {{ host: string|null, framed: boolean, tab: string, layers: string[], locked: boolean }}
  */
-export function embedLoadedProps({ referrer, tab, layers, framed }) {
-  return { host: hostOrigin(referrer), framed: Boolean(framed), tab, layers: [...layers] };
+export function embedLoadedProps({ referrer, tab, layers, framed, locked = false }) {
+  return {
+    host: hostOrigin(referrer),
+    framed: Boolean(framed),
+    tab,
+    layers: [...layers],
+    locked: Boolean(locked),
+  };
 }

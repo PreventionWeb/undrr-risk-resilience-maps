@@ -22,7 +22,18 @@ describe("embedLoadedProps", () => {
         layers: ["landslides"],
         framed: true,
       }),
-    ).toEqual({ host: "https://www.undrr.org", framed: true, tab: "hazard", layers: ["landslides"] });
+    ).toEqual({
+      host: "https://www.undrr.org",
+      framed: true,
+      tab: "hazard",
+      layers: ["landslides"],
+      locked: false,
+    });
+  });
+
+  it("records whether the embed loaded behind the preview gate", () => {
+    const props = embedLoadedProps({ referrer: "", tab: "hazard", layers: [], framed: true, locked: true });
+    expect(props.locked).toBe(true);
   });
 
   it("reports an unknown host rather than guessing one", () => {

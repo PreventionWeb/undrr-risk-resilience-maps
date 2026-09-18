@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerRegistry } from "../config/registry.js";
 import { clampLayers, MAX_LAYERS, parseEmbedParams, parseOrigin } from "./params.js";
 
@@ -28,6 +28,16 @@ describe("parseOrigin", () => {
 });
 
 describe("parseEmbedParams", () => {
+  // The warnings below are deliberate output for a host's console; silence them
+  // here so a passing suite does not read like a failing one.
+  let warn;
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
   it("defaults to the first tab, no layers, an expanded panel and no host", () => {
     const params = parse("");
 
@@ -36,6 +46,7 @@ describe("parseEmbedParams", () => {
     expect(params.panelCollapsed).toBe(false);
     expect(params.parentOrigin).toBeNull();
     expect(params.instance).toBeNull();
+    expect(params.empty).toBe(false);
     expect(params.tabIds).toEqual(["risk-resilience", "resilience", "hazard", "exposure", "vulnerability"]);
   });
 
@@ -96,9 +107,46 @@ describe("parseEmbedParams", () => {
     expect(params.layerKeys).toEqual(["river-flooding", "landslides"]);
   });
 
-  it("refuses to render an empty embed when every allowlisted name is a typo", () => {
-    const params = parse("?allow=nope,also-nope");
-    expect(params.tabIds).toHaveLength(5);
+  it("shows nothing, rather than everything, when a supplied allowlist selects nothing", () => {
+    // Finding 2: `tabs.length > 0 ? tabs : allTabs` read an allowlist of typos as
+    // "no allowlist", so a host that had excluded everything was handed every tab
+    // and every layer — and could then turn any of them on over the bridge.
+    for (const search of ["?allow=no-such-layer", "?tabs=no-such-tab", "?tabs=&allow=landslides"]) {
+      const params = parse(search);
+      expect(params.empty, search).toBe(true);
+      expect(params.tabIds, search).toEqual([]);
+      expect(params.layerKeys, search).toEqual([]);
+      expect(params.layers, search).toEqual([]);
+      expect(params.tab, search).toBeNull();
+    }
+  });
+
+  it("narrows to the tab selection when the two allowlists do not overlap", () => {
+    // `population` is a real layer, in `exposure`. A host that asks for the
+    // hazard tab and for that layer has made a plausible mistake; the answer is
+    // the tabs it asked for, and never the whole config.
+    const params = parse("?tabs=hazard&allow=population");
+
+    expect(params.empty).toBe(false);
+    expect(params.tabIds).toEqual(["hazard"]);
+    expect(params.layerKeys).not.toContain("population");
+    expect(params.layerKeys).toContain("landslides");
+  });
+
+  it("names the ids it did not recognise, and stays quiet when they are all known", () => {
+    parse("?tabs=hazard,not-a-tab&allow=landslides,not-a-layer");
+
+    const said = warn.mock.calls.flat().join("\n");
+    expect(said).toContain('"not-a-tab"');
+    expect(said).toContain('"not-a-layer"');
+
+    warn.mockClear();
+    parse("?tabs=hazard&allow=landslides");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("opens no layer at all in an embed whose allowlist is a typo", () => {
+    expect(parse("?allow=nope&layers=landslides").layers).toEqual([]);
   });
 
   it("will not open a layer the allowlist excludes", () => {
@@ -113,14 +161,24 @@ describe("parseEmbedParams", () => {
     expect(parse("?panel=yes").panelCollapsed).toBe(false);
   });
 
-  it("prefers the parentOrigin parameter and falls back to the referrer", () => {
+  it("prefers the parentOrigin parameter and falls back to the referrer when it is absent", () => {
     expect(parse("?parentOrigin=https://www.undrr.org").parentOrigin).toBe("https://www.undrr.org");
     expect(parse("", { referrer: "https://www.preventionweb.net/page" }).parentOrigin).toBe(
       "https://www.preventionweb.net",
     );
-    expect(parse("?parentOrigin=not-a-url", { referrer: "https://host.example/x" }).parentOrigin).toBe(
-      "https://host.example",
-    );
+  });
+
+  it("disables the bridge, loudly, when a supplied parentOrigin does not parse", () => {
+    // Finding 3: `parentOrigin` is what a careful host writes to be explicit, so
+    // a typo in it must not revert to the loose referrer mode behind its back.
+    for (const value of ["not-a-url", "https:///", "javascript:alert(1)", "//evil.example", ""]) {
+      warn.mockClear();
+      const params = parse(`?parentOrigin=${encodeURIComponent(value)}`, {
+        referrer: "https://host.example/x",
+      });
+      expect(params.parentOrigin, value).toBeNull();
+      expect(warn.mock.calls.flat().join(" "), value).toContain("parentOrigin");
+    }
   });
 
   it("accepts only a safe, short instance id", () => {
@@ -133,6 +191,7 @@ describe("parseEmbedParams", () => {
     const params = parse("?tab=hazard&pin=0403&chrome=full&__proto__=x");
     expect(params.tab).toBe("hazard");
     expect(Object.keys(params).sort()).toEqual([
+      "empty",
       "instance",
       "layerKeys",
       "layers",

@@ -8,9 +8,8 @@
  *
  * | direction    | name         | payload                                     |
  * | ------------ | ------------ | ------------------------------------------- |
- * | embed → host | `ready`      | `{ version, tabs, layers }`                 |
+ * | embed → host | `ready`      | `{ version, tabs, layers, locked }`         |
  * | embed → host | `state`      | `{ tab, layers }` after each settled change |
- * | embed → host | `resize`     | `{ height }` (auto-sizing hint)             |
  * | embed → host | `error`      | `{ code, message }`                         |
  * | host → embed | `set-layers` | `{ tab?, layers }`                          |
  * | host → embed | `set-tab`    | `{ tab }`                                   |
@@ -44,8 +43,18 @@ export const MESSAGE_TYPE = "undrr-risk-map";
 /** The protocol version this build speaks. */
 export const MESSAGE_VERSION = 1;
 
-/** Names the embed sends. */
-export const OUTBOUND = ["ready", "state", "resize", "error"];
+/**
+ * Names the embed sends.
+ *
+ * No `resize`: the schema carried an auto-sizing hint in the first draft of
+ * phase 1, and it did nothing. The embed fills the frame (`min-height: 100dvh`),
+ * so `root.scrollHeight` is the height the iframe already has — a host following
+ * the hint received one message telling it what it had just set. Measuring
+ * something a host could act on means measuring a content box that does not
+ * exist for a map, so the honest version of the feature is not shipping it.
+ * Hosts give the frame a height (docs/embedding.md §8).
+ */
+export const OUTBOUND = ["ready", "state", "error"];
 
 /** Names the embed accepts. */
 export const INBOUND = ["set-layers", "set-tab", "get-state"];
@@ -74,7 +83,11 @@ const isObject = (value) => Boolean(value) && typeof value === "object" && !Arra
  */
 export function classifyMessage(event, { parentOrigin, parent, instance }) {
   if (!parentOrigin) return { ok: false, reason: "foreign-origin" };
-  if (parent && event.source !== parent) return { ok: false, reason: "foreign-source" };
+  // No parent to compare against is a refusal, not a free pass. The bridge
+  // installs no listener when `parent` is null, so this is unreachable through
+  // it today — but this function is exported as the security surface, and a
+  // check that fails open when its input is missing is the wrong shape for one.
+  if (!parent || event.source !== parent) return { ok: false, reason: "foreign-source" };
   if (event.origin !== parentOrigin) return { ok: false, reason: "foreign-origin" };
 
   const data = event.data;
@@ -117,6 +130,8 @@ export function createMessageBridge({ windowRef, parentOrigin, instance = null, 
   const enabled = Boolean(parentOrigin && parent);
   const controller = new AbortController();
   let destroyed = false;
+  /** Has the one `unsupported-version` answer already been sent? */
+  let versionAnswered = false;
 
   /**
    * Send a message to the host. Returns whether it was sent: `false` when the
@@ -144,7 +159,15 @@ export function createMessageBridge({ windowRef, parentOrigin, instance = null, 
       (event) => {
         const result = classifyMessage(event, { parentOrigin, parent, instance });
         if (!result.ok) {
-          if (result.reason === "unsupported-version") {
+          // One answer per bridge. A host talking a version this build does not
+          // speak is a deployment mismatch, not an event: telling it once is
+          // what lets it distinguish an old embed from a silent one, and a reply
+          // per message just turns its own loop into our noise.
+          if (result.reason === "unsupported-version" && !versionAnswered) {
+            versionAnswered = true;
+            console.warn(
+              `A host sent a message in a version this embed does not speak; it speaks version ${MESSAGE_VERSION}. Reported once.`,
+            );
             post("error", {
               code: "unsupported-version",
               message: `This embed speaks message version ${MESSAGE_VERSION}`,

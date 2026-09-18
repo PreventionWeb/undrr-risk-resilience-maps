@@ -3,9 +3,26 @@
  *
  * Everything an embed can be configured with arrives here, from a URL a host
  * page wrote — so nothing is trusted. Every parameter is checked against the
- * layer config, unknown parameters are ignored, and an invalid value falls back
- * to the default rather than failing the embed: a host that mistypes a layer key
- * gets a working map without that layer, not a blank frame.
+ * layer config and unknown parameters are ignored.
+ *
+ * ## Absent is not "resolved to nothing"
+ *
+ * The two allowlists (`tabs`, `allow`) narrow what the embed shows, so a
+ * mistyped one must never end up *widening* it. An allowlist the URL does not
+ * carry means "no restriction"; an allowlist the URL carries that names nothing
+ * the config knows means the host asked for nothing, and the embed renders an
+ * explicit empty state (`empty: true`) rather than the whole config. The one
+ * middle case — both allowlists resolve, but their intersection is empty
+ * (`?tabs=hazard&allow=population`) — narrows to the tab selection alone, which
+ * is still inside what the host asked for. Every dropped id is named in a
+ * `console.warn`, because a host reading its own console is how this gets fixed.
+ *
+ * Values that are not allowlists still fall back to their default rather than
+ * failing the embed: a mistyped `tab` shows the first tab, a mistyped layer key
+ * in `layers` is dropped. The exception is `parentOrigin`, which a host writes
+ * precisely to be explicit: a value that is not an http(s) origin disables the
+ * message bridge instead of quietly reverting to the `document.referrer`
+ * fallback.
  *
  * Parameters (see docs/embedding.md "How to embed"):
  *
@@ -50,6 +67,38 @@ function list(value) {
     .map((item) => item.trim())
     .filter(Boolean);
   return items.length > 0 ? items : null;
+}
+
+/**
+ * Resolve one allowlist parameter against the ids the config knows.
+ *
+ * `supplied` says whether the URL carried the parameter at all — the thing the
+ * old code could not tell, which is why an allowlist of typos used to widen to
+ * the whole config. Unrecognised ids are dropped and named in a warning.
+ *
+ * @param {URLSearchParams} params
+ * @param {string} name - the parameter name, for the warning
+ * @param {Set<string>} known - every id the config knows
+ * @returns {{ supplied: boolean, ids: string[]|null }}
+ */
+function allowlist(params, name, known) {
+  const raw = params.get(name);
+  const supplied = list(raw);
+  if (!supplied) {
+    if (raw !== null) console.warn(`Embed parameter "${name}" was supplied but names nothing.`);
+    return { supplied: raw !== null, ids: [] };
+  }
+  const ids = supplied.filter((id) => known.has(id));
+  const unknown = supplied.filter((id) => !known.has(id));
+  if (unknown.length > 0) {
+    console.warn(
+      `Embed parameter "${name}": ${unknown.map((id) => `"${id}"`).join(", ")} ` +
+        `${unknown.length === 1 ? "is not" : "are not"} in the layer config and ${
+          unknown.length === 1 ? "was" : "were"
+        } ignored.`,
+    );
+  }
+  return { supplied: true, ids };
 }
 
 /**
@@ -120,12 +169,13 @@ export function clampLayers(layers, { allowed, registry }) {
  * @param {object} [context]
  * @param {object[]} [context.allTabs] - the layer config (default `TABS`)
  * @param {string} [context.referrer] - `document.referrer`, the fallback parent
- *   origin when the URL names none
+ *   origin when the URL carries no `parentOrigin` at all
  * @returns {{
  *   tab: string,
  *   layers: Array<object>,
  *   tabIds: string[],
  *   layerKeys: string[],
+ *   empty: boolean,
  *   panelCollapsed: boolean,
  *   parentOrigin: string|null,
  *   instance: string|null,
@@ -135,19 +185,44 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   const params = search instanceof URLSearchParams ? search : new URLSearchParams(search ?? "");
 
   // The allowlists first: they decide what "a valid tab" and "a known layer"
-  // even mean for this embed. Names that are not in the config are dropped, and
-  // an allowlist that leaves nothing is treated as absent rather than as an
-  // empty embed.
+  // even mean for this embed.
   const knownTabIds = new Set(allTabs.map((tab) => tab.id));
-  const requestedTabs = list(params.get("tabs"))?.filter((id) => knownTabIds.has(id));
-  const requestedLayers = list(params.get("allow"));
-  const tabs = selectTabs(allTabs, {
-    tabs: requestedTabs?.length ? requestedTabs : null,
-    layers: requestedLayers?.length ? requestedLayers : null,
-  });
-  // Nothing survived (every name was a typo): show the whole config rather than
-  // an empty frame.
-  const shown = tabs.length > 0 ? tabs : allTabs;
+  const knownLayerKeys = new Set(
+    allTabs
+      .flatMap((tab) => tab.layers)
+      .map((layer) => layer.key)
+      .filter(Boolean),
+  );
+  const wantedTabs = allowlist(params, "tabs", knownTabIds);
+  const wantedLayers = allowlist(params, "allow", knownLayerKeys);
+
+  // Supplied and resolved to nothing: the host asked for nothing, so show
+  // nothing. Widening to the whole config here is how `?allow=no-such-layer`
+  // used to hand a host every tab and every layer it had just excluded.
+  let empty =
+    (wantedTabs.supplied && wantedTabs.ids.length === 0) ||
+    (wantedLayers.supplied && wantedLayers.ids.length === 0);
+
+  let shown = empty
+    ? []
+    : selectTabs(allTabs, {
+        tabs: wantedTabs.ids.length > 0 ? wantedTabs.ids : null,
+        layers: wantedLayers.ids.length > 0 ? wantedLayers.ids : null,
+      });
+
+  // Both allowlists name real things, but nothing is in both of them (the
+  // plausible host mistake `?tabs=hazard&allow=population`). Narrow to the tab
+  // selection alone — inside what the host asked for — rather than widening.
+  if (!empty && shown.length === 0) {
+    if (wantedTabs.ids.length > 0) {
+      console.warn(
+        `Embed parameter "allow": none of ${wantedLayers.ids.map((key) => `"${key}"`).join(", ")} ` +
+          `is in the tabs "tabs" selects (${wantedTabs.ids.join(", ")}), so the layer allowlist was ignored.`,
+      );
+      shown = selectTabs(allTabs, { tabs: wantedTabs.ids });
+    } else empty = true;
+  }
+
   const registry = createLayerRegistry(shown);
   const layerKeys = [...registry.urlKeyOrder()];
   const tabIds = shown.map((tab) => tab.id);
@@ -155,20 +230,46 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   // Info tabs are deliberately not reachable in an embed (no information pages),
   // so only a data tab this embed shows is accepted.
   const requestedTab = params.get("tab");
-  const tab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : tabIds[0];
+  const tab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : (tabIds[0] ?? null);
 
   const layers = clampLayers(parseLayerParams(params), { allowed: layerKeys, registry });
 
   const instance = params.get("instance");
-  const parentOrigin = parseOrigin(params.get("parentOrigin")) ?? parseOrigin(referrer);
 
   return {
     tab,
     layers,
     tabIds,
     layerKeys,
+    /** Configured to show nothing (see "Absent is not resolved to nothing"). */
+    empty,
     panelCollapsed: params.get("panel") === "collapsed",
-    parentOrigin,
+    parentOrigin: resolveParentOrigin(params, referrer),
     instance: instance && INSTANCE_PATTERN.test(instance) ? instance : null,
   };
+}
+
+/**
+ * The one origin the message bridge may talk to.
+ *
+ * `parentOrigin` is what a careful host writes to be explicit, so a typo in it
+ * must not silently revert to the looser `document.referrer` mode: a supplied
+ * value that is not an http(s) origin disables the bridge (`null`) and says so.
+ * Only an absent parameter falls back to the referrer.
+ *
+ * @param {URLSearchParams} params
+ * @param {string} referrer
+ * @returns {string|null}
+ */
+function resolveParentOrigin(params, referrer) {
+  const raw = params.get("parentOrigin");
+  if (raw === null) return parseOrigin(referrer);
+  const origin = parseOrigin(raw);
+  if (!origin) {
+    console.warn(
+      `Embed parameter "parentOrigin": "${raw}" is not an http(s) origin, so the host message ` +
+        `bridge is disabled in both directions. Pass an origin such as "https://www.undrr.org".`,
+    );
+  }
+  return origin;
 }

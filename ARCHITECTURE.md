@@ -14,7 +14,7 @@ Static site, no backend. The app embeds MapX in an iframe via the SDK's postMess
 ```
 undrr-risk-resilience-maps/
 ├── index.html                  # Main entry point (standalone site)
-├── embed.html                  # Iframe embed entry: no header, info pages, footer or PIN gate
+├── embed.html                  # Iframe embed entry: no header, info pages or footer; same PIN gate
 ├── data/
 │   └── inventory.csv           # Master metadata, delivery status, and permanent MapX IDs
 ├── scripts/
@@ -26,7 +26,8 @@ undrr-risk-resilience-maps/
 │   ├── embed/
 │   │   ├── main.js             # embed.html's entry: params + memory adapter + message bridge + analytics
 │   │   ├── params.js           # Embed URL parameters, validated and clamped against the layer config
-│   │   └── messaging.js        # The versioned host postMessage API (v1) and its origin checks
+│   │   ├── messaging.js        # The versioned host postMessage API (v1) and its origin checks
+│   │   └── preview-gate.js     # Reads Mangrove's preview gate: is the embed still locked, and when does it open
 │   ├── config/
 │   │   ├── layers/             # Per-category layer definitions
 │   │   │   ├── index.js        # Assembles TABS array, withR2rGroups() helper
@@ -417,7 +418,8 @@ sidebar.destroy();
 | --- | --- | --- |
 | State adapter | `createHashAdapter()` (owned by the instance) | `createMemoryAdapter()` — never touches `location` or `history`, so the **host page's** URL and joint session history are untouched |
 | Configuration | the whole layer config | URL parameters, validated and clamped in `src/embed/params.js` |
-| Chrome | header, nav, information pages, footers, PIN gate | a category nav, the map, a subtle attribution line and a link to the full viewer — the embed markup simply carries no `data-ui` hook for the rest |
+| Chrome | header, nav, information pages, footers | a category nav, the map, a subtle attribution line and a link to the full viewer — the embed markup simply carries no `data-ui` hook for the rest |
+| Preview PIN gate | yes | yes, the same gate and PIN: the embed is published to GitHub Pages, which cannot send `frame-ancestors`, so the gate is the only barrier between an UNDRR-branded prototype and any site that frames it. `src/embed/preview-gate.js` watches it, and the host bridge answers `ready` with `locked: true` and refuses every command until it opens |
 | Host API | — | the v1 `postMessage` bridge in `src/embed/messaging.js` |
 | Analytics | — | one `embed_loaded` event naming the host it is framed in |
 
@@ -428,7 +430,12 @@ sidebar.destroy();
 - **One instance per document, for now.** The MapX client, the inspection batch, the infobox and the site-inspector panel are still module singletons that find their elements by document id. Both consumers are a single instance per document; two maps on one page is phase 2b in the embedding doc.
 - **Nothing reaches for page globals except through the root.** `createRiskMap` looks up `[data-ui="app-map"]`, `[data-ui="mapx"]` and `[data-ui="inspect-toggle"]` under its root, and passes its own `document` and a `reload` callback to the availability module — so an embed's "Try again" reloads the frame, never the host page.
 
-**The embed's URL parameters** (`tab`, `layers`, `variants`, `tabs`, `allow`, `panel`, `parentOrigin`, `instance`) and **the v1 message schema** are documented for hosts in [docs/embedding.md §8](docs/embedding.md). Two rules matter architecturally: `layers`/`variants` are parsed by `parseLayerParams()` in `src/state/hash.js`, the same code a share link uses, so the two syntaxes cannot drift; and a host command is delivered to `router.applyState()`, the same path a back/forward navigation takes, so a host cannot reconcile differently from a user.
+**The embed's URL parameters** (`tab`, `layers`, `variants`, `tabs`, `allow`, `panel`, `parentOrigin`, `instance`) and **the v1 message schema** are documented for hosts in [docs/embedding.md §8](docs/embedding.md). Four rules matter architecturally:
+
+- `layers`/`variants` are parsed by `parseLayerParams()` in `src/state/hash.js`, the same code a share link uses, so the two syntaxes cannot drift.
+- A host command is delivered to `router.applyState()`, the same path a back/forward navigation takes, so a host cannot reconcile differently from a user.
+- **Narrowing parameters never widen.** `tabs` and `allow` distinguish "absent" from "supplied and resolved to nothing": an allowlist of names the config does not know renders an explicit empty state (`params.empty`, the notice in `embed.html`, no instance created), never the whole config. Two allowlists that resolve but do not overlap narrow to the tab selection. Unrecognised ids are named in a `console.warn`.
+- **Refusals are explicit where a host could otherwise be misread.** A `set-layers` whose `layers` is not an array is answered `error: malformed` rather than reconciled to nothing; a `parentOrigin` that does not parse to an http(s) origin disables the bridge instead of falling back to the referrer; the one `unsupported-version` reply is sent once per embed.
 
 ### Layer rows
 
@@ -677,8 +684,10 @@ in-progress code. A new top-level directory holding unit tests must be added to
 | `src/state/hash-adapter.test.js`          | Adapter read/write/subscribe/destroy on a target; shared links (grouped tabs too) round-trip byte for byte via the store                                                                                                                                                                         |
 | `src/state/memory-adapter.test.js`        | The same contract with no `location` or `history`: seeding, copies in and out, a subscriber that is never called, writes ignored after destroy                                                                                                                                                   |
 | `src/app/create-risk-map.test.js`         | `selectTabs` allowlists (order, unknown ids, groups, layer identity); option plumbing, seeded initial layers restoring on ready, the coalesced `state` event, replayed `ready`, `setTab`/`setLayers`/`setState`, layer and map-service errors, and what `destroy()` takes back                   |
-| `src/embed/params.test.js`                | Every embed URL parameter: defaults, unknown tab/layer/source, allowlists, duplicates, `MAX_LAYERS`, `variants` (including broken JSON), `panel`, `parentOrigin` vs the referrer, the `instance` pattern, and unknown parameters ignored                                                          |
-| `src/embed/messaging.test.js`             | The whole security surface: foreign origin and foreign source refused, no parent origin meaning refuse-everything, non-protocol traffic ignored, unsupported versions answered, instance routing, the accepted command names, payload and id validation, and `destroy()`                          |
+| `src/embed/params.test.js`                | Every embed URL parameter: defaults, unknown tab/layer/source, allowlists (including one that resolves to nothing, two that do not overlap, and the warnings naming the ids), duplicates, `MAX_LAYERS`, `variants` (including broken JSON), `panel`, `parentOrigin` (absent vs supplied-and-unparseable), the `instance` pattern, and unknown parameters ignored |
+| `src/embed/messaging.test.js`             | The whole security surface: foreign origin and foreign source refused, a missing parent refused, no parent origin meaning refuse-everything, non-protocol traffic ignored, an unsupported version answered exactly once, instance routing, the accepted command names, payload and id validation, and `destroy()`                          |
+| `src/embed/preview-gate.test.js`          | Reading Mangrove's gate: no gate or an already-unlocked one is not locked, a locked one flips exactly once when the unlocked class arrives, a throwing listener does not stop the others, a late listener is never called, and `destroy()` stops watching                                         |
+| `src/embed/main.test.js`                  | The embed wired up, with `createRiskMap` stubbed: locked, it announces `ready { locked: true }`, refuses every command with `error: locked`, reports no state, and opens up when the gate does; unlocked, it obeys the three commands, refuses a `set-layers` that is not a list, posts no `resize`, and keeps the full-viewer link current; an empty configuration builds no instance at all; an unparseable `parentOrigin` leaves it silent both ways |
 | `src/services/analytics.test.js`          | `hostOrigin` from a referrer, the `embed_loaded` shape, the injected sink and the default console one, and a throwing sink never reaching the caller                                                                                                                                             |
 | `src/ui/announcer.test.js`                | The live region and its rule: a duplicate for the same record dropped, the same message from a new record (or no record) announced again, one record carrying a clear and a failure, two layers speaking at once both carried, and a standing message written back whichever layer settles first |
 | `src/ui/sidebar.order.test.js`            | The store's subscriber order through a real instance: `openViews` current and the rows not yet rendered at the moment the URL is written, for a layer going on and going off                                                                                                                     |
@@ -762,7 +771,7 @@ the PIN in every test.
 | `clear-all.spec.js`     | Clear all during a load leaves no switch on, no view on the map and a bare hash                                                                           |
 | `keyboard.spec.js`      | Tab reaches a layer switch from the row's expand control, Space turns it on and Enter turns it off                                                        |
 | `map-warmup.spec.js`    | The map keeps loading behind an information page while staying out of reach, through a real PIN unlock, and the skip link follows the view                |
-| `embed.spec.js`         | The iframe embed: parameters applied and clamped, no information pages or PIN gate, no write to its own URL or history, and — framed by a host page on a second origin — `ready`/`state` messages, `set-tab`/`set-layers`/`get-state`, malformed and wrong-version traffic, commands refused from a third-party frame and from an unconfigured origin, the host's URL and history untouched, and the `embed_loaded` analytics event naming the host |
+| `embed.spec.js`         | The iframe embed: parameters applied and clamped, an allowlist that selects nothing rendering an empty state rather than the whole config, no information pages, no write to its own URL or history, and — framed by a host page on a second origin — `ready`/`state` messages, `set-tab`/`set-layers`/`get-state`, malformed and wrong-version traffic (answered once), a `set-layers` that is not a list refused, commands refused from a third-party frame, from an unconfigured origin and from an unparseable `parentOrigin`, the host's URL and history untouched, and the `embed_loaded` analytics event naming the host. Plus the preview gate: the embed hidden and inert behind it, the ready budget not counting there, the PIN still answerable when storage is blocked, and the host told `locked` and refused until the PIN is entered inside the frame |
 
 Deliberately **not** covered here, because a browser adds nothing or the suite
 would be guessing at MapX: anything MapX itself renders (tiles, the map canvas,

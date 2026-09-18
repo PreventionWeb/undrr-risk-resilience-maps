@@ -69,17 +69,22 @@ export { expect };
  * Open `embed.html` directly (no host page).
  * @param {import("@playwright/test").Page} page
  * @param {string} [search] - the embed's query string, e.g. `"?tab=hazard"`
+ * @param {{ waitForMap?: boolean }} [options] - `false` for an embed that never
+ *   builds a map: one still behind the PIN gate, or one whose parameters select
+ *   nothing and which renders the empty state instead.
  */
-export async function gotoEmbed(page, search = "") {
+export async function gotoEmbed(page, search = "", { waitForMap = true } = {}) {
   await page.goto(`/embed.html${search}`);
-  await page.waitForFunction(() => window.__mapxStub?.ready === true);
+  if (waitForMap) await page.waitForFunction(() => window.__mapxStub?.ready === true);
   return page;
 }
 
 /** The host page's URL for a given embed query string. */
 export function hostUrl(origins, search = "", { unrelated = false, parentOrigin } = {}) {
   const embedSearch = new URLSearchParams(search.replace(/^\?/, ""));
-  if (parentOrigin) embedSearch.set("parentOrigin", parentOrigin);
+  // `!== undefined`, not truthiness: `parentOrigin: ""` is a case a spec tests
+  // (a supplied-but-unparseable value has to disable the bridge).
+  if (parentOrigin !== undefined) embedSearch.set("parentOrigin", parentOrigin);
   const query = embedSearch.toString();
   const params = new URLSearchParams({ src: `${EMBED_ORIGIN}/embed.html${query ? `?${query}` : ""}` });
   if (unrelated) params.set("evil", `${origins.unrelated}/embed-unrelated.html`);

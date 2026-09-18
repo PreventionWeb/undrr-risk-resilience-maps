@@ -6,7 +6,8 @@
  *   - the Mangrove preview PIN gate is already unlocked, so no spec has to
  *     fight it (it persists the unlock in sessionStorage — see below), unless
  *     the spec says `test.use({ previewUnlocked: false })` and answers it with
- *     `unlockPreviewGate()`;
+ *     `unlockPreviewGate()`. `embed.html` carries the same gate, with the same
+ *     id, so the seeding covers the embed and an embed inside a host page too;
  *   - the PreventionWeb footer widget is a no-op, because `index.html` calls
  *     `PW_Widget.initialize` from an inline script.
  *
@@ -33,10 +34,17 @@ const MAPX_STUB = readFileSync(new URL("./mapx-stub.js", import.meta.url), "utf8
  */
 const PREVIEW_UNLOCK_KEY = "mg-preview-access:grar-map-viewer";
 
+/** A page's gate attributes, read from its markup so a spec cannot hold a stale copy. */
+export function previewGateAttributes(file) {
+  const html = readFileSync(new URL(`../../../${file}`, import.meta.url), "utf8");
+  const gate = html.match(/<div\s+data-mg-preview-access[\s\S]*?><\/div>/)?.[0] ?? "";
+  return Object.fromEntries(
+    [...gate.matchAll(/data-mg-preview-([a-z-]+)="([^"]*)"/g)].map(([, name, value]) => [name, value]),
+  );
+}
+
 /** The gate's PIN, read from the markup so a change to it cannot strand a spec. */
-const PREVIEW_PIN = readFileSync(new URL("../../../index.html", import.meta.url), "utf8").match(
-  /data-mg-preview-pin="(\d+)"/,
-)?.[1];
+export const PREVIEW_PIN = previewGateAttributes("index.html").pin;
 
 /** Requests a test must never make. */
 const BLOCKED = [
@@ -116,10 +124,14 @@ export async function gotoApp(page, hash = "") {
  * Answer the preview gate the way a user does, for a spec that runs with
  * `previewUnlocked: false`. Resolves once the overlay is gone, which is the
  * point at which the gate has removed `inert` from every child of `<body>`.
- * @param {import("@playwright/test").Page} page
+ *
+ * `scope` is a page or a frame: `embed.html` carries the same gate, and a host
+ * page's visitor answers it *inside* the iframe (see the embed suite).
+ *
+ * @param {import("@playwright/test").Page|import("@playwright/test").FrameLocator} scope
  */
-export async function unlockPreviewGate(page) {
-  const overlay = page.locator(".mg-preview-access__overlay");
+export async function unlockPreviewGate(scope) {
+  const overlay = scope.locator(".mg-preview-access__overlay");
   await overlay.locator("#mg-preview-access-pin").fill(PREVIEW_PIN);
   await overlay.locator(".mg-preview-access__submit").click();
   await overlay.waitFor({ state: "detached" });

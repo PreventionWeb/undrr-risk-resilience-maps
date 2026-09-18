@@ -41,9 +41,12 @@
         python3 -m http.server 3060 --directory tests/e2e/fixtures
         open 'http://localhost:3060/embed-host.html?src=http://localhost:3040/embed.html%3Ftab%3Dhazard%26parentOrigin%3Dhttp://localhost:3060'
 
-      Query parameters: `src` (the embed URL), `evil` (a URL for the unrelated
-      frame used to prove the embed ignores messages that are not its parent's)
-      and `autosize=1` (follow the embed's `resize` hint).
+      Query parameters: `src` (the embed URL) and `evil` (a URL for the unrelated
+      frame used to prove the embed ignores messages that are not its parent's).
+
+      The frame has a fixed height here, as a real host's does: the v1 schema has
+      no auto-sizing hint (docs/embedding.md §8, and the note on `OUTBOUND` in
+      src/embed/messaging.js).
     -->
     <h1>Risk map embed — host harness</h1>
     <p id="status">waiting for the embed…</p>
@@ -97,9 +100,10 @@
           if (!data || data.type !== "undrr-risk-map") return;
           harness.messages.push(data);
           log.textContent += JSON.stringify(data) + "\n";
-          if (data.name === "ready") document.getElementById("status").textContent = "embed ready";
-          if (data.name === "resize" && params.get("autosize") === "1") {
-            frame.style.height = data.payload.height + "px";
+          if (data.name === "ready") {
+            document.getElementById("status").textContent = data.payload.locked
+              ? "embed is locked behind its preview PIN"
+              : "embed ready";
           }
         });
 

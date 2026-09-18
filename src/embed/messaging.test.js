@@ -65,6 +65,18 @@ describe("classifyMessage", () => {
     });
   });
 
+  it("refuses everything when there is no parent to compare the source against", () => {
+    // Finding 4: the source check used to be skipped when `parent` was null,
+    // which the bridge never does — but this function is exported as the
+    // security surface, so it has to fail closed on its own.
+    for (const parentRef of [null, undefined]) {
+      expect(classifyMessage(event(envelope("set-tab")), { ...context, parent: parentRef })).toEqual({
+        ok: false,
+        reason: "foreign-source",
+      });
+    }
+  });
+
   it("ignores traffic that is not this protocol", () => {
     for (const data of [
       null,
@@ -163,6 +175,9 @@ describe("createMessageBridge", () => {
     const bridge = createMessageBridge({ windowRef, parentOrigin: HOST });
 
     expect(bridge.post("set-tab", { tab: "hazard" })).toBe(false);
+    // `resize` left the v1 schema (finding 7): in a frame-filling embed the hint
+    // only ever reported the height the host had already set.
+    expect(bridge.post("resize", { height: 600 })).toBe(false);
     expect(windowRef.posted).toEqual([]);
   });
 
@@ -201,6 +216,7 @@ describe("createMessageBridge", () => {
 
   it("answers an unsupported version and stays silent about everything else", () => {
     const windowRef = fakeEmbedWindow();
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
     createMessageBridge({ windowRef, parentOrigin: HOST, onCommand: () => {} });
 
     windowRef.deliver({ ...envelope("set-tab"), v: 99 });
@@ -212,6 +228,21 @@ describe("createMessageBridge", () => {
       name: "error",
       payload: { code: "unsupported-version" },
     });
+    consoleWarn.mockRestore();
+  });
+
+  it("answers an unsupported version once, however often it arrives", () => {
+    // Finding 5: a host looping in the wrong version used to get a reply per
+    // message — 2,000 messages, 2,000 replies. One answer is what it needs.
+    const windowRef = fakeEmbedWindow();
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    createMessageBridge({ windowRef, parentOrigin: HOST, onCommand: () => {} });
+
+    for (let i = 0; i < 2000; i += 1) windowRef.deliver({ ...envelope("set-tab"), v: 2 });
+
+    expect(windowRef.posted).toHaveLength(1);
+    expect(consoleWarn).toHaveBeenCalledTimes(1);
+    consoleWarn.mockRestore();
   });
 
   it("reports a throwing command instead of letting it escape the listener", () => {

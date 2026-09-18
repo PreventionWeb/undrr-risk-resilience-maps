@@ -10,13 +10,32 @@
     <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.2/css/style.css" />
   </head>
   <body>
+    <!-- Preview access gate (Mangrove), the same one index.html carries: same
+         `data-mg-preview-id`, so an unlock is shared wherever the browser gives
+         the two pages one sessionStorage, and the same public PIN.
+
+         Why an embed is gated at all: merging publishes embed.html to GitHub
+         Pages, Pages cannot send `frame-ancestors` or `X-Frame-Options`, and an
+         ungated embed is therefore an UNDRR-branded prototype that any site can
+         frame and drive. Until hosting can set those headers, the gate is the
+         barrier on both ends -- see docs/embedding.md §8, "The preview gate in
+         an embed", for what that means for a host (its visitors enter the PIN
+         inside the frame, because third-party storage is partitioned) and for
+         what has to change before a host gets a PIN-free embed. -->
+    <div
+      data-mg-preview-access
+      data-mg-preview-id="grar-map-viewer"
+      data-mg-preview-pin="0403"
+      data-mg-preview-title="GRAR Metrics Facility Map Viewer"
+      data-mg-preview-message="This is a prototype for interaction and review only. It does not reflect actual data or final look and feel. It is shared for early feedback purposes only."
+      data-mg-preview-pin-label="Enter the PIN for access."
+    ></div>
+
     <!--
       The iframe embed (docs/embedding.md phase 1). Configured entirely by URL
       parameters — see `src/embed/params.js` for the table and the clamping.
 
       Deliberately absent, compared with index.html:
-        - the preview PIN gate: it would prompt once per host site, and in an
-          embed it is not a barrier anybody can answer sensibly;
         - the UNDRR page header, the information pages and the syndicated
           PreventionWeb footer: the host page has its own;
         - the build-info footer.
@@ -24,6 +43,28 @@
       them out is all that is needed.
     -->
     <div class="embed-root" data-ui-embed>
+      <!-- Shown by src/embed/main.js instead of a map when the URL's `tabs` or
+           `allow` allowlist selects nothing: an allowlist that resolves to
+           nothing means the host asked for nothing, and answering it with the
+           whole config would hand out exactly what it excluded. -->
+      <section
+        class="embed-empty mg-notice mg-notice--warning"
+        role="alert"
+        data-ui-embed-empty
+        hidden
+        aria-label="Embed configuration"
+      >
+        <div class="mg-notice__header">
+          <span class="mg-icon mg-notice__icon mg-icon-exclamation-triangle" aria-hidden="true"></span>
+          <h2 class="mg-notice__title">This embed has no layers to show</h2>
+        </div>
+        <div class="mg-notice__description">
+          <p>
+            Its <code>tabs</code> or <code>allow</code> parameter names nothing this map knows, so there is
+            nothing to display. The browser console lists the names that were not recognised.
+          </p>
+        </div>
+      </section>
       <!-- Category tabs. The list is empty on purpose: src/ui/nav.js generates a
            link per data tab the embed is allowed to show, so `?tabs=` needs no
            markup change. No home or info links — there are no info pages. -->
@@ -161,6 +202,7 @@
       </footer>
     </div>
 
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.2/js/preview-access.js"></script>
     <script type="module" src="/src/embed/main.js"></script>
   </body>
 </html>

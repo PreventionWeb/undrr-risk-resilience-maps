@@ -37,6 +37,13 @@
   flex: 0 0 auto;
 }
 
+/* The empty state (an allowlist that selects nothing): it stands in for the map,
+   so it takes the space the map would have had. */
+.embed-empty {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
 .embed-nav .mg-mega-topbar {
   margin: 0;
 }
