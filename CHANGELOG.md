@@ -9,6 +9,13 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Fixed
 
 - A screen reader now hears a layer's loading or failure message once. A layer appears in its own category and in every other category's cross-tab list, and each of those rows said the same thing, so the message was read out several times.
+- The opacity slider under a layer had no name a screen reader could use: it sat next to the word "Opacity" but nothing tied the two together (axe reported a critical `label` violation on every layer that was on). It is now named "Opacity" and reads its value as a percentage.
+- The category navigation is announced as links again. It claimed to be a menu bar, which promises arrow-key navigation the app does not implement and stops the eight links being announced as links. The link for the page you are on now says so.
+- The map itself had no name, so a screen reader listed it as an unnamed frame.
+- The "Show MapX view IDs" switch on the Sources page was almost invisible when off: neither its own knob nor its outline against the blue banner reached the minimum contrast a control needs.
+- The site inspector's "no data" dot was too faint to see (1.9:1 where 3:1 is the minimum). It is now a ring rather than a filled dot, so the two states differ in shape as well as colour.
+- Links inside the text on the About and Sources pages are underlined. Colour alone marked them, and UNDRR blue against the body text is 2.1:1.
+- The smaller switch in the layer panel header would have moved its knob the wrong way in a right-to-left language. In Windows High Contrast mode it also pushed the knob flush with the edge of its track, because the mode adds a border the knob's travel did not allow for.
 - Layers shown by "Show disabled" are readable again: the whole row used to be dimmed with a transparency, which took its name and badge below the minimum text contrast (axe reported `color-contrast` on four more rows). The row is greyed with colours instead, and its badge says "not published" rather than the layer type.
 - The "Show disabled" switch's off state, the type badge's size, and the focus ring on a switch whose last load failed all met less than the minimum contrast, size or visibility they needed.
 - A screen reader is told when a layer starts and stops loading. The switch says so in its name, but the same attribute that draws the spinner also stops assistive technology reporting changes there, so the row's live region says it instead.
@@ -29,6 +36,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- The page header now matches Mangrove's own markup, including the logo's canonical address and a preload so it paints without waiting for the stylesheet. The close buttons on the infobox and site inspector, and the map-service notice's warning symbol, use Mangrove's icons instead of hand-drawn shapes and the `×` character.
+- Every colour in the app's own stylesheets now comes from a Mangrove token rather than a hard-coded hex value, so a palette change reaches the whole app.
 - A layer that is slow to come on or go off now says so in writing: "Turning on" or "Turning off" appears under the row, in the wording Mangrove uses for a pending switch. It waits until the layer has been loading for almost half a second, so quick layers show only the spinner and nothing flickers, and a row that already shows its own loading message (an EDRA layer) is left as it is.
 - Upgraded the UNDRR Mangrove component library from `2.0.0-rc.1` to `2.0.0-rc.2` across the stylesheet, `preview-access.js`, and `tabs.js` modules. rc.2 adds the `.mg-switch` pending and `aria-disabled` states, forced-colours support and `--mg-switch-*` custom properties; no classes or tokens we use were renamed or removed.
 - Rebuilt every on/off control on Mangrove's switch component, so the layer switches, "Show disabled" and the Sources MapX-ID switch look and behave alike: a clear on/off track, a spinner ring while a layer loads (static when the browser asks for reduced motion), a red outline and message after a failed load, a dimmed state while the map is still starting up, and a 46 × 40 px hit target (44 px tall on touch) that is the same in the home tab and in cross-tab rows.

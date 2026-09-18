@@ -82,7 +82,14 @@ undrr-risk-resilience-maps/
 │           ├── site-inspector.css
 │           ├── widgets.css     # Sub-tabs and stepped-slider
 │           └── infobox.css
+├── tests/
+│   └── e2e/                    # Playwright smoke suite (unit tests live beside their modules)
+│       ├── fixtures/
+│       │   ├── app.js          # The shared test fixture: MapX stub routing, preview-gate unlock, selectors
+│       │   └── mapx-stub.js    # Served as mxsdk.umd.js; the only fake MapX in the suite
+│       └── *.spec.js
 ├── .github/workflows/deploy.yml # GitHub Pages CI
+├── playwright.config.js        # E2E suite: chromium, its own Vite server on port 3040
 ├── vite.config.js
 ├── server.js                   # Static production server (for previewing dist/)
 └── package.json
@@ -167,6 +174,8 @@ programme tracker row, operational risks, and migration triggers.
 Category tabs (Risk, Resilience, Hazard, Exposure, Vulnerability, in `TABS` order) live in a Mangrove `mg-mega-topbar` navigation bar. Home, Sources, and About provide the remaining informational views. `index.html` holds only the home link, a separator and the info links; `createNav()` in `src/ui/nav.js` inserts a link per `TABS` entry before the separator, so adding a tab needs no markup change. Links already in the markup are wired, not duplicated.
 
 A tab entry carries everything generated from it: `id`, `label`, `description`, an optional `definitionUrl` and `glossary`, its layers (or R2R `groups`), and `card: { icon, color, desc }` — the tab's home-page card, which `buildHomePanel({ tabs })` renders from. So adding a tab is one edit in `src/config/layers/index.js`: the nav link, the layer panel and the home card all follow. `card` is optional, since a tab can be deliberately left off the home grid and an embed may pass a subset of tabs; `validateLayers()` checks its shape when it is there, because a half-filled card would render a blank one.
+
+The topbar is a plain list of links inside `<nav aria-label>`, with no ARIA menu roles: Mangrove's own MegaMenu leaves the topbar and its items with their native semantics and uses `menu`/`menuitem` only inside a submenu. `menubar` would promise arrow-key navigation and a single tab stop that this nav does not implement, and it stopped the links being announced as links. `setActive()` marks the link for the view on screen with `is-active` and `aria-current="page"` -- the hash is this app's address bar, so that link is the current page -- and `destroy()` restores both.
 
 **Two routing modes driven by `switchTab()`:**
 
@@ -392,8 +401,8 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.0-rc.2/css/style.css) (v2.0.0-rc.2). Components used:
 
-- `mg-page-header` — UNDRR branding bar with Sendai stripe
-- `mg-mega-topbar` — category navigation bar (Simple Nav variant)
+- `mg-page-header` (`--default`, `__decoration`, `__toolbar-wrapper`, `__block--logo`) — UNDRR branding bar with Sendai stripe, matching PageHeader's rendered HTML. The logo is `mg-logo mg-logo--autocrop` and is preloaded from `assets.undrr.org/logos/...` (the canonical path, with no `/static/` segment); the decoration divs are `aria-hidden`. `--autocrop` only applies below 1164px, where Mangrove crops the lockup to the emblem and wordmark
+- `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles
 - `mg-card`, `mg-card__icon--bordered` — interactive category cards on the home page
 - `mg-highlight-box` — callout boxes on info pages
 - `mg-button` (`-primary`, `-secondary`, `-outline`, `--icon`, `--icon--small`) — actions, map toolbar and icon tools
@@ -403,6 +412,7 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-form-label`, `mg-form-select`, `mg-form-error` — compound-layer source switcher and the row-level failure message
 - `mg-form-help` — layer descriptions and the row-level "Turning on" / "Turning off" pending text
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
+- `mg-icon` (`-close`, `-exclamation-triangle`) — the close buttons on the infobox and site inspector, and the map-service notice's warning symbol. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
 - `mg-status-label` — publication status for planned datasets on the Sources page
 - `mg-details` — expandable planning sections on the Sources page
 - `mg-container` — centred layout
@@ -446,10 +456,51 @@ content inside that response's callback. An empty footer in a headless check is
 expected — verify in an ordinary browser.
 
 Mangrove 2.0 notes that affect this app: colour tokens are sRGB channel triples
-and must be wrapped — `rgb(var(--mg-color-focus-ring))`; z-index 10-22 is frozen
-for Mangrove's navigation zone, so app chrome uses 30+ (see `tokens.css`); and
-fonts come from role tokens (`--mg-font-family-code` and friends) rather than
-per-component typeface declarations.
+and must be wrapped — `rgb(var(--mg-color-focus-ring))`, or
+`rgb(var(--mg-color-neutral-900) / 0.1)` for a translucent one — except the ~24
+complete-expression tokens on `tokens.json`'s exception list, such as
+`--mg-form-input-border-color`, which are used bare. Only tokens that name the
+state being styled are used: an `--mg-…--focus` token is not borrowed for a
+resting background even where the two resolve alike today. No component
+stylesheet declares a raw hex or `rgba()` colour, with one exception —
+`map-service-notice.css`, which a follow-on change replaces with `mg-notice`
+outright, so it was left alone rather than tokenised twice. Where no token
+matches a value, the nearest token is used translucently rather than a hex kept
+(`--color-primary-light` is `rgb(var(--mg-color-blue-900) / 0.06)`), and drop
+shadows keep their geometry with a tokenised colour, since Mangrove's
+`--mg-card-shadow` / `--mg-shadow-raised` are inset hairline rings rather than
+drop shadows and are not substitutes. Z-index 10-22 is frozen for Mangrove's
+navigation zone, so app chrome uses 30+ (see `tokens.css`); and fonts come from
+role tokens (`--mg-font-family-code` and friends) rather than per-component
+typeface declarations.
+
+Two places overrule a Mangrove default, and both say why in the stylesheet. The
+Sources hero's switch has no inverse variant upstream, so `.sources-mapx-toggle`
+darkens the off track and adds a white inset ring: over the mid-blue hero the
+default (and an earlier translucent-white track) left both the thumb and the
+track boundary under the 3:1 a UI component needs. The darkened fill itself
+composites to `rgb(17,63,101)` against the hero — 1.7:1, nowhere near 3:1 — so
+it is the ring, not the fill, that carries the track's outer boundary (6.49:1),
+and the ring is therefore two device-independent pixels rather than one, so it
+cannot land sub-pixel at a fractional zoom or DPR. The layer panel's
+`.layer-review-switch` re-declares the switch geometry one size down because
+Mangrove has no size hook yet (unisdr/undrr-mangrove#1199); the thumb's travel is
+derived with `calc()` from the track width, padding, border and thumb size, and a
+`[dir=rtl]` rule mirrors it, because the override would otherwise beat Mangrove's
+own RTL rule. The border term exists for `forced-colors: active`, where Mangrove
+adds a 1px track border but its padding reset loses to this override, so the
+travel has to shrink by 2px or the thumb sits flush with the track's edge.
+
+**Labelling controls.** Several panel controls show a word beside themselves
+rather than above an associated `<label>`: the opacity slider, the stepped
+slider's "Return period", the sub-tabs' metric name. Mangrove's `mg-form-label`
+carries `for`, which needs an id, and the same layer can render the same control
+twice at once (its home tab and another tab's cross-tab section), so a fixed id
+would be duplicated. The convention across all of them is therefore one shape:
+the visible text is a decorative `<span class="… mg-form-label" aria-hidden>`,
+and the control alongside it is named by an `aria-label` carrying the same words,
+which satisfies WCAG 2.5.3. No bare `<label>` without a `for` is left anywhere —
+it names nothing and only reads as an orphan to assistive technology.
 
 ### Layer panel controls
 
@@ -461,7 +512,7 @@ The floating layer panel includes:
 - **Show disabled toggle** — reveals unpublished review-only layer entries in the current category without making them toggleable on the map
 - **Clear all button** — shown while any record is `desired` or `applied`, so it appears as soon as a layer starts loading and stays while a failed turn-off leaves a layer on; `controller.clearAll()` turns them all off, including layers still loading
 - **`onViewsChanged` option** — `main.js` passes it to `createSidebar()` and enables the inspect tool from it. It is called with the number of layers on the map (`applied` records) only when that number changes, from its own store subscriber. Intent never fires it, and a source switch does not either: the switching layer stays `applied` through the gap between its views (when `openViews` briefly lacks it), so inspect is not disabled mid-switch
-- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse). Legend priority is: a provider-owned structured legend; validated MapX vector rules from `get_views`; discrete GeoServer raster `intervals`/`values` from an approved provider; then the MapX image fallback. Raster requests first contact the exact approved provider endpoint and retry its explicit HTTP 403 origin denial through the allowlisted MapX mirror within one bounded request budget. Network failures and redirects go directly to the image fallback. Continuous ramps, unapproved providers, sprites, custom code, malformed responses, and excessive rule sets deliberately retain a labelled image rather than risk a misleading approximation. The full security boundary, fallback reasons, operations, and regression procedure are in `docs/legends.md`. While the structured renderer is being validated, its MapX image is also available in a collapsed comparison disclosure, lazy-loaded on first expansion. The catalogue cache is scoped to the active SDK manager and refreshes once on a missing view because `view_add` can introduce public cross-project views after initialisation. Async renders use a DOM ownership marker so a closed layer or superseded compound source cannot append stale legend content.
+- **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK uses "transparency" (0 = opaque, 100 = invisible); the UI presents "opacity" (inverse), rounded to the slider's step so the thumb, the percentage beside it and `aria-valuetext` cannot disagree. Mangrove's Range pairs `mg-range` with an `mg-form-label` carrying `for`, which needs an id, and the same layer can show a slider in its home tab and in a cross-tab section at once; the visible "Opacity" text is therefore `aria-hidden` and the name comes from `aria-label` with the same word, with `aria-valuetext` spelling out the percentage the native value would read as a bare number. Legend priority is: a provider-owned structured legend; validated MapX vector rules from `get_views`; discrete GeoServer raster `intervals`/`values` from an approved provider; then the MapX image fallback. Raster requests first contact the exact approved provider endpoint and retry its explicit HTTP 403 origin denial through the allowlisted MapX mirror within one bounded request budget. Network failures and redirects go directly to the image fallback. Continuous ramps, unapproved providers, sprites, custom code, malformed responses, and excessive rule sets deliberately retain a labelled image rather than risk a misleading approximation. The full security boundary, fallback reasons, operations, and regression procedure are in `docs/legends.md`. While the structured renderer is being validated, its MapX image is also available in a collapsed comparison disclosure, lazy-loaded on first expansion. The catalogue cache is scoped to the active SDK manager and refreshes once on a missing view because `view_add` can introduce public cross-project views after initialisation. Async renders use a DOM ownership marker so a closed layer or superseded compound source cannot append stale legend content.
 
 ### Feature popups and click handling
 
@@ -491,9 +542,20 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 
 ## Testing
 
-Vitest + jsdom is configured in `vite.config.js`. Run tests with `yarn test`.
+Two suites, with a deliberate split of labour:
 
-Test files cover pure and near-pure modules:
+| Suite                 | Command         | Runs in                   | What it is for                                                                                                         |
+| --------------------- | --------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Unit (vitest + jsdom) | `yarn test`     | jsdom, SDK modules mocked | Every module's own rules, in detail: parsing, reconciliation policy, row rendering, failure paths, lifecycle           |
+| E2E (Playwright)      | `yarn test:e2e` | Chromium, MapX stubbed    | The few guarantees that only hold in a real browser: the URL, the history stack, focus and keys, the rendered controls |
+
+`yarn test:all` runs both.
+
+### Unit tests (vitest + jsdom)
+
+Configured in `vite.config.js` (which also excludes `tests/e2e/`, since those
+specs match vitest's `*.spec.js` pattern). Test files cover pure and near-pure
+modules:
 
 | File                                      | What it tests                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -525,6 +587,56 @@ Test files cover pure and near-pure modules:
 | `src/utils/export-layers.test.js`         | BOM, CRLF, headers, compound layer expansion, project labels, disabled status, CSV quoting                                                                                                                                                                                                      |
 
 `src/ui/sidebar.cross-tab.test.js` creates a sidebar instance with mocked SDK modules and covers cross-tab rows (including that a layer turned on from a cross-tab row renders no slider or legend into its hidden home row until that tab is shown, with exact `addLegend`/`addOpacitySlider` counts across tab switches), shared-link restore (including view-add order), clear-all (including a layer still loading), back/forward history entries, rapid double toggles, quick source picks and a failed switch (widget, hash and legend agree), turning an external layer off while it loads, `viewRemove` failures and non-app hashes, plus a `layers store` block asserting records match the switches, `openViews` and the hash after toggle, source switch, clear-all, restore and back/forward, and covering failure records, a throwing hash write, a layer whose view returns after another layer wrote the hash, a double switch failure that ends off, and destroy/rebuild. `src/ui/sidebar.grouped.test.js` checks that a grouped tab's hash keeps config order on toggle and restore. `src/ui/sidebar.test.js` covers the home-tab accordion (activation, keyboard, unknown layers) through a sidebar instance.
+
+### E2E smoke suite (Playwright)
+
+`playwright.config.js` runs `tests/e2e/*.spec.js` in Chromium only, against the
+Vite dev server on port 3040 (started by the config's `webServer`, so there is
+nothing to launch by hand). CI retries twice and records a trace on the first
+retry; `test-results/` and `playwright-report/` are git-ignored and uploaded as
+an artifact when the job fails.
+
+**MapX is stubbed, always.** `tests/e2e/fixtures/mapx-stub.js` is served from
+the real SDK URL (`https://app.mapx.org/sdk/mxsdk.umd.js`) by Playwright
+routing, so `loadMapXSdk()` gets a script that sets `window.mxsdk` exactly as
+the UMD bundle does. Its `Manager` appends a placeholder element instead of a
+cross-origin iframe, emits `ready` on the next tick, and answers the commands
+`src/sdk/` sends: `view_add`, `view_remove`, `get_views`,
+`get_view_legend_image`, `get_view_layer_transparency`,
+`set_view_layer_transparency`, `set_immersive_mode`, `set_vector_highlight`,
+`set_features_click_sdk_only` and the camera reads. `get_views` returns raster
+views with no legend URL, which is what the approved-provider policy in
+`raster-legends.js` rejects without any request, so legends resolve to the image
+fallback and the stub's per-view legend image carries its own view id — that is
+how a spec checks the legend on screen belongs to the view the URL names. The
+fixture also blocks `app.mapx.org`, `api.mapx.org` (the MapX mirror),
+`*.unepgrid.ch` (GeoServer) and `*.copernicus.eu` (EDRA) outright, and stubs the
+PreventionWeb footer widget. `window.__mapxStub` exposes `ready`, `openViews`,
+`calls` and a `delayMs` a spec raises when it needs a later action to land while
+an earlier MapX call is provably still in flight.
+
+The Mangrove stylesheet and `preview-access.js` are still loaded from
+assets.undrr.org: they are the app's own design system, and without them the
+page under test is not the page. The preview PIN gate persists its unlock as
+`mg-preview-access:<data-mg-preview-id>` in sessionStorage, so the fixture seeds
+that key (and marks the gate unlocked directly as a fallback) rather than typing
+the PIN in every test.
+
+| Spec                    | What it proves end to end                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared-link.spec.js`   | A three-layer link restores all three switches and both widget kinds on their named sources, and the hash is byte-identical after the restore rewrites it |
+| `history.spec.js`       | One user action is one real history entry; two Back steps and two Forward steps each restore their own layers and URL; navigating history adds no entries |
+| `cross-tab.spec.js`     | A layer turned on from another tab's section renders no controls in its hidden home row, then exactly one slider and one legend once that tab is shown    |
+| `source-switch.spec.js` | Overlapping source picks end on the last one, with the widget, the URL, the opacity slider's view id and the legend image all naming the same view        |
+| `clear-all.spec.js`     | Clear all during a load leaves no switch on, no view on the map and a bare hash                                                                           |
+| `keyboard.spec.js`      | Tab reaches a layer switch from the row's expand control, Space turns it on and Enter turns it off                                                        |
+
+Deliberately **not** covered here, because a browser adds nothing or the suite
+would be guessing at MapX: anything MapX itself renders (tiles, the map canvas,
+its own chrome), legend colour correctness and GeoServer schema handling
+(`raster-legends.test.js`), the reconciliation policy's failure paths
+(`layer-controller.test.js`), external/EDRA layers, feature inspection, and
+visual regression.
 
 `yarn test:mapx-raster-contract` is a manual, network-dependent check of the configured Earthquake
 PGA views, GIRI GeoServer JSON, and the MapX mirror. See `docs/legends.md` for cadence and browser

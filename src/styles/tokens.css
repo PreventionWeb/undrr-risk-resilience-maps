@@ -13,7 +13,9 @@
      same UNDRR blue. Colour tokens are sRGB channel triples in Mangrove 2.0,
      so they must be wrapped in rgb(). */
   --color-primary: rgb(var(--mg-color-blue-900));
-  --color-primary-light: #f0f6fc;
+  /* A faint wash of the same blue rather than a hex: over white it lands on
+     #f0f4f8, within a couple of channel steps of the #f0f6fc it replaces. */
+  --color-primary-light: rgb(var(--mg-color-blue-900) / 0.06);
   --color-text: rgb(var(--mg-color-neutral-700));
   --color-text-muted: rgb(var(--mg-color-neutral-500));
   --color-border: rgb(var(--mg-color-neutral-100));

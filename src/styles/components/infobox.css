@@ -7,8 +7,8 @@
   top: 0.75rem;
   right: 0.75rem;
   z-index: var(--z-infobox);
-  background: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  background: rgb(var(--mg-color-neutral-0));
+  box-shadow: 0 2px 12px rgb(var(--mg-color-neutral-900) / 0.2);
   border-radius: 4px;
   max-width: 22rem;
   max-height: 50%;
@@ -21,7 +21,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgb(var(--mg-color-neutral-50));
 }
 
 .infobox-title {
@@ -35,7 +35,7 @@
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: #999;
+  color: rgb(var(--mg-color-neutral-500));
   padding: 0.25rem;
   line-height: 1;
   border-radius: 3px;
@@ -43,7 +43,11 @@
 
 .infobox-close:hover {
   color: var(--color-primary);
-  background: #f0f0f0;
+  background: rgb(var(--mg-color-neutral-25));
+}
+
+.infobox-close .mg-icon {
+  font-size: 1rem;
 }
 
 .infobox-close:focus-visible {
