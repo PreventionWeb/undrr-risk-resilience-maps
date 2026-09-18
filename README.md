@@ -17,6 +17,9 @@ yarn dev        # Vite dev server at http://localhost:3001
 yarn build      # Production build to dist/
 yarn preview    # Preview production build
 yarn test       # Vitest unit tests
+yarn test:e2e   # Playwright smoke suite in Chromium, MapX stubbed
+                # (first run: npx playwright install chromium)
+yarn test:all   # Both suites
 yarn test:edra-contract         # Optional live check of all 15 EDRA variants
 yarn test:mapx-raster-contract  # Optional live MapX/GIRI/mirror legend check
 ```

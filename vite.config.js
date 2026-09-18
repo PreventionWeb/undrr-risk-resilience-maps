@@ -34,5 +34,10 @@ export default defineConfig({
       },
     },
   },
-  test: { environment: "jsdom" },
+  test: {
+    environment: "jsdom",
+    // The Playwright specs under tests/e2e also match vitest's default
+    // `*.spec.js` pattern; they are a browser suite (`yarn test:e2e`).
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/e2e/**"],
+  },
 });

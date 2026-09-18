@@ -8,6 +8,20 @@
 - Dependency bumps, doc-only changes, and chore commits may go directly to `main` when no code review is needed.
 - PRs should be reviewed before merging.
 
+## Tests
+
+- `yarn test` — unit tests (vitest + jsdom). Fast; run these constantly.
+- `yarn test:e2e` — the Chromium smoke suite (Playwright). It starts its own Vite
+  dev server on port 3040, so nothing needs launching first. First run only:
+  `npx playwright install chromium`.
+- `yarn test:all` — both.
+
+CI runs them as two jobs. Add a case to the unit suite by default; the E2E suite
+is only for guarantees that need a real browser (URL and history, focus and
+keys, what actually renders). MapX is stubbed there and must stay stubbed — no
+test may reach MapX, GeoServer or EDRA. See
+[ARCHITECTURE.md](ARCHITECTURE.md#testing) for the split and the stub.
+
 ## Commits
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/).
