@@ -93,6 +93,15 @@ describe("buildSteppedSlider", () => {
     expect(el.querySelector(".widget-label")).toBeNull();
   });
 
+  it("makes the visible label decorative and leaves no orphan <label>", () => {
+    const el = buildSteppedSlider(SOURCES, 0, () => {}, CONFIG);
+    const lbl = el.querySelector(".widget-label");
+    expect(lbl.tagName).toBe("SPAN");
+    expect(lbl.getAttribute("aria-hidden")).toBe("true");
+    expect(el.querySelector("label")).toBeNull();
+    expect(el.querySelector("input[type=range]").getAttribute("aria-label")).toBe(CONFIG.label);
+  });
+
   it("sets aria-label on the range input", () => {
     const el = buildSteppedSlider(SOURCES, 0, () => {}, CONFIG);
     const slider = el.querySelector("input[type=range]");

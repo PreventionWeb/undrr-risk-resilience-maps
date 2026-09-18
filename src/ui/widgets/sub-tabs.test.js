@@ -67,6 +67,15 @@ describe("buildSubTabs", () => {
     expect(el.querySelector(".widget-label")).toBeNull();
   });
 
+  it("makes the visible label decorative and names the tablist instead", () => {
+    const el = buildSubTabs(SOURCES, 0, () => {}, CONFIG);
+    const lbl = el.querySelector(".widget-label");
+    expect(lbl.tagName).toBe("SPAN");
+    expect(lbl.getAttribute("aria-hidden")).toBe("true");
+    expect(el.querySelector("label")).toBeNull();
+    expect(el.querySelector("[role=tablist]").getAttribute("aria-label")).toBe(CONFIG.label);
+  });
+
   it("has the tablist role on the button bar", () => {
     const el = buildSubTabs(SOURCES, 0, () => {}, CONFIG);
     expect(el.querySelector(".widget-sub-tabs-bar")?.getAttribute("role")).toBe("tablist");
