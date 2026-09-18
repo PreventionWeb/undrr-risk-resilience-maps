@@ -17,7 +17,8 @@ const MIN_H = 80;
 
 /**
  * Make `el` draggable by `handle` within its offsetParent.
- * Ignores pointerdown events that land on interactive children (buttons etc.).
+ * Ignores pointerdown events that land on interactive children (buttons,
+ * form controls and their labels).
  * @param {HTMLElement} el
  * @param {HTMLElement} handle
  * @param {{ signal?: AbortSignal }} [options] - aborting removes the drag behaviour
@@ -41,7 +42,9 @@ export function makeDraggable(el, handle, { signal } = {}) {
     "pointerdown",
     (e) => {
       if (e.button !== 0) return;
-      if (e.target.closest('button, input, select, a, [role="button"]')) return;
+      // A label counts: a switch's visible track is a span inside its label,
+      // and preventing this pointerdown would swallow the toggle's click.
+      if (e.target.closest('button, input, select, textarea, a, label, [role="button"]')) return;
       e.preventDefault();
       handle.setPointerCapture(e.pointerId);
 

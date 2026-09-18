@@ -2,11 +2,10 @@
  * Compound layer widgets — sub-tabs and stepped slider.
  */
 
+/* Mangrove's form label, at panel scale. */
 .widget-label {
   display: block;
   font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
   margin-bottom: 0.3rem;
 }
 
@@ -19,24 +18,28 @@
 .widget-sub-tabs-bar {
   display: flex;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--mg-radius-button);
   overflow: hidden;
 }
 
+/* A segmented control over the layer's sources. Mangrove has no such
+   component yet, so it is built from its button tokens: the interactive blue
+   for the chosen source, the neutral border and the shared focus ring. */
 .widget-sub-tab {
   flex: 1;
+  min-block-size: 2rem;
   padding: 0.35rem 0.25rem;
   font-size: 0.7rem;
   font-weight: 500;
   text-align: center;
   border: none;
   border-right: 1px solid var(--color-border);
-  background: #fff;
+  background: rgb(var(--mg-color-neutral-0));
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: rgb(var(--mg-color-neutral-600));
   transition:
-    background 0.1s,
-    color 0.1s;
+    background-color var(--mg-motion-duration-fast) var(--mg-motion-easing-standard),
+    color var(--mg-motion-duration-fast) var(--mg-motion-easing-standard);
 }
 
 .widget-sub-tab:last-child {
@@ -44,36 +47,31 @@
 }
 
 .widget-sub-tab:hover {
-  background: #f5f5f5;
+  background: rgb(var(--mg-color-blue-900) / 0.06);
+  color: rgb(var(--mg-color-interactive));
 }
 
 .widget-sub-tab.is-active {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--mg-color-button-background);
+  color: rgb(var(--mg-color-button));
+}
+
+.widget-sub-tab.is-active:hover {
+  background: var(--mg-color-button-background--hover);
+  color: rgb(var(--mg-color-button--hover));
 }
 
 .widget-sub-tab:focus-visible {
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: -2px;
+  outline-offset: calc(-1 * var(--mg-focus-ring-width));
 }
 
+/* mg-form-select owns the box, border, arrow and focus ring; the panel only
+   asks for full width and its smaller type. */
 .widget-source-select {
   display: block;
   width: 100%;
-  min-height: 2.5rem;
-  box-sizing: border-box;
-  padding: 0.45rem 2rem 0.45rem 0.55rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: #fff;
-  color: var(--color-text);
-  font: inherit;
   font-size: 0.75rem;
-}
-
-.widget-source-select:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
 }
 
 /* ── Stepped slider ───────────────────────────────── */

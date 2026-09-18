@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GRAR Metrics Facility Map Viewer</title>
-    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.1/css/style.css" />
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.0.0-rc.2/css/style.css" />
   </head>
   <body>
     <a href="#app-map" class="mg-skip-link">Skip to map</a>
@@ -131,16 +131,22 @@
         <div class="layer-panel-header">
           <span class="layer-panel-title" id="panel-title">Layers</span>
           <div class="layer-panel-actions">
-            <button
-              class="layer-review-btn mg-button mg-button-primary mg-button-outline"
-              id="layer-disabled-toggle"
-              data-ui="show-disabled"
-              type="button"
-              aria-pressed="false"
-              title="Show disabled layers for review"
-            >
-              Show disabled
-            </button>
+            <!-- Same Mangrove switch as the layer rows: a setting that stays
+                 on, with one label that does not change with its state. -->
+            <label class="layer-review-switch mg-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                class="mg-switch__input"
+                id="layer-disabled-toggle"
+                data-ui="show-disabled"
+                title="Show layers that are planned but not published yet"
+              />
+              <span class="mg-switch__track" aria-hidden="true">
+                <span class="mg-switch__thumb"></span>
+              </span>
+              <span class="mg-switch__label">Show disabled</span>
+            </label>
             <button
               class="layer-clear-btn"
               id="layer-clear-btn"
@@ -155,7 +161,10 @@
               class="layer-panel-toggle mg-button mg-button-primary mg-button-outline mg-button--icon mg-button--icon--small"
               id="panel-toggle"
               data-ui="panel-toggle"
-              aria-label="Collapse panel"
+              type="button"
+              aria-expanded="true"
+              aria-controls="panel-body"
+              aria-label="Collapse the layers panel"
             >
               <svg
                 aria-hidden="true"
@@ -240,7 +249,7 @@
       </a>
     </footer>
 
-    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.1/js/preview-access.js"></script>
+    <script type="module" src="https://assets.undrr.org/mangrove/2.0.0-rc.2/js/preview-access.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

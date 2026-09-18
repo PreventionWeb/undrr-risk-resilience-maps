@@ -22,6 +22,23 @@ export const EMPTY_TAB_MESSAGE =
  */
 
 /**
+ * The "nothing published here" message, as Mangrove's empty-state component
+ * (compact panel variant: a description only, at sidebar scale).
+ * @param {boolean} hidden
+ * @returns {HTMLElement}
+ */
+function buildEmptyState(hidden) {
+  const empty = document.createElement("div");
+  empty.className = "tab-panel-empty mg-empty-state mg-empty-state--compact mg-empty-state--panel";
+  empty.hidden = hidden;
+  const description = document.createElement("p");
+  description.className = "mg-empty-state__description";
+  description.textContent = EMPTY_TAB_MESSAGE;
+  empty.appendChild(description);
+  return empty;
+}
+
+/**
  * Build a data tab's panel: intro, empty state and a full row per layer,
  * grouped when the tab has R2R groups. Unpublished layers are marked
  * `data-layer-disabled` and hidden unless `showDisabled`.
@@ -57,11 +74,7 @@ export function buildTabPanel(tab, { addRow, showDisabled = false }) {
   tabPanel.appendChild(intro);
 
   const publishedLayers = tab.layers.filter(isLayerAvailable);
-  const empty = document.createElement("p");
-  empty.className = "tab-panel-empty mg-form-help";
-  empty.textContent = EMPTY_TAB_MESSAGE;
-  empty.hidden = publishedLayers.length > 0;
-  tabPanel.appendChild(empty);
+  tabPanel.appendChild(buildEmptyState(publishedLayers.length > 0));
 
   const addLayersToContainer = (layers, container) => {
     for (const layer of layers) {

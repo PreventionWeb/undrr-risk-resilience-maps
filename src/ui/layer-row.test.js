@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn((_idView, container) => {
@@ -35,7 +35,7 @@ vi.mock("../external/index.js", () => ({
   }),
 }));
 
-import { createLayerRow } from "./layer-row.js";
+import { createLayerRow, PENDING_TEXT_DELAY_MS } from "./layer-row.js";
 import { createLayersStore } from "../state/layers-store.js";
 
 const simple = { key: "pop", id: "MX-POP", label: "Population", type: "vt", desc: "People." };
@@ -109,20 +109,112 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
 
   it("shows busy switch state and labels from the record", () => {
     const { store, el } = setup(simple, { variant });
-    expect(eye(el).getAttribute("aria-checked")).toBe("false");
+    // A switch keeps the layer's name; its state is the switch state.
+    expect(eye(el).getAttribute("role")).toBe("switch");
+    expect(eye(el).type).toBe("checkbox");
+    expect(eye(el).closest(".mg-switch")).not.toBeNull();
+    expect(eye(el).checked).toBe(false);
     expect(eye(el).getAttribute("aria-busy")).toBe("false");
+    expect(eye(el).getAttribute("aria-label")).toBe("Population");
 
     store.set("pop", { desired: true, status: "loading" });
-    expect(eye(el).getAttribute("aria-checked")).toBe("true");
+    expect(eye(el).checked).toBe(true);
     expect(eye(el).getAttribute("aria-busy")).toBe("true");
     expect(eye(el).getAttribute("aria-label")).toBe("Loading Population…");
 
     store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
     expect(eye(el).getAttribute("aria-busy")).toBe("false");
-    expect(eye(el).getAttribute("aria-label")).toBe("Turn off Population");
+    expect(eye(el).getAttribute("aria-label")).toBe("Population");
 
     store.set("pop", { desired: false, status: "removing" });
     expect(eye(el).getAttribute("aria-label")).toBe("Turning off Population…");
+  });
+
+  it("keeps the switch's state out of everything assistive tech can reach", () => {
+    const { store, el } = setup(simple, { variant });
+    const wrapper = eye(el).closest(".mg-switch");
+    const stateful = /turn (the )?layer (on|off)|turn on|turn off/i;
+
+    for (const record of [
+      { desired: false, status: "idle" },
+      { desired: true, status: "loading" },
+      { desired: true, applied: true, viewId: "MX-POP", status: "idle" },
+    ]) {
+      store.set("pop", record);
+      // The `<label>` carries no title: it would reach the accessibility tree
+      // as part of the switch's name.
+      expect(wrapper.hasAttribute("title")).toBe(false);
+      // The name is the layer (or what is happening), never "Turn layer on/off".
+      expect(eye(el).getAttribute("aria-label")).not.toMatch(stateful);
+      // Nor does the description, where there is one.
+      expect(eye(el).getAttribute("title") ?? "").not.toMatch(stateful);
+    }
+
+    // A full row's switch needs no description at all; a compact row's says
+    // where the source controls are, without naming a state.
+    if (variant === "full") {
+      expect(eye(el).hasAttribute("title")).toBe(false);
+    } else {
+      expect(eye(el).getAttribute("title")).toBe("Switch to this layer's own tab for source options");
+    }
+  });
+
+  it("explains an aria-disabled switch on the input, not on its label", () => {
+    const { el } = setup(simple, { variant, isReady: () => false });
+    expect(eye(el).getAttribute("aria-disabled")).toBe("true");
+    expect(eye(el).getAttribute("title")).toBe("The map is still loading");
+    expect(eye(el).closest(".mg-switch").hasAttribute("title")).toBe(false);
+  });
+
+  it("announces what is happening while a call is in flight", () => {
+    const { store, el } = setup(simple, { variant });
+    expect(announcer(el)).toBe("");
+
+    // `aria-busy` tells assistive tech to suspend reporting changes inside the
+    // switch, so the busy name may never be spoken; the live region says it.
+    store.set("pop", { desired: true, status: "loading" });
+    expect(announcer(el)).toBe("Loading Population…");
+
+    store.set("pop", { desired: true, applied: true, viewId: "MX-POP", status: "idle" });
+    expect(announcer(el)).toBe("");
+
+    store.set("pop", { desired: false, status: "removing" });
+    expect(announcer(el)).toBe("Turning off Population…");
+
+    // A failure replaces the busy sentence rather than being announced after it.
+    store.set("pop", { desired: false, applied: true, status: "error", error: new Error("nope") });
+    expect(announcer(el)).toBe("Could not change Population. It is still on as before.");
+  });
+
+  it("marks the switch aria-disabled while the map is not ready", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { controller, el } = setup(simple, { variant, isReady: () => false });
+    expect(eye(el).getAttribute("aria-disabled")).toBe("true");
+
+    eye(el).click();
+
+    // The click is cancelled, so the checkbox does not stay on either.
+    expect(eye(el).checked).toBe(false);
+    expect(controller.setOn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("shows an error state on the switch, and a message, after a failed load", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    store.set("pop", { desired: false, status: "error", error: new Error("offline") });
+
+    expect(el.querySelector(".layer-switch").classList.contains("is-error")).toBe(true);
+    const message = el.querySelector(".layer-error");
+    expect(message.textContent).toBe("Could not load Population. It is off.");
+    // Said once, by the row's live region.
+    expect(message.getAttribute("aria-hidden")).toBe("true");
+
+    // The next attempt clears both.
+    store.set("pop", { desired: true, status: "loading" });
+    expect(el.querySelector(".layer-switch").classList.contains("is-error")).toBe(false);
+    expect(el.querySelector(".layer-error").textContent).toBe("");
   });
 
   it("announces a failure and clears the message on the next call", () => {
@@ -135,8 +227,9 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     store.set("pop", { desired: false, status: "error", error: new Error("offline") });
     expect(announcer(el)).toBe("Could not load Population. It is off.");
 
+    // The next call replaces the failure with its own busy sentence.
     store.set("pop", { desired: true, status: "loading" });
-    expect(announcer(el)).toBe("");
+    expect(announcer(el)).toBe("Loading Population…");
     store.set("pop", { applied: true, viewId: "MX-POP", status: "idle", error: null });
     store.set("pop", { status: "removing", desired: false });
     store.set("pop", { status: "error", desired: true, error: new Error("timeout") });
@@ -207,16 +300,24 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     const bubbled = vi.fn();
     el.addEventListener("click", bubbled);
 
+    // The checkbox still toggles itself (that is the browser, not the row),
+    // but nothing reaches the controller and no record is rendered again.
     eye(el).click();
     expect(bubbled).toHaveBeenCalledTimes(1);
-    if (variant === "full") el.querySelector(".layer-header").click();
+    if (variant === "full") el.querySelector(".layer-expand").click();
     store.set("pop", { desired: true, applied: true, viewId: "MX-POP" });
 
     expect(controller.setOn).not.toHaveBeenCalled();
-    expect(eye(el).getAttribute("aria-checked")).toBe("false");
+    // No record is rendered: a live row would announce the change, add its
+    // active class and build the view's slider and legend.
+    expect(announcer(el)).toBe("");
+    expect(el.classList.contains("layer-active")).toBe(false);
+    expect(el.querySelector(".layer-slider-slot").children.length).toBe(0);
+    expect(el.querySelector(".layer-legend-slot").children.length).toBe(0);
     expect(mocks.addLegend).not.toHaveBeenCalled();
+    expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
     if (variant === "full") {
-      expect(el.querySelector(".layer-header").getAttribute("aria-expanded")).toBe("false");
+      expect(el.querySelector(".layer-expand").getAttribute("aria-expanded")).toBe("false");
     }
   });
 
@@ -228,7 +329,7 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
 });
 
 describe("createLayerRow full variant", () => {
-  const header = (el) => el.querySelector(".layer-header");
+  const header = (el) => el.querySelector(".layer-expand");
   const expanded = (el) => header(el).getAttribute("aria-expanded") === "true";
 
   it("uses the accordion markup", () => {
@@ -285,23 +386,43 @@ describe("createLayerRow full variant", () => {
     expect(expanded(el)).toBe(true);
   });
 
-  it("toggles the accordion, not the layer, on Enter or Space on the header", () => {
+  it("gives the accordion its own button beside the switch, not around it", () => {
+    const { el } = setup(simple);
+    const expand = header(el);
+    expect(expand.tagName).toBe("BUTTON");
+    // The switch is a sibling: no interactive control nested inside another.
+    expect(expand.querySelector(".layer-eye")).toBeNull();
+    expect(eye(el).closest(".layer-expand")).toBeNull();
+    expect(eye(el).closest(".mg-switch").parentElement).toBe(expand.parentElement);
+  });
+
+  it("toggles the accordion, not the layer, on Enter or Space on the expand button", () => {
     const { controller, el } = setup(draft);
+    // A native button: the browser turns Enter and Space into a click, so the
+    // row cancels nothing.
     for (const key of ["Enter", " "]) {
       const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
       header(el).dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(true);
+      expect(event.defaultPrevented).toBe(false);
+      header(el).click();
     }
     expect(expanded(el)).toBe(false);
     expect(controller.setOn).not.toHaveBeenCalled();
   });
 
-  it("leaves Enter and Space on the switch to the switch", () => {
-    const { el } = setup(simple);
-    const event = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
-    eye(el).dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
+  it("leaves Space on the switch to the switch and turns Enter into a toggle", () => {
+    const { controller, el } = setup(simple);
+    // Space is the checkbox's own key: the row must not cancel it.
+    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    eye(el).dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(false);
     expect(expanded(el)).toBe(false);
+
+    // Enter does nothing to a checkbox, so the row activates it.
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    eye(el).dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(controller.setOn).toHaveBeenLastCalledWith("pop", true);
   });
 
   it("opens Sources from the citation link", () => {
@@ -369,6 +490,25 @@ describe("createLayerRow full variant", () => {
     expect(status.classList.contains("is-error")).toBe(true);
   });
 
+  it("shows a failed external load activated from the expand control", async () => {
+    const { store, el } = setup(external);
+    // Activating from the expand control sets expandOnApply = false, so no
+    // status line is rendered and the error branch has nothing to mutate. The
+    // row must still show something: before, the failure was only spoken.
+    header(el).click();
+    await Promise.resolve();
+    store.set("crops", { desired: true, status: "loading" });
+    expect(el.querySelector(".external-layer-status")).toBeNull();
+
+    store.set("crops", { desired: false, status: "error", error: new Error("offline") });
+    expect(el.querySelector(".layer-error").textContent).toBe("Could not load Crops. Please try again.");
+    expect(announcer(el)).toBe("Could not load Crops. It is off.");
+
+    // The next attempt clears it again.
+    store.set("crops", { desired: true, status: "loading" });
+    expect(el.querySelector(".layer-error").textContent).toBe("");
+  });
+
   it("builds external controls with the applied settings and the runtime legend", () => {
     mocks.runtimes.set("crops", { idView: "GJ-1", legend: [{ color: "#000", label: "x" }] });
     const { store, el } = setup(external);
@@ -387,7 +527,7 @@ describe("createLayerRow compact variant", () => {
     expect(el.className).toBe("cross-tab-item");
     expect(el.querySelector(".cross-tab-label").textContent).toBe("Flood");
     expect(el.querySelector(".layer-type-tag").textContent).toBe("raster");
-    expect(el.querySelector(".layer-header, .layer-widget-slot, .widget-sub-tabs")).toBeNull();
+    expect(el.querySelector(".layer-expand, .layer-widget-slot, .widget-sub-tabs")).toBeNull();
   });
 
   it("shows details only while the layer is on", () => {
@@ -454,5 +594,135 @@ describe("createLayerRow compact variant", () => {
     store.set("crops", { desired: false, status: "idle" });
     expect(body(el).hidden).toBe(true);
     expect(status.hidden).toBe(true);
+  });
+});
+
+/**
+ * The visible pending text: Mangrove's switch-pending wording, shown only once a
+ * call has been in flight long enough to be worth explaining. Fake timers, so
+ * the delay is asserted rather than waited out.
+ */
+describe.each(["full", "compact"])("createLayerRow (%s) visible pending text", (variant) => {
+  const pending = (el) => el.querySelector(".layer-pending");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("says nothing before the delay and 'Turning on' after it", () => {
+    const { store, el } = setup(simple, { variant });
+    expect(pending(el).textContent).toBe("");
+
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS - 1);
+    expect(pending(el).textContent).toBe("");
+
+    vi.advanceTimersByTime(1);
+    expect(pending(el).textContent).toBe("Turning on");
+    // Said once, by the row's live region — which keeps the layer's name,
+    // since it is read out of context.
+    expect(pending(el).getAttribute("aria-hidden")).toBe("true");
+    expect(pending(el).classList.contains("mg-form-help")).toBe(true);
+    expect(announcer(el)).toBe("Loading Population…");
+  });
+
+  it("says 'Turning off' while a slow removal is in flight", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, applied: true, viewId: "MX-POP", status: "idle" });
+    store.set("pop", { desired: false, status: "removing" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("drops the text, and its timer, as soon as the call succeeds", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("shows the error line instead of the pending text when the call fails", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    store.set("pop", { desired: false, status: "error", error: new Error("offline") });
+    expect(pending(el).textContent).toBe("");
+    expect(el.querySelector(".layer-error").textContent).toBe("Could not load Population. It is off.");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("never shows the text for a call that settles inside the delay", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    // A MapX vector or raster view is usually on the map in about this long.
+    vi.advanceTimersByTime(150);
+    store.set("pop", { applied: true, viewId: "MX-POP", status: "idle" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("rewords text already shown when the intent flips mid-flight, without waiting again", () => {
+    const { store, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    // Latest intent wins: the call in flight is now applying "off".
+    store.set("pop", { desired: false, status: "removing" });
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("leaves no text and no timer behind after destroy()", () => {
+    const { store, row, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    row.destroy();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS * 2);
+    expect(pending(el).textContent).toBe("");
+  });
+
+  it("removes text already shown when the row is destroyed", () => {
+    const { store, row, el } = setup(simple, { variant });
+    store.set("pop", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning on");
+
+    row.destroy();
+    expect(pending(el).textContent).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("adds no second message to an external row that already shows its own", () => {
+    const { store, el } = setup(external, { variant });
+    store.set("crops", { desired: true, status: "loading" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+
+    // The row's own status line, where its controls go, is the one message.
+    expect(el.querySelector(".external-layer-status").textContent).toBe("Loading Crops…");
+    expect(pending(el).textContent).toBe("");
+  });
+
+  it("describes an external row's removal, which has no status line of its own", () => {
+    const { store, el } = setup(external, { variant });
+    store.set("crops", { desired: true, applied: true, viewId: "GJ-1", status: "idle" });
+    store.set("crops", { desired: false, status: "removing" });
+    vi.advanceTimersByTime(PENDING_TEXT_DELAY_MS);
+    expect(pending(el).textContent).toBe("Turning off");
+  });
+
+  it("builds no pending line for an unpublished layer", () => {
+    const { el } = setup(draft, { variant });
+    expect(pending(el)).toBeNull();
   });
 });

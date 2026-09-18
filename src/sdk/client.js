@@ -8,6 +8,9 @@
 
 let _mapx = null;
 let _sdkReady = false;
+// Listeners told when readiness flips, so UI that is disabled until the map
+// can accept layer changes (the layer switches) can re-render itself.
+const _readyListeners = new Set();
 
 export function initSDK(container, projectId) {
   if (!window.mxsdk?.Manager) throw new Error("MapX SDK is unavailable");
@@ -34,7 +37,28 @@ export function getSDK() {
 }
 
 export function setSDKReady(ready) {
+  if (_sdkReady === ready) return;
   _sdkReady = ready;
+  for (const listener of [..._readyListeners]) {
+    try {
+      listener(ready);
+    } catch (error) {
+      console.warn("An SDK-ready listener failed:", error);
+    }
+  }
+}
+
+/**
+ * Subscribe to readiness changes.
+ * @param {(ready: boolean) => void} listener
+ * @param {{ signal?: AbortSignal }} [options] - aborting it unsubscribes
+ * @returns {() => void} unsubscribe
+ */
+export function onSDKReadyChange(listener, { signal } = {}) {
+  _readyListeners.add(listener);
+  const off = () => _readyListeners.delete(listener);
+  signal?.addEventListener("abort", off, { once: true });
+  return off;
 }
 
 export function isSDKReady() {

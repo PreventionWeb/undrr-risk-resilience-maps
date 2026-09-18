@@ -33,36 +33,108 @@ import { offRecord } from "../state/layers-store.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
+
+/**
+ * How long a call has to be in flight before the row says so in writing.
+ *
+ * Mangrove's switch-pending story pairs a pending switch with visible text, but
+ * it pairs it with a save that always takes a moment. Most of our layers do
+ * not: a MapX vector or raster view is usually on the map in about 150 ms, and
+ * text that appears and disappears inside that window is noise, not feedback.
+ * 450 ms is the middle of the range the maintainer asked for: three times the
+ * usual MapX call, so ordinary loads never reach it, and still well inside the
+ * one second after which a wait stops feeling like a direct response and starts
+ * needing an explanation. The spinning ring on the thumb carries the first
+ * moments on its own.
+ */
+export const PENDING_TEXT_DELAY_MS = 450;
 const GEOMETRY_LABELS = { point: "points", polygon: "polygons", line: "lines" };
 
 function layerBadgeLabel(layer) {
   return (layer.geometry && GEOMETRY_LABELS[layer.geometry]) || TYPE_LABELS[layer.type] || layer.type;
 }
 
-/** Build the type/geometry badge shown next to a layer label. */
-function buildLayerTypeTag(layer) {
+/**
+ * Build the type/geometry badge shown next to a layer label. Mangrove's subtle
+ * tag variant: the type is carried by the word, not by a colour, so the row's
+ * only coloured control is its switch.
+ *
+ * An unpublished row (shown by "Show disabled") says so in the same tag
+ * instead of naming its type. Its greying is done with colours that keep the
+ * text readable rather than with an opacity on the row, so the wording is what
+ * says why the row is greyed out — along with it having no switch.
+ */
+function buildLayerTypeTag(layer, published) {
   const tag = document.createElement("span");
-  tag.className = "mg-tag layer-type-tag";
-  if (layer.type === "rt") tag.classList.add("mg-tag--accent");
-  if (layer.type === "vt") tag.classList.add("mg-tag--secondary");
-  tag.textContent = layerBadgeLabel(layer);
+  tag.className = "mg-tag mg-tag--subtle layer-type-tag";
+  tag.textContent = published ? layerBadgeLabel(layer) : "not published";
   return tag;
 }
 
 /**
- * Show a switch's state. `aria-checked` follows intent (`active`). While a
- * MapX call is in flight (`busy`) the switch is `aria-busy` and its label says
- * what is happening, since the layer is not on (or off) the map yet.
+ * Build a layer's on/off control: Mangrove's `.mg-switch` (a native
+ * `input[type=checkbox][role=switch]` with a track and thumb the stylesheet
+ * animates). The label wraps the control so the whole track is one hit target;
+ * the layer's name is the switch's accessible name, and its state comes from
+ * the switch role rather than from wording that changes.
  */
-function setLayerToggleState(layer, button, active, busy = false) {
-  button.classList.toggle("is-active", active);
-  button.setAttribute("aria-checked", String(active));
-  button.setAttribute("aria-busy", String(busy));
-  const label = busy
-    ? `${active ? "Loading" : "Turning off"} ${layer.label}…`
-    : `${active ? "Turn off" : "Turn on"} ${layer.label}`;
-  button.setAttribute("aria-label", label);
-  button.title = active ? "Turn layer off" : "Turn layer on";
+function buildLayerSwitch(layer) {
+  const wrapper = document.createElement("label");
+  wrapper.className = "mg-switch layer-switch";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.className = "mg-switch__input layer-eye";
+  // Redundant with type=checkbox for the state, but it is what makes assistive
+  // technology announce the control as a switch rather than a checkbox.
+  input.setAttribute("role", "switch");
+  input.setAttribute("aria-label", layer.label);
+  const track = document.createElement("span");
+  track.className = "mg-switch__track";
+  track.setAttribute("aria-hidden", "true");
+  const thumb = document.createElement("span");
+  thumb.className = "mg-switch__thumb";
+  track.appendChild(thumb);
+  wrapper.append(input, track);
+  return { wrapper, input };
+}
+
+/**
+ * Show a switch's state. `checked` follows intent (`active`). While a MapX call
+ * is in flight (`busy`) the switch is `aria-busy` — which Mangrove draws as a
+ * pending ring on the thumb, static under `prefers-reduced-motion` — and its
+ * label says what is happening, since the layer is not on (or off) the map yet.
+ * A call that is still in flight after PENDING_TEXT_DELAY_MS also says so in
+ * writing, under the head (see renderPendingText).
+ * A layer whose last call failed keeps an error outline until the next call,
+ * and a switch is `aria-disabled` (still focusable, so it can be explained)
+ * while the map cannot accept layer changes.
+ *
+ * The switch's description (`title` on the input, which assistive technology
+ * reports as the control's description) only explains what the row cannot do:
+ * the map is still starting up, or this is a compact row with no source
+ * controls of its own. It never restates the on/off state. That state belongs
+ * to the switch role, and the wording it replaces ("Turn layer on/off") sat on
+ * the `<label>`, so it reached the accessibility tree as part of the switch's
+ * name — the very thing this PR set out to remove.
+ */
+function setLayerToggleState(
+  layer,
+  input,
+  { active, busy = false, ready = true, failed = false, hint = "" },
+) {
+  input.checked = active;
+  input.setAttribute("aria-busy", String(busy));
+  if (ready) input.removeAttribute("aria-disabled");
+  else input.setAttribute("aria-disabled", "true");
+  input.setAttribute(
+    "aria-label",
+    busy ? `${active ? "Loading" : "Turning off"} ${layer.label}…` : layer.label,
+  );
+  const wrapper = input.parentElement;
+  setClass(wrapper, "is-error", failed);
+  const description = ready ? hint : "The map is still loading";
+  if (description) input.title = description;
+  else input.removeAttribute("title");
 }
 
 /**
@@ -74,6 +146,48 @@ function buildAnnouncer() {
   announcer.className = "layer-announcer mg-u-sr-only";
   announcer.setAttribute("aria-live", "polite");
   return announcer;
+}
+
+/**
+ * The seen half of a failure: the same sentence the announcer speaks, as a
+ * Mangrove form error under the row's head. `aria-hidden`, so a screen reader
+ * hears it once, from the live region. Layers with controls of their own (an
+ * external layer's status line) show their message there instead.
+ */
+function buildErrorLine() {
+  const error = document.createElement("p");
+  error.className = "layer-error mg-form-error";
+  error.setAttribute("aria-hidden", "true");
+  return error;
+}
+
+/**
+ * The seen half of a slow call: Mangrove's form help text under the row's head,
+ * in the wording of the library's switch-pending story ("Turning on" /
+ * "Turning off"). The layer's name is left out — the row shows it right above,
+ * and the announcer, which is read out of context, keeps it.
+ *
+ * `aria-hidden`, so the row's live region is the only thing that speaks.
+ */
+function buildPendingLine() {
+  const line = document.createElement("p");
+  line.className = "layer-pending mg-form-help";
+  line.setAttribute("aria-hidden", "true");
+  return line;
+}
+
+/** The visible wording for a call in flight, from the intent it is applying. */
+function pendingText(record) {
+  return record.desired ? "Turning on" : "Turning off";
+}
+
+/**
+ * What to announce while a MapX call for a layer is in flight. The switch's
+ * own name says the same thing, but it is inside an `aria-busy` subtree, which
+ * assistive technology is told not to report changes from.
+ */
+function busyMessage(layer, record) {
+  return record.desired ? `Loading ${layer.label}…` : `Turning off ${layer.label}…`;
 }
 
 /** What to announce when a MapX call for a layer failed, from what MapX now shows. */
@@ -162,6 +276,10 @@ export function createLayerRow(
   },
 ) {
   const full = variant === "full";
+  // Compact rows have no sub-source controls of their own; the switch's
+  // description says where to find them. A full row's switch needs no
+  // description, so it gets none.
+  const titleHint = variant === "full" ? "" : "Switch to this layer's own tab for source options";
   const published = isLayerAvailable(layer);
   const external = isExternalLayer(layer);
   const listeners = new AbortController();
@@ -173,6 +291,8 @@ export function createLayerRow(
   let last = offRecord(layer.key);
   let shownDesired = false;
   let shownBusy = false;
+  let shownReady = null;
+  let shownFailed = false;
   // The view whose slider and legend the row should show: the record it
   // arrived with, its id and the legend input. `rendered` is the arrival
   // record whose controls are in the slots (null when the slots are empty).
@@ -180,6 +300,8 @@ export function createLayerRow(
   let rendered = null;
   // Compact rows: an external layer's loading or error message.
   let status = null;
+  // The delay before a call in flight is described in writing (null: none).
+  let pendingTimer = null;
   // Full rows: whether the accordion opens when the layer comes on (not when
   // the header turned it on, since the header manages expansion itself), and
   // what the source widget or external controls show.
@@ -193,47 +315,97 @@ export function createLayerRow(
   const element = document.createElement("div");
   element.className = full ? "layer-item" : "cross-tab-item";
 
+  // The row's head. In a full row the expand control is its own button, next
+  // to (not around) the switch: two sibling controls instead of a switch
+  // nested inside a role="button", which no assistive technology can present.
   const header = document.createElement("div");
   header.className = full ? "layer-header" : "cross-tab-row";
 
   let arrow = null;
+  let expandBtn = null;
+  const labelHost = full ? document.createElement("button") : header;
   if (full) {
+    expandBtn = labelHost;
+    expandBtn.type = "button";
+    expandBtn.className = "layer-expand";
+    // All layers support expand/collapse so reviewers can read descriptions.
+    expandBtn.setAttribute("aria-expanded", "false");
     arrow = document.createElement("span");
     arrow.className = "layer-arrow";
     arrow.textContent = "▶"; // ▶
     arrow.setAttribute("aria-hidden", "true");
-    header.appendChild(arrow);
+    expandBtn.appendChild(arrow);
   }
 
   const label = document.createElement("span");
   label.className = full ? "layer-label" : "cross-tab-label";
   label.textContent = layer.label;
-  header.appendChild(label);
-  header.appendChild(buildLayerTypeTag(layer));
+  labelHost.appendChild(label);
+  labelHost.appendChild(buildLayerTypeTag(layer, published));
+  if (full) header.appendChild(expandBtn);
 
   let eyeBtn = null;
   if (published) {
-    eyeBtn = document.createElement("button");
-    eyeBtn.className = "layer-eye";
-    eyeBtn.setAttribute("role", "switch");
-    setLayerToggleState(layer, eyeBtn, false);
-    if (!full) eyeBtn.title += " — switch to tab for sub-source controls";
+    const { wrapper, input } = buildLayerSwitch(layer);
+    eyeBtn = input;
+    setLayerToggleState(layer, eyeBtn, { active: false, ready: isReady(), hint: titleHint });
+    shownReady = isReady();
+    // A checkbox toggles itself before the handler runs, so the record stays
+    // the source of truth: a rejected change is written back by syncSwitch.
     eyeBtn.addEventListener(
       "click",
       (e) => {
-        e.stopPropagation();
-        toggleLayer({ expand: true });
+        // No stopPropagation: the switch is a sibling of the expand control,
+        // not nested inside it, so a click that reaches the row's head or root
+        // activates nothing. (It would not have helped either — on a label,
+        // the event that bubbles from the input is the original one, and only
+        // the label's synthetic re-dispatch could be stopped.)
+        if (isReady()) return;
+        // Cancelling the click restores the checkbox's previous state.
+        e.preventDefault();
+        console.warn(`${layer.label} cannot be toggled yet — map is still loading.`);
       },
       { signal },
     );
-    header.appendChild(eyeBtn);
+    eyeBtn.addEventListener(
+      "change",
+      () => {
+        toggleLayer({ expand: true });
+        syncSwitch();
+      },
+      { signal },
+    );
+    eyeBtn.addEventListener(
+      "keydown",
+      (e) => {
+        // Space activates a checkbox on its own; Enter does not, and both are
+        // expected to work on the panel's switches.
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        eyeBtn.click();
+      },
+      { signal },
+    );
+    header.appendChild(wrapper);
   }
   element.appendChild(header);
 
-  // Outside the header (a role="button" has presentational children) and the
-  // body (hidden while collapsed), so it can speak while the row is collapsed.
+  // Its own line under the head, so the head — label, type tag and switch —
+  // stays exactly where it is when the text appears, and the text cannot be
+  // squeezed into the switch's column. Reserved height, so swapping it for the
+  // error line below does not resize anything either.
+  const pendingLine = published ? buildPendingLine() : null;
+  if (pendingLine) element.appendChild(pendingLine);
+  // Outside the header and the body (hidden while collapsed), so it can speak
+  // (and, for rows without controls of their own, show) while the row is
+  // collapsed.
   const announcer = published ? buildAnnouncer() : null;
   if (announcer) element.appendChild(announcer);
+  // Every published row has one. An external layer normally shows its message
+  // on its own status line, and only falls back to this when that line was
+  // never rendered (see showExternalStatus).
+  const errorLine = published ? buildErrorLine() : null;
+  if (errorLine) element.appendChild(errorLine);
 
   const body = document.createElement("div");
   body.className = full ? "layer-body" : "cross-tab-body";
@@ -268,26 +440,9 @@ export function createLayerRow(
   body.appendChild(legendSlot);
   element.appendChild(body);
 
-  if (full) {
-    // All layers support expand/collapse so reviewers can read descriptions
-    header.tabIndex = 0;
-    header.setAttribute("role", "button");
-    header.setAttribute("aria-expanded", "false");
-    header.addEventListener("click", toggleAccordion, { signal });
-    header.addEventListener(
-      "keydown",
-      (e) => {
-        // Only keys on the header itself. Enter/Space on the switch inside it
-        // must keep their default, which activates the switch.
-        if (e.target !== header) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggleAccordion();
-        }
-      },
-      { signal },
-    );
-  }
+  // A native button: Enter and Space activate it, and nothing has to guess
+  // which control a key press was meant for.
+  if (full) expandBtn.addEventListener("click", toggleAccordion, { signal });
 
   function buildMetaLinks() {
     const metadata = document.createElement("p");
@@ -340,7 +495,7 @@ export function createLayerRow(
     expanded = value;
     body.style.display = value ? "block" : "none";
     arrow.textContent = value ? "▼" : "▶"; // ▼ / ▶
-    header.setAttribute("aria-expanded", String(value));
+    expandBtn.setAttribute("aria-expanded", String(value));
   }
 
   function toggleAccordion() {
@@ -356,6 +511,116 @@ export function createLayerRow(
 
   // ── Rendering from the record ──────────────────────────────────────────
 
+  /**
+   * Bring the switch in line with a record: intent, whether a call is in
+   * flight, whether the last one failed, and whether the map can accept
+   * changes at all. Writes only what differs, so re-rendering the same record
+   * mutates nothing.
+   */
+  function renderToggle(record, busy = isBusyStatus(record.status)) {
+    if (!eyeBtn) return;
+    const ready = isReady();
+    const failed = record.status === "error";
+    if (
+      record.desired === shownDesired &&
+      busy === shownBusy &&
+      ready === shownReady &&
+      failed === shownFailed &&
+      eyeBtn.checked === record.desired
+    ) {
+      return;
+    }
+    setLayerToggleState(layer, eyeBtn, {
+      active: record.desired,
+      busy,
+      ready,
+      failed,
+      hint: titleHint,
+    });
+    shownDesired = record.desired;
+    shownBusy = busy;
+    shownReady = ready;
+    shownFailed = failed;
+  }
+
+  /**
+   * Write the record back onto the switch after the user toggled it, so a
+   * change the controller refused (or that the store has not changed) cannot
+   * leave the checkbox showing something the map is not doing.
+   */
+  function syncSwitch() {
+    if (destroyed || !eyeBtn || !store) return;
+    renderToggle(store.get(layer.key));
+  }
+
+  // ── Visible pending text ───────────────────────────────────────────────
+
+  /**
+   * Whether the row already shows a loading or error message of its own, where
+   * an external layer's controls go. One visible message per row: an EDRA row
+   * saying "Loading Agriculture…" must not also say "Turning on".
+   */
+  function externalStatusShown() {
+    if (!external) return false;
+    if (full) {
+      // A full row's status line is in its body, so it says nothing while the
+      // row is collapsed — and the external controls carry an empty one of
+      // their own, which only speaks while a settings change is in flight.
+      if (!expanded) return false;
+      const statusP = widgetSlot.querySelector(".external-layer-status");
+      return Boolean(statusP) && statusP.textContent !== "";
+    }
+    return Boolean(statusEl) && !statusEl.hidden && statusEl.textContent !== "";
+  }
+
+  /** Drop the pending text and the delay still counting down towards it. */
+  function clearPendingText() {
+    if (pendingTimer !== null) {
+      clearTimeout(pendingTimer);
+      pendingTimer = null;
+    }
+    if (pendingLine) setText(pendingLine, "");
+  }
+
+  /** Write the pending text, unless the row has stopped wanting it. */
+  function showPendingText() {
+    if (destroyed || !pendingLine) return;
+    // The call may have settled, or turned into one the row describes elsewhere,
+    // while the delay was counting down.
+    if (!isBusyStatus(last.status) || externalStatusShown()) {
+      setText(pendingLine, "");
+      return;
+    }
+    setText(pendingLine, pendingText(last));
+  }
+
+  /**
+   * Keep the pending text in line with the record. A call that settles (either
+   * way) drops it at once; a new call starts the delay again from zero; and a
+   * call whose direction flipped while it was in flight — latest intent wins —
+   * rewords text already on screen without making the reader wait again.
+   */
+  function renderPendingText(busy, wasBusy) {
+    if (!pendingLine) return;
+    if (!busy) {
+      clearPendingText();
+      return;
+    }
+    if (!wasBusy) {
+      clearPendingText();
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        showPendingText();
+      }, PENDING_TEXT_DELAY_MS);
+      return;
+    }
+    if (pendingLine.textContent) showPendingText();
+  }
+
+  // destroy() aborts this, which is also how the delay is cancelled and the
+  // text removed: no timer survives the row, and nothing is written after it.
+  signal.addEventListener("abort", clearPendingText, { once: true });
+
   function update(next) {
     if (destroyed) return;
     const prev = last;
@@ -363,19 +628,28 @@ export function createLayerRow(
     const busy = isBusyStatus(next.status);
     const wasBusy = isBusyStatus(prev.status);
 
-    if (eyeBtn && (next.desired !== shownDesired || busy !== shownBusy)) {
-      setLayerToggleState(layer, eyeBtn, next.desired, busy);
-      shownDesired = next.desired;
-      shownBusy = busy;
-    }
+    renderToggle(next, busy);
     // Every new activation expands on apply unless the header starts it.
     if (!next.desired && prev.desired) expandOnApply = true;
 
     if (announcer) {
       // Failures are announced in the row for every kind of layer (a failed
-      // turn-on otherwise only flips the switch back). A new call clears the
+      // turn-on otherwise only flips the switch back). A new call replaces the
       // message, so the same failure is announced again if it happens again.
-      if (busy && !wasBusy) setText(announcer, "");
+      if (busy && !wasBusy) {
+        // `aria-busy` is what Mangrove draws the pending ring from, but it
+        // also tells assistive technology to stop reporting changes inside the
+        // switch's subtree, so the "Loading X…" name may never be spoken. Say
+        // it from the row's live region instead, as rc.2's own
+        // switch-pending.js does.
+        setText(announcer, busyMessage(layer, next));
+        if (errorLine) setText(errorLine, "");
+      } else if (!busy && wasBusy) {
+        // The call settled: drop the busy sentence rather than leave it
+        // standing. A failure replaces it just below, so it is not announced
+        // twice.
+        setText(announcer, "");
+      }
       // External controls announce the failures of changes made through them.
       const announcedByControls = external && (pendingSelections > 0 || selectionPending());
       if (
@@ -384,6 +658,7 @@ export function createLayerRow(
         !announcedByControls
       ) {
         announcer.textContent = failureMessage(layer, next);
+        if (errorLine && !external) setText(errorLine, failureMessage(layer, next));
       }
     }
 
@@ -404,6 +679,9 @@ export function createLayerRow(
     }
 
     renderDetails();
+    // Last: it asks what the row now shows where an external layer's controls
+    // go, so the external status line must already be rendered (or cleared).
+    renderPendingText(busy, wasBusy);
   }
 
   /** The layer came on: reveal the row and build its controls. */
@@ -476,7 +754,13 @@ export function createLayerRow(
     if (statusP) {
       statusP.classList.add("is-error");
       statusP.textContent = text;
+      return;
     }
+    // No status line was rendered: the loading branch above returns early when
+    // the activation came from the expand control (`expandOnApply === false`),
+    // which manages expansion itself. Without this the failure of a full
+    // external row was only spoken, never shown.
+    if (errorLine) setText(errorLine, text);
   }
 
   /**

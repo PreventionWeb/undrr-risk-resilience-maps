@@ -16,7 +16,7 @@ export function buildSteppedSlider(sources, initialIndex, onSourceChange, config
 
   if (config.label) {
     const lbl = document.createElement("label");
-    lbl.className = "widget-label";
+    lbl.className = "widget-label mg-form-label";
     lbl.textContent = config.label;
     wrapper.appendChild(lbl);
   }

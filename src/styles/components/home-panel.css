@@ -361,29 +361,32 @@
   display: table-cell;
   white-space: nowrap;
   font-size: 0.78rem;
-  color: #555;
 }
 
+/* Body cells only: the column header sits on the table's dark blue band and
+   keeps its own (white) colour. */
+.show-mapx-ids td.data-table__mapx-id {
+  color: rgb(var(--mg-color-neutral-600));
+}
+
+/* The hero is mid-blue, so Mangrove's default track colours and focus ring
+   would fall below 3:1 on it. rc.2 exposes --mg-switch-* properties, so the
+   inversion is a handful of token overrides rather than overridden rules. */
 .sources-mapx-toggle {
+  --mg-switch-track-background: rgb(var(--mg-color-neutral-0) / 0.35);
+  --mg-switch-track-background--checked: rgb(var(--mg-color-neutral-0));
+  --mg-switch-thumb-background: rgb(var(--mg-color-interactive));
+  --mg-switch-pending-ring-color: rgb(var(--mg-color-neutral-0));
   margin-top: 1rem;
 }
 
 .sources-mapx-toggle .mg-switch__label {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgb(var(--mg-color-neutral-0) / 0.9);
 }
 
-.sources-mapx-toggle .mg-switch__track {
-  background-color: rgba(255, 255, 255, 0.35);
-}
-
-/* The hero is mid-blue, so Mangrove's default checked track (interactive blue)
-   and focus ring (dark gold) both fall below 3:1. Invert them for this surface. */
-.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track {
+/* Off: the thumb has to read against the white-ish track as well. */
+.sources-mapx-toggle .mg-switch__input:not(:checked) + .mg-switch__track .mg-switch__thumb {
   background-color: rgb(var(--mg-color-neutral-0));
-}
-
-.sources-mapx-toggle .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
-  background-color: rgb(var(--mg-color-interactive));
 }
 
 .sources-mapx-toggle .mg-switch__input:focus-visible + .mg-switch__track {
