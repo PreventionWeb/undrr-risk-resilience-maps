@@ -10,6 +10,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 - A screen reader now hears a layer's loading or failure message once. A layer appears in its own category and in every other category's cross-tab list, and each of those rows said the same thing, so the message was read out several times.
 - When two layers have something to say at the same time — both failing, or a shared link opening both while the map service is down — a screen reader now hears both. The second message replaced the first, and one layer finishing could also take another layer's "Loading…" away before it was read.
+- "The map is temporarily unavailable" no longer appears on a working map service. MapX loads in a cross-origin iframe, and a browser stops that iframe making any progress while it is not being painted -- which is what happens behind the preview PIN gate and while the tab is in the background. The 30-second limit counted that time, so leaving the page open for half a minute was enough to be told the map had failed. The limit now counts only time in which the map can really load, which is 1-4 seconds in practice. The automatic retry countdown pauses at the PIN gate for the same reason, and never reloads the page while you are reading one of the information pages.
 - The opacity slider under a layer had no name a screen reader could use: it sat next to the word "Opacity" but nothing tied the two together (axe reported a critical `label` violation on every layer that was on). It is now named "Opacity" and reads its value as a percentage.
 - The category navigation is announced as links again. It claimed to be a menu bar, which promises arrow-key navigation the app does not implement and stops the eight links being announced as links. The link for the page you are on now says so.
 - The map itself had no name, so a screen reader listed it as an unnamed frame.
@@ -36,6 +37,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- The map is ready as soon as you open a category tab. It now loads quietly behind the home, Sources and About pages instead of waiting for the first tab click, so the two to three seconds that used to follow that click are gone.
 - The "copy coordinates" control in the site inspector is Mangrove's copy button. It now says "Copied!" in a small tooltip when it works, tells a screen reader the same thing, and says so if the copy fails instead of doing nothing visible. It copies the same "latitude, longitude" text as before.
 - The group headings in the layer panel and the collapsed sections for other tabs use Mangrove's accordion. The heading is now a full-width row with a chevron on the right that turns as the section opens (the sections for other tabs had no chevron at all), it is easier to hit, and it shows a clear focus outline when you reach it with the keyboard.
 - The "map is temporarily unavailable" message is Mangrove's service-notice component: a soft wash over the map with the warning symbol, an "Offline" badge, the retry countdown and the two actions. It retries and recovers exactly as before.

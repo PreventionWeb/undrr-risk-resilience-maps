@@ -150,9 +150,17 @@ describe("createSidebar", () => {
     expect($$(".nav-tab-link").map((a) => a.dataset.tab)).toEqual(["hazard", "exposure"]);
     expect($$(".panel-resize-grip")).toHaveLength(1);
     expect(duplicateIds()).toEqual([]);
-    // No URL tab: the home page is shown, with the global footer.
+    // No URL tab: the home page is shown, with the global footer. The map is
+    // not hidden, it warms up behind the page (inert, and transparent in CSS).
     expect($("[data-tab-panel='home']").style.display).toBe("block");
-    expect($("#app-map").style.display).toBe("none");
+    expect($("#app-map").style.display).toBe("");
+    expect($("#app-map").classList.contains("is-warming")).toBe(true);
+    expect($("#app-map").getAttribute("aria-hidden")).toBe("true");
+    // `inert` sits on the map and on each child: they cover each other's blind
+    // spot (Mangrove's preview gate strips it from every child of <body>; a
+    // panel appended later has only the map's).
+    expect($("#app-map").hasAttribute("inert")).toBe(true);
+    expect([...$("#app-map").children].every((el) => el.hasAttribute("inert"))).toBe(true);
     expect($("#global-footer").hidden).toBe(false);
   });
 
@@ -257,13 +265,15 @@ describe("createSidebar", () => {
     $("#panel-toggle").click();
     sidebar.showTab("hazard");
     $(".nav-info-link[data-panel='sources']").click();
-    expect($("#app-map").style.display).toBe("none");
+    expect($("#app-map").classList.contains("is-warming")).toBe(true);
     expect($("#info-page").style.display).toBe("block");
     expect($("#global-footer").hidden).toBe(false);
 
     sidebar.destroy();
 
-    expect($("#app-map").style.display).toBe("");
+    expect($("#app-map").classList.contains("is-warming")).toBe(false);
+    expect($("#app-map").hasAttribute("inert")).toBe(false);
+    expect([...$("#app-map").children].some((el) => el.hasAttribute("inert"))).toBe(false);
     expect($("#info-page").style.display).toBe("");
     expect($("#global-footer").hidden).toBe(true);
     expect($$(".is-active")).toEqual([]);
@@ -459,6 +469,8 @@ describe("createSidebar", () => {
     expect(adapter.write).toHaveBeenLastCalledWith({ tab: "exposure", layers: [] }, { replace: false });
     expect($("[data-tab-panel='exposure']").style.display).toBe("block");
     expect($("#app-map").style.display).toBe("");
+    expect($("#app-map").classList.contains("is-warming")).toBe(false);
+    expect($("#app-map").hasAttribute("aria-hidden")).toBe(false);
     expect($("#info-page").style.display).toBe("none");
     expect($("#global-footer").hidden).toBe(true);
     expect($(".nav-tab-link[data-tab='exposure']").classList.contains("is-active")).toBe(true);

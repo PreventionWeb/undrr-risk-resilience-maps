@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  canMapLoad,
+  isMapOnScreen,
   hideMapServiceNotice,
   initMapServiceRetry,
   loadMapXSdk,
@@ -61,10 +63,105 @@ describe("MapX availability", () => {
   it("can cancel the ready-event timeout", () => {
     vi.useFakeTimers();
     const onTimeout = vi.fn();
-    const cancel = watchForMapReady(onTimeout, 100);
+    const cancel = watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
     cancel();
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(1_000);
     expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  it("gives up once MapX has had its full loading time", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10 });
+
+    vi.advanceTimersByTime(90);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(10);
+    expect(onTimeout).toHaveBeenCalledOnce();
+
+    // The watch stops itself: no repeat failures.
+    vi.advanceTimersByTime(1_000);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  it("does not spend the ready budget while the map cannot load", () => {
+    vi.useFakeTimers();
+    const onTimeout = vi.fn();
+    let visible = false;
+
+    watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, shouldCount: () => visible });
+
+    // A user sitting behind the PIN gate, or reading an info page, for a long
+    // time must not trip the failure notice.
+    vi.advanceTimersByTime(10_000);
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    visible = true;
+    vi.advanceTimersByTime(90);
+    expect(onTimeout).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10);
+    expect(onTimeout).toHaveBeenCalledOnce();
+  });
+
+  describe("canMapLoad", () => {
+    const setMap = (markup) => {
+      document.body.innerHTML = markup;
+      return document.getElementById("app-map");
+    };
+
+    it("is true when the map container is on screen", () => {
+      setMap(`<div id="app-map"></div>`);
+      expect(canMapLoad(document)).toBe(true);
+    });
+
+    it("is true when there is no map container to reason about", () => {
+      document.body.replaceChildren();
+      expect(canMapLoad(document)).toBe(true);
+    });
+
+    it("is false while the map is hidden outright", () => {
+      setMap(`<div id="app-map" style="display: none"></div>`);
+      expect(canMapLoad(document)).toBe(false);
+    });
+
+    it("is true while the map warms up behind an information page", () => {
+      // The warm-up state leaves the map laid out and rendering: MapX makes
+      // real progress there, so the ready budget is allowed to run.
+      setMap(`<div id="app-map" class="is-warming" aria-hidden="true"><div inert></div></div>`);
+      expect(canMapLoad(document)).toBe(true);
+    });
+
+    it("is false while the preview gate hides the page", () => {
+      setMap(`<div id="app-map" style="visibility: hidden"></div>`);
+      expect(canMapLoad(document)).toBe(false);
+    });
+
+    it("is false while the tab is in the background", () => {
+      setMap(`<div id="app-map"></div>`);
+      const documentRef = { visibilityState: "hidden", getElementById: () => null };
+      expect(canMapLoad(documentRef)).toBe(false);
+    });
+  });
+
+  describe("isMapOnScreen", () => {
+    it("is true when the map is the view the user is on", () => {
+      document.body.innerHTML = `<div id="app-map"></div>`;
+      expect(isMapOnScreen(document)).toBe(true);
+    });
+
+    it("is false while the map warms up behind an information page", () => {
+      // It can load, but the user cannot see it: nothing may reload the page
+      // under them while they read.
+      document.body.innerHTML = `<div id="app-map" class="is-warming"><div inert></div></div>`;
+      expect(canMapLoad(document)).toBe(true);
+      expect(isMapOnScreen(document)).toBe(false);
+    });
+
+    it("is false whenever the map cannot load at all", () => {
+      document.body.innerHTML = `<div id="app-map" style="display: none"></div>`;
+      expect(isMapOnScreen(document)).toBe(false);
+    });
   });
 
   it("shows, hides, and retries from the service notice", () => {
