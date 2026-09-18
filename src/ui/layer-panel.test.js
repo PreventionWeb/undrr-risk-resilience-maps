@@ -105,6 +105,36 @@ describe("buildTabPanel", () => {
     expect(keys(panel, ".layer-group-items > .layer-item")).toEqual(["soc", "econ"]);
     expect(panel.querySelectorAll(":scope > .layer-item")).toHaveLength(0);
   });
+
+  it("wraps the group stack in a flush Mangrove accordion of direct details children", () => {
+    const soc = layer("soc");
+    const econ = layer("econ");
+    const grouped = {
+      ...flat,
+      layers: [soc, econ],
+      groups: [
+        { id: "societies", label: "Societies", layers: [soc] },
+        { id: "economy", label: "Economy", layers: [econ] },
+      ],
+    };
+
+    const panel = buildTabPanel(grouped, { addRow: rowFactory() });
+
+    const stack = panel.querySelector(":scope > .layer-groups");
+    expect([...stack.classList]).toEqual(["layer-groups", "mg-accordion", "mg-accordion--flush"]);
+    // Mangrove's accordion rules are all `.mg-accordion > details`, so every
+    // group has to stay a direct child of the container.
+    expect(stack.querySelectorAll(":scope > details.layer-group")).toHaveLength(2);
+    expect(panel.querySelectorAll(":scope > details.layer-group")).toHaveLength(0);
+    // The summary stays the only control in the header: no nested interactive
+    // element, and the row's own expand button is untouched.
+    expect(stack.querySelectorAll("summary button, summary a, summary input")).toHaveLength(0);
+  });
+
+  it("leaves an ungrouped tab without an accordion", () => {
+    const panel = buildTabPanel(flat, { addRow: rowFactory() });
+    expect(panel.querySelector(".mg-accordion")).toBeNull();
+  });
 });
 
 describe("updateDisabledLayerVisibility", () => {
@@ -174,7 +204,8 @@ describe("buildCrossTabSections", () => {
     const addRow = rowFactory();
     const container = buildCrossTabSections(tabs[0], tabs, { addRow });
 
-    expect(container.className).toBe("cross-tab-sections");
+    // A flush Mangrove accordion around the whole stack of `<details>`.
+    expect([...container.classList]).toEqual(["cross-tab-sections", "mg-accordion", "mg-accordion--flush"]);
     const sections = [...container.querySelectorAll(":scope > details.cross-tab-section")];
     // Risk is the current tab and Resilience has nothing published.
     expect(sections.map((s) => s.querySelector("summary.cross-tab-summary").textContent)).toEqual([
