@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 
 const mocks = vi.hoisted(() => ({
   addOpacitySlider: vi.fn((_idView, container) => {
@@ -446,7 +447,7 @@ describe("createLayerRow full variant", () => {
     await Promise.resolve();
     store.set("flood", { sourceIdx: 0, status: "switching" });
     store.set("flood", { status: "idle" });
-    await vi.waitFor(() => expect(tabs()[0].classList.contains("is-active")).toBe(true));
+    await waitFor(() => expect(tabs()[0].classList.contains("is-active")).toBe(true));
     expect(el.querySelector(".widget-sub-tabs")).not.toBe(widget);
   });
 

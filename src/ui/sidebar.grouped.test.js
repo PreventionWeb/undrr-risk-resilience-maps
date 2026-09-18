@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "../../tests/support/async.js";
 
 // A tab whose sidebar groups (R2R categories) list its layers in a different
 // order from `tab.layers`. The hash must follow `tab.layers` (config order),
@@ -79,10 +80,10 @@ describe("hash order for a grouped tab", () => {
     expect(labels).toEqual(["Societies", "Economy"]);
 
     eye("Economy").click();
-    await vi.waitFor(() => expect(location.hash).toBe("#risk?layers=econ"));
+    await waitFor(() => expect(location.hash).toBe("#risk?layers=econ"));
     eye("Societies").click();
 
-    await vi.waitFor(() => expect(location.hash).toBe("#risk?layers=econ,soc"));
+    await waitFor(() => expect(location.hash).toBe("#risk?layers=econ,soc"));
   });
 
   it("restores a config-order link without rewriting it", async () => {

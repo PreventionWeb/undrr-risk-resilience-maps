@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settle, waitFor } from "../../tests/support/async.js";
 
 // One announcement per layer event, however many rows the layer has.
 //
@@ -139,7 +140,9 @@ const messagesFor = (key) => written.filter((entry) => entry.key === key).map((e
 
 describe("layer announcements", () => {
   beforeEach(() => {
-    window.location.hash = "";
+    // replaceState, not `location.hash = ""`: assigning the hash makes jsdom
+    // queue a `hashchange` task that can land inside a later test.
+    history.replaceState(null, "", "#");
     document.body.innerHTML = SHELL;
     store.openViews.clear();
     written.length = 0;
@@ -148,6 +151,14 @@ describe("layer announcements", () => {
     sidebar?.destroy();
     sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
     sidebar.showTab("exposure");
+  });
+
+  // Teardown belongs to the test that started the work: destroy the instance
+  // and let its in-flight SDK replies settle here, not inside the next test.
+  afterEach(async () => {
+    sidebar?.destroy();
+    sidebar = null;
+    await settle(() => [store.openViews.size, written.length]);
   });
 
   it("gives the instance one live region and the rows none", () => {
@@ -174,7 +185,7 @@ describe("layer announcements", () => {
     expect(messagesFor("pop")).toEqual(["Loading Population…"]);
 
     slow.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
 
     // The call settled: the busy sentence is dropped exactly once.
     expect(messagesFor("pop")).toEqual(["Loading Population…", ""]);
@@ -186,7 +197,7 @@ describe("layer announcements", () => {
     mocks.viewAdd.mockRejectedValueOnce(new Error("offline"));
 
     crossRows()[0].querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
     warn.mockRestore();
 
     expect(messagesFor("pop")).toEqual(["Loading Population…", "", "Could not load Population. It is off."]);
@@ -198,12 +209,12 @@ describe("layer announcements", () => {
   it("announces a failed turn-off once, not once per placement", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     homeRow().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
     written.length = 0;
     mocks.viewRemove.mockRejectedValueOnce(new Error("postMessage timeout"));
 
     crossRows()[1].querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
     warn.mockRestore();
 
     expect(messagesFor("pop")).toEqual([
@@ -222,9 +233,9 @@ describe("layer announcements", () => {
       messagesFor("pop").filter((message) => message === "Could not load Population. It is off.");
 
     eye.click();
-    await vi.waitFor(() => expect(failures()).toHaveLength(1));
+    await waitFor(() => expect(failures()).toHaveLength(1));
     eye.click();
-    await vi.waitFor(() => expect(failures()).toHaveLength(2));
+    await waitFor(() => expect(failures()).toHaveLength(2));
     warn.mockRestore();
 
     // Two failures, two announcements — and not one per placement either.
@@ -236,7 +247,7 @@ describe("layer announcements", () => {
     mocks.viewAdd.mockRejectedValueOnce(new Error("offline"));
 
     homeRow().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
     warn.mockRestore();
 
     for (const row of [homeRow(), ...crossRows()]) {
@@ -271,11 +282,11 @@ describe("layer announcements", () => {
     // Population arrives first; dropping its busy sentence must not take
     // Earthquake's standing message with it.
     slowPop.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
     expect(region.textContent).toBe("Loading Earthquake…");
 
     slowQuake.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
     expect(region.textContent).toBe("");
   });
 
@@ -291,11 +302,11 @@ describe("layer announcements", () => {
     // The other order: Earthquake, which spoke last, settles first. Population
     // is still loading, so its "Loading…" has to be left standing.
     slowQuake.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("quake").applied).toBe(true));
     expect(region.textContent).toBe("Loading Population…");
 
     slowPop.resolve();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
+    await waitFor(() => expect(sidebar.store.get("pop").applied).toBe(true));
     expect(region.textContent).toBe("");
   });
 
@@ -306,8 +317,8 @@ describe("layer announcements", () => {
 
     homeRow().querySelector(".layer-eye").click();
     quakeRow().querySelector(".layer-eye").click();
-    await vi.waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
-    await vi.waitFor(() => expect(sidebar.store.get("quake").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("pop").status).toBe("error"));
+    await waitFor(() => expect(sidebar.store.get("quake").status).toBe("error"));
     warn.mockRestore();
 
     expect(region.textContent).toContain("Could not load Population. It is off.");
