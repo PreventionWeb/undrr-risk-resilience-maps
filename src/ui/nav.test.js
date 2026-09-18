@@ -10,14 +10,14 @@ const TABS = [
 /** The static nav markup from index.html, without data tab links. */
 const NAV = `
   <ul class="mg-mega-topbar" data-ui="nav">
-    <li class="mg-mega-topbar__item" role="none">
-      <a href="#" role="menuitem" class="mg-mega-topbar__item-link nav-home-link">Home</a>
+    <li class="mg-mega-topbar__item">
+      <a href="#" class="mg-mega-topbar__item-link nav-home-link">Home</a>
     </li>
-    <li class="nav-info-sep" role="separator" aria-hidden="true"></li>
-    <li class="mg-mega-topbar__item" role="none">
+    <li class="nav-info-sep" aria-hidden="true"></li>
+    <li class="mg-mega-topbar__item">
       <a href="#sources" class="mg-mega-topbar__item-link nav-info-link" data-panel="sources">Sources</a>
     </li>
-    <li class="mg-mega-topbar__item" role="none">
+    <li class="mg-mega-topbar__item">
       <a href="#about" class="mg-mega-topbar__item-link nav-info-link" data-panel="about">About</a>
     </li>
   </ul>`;
@@ -36,7 +36,7 @@ describe("nav helpers", () => {
   it("builds a data tab item with the topbar markup", () => {
     const item = buildNavTabItem({ id: "hazard", label: "Hazard" });
     expect(item.outerHTML).toBe(
-      '<li class="mg-mega-topbar__item" role="none"><a href="#hazard" role="menuitem" class="mg-mega-topbar__item-link nav-tab-link" data-tab="hazard">Hazard</a></li>',
+      '<li class="mg-mega-topbar__item"><a href="#hazard" class="mg-mega-topbar__item-link nav-tab-link" data-tab="hazard">Hazard</a></li>',
     );
   });
 });
@@ -116,6 +116,33 @@ describe("createNav", () => {
     expect(active()).toEqual(["sources"]);
     nav.setActive("home");
     expect(active()).toEqual(["home"]);
+  });
+
+  it("marks the active link as the current page, and only that one", () => {
+    const nav = createNav(root, { tabs: TABS, onSelect: vi.fn() });
+    const current = () =>
+      [...root.querySelectorAll("[aria-current]")].map((a) => [
+        a.dataset.tab ?? a.dataset.panel ?? "home",
+        a.getAttribute("aria-current"),
+      ]);
+
+    nav.setActive("hazard");
+    expect(current()).toEqual([["hazard", "page"]]);
+    nav.setActive("about");
+    expect(current()).toEqual([["about", "page"]]);
+    nav.destroy();
+    expect(current()).toEqual([]);
+  });
+
+  it("leaves the topbar and its links with their native semantics", () => {
+    createNav(root, { tabs: TABS, onSelect: vi.fn() });
+    // Mangrove's MegaMenu puts no roles on the topbar or its items; a menubar
+    // would promise arrow-key navigation this nav does not implement. Only the
+    // four menu roles are asserted absent, so a legitimate role added later
+    // (say `role="img"` on an icon) does not fail this.
+    for (const role of ["menubar", "menu", "menuitem", "none", "separator"]) {
+      expect(root.querySelectorAll(`[role="${role}"]`)).toHaveLength(0);
+    }
   });
 
   it("restores the markup links' active state on destroy", () => {

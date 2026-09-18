@@ -10,7 +10,8 @@
   margin-bottom: 0.4rem;
 }
 
-.opacity-row label {
+/* Decorative: the input carries the same word as its aria-label. */
+.opacity-label {
   color: var(--color-text-muted);
   flex-shrink: 0;
 }

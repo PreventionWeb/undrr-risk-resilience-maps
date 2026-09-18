@@ -14,8 +14,12 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config, { si
   wrapper.className = "widget-sub-tabs";
 
   if (config.label) {
-    const lbl = document.createElement("label");
+    // Decorative, as on the opacity slider: a bare <label> with no `for` names
+    // nothing, and the control below carries the same words in `aria-label`
+    // (WCAG 2.5.3). See ARCHITECTURE.md, "Labelling controls".
+    const lbl = document.createElement("span");
     lbl.className = "widget-label mg-form-label";
+    lbl.setAttribute("aria-hidden", "true");
     lbl.textContent = config.label;
     wrapper.appendChild(lbl);
   }
@@ -50,6 +54,8 @@ export function buildSubTabs(sources, initialIndex, onSourceChange, config, { si
   const bar = document.createElement("div");
   bar.className = "widget-sub-tabs-bar";
   bar.setAttribute("role", "tablist");
+  // The visible label above is decorative, so the tablist carries the name.
+  bar.setAttribute("aria-label", config.label || "Layer option");
 
   const setActive = (index) => {
     bar.querySelectorAll(".widget-sub-tab").forEach((b, i) => {

@@ -72,7 +72,9 @@ export function buildSiteInspectorPanel() {
   panel.innerHTML = `
     <div class="site-inspector-header">
       <h3 class="site-inspector-title">Site Details</h3>
-      <button class="site-inspector-close" aria-label="Close inspection panel">&times;</button>
+      <button class="site-inspector-close" type="button" aria-label="Close inspection panel">
+        <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+      </button>
     </div>
     <div class="site-inspector-coords" aria-label="Coordinates"></div>
     <div class="site-inspector-layers"></div>

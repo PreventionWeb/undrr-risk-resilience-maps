@@ -27,12 +27,12 @@
   background: linear-gradient(
     -45deg,
     transparent 33%,
-    rgba(0, 0, 0, 0.18) 33%,
-    rgba(0, 0, 0, 0.18) 40%,
+    rgb(var(--mg-color-neutral-900) / 0.18) 33%,
+    rgb(var(--mg-color-neutral-900) / 0.18) 40%,
     transparent 40%,
     transparent 66%,
-    rgba(0, 0, 0, 0.18) 66%,
-    rgba(0, 0, 0, 0.18) 73%,
+    rgb(var(--mg-color-neutral-900) / 0.18) 66%,
+    rgb(var(--mg-color-neutral-900) / 0.18) 73%,
     transparent 73%
   );
   border-bottom-right-radius: 4px;

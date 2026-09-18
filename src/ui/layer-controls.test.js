@@ -32,6 +32,28 @@ describe("addOpacitySlider", () => {
     expect(container.querySelector("input[type=range]")).not.toBeNull();
   });
 
+  it("gives the slider an accessible name and leaves no unlabelled label element", async () => {
+    getViewLayerTransparency.mockResolvedValue(0);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.getAttribute("aria-label")).toBe("Opacity");
+    // The visible word is decorative; a bare <label> with no `for` and no
+    // wrapped control is what axe reports as a critical `label` violation.
+    expect(container.querySelector("label")).toBeNull();
+    expect(container.querySelector(".opacity-label").textContent).toBe("Opacity");
+    expect(container.querySelector(".opacity-label").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("announces the value as a percentage through aria-valuetext", async () => {
+    getViewLayerTransparency.mockResolvedValue(25);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.getAttribute("aria-valuetext")).toBe("75%");
+    slider.value = "40";
+    slider.dispatchEvent(new Event("input"));
+    expect(slider.getAttribute("aria-valuetext")).toBe("40%");
+  });
+
   it("defaults slider to 100 when SDK returns transparency 0 (fully opaque)", async () => {
     getViewLayerTransparency.mockResolvedValue(0);
     await addOpacitySlider("view-1", container);
@@ -51,6 +73,15 @@ describe("addOpacitySlider", () => {
     await addOpacitySlider("view-1", container);
     const display = container.querySelector(".opacity-value");
     expect(display.textContent).toBe("75%");
+  });
+
+  it("rounds a fractional transparency so the slider, the label and aria-valuetext agree", async () => {
+    getViewLayerTransparency.mockResolvedValue(0.98);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("99");
+    expect(slider.getAttribute("aria-valuetext")).toBe("99%");
+    expect(container.querySelector(".opacity-value").textContent).toBe("99%");
   });
 
   it("defaults to 100% opacity when SDK call throws", async () => {
@@ -147,6 +178,7 @@ describe("addOpacitySlider", () => {
     first.dispatchEvent(new Event("input"));
 
     expect(second.value).toBe("30");
+    expect(second.getAttribute("aria-valuetext")).toBe("30%");
     expect(other.querySelector(".opacity-value").textContent).toBe("30%");
     container.remove();
     other.remove();
