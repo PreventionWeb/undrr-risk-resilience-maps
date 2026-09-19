@@ -231,7 +231,7 @@ export function buildAboutPanel() {
         <h2 class="info-page-section__title">How it was built</h2>
         <p>This tool is built on the open-source interaction model and layer inventory of the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">Global Infrastructure Resilience (GRI) Risk Viewer</a>, developed by the <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford Programme for Sustainable Infrastructure Systems (OPSIS)</a> at the University of Oxford. The GRI platform itself is the result of collaboration across the infrastructure resilience research community.</p>
         <p>All geospatial layers are hosted, served, and rendered through <a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a>, a global geospatial platform developed by <a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>. The user interface uses the <a href="https://github.com/unisdr/undrr-mangrove" target="_blank" rel="noopener">UNDRR Mangrove</a> design system.</p>
-        <p>The source code for this map viewer is publicly available on <a href="https://github.com/unisdr/undrr-risk-resilience-maps" target="_blank" rel="noopener">GitHub</a>.</p>
+        <p>The source code for this map viewer is publicly available on <a href="https://github.com/PreventionWeb/undrr-risk-resilience-maps" target="_blank" rel="noopener">GitHub</a>.</p>
       </div>
     </div>
 
@@ -254,7 +254,7 @@ export function buildAboutPanel() {
           <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">UNDRR Risk &amp; Resilience — initiative overview and country profiles</a></li>
           <li><a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer — the open-source platform this tool is based on</a></li>
           <li><a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX — UNEP/GRID-Geneva geospatial platform</a></li>
-          <li><a href="https://github.com/unisdr/undrr-risk-resilience-maps" target="_blank" rel="noopener">Source code on GitHub</a></li>
+          <li><a href="https://github.com/PreventionWeb/undrr-risk-resilience-maps" target="_blank" rel="noopener">Source code on GitHub</a></li>
         </ul>
       </div>
     </div>

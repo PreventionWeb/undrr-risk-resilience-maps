@@ -1,6 +1,6 @@
 /* global __APP_LAST_UPDATED__, __APP_COMMIT_HASH__ */
 
-const REPOSITORY_URL = "https://github.com/unisdr/undrr-risk-resilience-maps";
+const REPOSITORY_URL = "https://github.com/PreventionWeb/undrr-risk-resilience-maps";
 
 const UNITS = [
   ["year", 365 * 24 * 60 * 60],

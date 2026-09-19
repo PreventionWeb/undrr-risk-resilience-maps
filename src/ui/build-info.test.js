@@ -30,7 +30,7 @@ describe("build info", () => {
     const link = document.getElementById("build-info-link");
     expect(time.textContent).toBe("Updated 2 hours ago");
     expect(time.dateTime).toBe("2026-08-25T10:00:00.000Z");
-    expect(link.href).toBe("https://github.com/unisdr/undrr-risk-resilience-maps");
+    expect(link.href).toBe("https://github.com/PreventionWeb/undrr-risk-resilience-maps");
     expect(link.title).toContain("abc1234");
   });
 
