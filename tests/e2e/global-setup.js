@@ -67,7 +67,7 @@ function refuseBase(base) {
       '"/" to the base and answers any other path with its "did you mean …?"',
       "page, which builds no map and never sets `window.__mapxStub`.",
       "",
-      "`vite.config.js` applies the GitHub Pages base to `command === \"build\"`",
+      '`vite.config.js` applies the GitHub Pages base to `command === "build"`',
       "only. If that changed, change it back rather than teach the specs a base.",
     ].join("\n"),
   );
