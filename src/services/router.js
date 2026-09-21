@@ -151,7 +151,14 @@ export function createRouter({
   function writeUrl({ replace = false } = {}) {
     if (destroyed) return false;
     if (batchDepth > 0) return false;
-    const layers = toUrlLayers(store.all(), registry.urlKeyOrder());
+    const targetCol = activeTab && registry?.collectionOfTab ? registry.collectionOfTab(activeTab) : null;
+    const records = targetCol
+      ? store.all().filter((record) => {
+          const col = registry?.collectionOf ? registry.collectionOf(record.key) : "r2r";
+          return !col || col === targetCol;
+        })
+      : store.all();
+    const layers = toUrlLayers(records, registry.urlKeyOrder());
     const before = JSON.stringify(adapter.read());
     try {
       adapter.write({ tab: activeTab, layers }, { replace });
@@ -240,8 +247,20 @@ export function createRouter({
    * settings. The controller works out what actually has to change.
    */
   async function reconcileLayersFromUrl(urlLayers) {
-    const inUrl = new Set(urlLayers.map((entry) => entry.key));
     const known = new Set(layerKeys());
+    const activeCollection =
+      (activeTab && registry?.collectionOfTab?.(activeTab)) ||
+      (urlLayers[0] && registry?.collectionOf?.(urlLayers[0].key)) ||
+      null;
+
+    const compatibleLayers = urlLayers.filter((entry) => {
+      if (!known.has(entry.key)) return false;
+      if (!activeCollection) return true;
+      const col = registry?.collectionOf?.(entry.key);
+      return !col || col === activeCollection;
+    });
+
+    const inUrl = new Set(compatibleLayers.map((entry) => entry.key));
     const changes = [];
 
     for (const key of known) {
@@ -250,8 +269,8 @@ export function createRouter({
         changes.push(controller.setOn(key, false));
       }
     }
-    for (const entry of urlLayers) {
-      if (known.has(entry.key)) changes.push(intendFromUrl(entry));
+    for (const entry of compatibleLayers) {
+      changes.push(intendFromUrl(entry));
     }
 
     await Promise.all(changes);
@@ -260,11 +279,21 @@ export function createRouter({
   /** An external change to URL state: back/forward, a link, a typed URL. */
   function onUrlChange(parsed) {
     if (destroyed) return;
-    const action = hashChangeAction(parsed, { dataTabs, infoTabs });
+    let nextTab = parsed.tab;
+    if (!nextTab && parsed.layers?.length > 0 && registry?.collectionOf) {
+      const layerCol = registry.collectionOf(parsed.layers[0].key);
+      const currentTabCol =
+        activeTab && registry.collectionOfTab ? registry.collectionOfTab(activeTab) : null;
+      if (layerCol && currentTabCol && layerCol !== currentTabCol) {
+        const matchingTab = dataTabs.find((id) => registry.collectionOfTab?.(id) === layerCol);
+        if (matchingTab) nextTab = matchingTab;
+      }
+    }
+    const action = hashChangeAction({ tab: nextTab, layers: parsed.layers }, { dataTabs, infoTabs });
     if (action === "ignore") return;
     // The user moved through history: no earlier action's entry may be replaced.
     actionEntryKeys.clear();
-    if (parsed.tab !== activeTab) applyTab(parsed.tab, { write: false });
+    if (nextTab && nextTab !== activeTab) applyTab(nextTab, { write: false });
     if (action === "keep-layers") {
       // Rewrite the bare state in place so the entry still carries the layers.
       writeUrl({ replace: true });
@@ -330,13 +359,24 @@ export function createRouter({
       const { layers } = adapter.read();
       if (layers.length === 0) return;
       const known = new Set(layerKeys());
+      const activeCollection =
+        (activeTab && registry?.collectionOfTab?.(activeTab)) ||
+        (layers[0] && registry?.collectionOf?.(layers[0].key)) ||
+        null;
+
+      const compatibleLayers = layers.filter((entry) => {
+        if (!known.has(entry.key)) return false;
+        if (!activeCollection) return true;
+        const col = registry?.collectionOf?.(entry.key);
+        return !col || col === activeCollection;
+      });
 
       // The URL is only rewritten once, in place, after every layer settles.
       await batch(
         () =>
           Promise.all(
-            layers.map((entry) => {
-              if (!known.has(entry.key) || store.get(entry.key).desired) return null;
+            compatibleLayers.map((entry) => {
+              if (store.get(entry.key).desired) return null;
               return intendFromUrl(entry);
             }),
           ),
@@ -346,6 +386,38 @@ export function createRouter({
 
     /** A user switched tab: show it and push a history entry. */
     setActiveTab(tabId) {
+      if (destroyed) return;
+      if (tabId === activeTab) return;
+
+      const targetCollection = registry?.collectionOfTab?.(tabId);
+      if (targetCollection && store) {
+        const incompatible = store
+          .all()
+          .filter(
+            (record) =>
+              (record.desired || record.applied) &&
+              registry.collectionOf?.(record.key) &&
+              registry.collectionOf(record.key) !== targetCollection,
+          );
+
+        if (incompatible.length > 0) {
+          const prevTab = activeTab;
+          batch(
+            async () => {
+              applyTab(tabId, { write: false });
+              const results = await Promise.all(
+                incompatible.map((record) => controller.intend(record.key, { desired: false })),
+              );
+              if (results.some((r) => r.applied)) {
+                applyTab(prevTab, { write: false });
+              }
+            },
+            { replace: false },
+          );
+          return;
+        }
+      }
+
       applyTab(tabId);
     },
 

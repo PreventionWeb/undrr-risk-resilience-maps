@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [0.0.5] - 2026-09-21
+
+### Added
+
+- A dedicated **GAR (Global Assessment Report)** tab and category. The September 2026 layer inventory adds five Global Assessment Report layers to the map under the UNDRR project, accessible via the new GAR navigation tab and an explore card on the home page:
+  - _Water scarcity and child nutrition_ (`water-scarcity-child-nutrition`, custom-coded live view)
+  - _Human Fatalities Global seismic risk_ (`fatalities-gem`, vector polygon view)
+  - _Economic Losses Global seismic risk_ (`ecolosses-gem`, vector polygon view)
+  - _Disasters and IDP_ (`disasters-idp`, custom-coded live view)
+  - _SDG15.3.1 and Drought frequency_ (`sdg-drought`, raster view)
+
+  In the layer panel, GAR maps are organized into collapsible sections by publication year (e.g. _GAR 2025_) rather than thematic groups ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
+
+- **Layer collection isolation**: GAR maps and the Risk & Resilience (R2R) map sets are completely separated and cannot be combined on screen or in shared links. Turning on a GAR map automatically deactivates and removes all active R2R layers before the new layer mounts; opening an R2R map does the same in reverse. In the layer panel, cross-tab sections show other categories only from within the same collection. In shared links and embedded maps, layers from an incompatible collection are cleanly rejected with a console notice, and back/forward navigation safely transitions between collections without leaving orphaned views ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.0-rc.2` to `2.0.0-rc.3` across the stylesheet, `preview-access.js`, `tabs.js`, and `copy-button.js` CDN loaders ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
+- The layer registry and layer controller track collection membership as a first-class property (`r2r` or `gar`), ensuring consistent collection scoping across the layer panel, the router, and the embed bridge ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
+
 ## [0.0.4] - 2026-09-18
 
 ### Added

@@ -72,8 +72,8 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 
 ## Mangrove 2.0 follow-ups
 
-- `2.0.0-rc.2` is a release candidate (updated from `2.0.0-rc.1` for the
-  `.mg-switch` pending/disabled states, after `2.0.0-beta.3` brought `mg-switch`,
+- `2.0.0-rc.3` is a release candidate (updated from `2.0.0-rc.2`, which brought
+  the `.mg-switch` pending/disabled states, after `2.0.0-beta.3` brought `mg-switch`,
   `mg-range`, `mg-details`, `mg-status-label`, and `mg-button--icon`).
   Re-test and move to the stable 2.0.0 when it ships, and continue
   to monitor breaking changes listed in Mangrove's `llms.txt` (notably the

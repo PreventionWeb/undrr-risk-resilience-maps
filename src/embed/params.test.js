@@ -47,7 +47,14 @@ describe("parseEmbedParams", () => {
     expect(params.parentOrigin).toBeNull();
     expect(params.instance).toBeNull();
     expect(params.empty).toBe(false);
-    expect(params.tabIds).toEqual(["risk-resilience", "resilience", "hazard", "exposure", "vulnerability"]);
+    expect(params.tabIds).toEqual([
+      "risk-resilience",
+      "resilience",
+      "hazard",
+      "exposure",
+      "vulnerability",
+      "gar",
+    ]);
   });
 
   it("takes a known tab and ignores an unknown or an info tab", () => {
@@ -230,5 +237,54 @@ describe("clampLayers", () => {
     for (const value of [undefined, null, "landslides", { key: "landslides" }]) {
       expect(clampLayers(value, { allowed, registry })).toEqual([]);
     }
+  });
+
+  it("drops layers from an incompatible collection", () => {
+    const mixedAllowed = new Set(["river-flooding", "fatalities-gem"]);
+    // When collection is "r2r", fatalities-gem (gar) must be dropped
+    expect(
+      clampLayers([{ key: "river-flooding" }, { key: "fatalities-gem" }], {
+        allowed: mixedAllowed,
+        registry,
+        collection: "r2r",
+      }),
+    ).toEqual([{ key: "river-flooding", sourceIdx: 0 }]);
+
+    // When collection is "gar", river-flooding (r2r) must be dropped
+    expect(
+      clampLayers([{ key: "river-flooding" }, { key: "fatalities-gem" }], {
+        allowed: mixedAllowed,
+        registry,
+        collection: "gar",
+      }),
+    ).toEqual([{ key: "fatalities-gem", sourceIdx: 0 }]);
+
+    // When no collection is specified, the first layer sets the collection
+    expect(
+      clampLayers([{ key: "fatalities-gem" }, { key: "river-flooding" }], {
+        allowed: mixedAllowed,
+        registry,
+      }),
+    ).toEqual([{ key: "fatalities-gem", sourceIdx: 0 }]);
+  });
+});
+
+describe("embed collection isolation in parseEmbedParams", () => {
+  it("drops GAR layers when tab is an R2R tab", () => {
+    const params = parseEmbedParams("?tab=hazard&layers=river-flooding,fatalities-gem");
+    expect(params.tab).toBe("hazard");
+    expect(params.layers).toEqual([{ key: "river-flooding", sourceIdx: 0 }]);
+  });
+
+  it("drops R2R layers when tab is gar", () => {
+    const params = parseEmbedParams("?tab=gar&layers=river-flooding,fatalities-gem");
+    expect(params.tab).toBe("gar");
+    expect(params.layers).toEqual([{ key: "fatalities-gem", sourceIdx: 0 }]);
+  });
+
+  it("selects gar tab when no tab is passed but GAR layer is requested", () => {
+    const params = parseEmbedParams("?layers=fatalities-gem");
+    expect(params.tab).toBe("gar");
+    expect(params.layers).toEqual([{ key: "fatalities-gem", sourceIdx: 0 }]);
   });
 });

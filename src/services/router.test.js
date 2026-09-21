@@ -455,3 +455,108 @@ describe("destroy()", () => {
     expect(adapter.writes).toHaveLength(before);
   });
 });
+
+describe("router collection isolation", () => {
+  const TABS_WITH_GAR = [
+    {
+      id: "hazard",
+      label: "Hazard",
+      collection: "r2r",
+      layers: [{ key: "quake", id: "MX-QUAKE", label: "Earthquake", type: "rt" }],
+    },
+    {
+      id: "exposure",
+      label: "Exposure",
+      collection: "r2r",
+      layers: [{ key: "pop", id: "MX-POP", label: "Population", type: "vt" }],
+    },
+    {
+      id: "gar",
+      label: "GAR",
+      collection: "gar",
+      layers: [{ key: "garMetric", id: "MX-GAR", label: "GAR Metric", type: "vt" }],
+    },
+  ];
+
+  function setupGarRouter(initial = { tab: "hazard", layers: [] }) {
+    const adapter = memoryAdapter(initial);
+    const store = createLayersStore();
+    const registry = createLayerRegistry(TABS_WITH_GAR);
+    const viewAdd = vi.fn(async () => {});
+    const viewRemove = vi.fn(async () => {});
+    const controller = createLayerController({
+      store,
+      getLayer: (key) => registry.byKey(key),
+      getCollection: (key) => registry.collectionOf(key),
+      views: { add: viewAdd, remove: viewRemove },
+      external: {
+        isExternal: () => false,
+        getRuntime: () => null,
+        open: vi.fn(),
+        close: vi.fn(),
+        replace: vi.fn(),
+      },
+    });
+    const tabs = [];
+    const router = createRouter({
+      controller,
+      registry,
+      adapter,
+      dataTabs: ["hazard", "exposure", "gar"],
+      infoTabs: INFO_TABS,
+      initialTab: "hazard",
+      isReady: () => true,
+      layerKeys: () => ["quake", "pop", "garMetric"],
+    });
+    router.attachTo(store);
+    router.onTabChange((tab) => tabs.push(tab));
+    return { adapter, store, controller, router, tabs, viewAdd, viewRemove };
+  }
+
+  it("clears incompatible layers when switching to a tab of a different collection", async () => {
+    const { adapter, controller, router, store } = setupGarRouter();
+    router.start();
+
+    // Turn on quake (r2r)
+    await controller.setOn("quake", true);
+    expect(store.get("quake").applied).toBe(true);
+
+    // Switch to GAR tab
+    router.setActiveTab("gar");
+    await waitFor(() => {
+      expect(adapter.writes[adapter.writes.length - 1]?.tab).toBe("gar");
+    });
+
+    expect(store.get("quake").applied).toBe(false);
+    expect(store.get("quake").desired).toBe(false);
+    expect(router.activeTab).toBe("gar");
+
+    // The tab switch pushed one history entry with no layers
+    const lastWrite = adapter.writes[adapter.writes.length - 1];
+    expect(lastWrite).toEqual({ tab: "gar", keys: [], replace: false });
+  });
+
+  it("keeps layers when switching between tabs of the same collection", async () => {
+    const { controller, router, store } = setupGarRouter();
+    router.start();
+
+    await controller.setOn("quake", true);
+    router.setActiveTab("exposure");
+
+    expect(store.get("quake").applied).toBe(true);
+    expect(router.activeTab).toBe("exposure");
+  });
+
+  it("drops incompatible layers when restoring from URL", async () => {
+    // URL has tab=hazard (r2r) but carries both quake (r2r) and garMetric (gar)
+    const { router, store } = setupGarRouter({
+      tab: "hazard",
+      layers: [{ key: "quake" }, { key: "garMetric" }],
+    });
+    router.start();
+    await router.restoreFromUrl();
+
+    expect(store.get("quake").applied).toBe(true);
+    expect(store.get("garMetric").applied).toBe(false);
+  });
+});

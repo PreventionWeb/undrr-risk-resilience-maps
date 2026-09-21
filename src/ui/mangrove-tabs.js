@@ -9,10 +9,10 @@
  * `mgTabs()` adds window listeners (`resize` and `orientationchange` for
  * `data-mg-js-tabs-stack-on-mobile` containers, `hashchange`) and a
  * `document.fonts` `loadingdone` listener, which only `mgTabsDestroy(scope)`
- * removes. Both are exports of the 2.0.0-rc.2 module
+ * removes. Both are exports of the 2.0.0-rc.3 module
  * (`mgTabs(scope, activateDeepLinkOnLoad = true, options = {})`,
  * `mgTabsDestroy(scope = document, preserveState = false)`); the destroy call
- * is still guarded in case a later release drops it. rc.2 also accepts an
+ * is still guarded in case a later release drops it. rc.3 also accepts an
  * `{ signal }` option that destroys the sets it initialised; we keep calling
  * `mgTabsDestroy` ourselves so the wrapper works the same on any 2.0 release.
  *
@@ -25,7 +25,7 @@
  * hiding content.
  */
 
-const MANGROVE_VERSION = "2.0.0-rc.2";
+const MANGROVE_VERSION = "2.0.0-rc.3";
 const TABS_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/tabs.js`;
 
 let modulePromise = null;

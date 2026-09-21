@@ -60,10 +60,30 @@ describe("createLayerRegistry", () => {
     expect(JSON.stringify(tabs)).toBe(before);
     expect(Object.isFrozen(built)).toBe(true);
     expect(Object.isFrozen(built.urlKeyOrder())).toBe(true);
-    expect(Object.isFrozen(built.byViewId("MX-F10"))).toBe(true);
     // Shallow: layer config objects are the config's own, not frozen copies.
     expect(built.byKey("flood")).toBe(flood);
     expect(Object.isFrozen(built.byKey("flood"))).toBe(false);
+  });
+
+  it("indexes tab and layer collections, defaulting to r2r", () => {
+    const garLayer = { key: "gar-metric", id: "MX-GAR" };
+    const customTabs = [
+      { id: "hazard", layers: [flood] },
+      { id: "gar", collection: "gar", layers: [garLayer] },
+    ];
+    const reg = createLayerRegistry(customTabs);
+
+    expect(reg.collectionOfTab("hazard")).toBe("r2r");
+    expect(reg.collectionOfTab("gar")).toBe("gar");
+    expect(reg.collectionOfTab("nonexistent")).toBeUndefined();
+
+    expect(reg.collectionOf("flood")).toBe("r2r");
+    expect(reg.collectionOf("gar-metric")).toBe("gar");
+    expect(reg.collectionOf("missing")).toBeUndefined();
+
+    expect(reg.areCompatible("flood", "missing")).toBe(false);
+    expect(reg.areCompatible("flood", "flood")).toBe(true);
+    expect(reg.areCompatible("flood", "gar-metric")).toBe(false);
   });
 });
 

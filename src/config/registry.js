@@ -41,20 +41,30 @@ export function urlKeyOrder(tabs) {
  * point to are the config's own objects, returned as they are and not frozen. Callers must treat them
  * as read-only.
  *
- * @param {Array<{ id: string, layers: object[] }>} tabs
+ * @param {Array<{ id: string, collection?: string, layers: object[] }>} tabs
  * @returns {{
  *   byKey: (key: string) => object|undefined,
  *   byViewId: (viewId: string) => { tab: object, layer: object, source: object|null }|undefined,
  *   urlKeyOrder: () => readonly string[],
+ *   collectionOf: (key: string) => string|undefined,
+ *   collectionOfTab: (tabId: string) => string|undefined,
+ *   areCompatible: (keyA: string, keyB: string) => boolean,
  * }}
  */
 export function createLayerRegistry(tabs) {
   const keys = new Map(); // key → layer
   const views = new Map(); // MapX view id → { tab, layer, source }
+  const tabCollections = new Map(); // tabId → collection
+  const keyCollections = new Map(); // key → collection
 
   for (const tab of tabs) {
+    const collection = tab.collection ?? "r2r";
+    tabCollections.set(tab.id, collection);
     for (const layer of tab.layers) {
-      if (layer.key && !keys.has(layer.key)) keys.set(layer.key, layer);
+      if (layer.key && !keys.has(layer.key)) {
+        keys.set(layer.key, layer);
+        keyCollections.set(layer.key, collection);
+      }
       if (layer.id && !views.has(layer.id)) views.set(layer.id, Object.freeze({ tab, layer, source: null }));
       for (const source of layer.sources ?? []) {
         if (source.id && !views.has(source.id)) views.set(source.id, Object.freeze({ tab, layer, source }));
@@ -70,6 +80,16 @@ export function createLayerRegistry(tabs) {
     byViewId: (viewId) => views.get(viewId),
     /** Hash order (see urlKeyOrder). */
     urlKeyOrder: () => keyOrder,
+    /** Collection name for a layer key (e.g. "r2r", "gar"), or undefined if unknown. */
+    collectionOf: (key) => keyCollections.get(key),
+    /** Collection name for a tab id (e.g. "r2r", "gar"), or undefined if not a data tab. */
+    collectionOfTab: (tabId) => tabCollections.get(tabId),
+    /** Whether two layer keys belong to the same collection. */
+    areCompatible: (keyA, keyB) => {
+      const colA = keyCollections.get(keyA);
+      const colB = keyCollections.get(keyB);
+      return Boolean(colA && colB && colA === colB);
+    },
   });
 }
 

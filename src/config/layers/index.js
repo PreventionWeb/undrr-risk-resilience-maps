@@ -50,7 +50,8 @@ import { EXPOSURE_LAYERS } from "./exposure.js";
 import { VULNERABILITY_LAYERS } from "./vulnerability.js";
 import { RISK_LAYERS } from "./risk.js";
 import { RESILIENCE_LAYERS } from "./resilience.js";
-export { ECO_DRR, HOME, CDC } from "./projects.js";
+import { GAR_LAYERS } from "./gar.js";
+export { ECO_DRR, HOME, CDC, UNDRR } from "./projects.js";
 
 // Canonical R2R category display order
 const R2R_ORDER = ["Societies", "Economy", "Environment"];
@@ -77,10 +78,37 @@ function withR2rGroups(layers) {
   return { layers, groups };
 }
 
+/**
+ * Group GAR layers by publication year (e.g. "GAR 2025").
+ * Always returns a groups array so layers are organized by GAR edition.
+ */
+function withGarYearGroups(layers) {
+  const buckets = new Map();
+  for (const layer of layers) {
+    const rawCat = layer.r2rCategory || "";
+    const match = rawCat.match(/(?:GAR\s*)?(\d{4})/i);
+    const year = match ? match[1] : null;
+    const label = year ? `GAR ${year}` : rawCat || "GAR";
+    if (!buckets.has(label)) buckets.set(label, { year: year ? parseInt(year, 10) : 0, layers: [] });
+    buckets.get(label).layers.push(layer);
+  }
+
+  const sorted = [...buckets.entries()].sort((a, b) => b[1].year - a[1].year);
+
+  const groups = sorted.map(([label, data]) => ({
+    id: label.toLowerCase().replace(/\s+/g, "-"),
+    label,
+    layers: data.layers,
+  }));
+
+  return { layers, groups };
+}
+
 export const TABS = [
   {
     id: "risk-resilience",
     label: "Risk",
+    collection: "r2r",
     description:
       "Potential disaster losses, shaped by hazard, exposure, vulnerability and the capacity to reduce or manage risk.",
     definitionUrl: "https://www.undrr.org/terminology/disaster-risk",
@@ -95,6 +123,7 @@ export const TABS = [
   {
     id: "resilience",
     label: "Resilience",
+    collection: "r2r",
     description:
       "The ability of systems and communities to resist, adapt to and recover from hazard impacts in a timely and efficient way.",
     definitionUrl: "https://www.undrr.org/terminology/resilience",
@@ -109,6 +138,7 @@ export const TABS = [
   {
     id: "hazard",
     label: "Hazard",
+    collection: "r2r",
     description: "Processes, phenomena or human activities that may cause harm, damage or disruption.",
     definitionUrl: "https://www.undrr.org/terminology/hazard",
     card: {
@@ -121,6 +151,7 @@ export const TABS = [
   {
     id: "exposure",
     label: "Exposure",
+    collection: "r2r",
     description: "People, infrastructure and other tangible assets located in hazard-prone areas.",
     definitionUrl: "https://www.undrr.org/terminology/exposure",
     card: {
@@ -133,6 +164,7 @@ export const TABS = [
   {
     id: "vulnerability",
     label: "Vulnerability",
+    collection: "r2r",
     description:
       "Physical, social, economic and environmental conditions that increase susceptibility to hazard impacts.",
     definitionUrl: "https://www.undrr.org/terminology/vulnerability",
@@ -142,6 +174,21 @@ export const TABS = [
       desc: "Social, economic and structural factors that amplify harm when hazards strike.",
     },
     ...withR2rGroups(VULNERABILITY_LAYERS),
+  },
+  {
+    id: "gar",
+    label: "GAR",
+    collection: "gar",
+    description:
+      "Global Assessment Report on Disaster Risk Reduction — analytics and metrics highlighting systemic risk and resilience.",
+    definitionUrl: "https://www.undrr.org/gar",
+    crossTab: false,
+    card: {
+      icon: "06",
+      color: "#0077c8",
+      desc: "Global Assessment Report metrics on systemic risk, displacement, water scarcity, and seismic impacts.",
+    },
+    ...withGarYearGroups(GAR_LAYERS),
   },
 ];
 
