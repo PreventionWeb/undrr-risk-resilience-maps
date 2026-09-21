@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Layer collection isolation and mutual exclusivity**: introduced first-class `collection` categorization across tabs and layers (`r2r` for standard risk, resilience, hazard, exposure, and vulnerability sets, and `gar` for Global Assessment Report maps). Enforced mutual exclusivity cleanly across layers and state services:
+  - `LayerController`: turning on any layer automatically deactivates and removes all active layers from an incompatible collection.
+  - `Router`: switching to a tab from another collection automatically clears incompatible layers in a single history entry, and URL reconciliation drops layers not matching the active tab's collection.
+  - `Embed & URL parameters`: `clampLayers` drops layers from incompatible collections with explicit warnings, and iframe defaults match the requested layer's collection.
+  - `LayerRegistry`: indexes `collectionOf`, `collectionOfTab`, and `areCompatible` lookups as the single source of truth without ad-hoc magic strings.
+- **GAR category and layer inventory sync**: imported the September 2026 layer inventory (`undrr-layer-inventory-2026-09-21-william.csv`), adding a dedicated GAR (Global Assessment Report) tab in the category navigation bar and home page explore grid. Layers are organized into collapsible groups by GAR publication year (e.g. _GAR 2025_), and the category is completely separated from the Risk & Resilience metrics suite without mutual cross-tab sections. Configured 5 new GAR layers hosted under the UNDRR MapX project:
+  - _Water scarcity and child nutrition_ (`water-scarcity-child-nutrition`, custom-coded live view)
+  - _Human Fatalities Global seismic risk_ (`fatalities-gem`, vector polygon view)
+  - _Economic Losses Global seismic risk_ (`ecolosses-gem`, vector polygon view)
+  - _Disasters and IDP_ (`disasters-idp`, custom-coded live view)
+  - _SDG15.3.1 and Drought frequency_ (`sdg-drought`, raster view)
+
 ## [0.0.4] - 2026-09-18
 
 ### Added

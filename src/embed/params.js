@@ -132,14 +132,16 @@ export function parseOrigin(value) {
  * the list is cut to `MAX_LAYERS`.
  *
  * @param {unknown} layers - candidate entries, from a URL or a message
- * @param {{ allowed: Set<string>|string[], registry: { byKey: Function } }} context
+ * @param {unknown} layers - candidate entries, from a URL or a message
+ * @param {{ allowed: Set<string>|string[], registry: { byKey: Function, collectionOf?: Function }, collection?: string|null }} context
  * @returns {Array<{ key: string, sourceIdx: number, settings?: object }>}
  */
-export function clampLayers(layers, { allowed, registry }) {
+export function clampLayers(layers, { allowed, registry, collection = null }) {
   if (!Array.isArray(layers)) return [];
   const allowedKeys = allowed instanceof Set ? allowed : new Set(allowed);
   const seen = new Set();
   const clamped = [];
+  let activeCollection = collection ?? null;
 
   for (const entry of layers) {
     if (!entry || typeof entry !== "object") continue;
@@ -147,6 +149,20 @@ export function clampLayers(layers, { allowed, registry }) {
     if (typeof key !== "string" || !allowedKeys.has(key) || seen.has(key)) continue;
     const layer = registry.byKey(key);
     if (!layer) continue;
+
+    if (registry.collectionOf) {
+      const layerCol = registry.collectionOf(key);
+      if (activeCollection === null) {
+        activeCollection = layerCol;
+      } else if (layerCol && layerCol !== activeCollection) {
+        console.warn(
+          `Embed parameter "layers": layer "${key}" belongs to collection "${layerCol}", ` +
+            `which cannot be combined with "${activeCollection}" and was ignored.`,
+        );
+        continue;
+      }
+    }
+
     seen.add(key);
 
     const requested = Number(entry.sourceIdx);
@@ -230,9 +246,28 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   // Info tabs are deliberately not reachable in an embed (no information pages),
   // so only a data tab this embed shows is accepted.
   const requestedTab = params.get("tab");
-  const tab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : (tabIds[0] ?? null);
+  const targetTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : null;
+  const targetCollection = targetTab && registry.collectionOfTab ? registry.collectionOfTab(targetTab) : null;
 
-  const layers = clampLayers(parseLayerParams(params), { allowed: layerKeys, registry });
+  const rawLayers = parseLayerParams(params);
+  const layers = clampLayers(rawLayers, {
+    allowed: layerKeys,
+    registry,
+    collection: targetCollection,
+  });
+
+  // If no tab was explicitly requested, but layers were provided, ensure the default
+  // tab belongs to the same collection as the active layer (e.g. gar vs r2r).
+  let tab = targetTab;
+  if (!tab) {
+    if (layers.length > 0 && registry.collectionOf) {
+      const layerCol = registry.collectionOf(layers[0].key);
+      const matchingTab = shown.find((t) => (t.collection ?? "r2r") === layerCol);
+      tab = matchingTab ? matchingTab.id : (tabIds[0] ?? null);
+    } else {
+      tab = tabIds[0] ?? null;
+    }
+  }
 
   const instance = params.get("instance");
 

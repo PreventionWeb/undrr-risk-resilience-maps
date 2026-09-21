@@ -234,4 +234,19 @@ describe("buildCrossTabSections", () => {
     const container = buildCrossTabSections(tabs[3], [tabs[3]], { addRow: rowFactory() });
     expect(container.children).toHaveLength(0);
   });
+
+  it("returns an empty container when currentTab has crossTab: false", () => {
+    const isolatedTab = { id: "gar", label: "GAR", layers: [layer("gar1")], crossTab: false };
+    const container = buildCrossTabSections(isolatedTab, [...tabs, isolatedTab], { addRow: rowFactory() });
+    expect(container.children).toHaveLength(0);
+  });
+
+  it("excludes tabs with crossTab: false from other tabs' cross-tab sections", () => {
+    const isolatedTab = { id: "gar", label: "GAR", layers: [layer("gar1")], crossTab: false };
+    const container = buildCrossTabSections(tabs[0], [...tabs, isolatedTab], { addRow: rowFactory() });
+    const sectionLabels = [...container.querySelectorAll(":scope > details.cross-tab-section")].map(
+      (s) => s.querySelector("summary.cross-tab-summary").textContent,
+    );
+    expect(sectionLabels).not.toContain("GAR");
+  });
 });

@@ -128,7 +128,11 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
         );
         return;
       }
-      map.setState({ tab, layers: clampLayers(payload.layers, { allowed, registry }) });
+      const targetCollection = tab && registry.collectionOfTab ? registry.collectionOfTab(tab) : null;
+      map.setState({
+        tab,
+        layers: clampLayers(payload.layers, { allowed, registry, collection: targetCollection }),
+      });
     },
   });
 

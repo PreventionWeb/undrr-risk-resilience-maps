@@ -162,8 +162,12 @@ export function buildCrossTabSections(currentTab, tabs, { addRow }) {
   const container = document.createElement("div");
   container.className = "cross-tab-sections mg-accordion mg-accordion--flush";
 
+  const currentCollection = currentTab.collection ?? "r2r";
+  if (currentTab.crossTab === false) return container;
+
   for (const tab of tabs) {
-    if (tab.id === currentTab.id) continue;
+    const tabCollection = tab.collection ?? "r2r";
+    if (tab.id === currentTab.id || tab.crossTab === false || tabCollection !== currentCollection) continue;
 
     const publishedLayers = tab.layers.filter((l) => isLayerAvailable(l) && l.key);
     if (publishedLayers.length === 0) continue;

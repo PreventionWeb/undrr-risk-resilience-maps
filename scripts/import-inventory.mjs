@@ -153,6 +153,7 @@ const CONFIG_FILES = [
   "src/config/layers/resilience.js",
   "src/config/layers/exposure.js",
   "src/config/layers/vulnerability.js",
+  "src/config/layers/gar.js",
 ];
 
 // Extract all { key, subSource } combinations from JS source text.
@@ -410,7 +411,7 @@ if (onlyInCSV.length) {
 }
 
 if (!APPLY) {
-console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
+  console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
   process.exit(0);
 }
 
@@ -496,10 +497,7 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
     if (c.file !== relPath) continue;
     const result = replaceInLayerBlock(src, c.key, (block) => {
       if (!c.subSource) {
-        const replaced = block.replace(
-          /(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/,
-          `$1${JSON.stringify(c.newDesc)}`,
-        );
+        const replaced = block.replace(/(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newDesc)}`);
         return replaced !== block
           ? replaced
           : block.replace(/(\n\s+type:\s*"[^"]+",)/, `$1\n    desc: ${JSON.stringify(c.newDesc)},`);
@@ -509,9 +507,7 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
       );
       const replaced = block.replace(sourcePattern, `$1${JSON.stringify(c.newDesc)}`);
       if (replaced !== block) return replaced;
-      const sourceWithoutDesc = new RegExp(
-        `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`,
-      );
+      const sourceWithoutDesc = new RegExp(`(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`);
       return block.replace(sourceWithoutDesc, `$1, desc: ${JSON.stringify(c.newDesc)}$2`);
     });
     src = result.src;

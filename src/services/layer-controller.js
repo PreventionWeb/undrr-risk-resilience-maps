@@ -65,6 +65,8 @@ const isRuntime = (runtime) =>
  * @param {ReturnType<import("../state/layers-store.js").createLayersStore>} deps.store
  * @param {(key: string) => object|undefined} deps.getLayer - layer config by key. Intent for
  *   a key it does not know is reset with `status: "error"` (and a one-time warning per key)
+ * @param {(key: string) => string|undefined} [deps.getCollection] - collection identifier by key
+ *   (e.g. "r2r", "gar"). When turning on a layer, active layers from an incompatible collection are turned off.
  * @param {{ add: (id: string) => Promise<unknown>, remove: (id: string) => Promise<unknown> }} deps.views
  * @param {{
  *   isExternal: (layer: object) => boolean,
@@ -75,7 +77,14 @@ const isRuntime = (runtime) =>
  * }} deps.external - external layer registry; the source of truth for runtime view ids
  * @param {(key: string, error: unknown, action: string) => void} [deps.onError]
  */
-export function createLayerController({ store, getLayer, views, external, onError = () => {} }) {
+export function createLayerController({
+  store,
+  getLayer,
+  getCollection,
+  views,
+  external,
+  onError = () => {},
+}) {
   /** key → promise of the running reconciliation */
   const running = new Map();
   /** keys whose intent changed while their reconciliation was running */
@@ -119,6 +128,24 @@ export function createLayerController({ store, getLayer, views, external, onErro
       if (INTENT_FIELDS.has(field)) intent[field] = value;
       else console.warn(`Layer controller: ignoring non-intent field "${field}" for "${key}"`);
     }
+
+    if (intent.desired && typeof getCollection === "function") {
+      const layer = getLayer(key);
+      if (layer) {
+        const myCollection = getCollection(key);
+        if (myCollection) {
+          for (const record of store.all()) {
+            if (record.key !== key && (record.desired || record.applied)) {
+              const otherCollection = getCollection(record.key);
+              if (otherCollection && otherCollection !== myCollection) {
+                intend(record.key, { desired: false });
+              }
+            }
+          }
+        }
+      }
+    }
+
     const before = store.get(key);
     const changed = store.set(key, intent) !== before;
     // Only a real change is newer intent. Intent equal to the record joins the
@@ -199,6 +226,7 @@ export function createLayerController({ store, getLayer, views, external, onErro
    * reported, not kept as the record's error.
    */
   function fail(key, run, error, action, intent, always, reset) {
+    run.touched = true;
     report(key, error, action);
     const unchanged = (versions.get(key) ?? 0) === intent.version;
     if (unchanged) run.error = error;
@@ -216,6 +244,45 @@ export function createLayerController({ store, getLayer, views, external, onErro
   async function reconcile(key, run) {
     const layer = getLayer(key);
     if (!layer) return rejectUnknown(key, run);
+
+    const record = store.get(key);
+    if (record.desired && typeof getCollection === "function") {
+      const myCollection = getCollection(key);
+      if (myCollection) {
+        const incompatible = store
+          .all()
+          .filter(
+            (other) =>
+              other.key !== key &&
+              (other.desired || other.applied) &&
+              getCollection(other.key) &&
+              getCollection(other.key) !== myCollection,
+          );
+
+        if (incompatible.length > 0) {
+          const removals = await Promise.all(
+            incompatible.map((other) => intend(other.key, { desired: false })),
+          );
+          if (destroyed) return;
+
+          const failed = removals.some((r) => r.applied);
+          if (failed) {
+            const error = new Error(`Cannot turn on "${key}": failed to remove incompatible layer`);
+            fail(
+              key,
+              run,
+              error,
+              "enable",
+              intentOf(key, store.get(key)),
+              { applied: false, viewId: null },
+              { desired: false },
+            );
+            return;
+          }
+        }
+      }
+    }
+
     if (external.isExternal(layer)) return reconcileExternal(key, layer, run);
     return reconcileView(key, layer, run);
   }

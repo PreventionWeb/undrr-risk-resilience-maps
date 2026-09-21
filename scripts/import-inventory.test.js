@@ -75,7 +75,7 @@ describe("import-inventory --apply", () => {
     );
 
     expect(report).toContain(`Input:       ${alternate}`);
-    expect(report).toContain("Matched:     103");
+    expect(report).toContain("Matched:     108");
   });
 
   it("matches a simple layer with one newly labelled sub-source", () => {
@@ -94,7 +94,7 @@ describe("import-inventory --apply", () => {
       { cwd: fixture, encoding: "utf8" },
     );
 
-    expect(report).toContain("Matched:     103");
+    expect(report).toContain("Matched:     108");
     expect(report).not.toContain("In CSV but NOT in JS config");
   });
 

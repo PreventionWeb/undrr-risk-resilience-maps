@@ -182,6 +182,7 @@ export function createSidebar(
       const layer = registry.byKey(key);
       return layer && isLayerAvailable(layer) ? layer : undefined;
     },
+    getCollection: (key) => registry.collectionOf(key),
     views: { add: viewAdd, remove: viewRemove },
     external: {
       isExternal: isExternalLayer,
@@ -515,7 +516,10 @@ export function createSidebar(
   // Second pass: append collapsed cross-tab sections to each tab panel, so a
   // layer's home row comes first among its rows.
   for (const tab of tabs) {
-    tabPanels.get(tab.id).appendChild(buildCrossTabSections(tab, tabs, { addRow: addLayerRow }));
+    const crossTab = buildCrossTabSections(tab, tabs, { addRow: addLayerRow });
+    if (crossTab.children.length > 0) {
+      tabPanels.get(tab.id).appendChild(crossTab);
+    }
   }
 
   if (navRoot) {

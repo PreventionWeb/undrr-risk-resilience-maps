@@ -305,6 +305,10 @@
   margin-top: 0.5rem;
 }
 
+.mg-accordion.cross-tab-sections:empty {
+  display: none;
+}
+
 /* Mangrove draws its divider with `.mg-accordion > details:not(:last-child)`,
    so the stack's own last section has no closing line — it did before this PR
    (`.cross-tab-section { border-bottom }` applied to all of them). The panel

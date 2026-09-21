@@ -925,3 +925,96 @@ describe("settingsMatch", () => {
     expect(settingsMatch(null, { crop: "RICE" })).toBe(false);
   });
 });
+
+describe("collection isolation", () => {
+  const collections = {
+    pop: "r2r",
+    recovery: "r2r",
+    flood: "r2r",
+    crops: "r2r",
+    garMetric: "gar",
+    garAnother: "gar",
+  };
+  const ALL_LAYERS = {
+    ...LAYERS,
+    garMetric: { key: "garMetric", id: "MX-GAR-1" },
+    garAnother: { key: "garAnother", id: "MX-GAR-2" },
+  };
+
+  function setupWithCollections() {
+    const store = createLayersStore();
+    const views = fakeViews();
+    const external = fakeExternal();
+    const onError = vi.fn();
+    const controller = createLayerController({
+      store,
+      getLayer: (key) => ALL_LAYERS[key],
+      getCollection: (key) => collections[key],
+      views,
+      external,
+      onError,
+    });
+    return { store, views, external, onError, controller };
+  }
+
+  it("allows multiple layers from the same collection to be active together", async () => {
+    const { store, views, controller } = setupWithCollections();
+    await controller.setOn("pop", true);
+    await controller.setOn("recovery", true);
+
+    expect(store.get("pop").applied).toBe(true);
+    expect(store.get("recovery").applied).toBe(true);
+    expect(views.shown.has("MX-POP")).toBe(true);
+    expect(views.shown.has("MX-REC")).toBe(true);
+  });
+
+  it("turns off active layers from an incompatible collection when a layer is turned on", async () => {
+    const { store, views, controller } = setupWithCollections();
+    await controller.setOn("pop", true);
+    await controller.setOn("recovery", true);
+    expect(store.get("pop").applied).toBe(true);
+    expect(store.get("recovery").applied).toBe(true);
+
+    // Turning on a GAR layer must turn off the R2R layers
+    await controller.setOn("garMetric", true);
+
+    expect(store.get("garMetric").applied).toBe(true);
+    expect(views.shown.has("MX-GAR-1")).toBe(true);
+
+    expect(store.get("pop").applied).toBe(false);
+    expect(store.get("pop").desired).toBe(false);
+    expect(views.shown.has("MX-POP")).toBe(false);
+
+    expect(store.get("recovery").applied).toBe(false);
+    expect(store.get("recovery").desired).toBe(false);
+    expect(views.shown.has("MX-REC")).toBe(false);
+  });
+
+  it("turns off external layers when switching to an incompatible collection", async () => {
+    const { store, external, controller } = setupWithCollections();
+    await controller.intend("crops", { desired: true, settings: { crop: "MAIZE" } });
+    expect(store.get("crops").applied).toBe(true);
+    expect(external.close).not.toHaveBeenCalled();
+
+    await controller.setOn("garMetric", true);
+    expect(store.get("crops").applied).toBe(false);
+    expect(store.get("crops").desired).toBe(false);
+    expect(external.close).toHaveBeenCalledTimes(1);
+    expect(store.get("garMetric").applied).toBe(true);
+  });
+
+  it("allows multiple GAR layers together, but turns them off when an R2R layer turns on", async () => {
+    const { store, controller } = setupWithCollections();
+    await controller.setOn("garMetric", true);
+    await controller.setOn("garAnother", true);
+
+    expect(store.get("garMetric").applied).toBe(true);
+    expect(store.get("garAnother").applied).toBe(true);
+
+    await controller.setOn("pop", true);
+
+    expect(store.get("garMetric").applied).toBe(false);
+    expect(store.get("garAnother").applied).toBe(false);
+    expect(store.get("pop").applied).toBe(true);
+  });
+});
