@@ -10,7 +10,7 @@
  * `data-mg-copy-button-initialized`, so calling it again over the same scope is
  * a no-op.
  *
- * The 2.0.0-rc.2 module's only export is `mgCopyButton(scope)`: there is no
+ * The 2.0.0-rc.3 module's only export is `mgCopyButton(scope)`: there is no
  * destroy, and nothing to undo globally -- the one listener it adds is a
  * `click` on the button element itself, so it is collected with the markup
  * whenever the caller replaces it. `signal` therefore covers the part that can
@@ -35,7 +35,7 @@
  * so nothing is copied or announced twice.
  */
 
-const MANGROVE_VERSION = "2.0.0-rc.2";
+const MANGROVE_VERSION = "2.0.0-rc.3";
 const COPY_BUTTON_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/copy-button.js`;
 
 let modulePromise = null;
@@ -89,7 +89,7 @@ export async function initMangroveCopyButtons(scope = document, { importImpl, si
   }
 }
 
-/** How long the copied state stays up, matching rc.2's copy-button module. */
+/** How long the copied state stays up, matching rc.3's copy-button module. */
 const FEEDBACK_MS = 2000;
 const FAILURE_MS = 5000;
 

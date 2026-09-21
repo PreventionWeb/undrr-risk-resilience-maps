@@ -21,6 +21,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Upgraded the UNDRR Mangrove component library from `2.0.0-rc.2` to `2.0.0-rc.3` across the stylesheet, `preview-access.js`, `tabs.js`, and `copy-button.js` CDN loaders ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
 - The layer registry and layer controller track collection membership as a first-class property (`r2r` or `gar`), ensuring consistent collection scoping across the layer panel, the router, and the embed bridge ([#36](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/36)).
 
 ## [0.0.4] - 2026-09-18

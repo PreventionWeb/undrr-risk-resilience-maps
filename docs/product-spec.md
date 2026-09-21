@@ -97,7 +97,7 @@ The following is implemented and tested as of July 2026:
 ### Technical
 
 - Vite build system with a comprehensive unit-test suite
-- UNDRR Mangrove design system v2.0.0-rc.2
+- UNDRR Mangrove design system v2.0.0-rc.3
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
 - PIN gate (prototype access control; see §4)
 - Deployable as a static site (GitHub Pages / any static host)
