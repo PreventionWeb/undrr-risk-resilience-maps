@@ -60,64 +60,16 @@
   gap: 0.25rem;
 }
 
-/* "Show disabled" is the same Mangrove switch as a layer row's, one size
-   down: Mangrove owns the track, thumb, focus ring and states — including the
-   off track's colour, which must stay at Mangrove's neutral-400 (3.96:1
-   against the panel) to clear the 3:1 a UI component boundary needs. */
-/* Mangrove has no size hook for the switch yet (unisdr/undrr-mangrove#1199),
-   so the geometry is re-declared here. The three numbers below are the only
-   inputs; the thumb's travel is derived from them rather than written out, and
-   the RTL rule mirrors it. Without that rule Mangrove's own
-   `[dir=rtl] ... translateX(-1.125rem)` loses to this equal-specificity rule
-   that loads later, and the thumb would travel the wrong way by the wrong
-   distance. Delete all of this once the size hook lands. */
+/* "Show unpublished" is the same Mangrove switch as a layer row's, one size
+   down: Mangrove 2.0's --mg-switch-size token controls the track, thumb and
+   travel natively without manual geometry overrides (unisdr/undrr-mangrove#1199).
+   The off track's colour stays at Mangrove's neutral-400 (3.96:1 against the panel)
+   to clear the 3:1 a UI component boundary needs. */
 .layer-review-switch {
-  --layer-switch-track-width: 2rem;
-  --layer-switch-track-padding: 0.0625rem;
-  --layer-switch-thumb-size: 1rem;
-  /* Mangrove's forced-colors rules add a 1px border to the track but leave the
-     padding at 1px -- and its padding declaration loses to ours -- so the
-     content box the thumb travels in narrows by 2px there. The track is
-     border-box, so the border has to come out of the travel like the padding
-     does; see the forced-colors block below. */
-  --layer-switch-track-border: 0px;
-  --layer-switch-travel: calc(
-    var(--layer-switch-track-width) - 2 * var(--layer-switch-track-padding) - 2 *
-      var(--layer-switch-track-border) - var(--layer-switch-thumb-size)
-  );
+  --mg-switch-size: 1.125rem;
   gap: 0.35rem;
   min-height: 1.75rem;
   white-space: nowrap;
-}
-
-.layer-review-switch .mg-switch__track {
-  height: 1.125rem;
-  width: var(--layer-switch-track-width);
-  padding: var(--layer-switch-track-padding);
-}
-
-.layer-review-switch .mg-switch__thumb {
-  height: var(--layer-switch-thumb-size);
-  width: var(--layer-switch-thumb-size);
-}
-
-.layer-review-switch .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
-  transform: translateX(var(--layer-switch-travel));
-}
-
-[dir="rtl"] .layer-review-switch .mg-switch__input:checked + .mg-switch__track .mg-switch__thumb {
-  transform: translateX(calc(-1 * var(--layer-switch-travel)));
-}
-
-/* Mangrove's `@media (forced-colors: active)` sets
-   `.mg-switch__track { border: 1px solid CanvasText; padding: 1px }`, but that
-   padding rule (0,1,0) loses to the one above (0,2,0), so the border is added
-   rather than absorbed. Feeding it back into the formula keeps the thumb inside
-   the track instead of flush with its edge. */
-@media (forced-colors: active) {
-  .layer-review-switch {
-    --layer-switch-track-border: 1px;
-  }
 }
 
 .layer-review-switch .mg-switch__label {

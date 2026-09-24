@@ -86,7 +86,7 @@ const PAGE = `
   <div id="app-map" data-ui="app-map">
     <div class="layer-panel" id="sidebar" data-ui="layer-panel">
       <div class="layer-panel-header">
-        <label class="mg-switch"><input type="checkbox" role="switch" class="mg-switch__input" id="layer-disabled-toggle" data-ui="show-disabled" /><span class="mg-switch__track" aria-hidden="true"><span class="mg-switch__thumb"></span></span><span class="mg-switch__label">Show disabled</span></label>
+        <label class="mg-switch"><input type="checkbox" role="switch" class="mg-switch__input" id="layer-disabled-toggle" data-ui="show-disabled" /><span class="mg-switch__track" aria-hidden="true"><span class="mg-switch__thumb"></span></span><span class="mg-switch__label">Show unpublished</span></label>
         <button id="layer-clear-btn" data-ui="clear-layers" hidden>Clear all</button>
         <button id="panel-toggle" data-ui="panel-toggle">Collapse</button>
       </div>

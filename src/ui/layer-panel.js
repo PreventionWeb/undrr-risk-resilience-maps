@@ -11,7 +11,7 @@
 import { isLayerAvailable } from "../config/layers/status.js";
 
 export const EMPTY_TAB_MESSAGE =
-  'No layers are currently published in this category. Use "Show disabled" to review unpublished entries retained for prototype review.';
+  'No layers are currently published in this category. Use "Show unpublished" to review unpublished entries retained for prototype review.';
 
 /**
  * @callback AddRow

@@ -9,6 +9,14 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Changed
 
 - Upgraded the UNDRR Mangrove component library from `2.0.0-rc.3` to `2.0.0` stable across the stylesheet, `preview-access.js`, `tabs.js`, and `copy-button.js` CDN loaders.
+- Adopted Mangrove 2.0's native `--mg-switch-size` token for the layer panel review toggle, eliminating bespoke switch geometry overrides.
+- Applied Mangrove 2.0's `.mg-content` pattern to editorial and information reading panels.
+- Aligned user-facing copy and punctuation with the Mangrove Editorial Manual and UN style:
+  - Renamed the "Show disabled" toggle to "Show unpublished" for clarity and alignment with UN disability-inclusive terminology guidelines.
+  - Removed serial (Oxford) commas in running text across information panels.
+  - Replaced em dashes (`—`) with colons or spaced en dashes (`–`) per UN editorial standards.
+  - Spelled out "Risk and Resilience" in body prose while retaining ampersand in UI chrome and proper titles.
+  - Standardized "decision-makers" and hero intro copy.
 
 ## [0.0.5] - 2026-09-21
 
