@@ -3,7 +3,7 @@ import { initMangroveCopyButtons, COPY_BUTTON_MODULE_URL } from "./mangrove-copy
 
 describe("COPY_BUTTON_MODULE_URL", () => {
   it("points at the same Mangrove release as the stylesheet", () => {
-    expect(COPY_BUTTON_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.0-rc.3/js/copy-button.js");
+    expect(COPY_BUTTON_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.0/js/copy-button.js");
   });
 });
 
@@ -64,7 +64,7 @@ describe("initMangroveCopyButtons with a signal", () => {
   });
 
   /**
-   * 2.0.0-rc.3 exports only `mgCopyButton`. Its single listener is a `click`
+   * 2.0.0 exports only `mgCopyButton`. Its single listener is a `click`
    * on the button element, so it is collected with the markup the caller
    * replaces -- there is nothing global to undo. The abort still calls a
    * destroy export if a later release adds one.
