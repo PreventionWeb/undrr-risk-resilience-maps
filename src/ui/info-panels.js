@@ -28,11 +28,11 @@ function sourceCell(source, url) {
 }
 
 function mapxIds(layer) {
-  if (layer.external) return "— (external runtime)";
+  if (layer.external) return "– (external runtime)";
   if (layer.sources && layer.sources.length) {
-    return layer.sources.map((s) => s.id || "—").join("\n");
+    return layer.sources.map((s) => s.id || "–").join("\n");
   }
-  return layer.id || "—";
+  return layer.id || "–";
 }
 
 function buildSourcesTable(layers) {
@@ -163,7 +163,7 @@ export function buildSourcesPanel({ signal } = {}) {
     <div class="info-page-section">
       <div class="mg-container">
         <h2 class="info-page-section__title">Layer inventory</h2>
-        <p>Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license, and status notes.</p>
+        <p>Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license and status notes.</p>
         <p>
           <button class="mg-button mg-button-secondary" data-action="download-inventory">
             Download layer inventory (CSV)
@@ -202,31 +202,31 @@ export function buildAboutPanel() {
       </div>
     </div>
 
-    <div class="info-page-section">
+    <div class="info-page-section mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">What is this tool?</h2>
-        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> (working title) is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> — an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
-        <p>It provides a single visualization platform for global risk and resilience data layers: hazard exposure, economic impacts, vulnerability indicators, and resilience benchmarks across the eight hazards that cause 90% of all economic damage — floods, storms, drought, extreme heat, earthquake, tsunami, landslide, and wildfire.</p>
+        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> (working title) is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> – an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
+        <p>It provides a single visualization platform for global risk and resilience data layers: hazard exposure, economic impacts, vulnerability indicators and resilience benchmarks across the eight hazards that cause 90% of all economic damage: floods, storms, drought, extreme heat, earthquake, tsunami, landslide and wildfire.</p>
         <p>The map viewer is one component of a broader GRAR Metrics Facility that also includes country risk profiles and supporting analytical resources. Learn more at <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">undrr.org/building-risk-knowledge/risk-and-resilience</a>.</p>
       </div>
     </div>
 
-    <div class="info-page-section info-page-section--grey">
+    <div class="info-page-section info-page-section--grey mg-content">
       <div class="mg-container">
         <div class="mg-highlight-box mg-highlight-box--secondary">
           <h3>Platform status</h3>
-          <p>This tool is currently a <strong>prototype in active development</strong>, shared for interaction review and early stakeholder feedback. It does not yet reflect final data, branding, or functionality.</p>
+          <p>This tool is currently a <strong>prototype in active development</strong>, shared for interaction review and early stakeholder feedback. It does not yet reflect final data, branding or functionality.</p>
           <ul>
-            <li>Layer inventory is being confirmed — many entries are placeholders awaiting data.</li>
+            <li>Layer inventory is being confirmed: many entries are placeholders awaiting data.</li>
             <li>The name <em>GRAR Metrics Facility Map Viewer</em> is a working title and may change.</li>
-            <li>Data, design, and structure are subject to change without notice.</li>
+            <li>Data, design and structure are subject to change without notice.</li>
             <li>For questions or feedback, contact the UNDRR digital team.</li>
           </ul>
         </div>
       </div>
     </div>
 
-    <div class="info-page-section">
+    <div class="info-page-section mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">How it was built</h2>
         <p>This tool is built on the open-source interaction model and layer inventory of the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">Global Infrastructure Resilience (GRI) Risk Viewer</a>, developed by the <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford Programme for Sustainable Infrastructure Systems (OPSIS)</a> at the University of Oxford. The GRI platform itself is the result of collaboration across the infrastructure resilience research community.</p>
@@ -235,25 +235,25 @@ export function buildAboutPanel() {
       </div>
     </div>
 
-    <div class="info-page-section info-page-section--grey">
+    <div class="info-page-section info-page-section--grey mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">Acknowledgements</h2>
         <ul class="info-plain-list">
-          <li><strong>Oxford OPSIS / GRI</strong> — interaction model, layer inventory structure, and open-source codebase this tool builds upon.</li>
-          <li><strong>UNEP/GRID-Geneva — MapX</strong> — geospatial data hosting, rendering, and map interactivity.</li>
-          <li><strong>Data providers</strong> — GEM, JRC, GIRI/UNEP, and others listed in full on the <a href="#sources">Sources</a> page.</li>
-          <li><strong>UNDRR</strong> — programme ownership, branding, and the broader Risk and Resilience Metrics initiative.</li>
+          <li><strong>Oxford OPSIS / GRI</strong>: interaction model, layer inventory structure and open-source codebase this tool builds upon.</li>
+          <li><strong>UNEP/GRID-Geneva (MapX)</strong>: geospatial data hosting, rendering and map interactivity.</li>
+          <li><strong>Data providers</strong>: GEM, JRC, GIRI/UNEP and others listed in full on the <a href="#sources">Sources</a> page.</li>
+          <li><strong>UNDRR</strong>: programme ownership, branding and the broader Risk and Resilience Metrics initiative.</li>
         </ul>
       </div>
     </div>
 
-    <div class="info-page-section">
+    <div class="info-page-section mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">Further reading</h2>
         <ul class="info-plain-list">
-          <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">UNDRR Risk &amp; Resilience — initiative overview and country profiles</a></li>
-          <li><a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer — the open-source platform this tool is based on</a></li>
-          <li><a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX — UNEP/GRID-Geneva geospatial platform</a></li>
+          <li><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">UNDRR Risk &amp; Resilience: initiative overview and country profiles</a></li>
+          <li><a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">GRI Risk Viewer: the open-source platform this tool is based on</a></li>
+          <li><a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX: UNEP/GRID-Geneva geospatial platform</a></li>
           <li><a href="https://github.com/PreventionWeb/undrr-risk-resilience-maps" target="_blank" rel="noopener">Source code on GitHub</a></li>
         </ul>
       </div>

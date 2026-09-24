@@ -90,8 +90,9 @@
 }
 
 /* UNDRR blue on the body's near-black is 2.09:1, so colour alone cannot mark a
-   link inside a paragraph (WCAG 1.4.1). The hero already underlines its prose
-   links for the same reason; these are the rest of them. */
+   link inside a paragraph (WCAG 1.4.1). Mangrove 2.0's .mg-content underlines
+   paragraph links; these rules provide the underline and offset across all
+   info-section text and plain lists. */
 .info-page-section p a,
 .info-plain-list a,
 .info-step__desc a {
