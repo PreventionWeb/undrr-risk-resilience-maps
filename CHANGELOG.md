@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.0-rc.3` to `2.0.0` stable across the stylesheet, `preview-access.js`, `tabs.js`, and `copy-button.js` CDN loaders.
+
 ## [0.0.5] - 2026-09-21
 
 ### Added
