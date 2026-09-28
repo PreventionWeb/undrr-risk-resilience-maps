@@ -141,10 +141,10 @@ export async function replaceExternalLayer(layer, settings) {
         await sdk.ask("map_jump_to", camera);
       } catch {
         // Camera restoration is best-effort and must not corrupt view state.
-        // MapX upstream: TBD (issue: map move fixed timeout). map_jump_to gives
-        // up after a fixed 10 s. A jump has no animation, so that shouldn't
-        // trigger here; if it did, prod (1.14.0) would never settle this await,
-        // while 1.14.1+ rejects into this catch.
+        // MapX upstream: https://github.com/unep-grid/mapx/issues/1133
+        // map_jump_to gives up after a fixed 10 s. A jump has no animation,
+        // so that shouldn't trigger here; if it did, prod (1.14.0) would never
+        // settle this await, while 1.14.1+ rejects into this catch.
       }
     }
   }
