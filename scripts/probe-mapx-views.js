@@ -7,42 +7,44 @@
  * the SDK, connects to each project, calls get_views, and writes the
  * results to JSON and CSV files.
  *
- * Usage:
- *   npx playwright test scripts/probe-mapx-views.js
+ * MapX upstream: TBD (issue: anonymous public views list). MapX
+ * staging (1.14.1) adds an anonymous OGC catalogue,
+ * /ogc_meta/collections/mapx/items?q=<idProject>. Once that's on prod and
+ * confirmed as supported, this probe can call it instead of a browser.
  *
- * Or run directly (requires @playwright/test):
- *   node -e "require('@playwright/test')" && npx playwright test scripts/probe-mapx-views.js
+ * Usage:
+ *   node scripts/probe-mapx-views.js [output-dir]
+ *
+ * output-dir defaults to research/. Set HEADED=1 to watch the browser.
  *
  * Prerequisites:
- *   npm install @playwright/test
  *   npx playwright install chromium
  *
  * Output:
- *   research/mapx-views-{project-name}.json  -- full view data per project
- *   research/mapx-views-all.csv              -- combined flat CSV
+ *   <output-dir>/mapx-views-{project-name}.json  -- full view data per project
+ *   <output-dir>/mapx-views-all.csv              -- combined flat CSV
  */
 
-import { test } from "@playwright/test";
+import { chromium } from "@playwright/test";
 import { writeFileSync } from "fs";
-import { join } from "path";
+import { join, resolve } from "path";
 
 const PROJECTS = [
   { id: "MX-2LD-FBB-58N-ROK-8RH", name: "eco-drr" },
   { id: "MX-YBJ-YYF-08R-UUR-QW6", name: "home" },
 ];
 
-const RESEARCH_DIR = join(import.meta.dirname, "..", "research");
+const OUTPUT_DIR = process.argv[2] ? resolve(process.argv[2]) : join(import.meta.dirname, "..", "research");
 
-test("probe MapX view catalogues", async ({ page }) => {
-  test.setTimeout(180_000); // 3 min total
+// MapX calls crypto.randomUUID, which only exists in a secure context, and an
+// iframe is only secure if its parent is. A page.setContent() page is
+// about:blank and not secure, so the host page is served from
+// http://localhost instead, which browsers treat as secure. page.route()
+// answers the request, so no server is needed.
+const HOST_URL = "http://localhost/mapx-probe.html";
 
-  const allViews = [];
-
-  for (const project of PROJECTS) {
-    console.log(`\nProbing ${project.name} (${project.id})...`);
-
-    // Serve a minimal page that loads the SDK and dumps views
-    await page.setContent(`
+function hostPage(project) {
+  return `
       <!DOCTYPE html>
       <html><body>
         <div id="mapx-container" style="width:1px;height:1px;"></div>
@@ -83,10 +85,30 @@ test("probe MapX view catalogues", async ({ page }) => {
           });
         </script>
       </body></html>
-    `);
+    `;
+}
+
+const browser = await chromium.launch({
+  headless: !process.env.HEADED,
+  // SwiftShader provides the WebGL MapX needs before it fires `ready`.
+  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+});
+
+try {
+  const page = await browser.newPage();
+  const allViews = [];
+
+  for (const project of PROJECTS) {
+    console.log(`\nProbing ${project.name} (${project.id})...`);
+
+    await page.unroute(HOST_URL);
+    await page.route(HOST_URL, (route) =>
+      route.fulfill({ contentType: "text/html", body: hostPage(project) }),
+    );
+    await page.goto(HOST_URL);
 
     // Wait for probe to complete
-    await page.waitForFunction(() => window._probeDone, { timeout: 120_000 });
+    await page.waitForFunction(() => window._probeDone, null, { timeout: 120_000 });
 
     const error = await page.evaluate(() => window._probeError);
     if (error) {
@@ -101,7 +123,7 @@ test("probe MapX view catalogues", async ({ page }) => {
     views.sort((a, b) => a.type.localeCompare(b.type) || a.title.localeCompare(b.title));
 
     // Write per-project JSON
-    const jsonPath = join(RESEARCH_DIR, `mapx-views-${project.name}.json`);
+    const jsonPath = join(OUTPUT_DIR, `mapx-views-${project.name}.json`);
     writeFileSync(jsonPath, JSON.stringify(views, null, 2));
     console.log(`  Wrote ${jsonPath}`);
 
@@ -116,7 +138,9 @@ test("probe MapX view catalogues", async ({ page }) => {
       ",",
     );
   });
-  const csvPath = join(RESEARCH_DIR, "mapx-views-all.csv");
+  const csvPath = join(OUTPUT_DIR, "mapx-views-all.csv");
   writeFileSync(csvPath, [csvHeader, ...csvRows].join("\n"));
   console.log(`\nWrote combined CSV: ${csvPath} (${allViews.length} views)`);
-});
+} finally {
+  await browser.close();
+}

@@ -12,9 +12,9 @@ The only unauthenticated way to enumerate views is through the SDK's iframe post
 
 ### Probe script
 
-`scripts/probe-mapx-views.js` is a Playwright test that:
+`scripts/probe-mapx-views.js` is a Node script that drives Chromium through Playwright:
 
-1. Loads a minimal HTML page with the MapX SDK UMD script
+1. Loads a minimal HTML page with the MapX SDK UMD script, served from `http://localhost` (MapX needs a secure context)
 2. Creates an `mxsdk.Manager` instance pointing at a project
 3. Waits for the `ready` event
 4. Calls `get_views` to get the full view catalogue
@@ -23,7 +23,8 @@ The only unauthenticated way to enumerate views is through the SDK's iframe post
 Run it with:
 
 ```bash
-npx playwright test scripts/probe-mapx-views.js
+node scripts/probe-mapx-views.js            # writes to research/
+node scripts/probe-mapx-views.js /tmp/probe  # or another directory
 ```
 
 This produces `research/mapx-views-{project}.json` files and a `research/mapx-views-all.csv` with every view ID, type, title, and description across all probed projects.
@@ -66,7 +67,7 @@ Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key 
 ### SDK probe vs MeiliSearch
 
 - **MeiliSearch**: search by keyword across all projects. Good for finding specific datasets.
-- **SDK probe** (`scripts/probe-mapx-views.js`): dump the full catalogue of a specific project. Good for comprehensive inventory. Requires headed browser (WebGL needed for `ready` event).
+- **SDK probe** (`scripts/probe-mapx-views.js`): dump the full catalogue of a specific project. Good for comprehensive inventory. Runs headless with SwiftShader WebGL (MapX needs WebGL before `ready`); set `HEADED=1` to watch it.
 
 ### Probe output files
 
