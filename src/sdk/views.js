@@ -16,8 +16,11 @@ export function viewRemove(idView) {
 }
 
 // idView → Promise of the legend image. A view's style does not change during
-// a session, and each image is a base64 PNG sent over postMessage that also
-// makes MapX refetch the GeoServer legend, so it is requested once per view.
+// a session, and each image is costly: for a vector view MapX screenshots its
+// own legend DOM with html2canvas (adding the view for the capture if it is not
+// open, then removing it again); for a raster view it fetches the view's
+// `data.source.legend` URL. The base64 PNG then crosses postMessage, so it is
+// requested once per view.
 const legendImageCache = new Map();
 
 /** Returns a base64 PNG string or data URL of the server-rendered legend. */

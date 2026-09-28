@@ -2,8 +2,9 @@
  * Site inspection mode.
  *
  * Manages an on/off toggle and collects batched `click_attributes` events from
- * the MapX SDK. MapX fires one `click_attributes` event per open vector-tile (vt)
- * view per map click; the batch is complete when all expected views have reported.
+ * the MapX SDK. MapX fires one `click_attributes` event per open queryable view
+ * per map click (types vt, gj and cc query rendered features; rt queries WMS
+ * GetFeatureInfo); the batch is complete when all expected views have reported.
  *
  * Usage (from main.js):
  *   initInspection(mapxSDK)
