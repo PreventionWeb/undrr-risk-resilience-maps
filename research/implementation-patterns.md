@@ -277,12 +277,12 @@ async function toggleView(idView, btn, wrapper) {
 
 ### Transparency/opacity inversion
 
-The SDK uses **transparency** (0 = opaque, 100 = invisible). The UI shows **opacity** (0 = invisible, 100 = fully visible). Conversion: `transparency = 100 - opacity`.
+The SDK's setter takes **transparency** (0 = opaque, 100 = invisible). Its getter, despite the name, returns the view's **opacity** on a 0-1 scale (1 for a fresh view). The UI shows **opacity** (0 = invisible, 100 = fully visible). Conversion: `transparency = 100 - opacity` on write, `opacity = value * 100` on read.
 
 ```js
-// Reading from SDK → UI
-const transparency = await getViewLayerTransparency(idView);
-slider.value = String(100 - transparency); // invert for display
+// Reading from SDK → UI (get_view_layer_transparency answers 0-1 opacity)
+const opacity = await getViewLayerTransparency(idView);
+slider.value = String(Math.round(opacity * 100));
 
 // Writing from UI → SDK
 slider.addEventListener("input", async () => {
