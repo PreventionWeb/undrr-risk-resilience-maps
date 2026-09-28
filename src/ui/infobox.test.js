@@ -38,6 +38,11 @@ describe("showInfobox", () => {
     expect(document.getElementById("infobox").style.display).toBe("none");
   });
 
+  it('hides the box when every entry is MapX\'s "$NULL" placeholder', () => {
+    showInfobox({ attributes: [{ name: "$NULL", value: "$NULL" }] });
+    expect(document.getElementById("infobox").style.display).toBe("none");
+  });
+
   it("hides the box when all entries are SKIP_KEYS only", () => {
     showInfobox({ attributes: { gid: 1, geom: "POINT(0 0)", mx_t0: "2020", mx_t1: "2021" } });
     expect(document.getElementById("infobox").style.display).toBe("none");

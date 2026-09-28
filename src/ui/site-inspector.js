@@ -20,7 +20,7 @@ import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
 import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
-import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
+import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS, isEmptyAttributeValue } from "../utils/html.js";
 
 const ATTRIBUTE_LABELS = {
   GRAY_INDEX: "Pixel Value",
@@ -206,7 +206,8 @@ function buildLayerRow(idView, views) {
     // Render attribute table. "inBatch" beats local type — raster-as-VT layers
     // (GRAY_INDEX) come through here too.
     const entries = Object.entries(props).filter(
-      ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
+      ([k, v]) =>
+        !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && !isEmptyAttributeValue(v) && !isNoData(v),
     );
     const labelledEntries = entries.map(([key, value]) => [attributeLabel(key), attributeValue(value)]);
     if (labelledEntries.length > 0) {

@@ -355,6 +355,29 @@ describe("layer rows — VT with data", () => {
     expect(html).toContain("Visible");
   });
 
+  it('omits attributes MapX filled with its "$NULL" placeholder', () => {
+    showSiteInspector({
+      lngLat: { lat: 0, lng: 0 },
+      views: { "vt-view": [{ name: "Visible", population: "$NULL" }] },
+      openViewsSnapshot: new Set(["vt-view"]),
+    });
+    const layers = document.querySelector(".site-inspector-layers");
+    expect(layers.textContent).not.toContain("$NULL");
+    expect(layers.textContent).not.toContain("Population");
+    expect(layers.textContent).toContain("Visible");
+  });
+
+  it('shows "no data" when every attribute is MapX\'s "$NULL" placeholder', () => {
+    showSiteInspector({
+      lngLat: { lat: 0, lng: 0 },
+      views: { "vt-view": [{ name: "$NULL" }] },
+      openViewsSnapshot: new Set(["vt-view"]),
+    });
+    const layers = document.querySelector(".site-inspector-layers");
+    expect(layers.textContent).toContain("No data at this location.");
+    expect(layers.textContent).not.toContain("$NULL");
+  });
+
   it("escapes HTML in attribute values", () => {
     showSiteInspector({
       lngLat: { lat: 0, lng: 0 },
