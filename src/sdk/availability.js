@@ -1,3 +1,7 @@
+// MapX upstream: https://github.com/unep-grid/mapx/issues/1107. Unpinned on purpose: the resolvers run inside the
+// MapX app, so a pinned Manager can drift from the worker (err_version_mismatch).
+// If @fxi/mxsdk is published in step with app releases, reconsider pinning
+// through jsDelivr with SRI.
 export const MAPX_SDK_URL = "https://app.mapx.org/sdk/mxsdk.umd.js";
 
 const SDK_LOAD_TIMEOUT_MS = 15_000;

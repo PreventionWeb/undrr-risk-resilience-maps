@@ -6,6 +6,10 @@
  * MapX's stored opacity 0-1 (1 = opaque, the default for a fresh view). Our
  * UI shows opacity 0-100; the conversion happens in src/ui/layer-controls.js,
  * not here -- these functions pass raw SDK values.
+ *
+ * MapX upstream: TBD (issue: transparency getter/setter scales). If
+ * MapX changes the getter to return 0-100 transparency, update the read in
+ * src/ui/layer-controls.js (opacity = 100 - value) and the JSDoc below.
  */
 import { getSDK } from "./client.js";
 

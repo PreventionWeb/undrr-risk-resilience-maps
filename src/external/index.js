@@ -87,6 +87,10 @@ export async function closeExternalLayer(layer) {
   return runtime;
 }
 
+// MapX upstream: TBD (issue: view_geojson_create zoom option).
+// view_geojson_create always zooms to the new layer, so replacing a view
+// captures the camera first and restores it after. If MapX adds
+// `zoomToView: false`, pass it and remove captureCamera and the restore.
 async function captureCamera(sdk) {
   try {
     const [center, zoom] = await Promise.all([sdk.ask("map_get_center"), sdk.ask("map_get_zoom")]);
@@ -137,6 +141,10 @@ export async function replaceExternalLayer(layer, settings) {
         await sdk.ask("map_jump_to", camera);
       } catch {
         // Camera restoration is best-effort and must not corrupt view state.
+        // MapX upstream: https://github.com/unep-grid/mapx/issues/1133
+        // map_jump_to gives up after a fixed 10 s. A jump has no animation,
+        // so that shouldn't trigger here; if it did, prod (1.14.0) would never
+        // settle this await, while 1.14.1+ rejects into this catch.
       }
     }
   }

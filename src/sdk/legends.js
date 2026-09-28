@@ -178,6 +178,8 @@ async function getCatalog(refresh = false) {
 /**
  * Resolve a view from the live MapX catalogue. A cache miss is refreshed once
  * because `view_add` can add public cross-project views after initialisation.
+ * Keep the refresh even if the views move into the primary project: it also
+ * covers any view added after the first catalogue fetch.
  *
  * @returns {Promise<LegendResolution>}
  */

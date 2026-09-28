@@ -232,7 +232,9 @@ The SDK initialises one MapX project at a time (currently ECO-DRR, `MX-2LD-FBB-5
 
 **Likely reason:** MapX respects the public visibility flag on a view. Publicly accessible views load regardless of which project the SDK is connected to.
 
-This is not guaranteed by the SDK contract. For now it is not a blocker, but consolidating all views into a single UNDRR project is the correct long-term solution (see [TODO.md](TODO.md#mapx-project-consolidation)).
+Re-checked live on 2026-09-28 against MapX 1.14.0-fix.1 (prod): GAR and HOME views resolve `true` from `view_add` and appear in `get_views` with their own `project`. On staging (1.14.1-alpha.17) the mechanism also works, but most GAR views don't exist in the staging database, so they reject with `View not found`. Test against prod.
+
+This is not guaranteed by the SDK contract; we're asking MapX to treat it as supported (MapX upstream: TBD, issue: embedders depend on these behaviours). For now it is not a blocker, but consolidating all views into a single UNDRR project is the correct long-term solution (see [TODO.md](TODO.md#mapx-project-consolidation)).
 
 ---
 
