@@ -28,13 +28,13 @@ describe("addOpacitySlider", () => {
   });
 
   it("appends an opacity slider row to the container", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     await addOpacitySlider("view-1", container);
     expect(container.querySelector("input[type=range]")).not.toBeNull();
   });
 
   it("gives the slider an accessible name and leaves no unlabelled label element", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
     expect(slider.getAttribute("aria-label")).toBe("Opacity");
@@ -46,7 +46,7 @@ describe("addOpacitySlider", () => {
   });
 
   it("announces the value as a percentage through aria-valuetext", async () => {
-    getViewLayerTransparency.mockResolvedValue(25);
+    getViewLayerTransparency.mockResolvedValue(0.75);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
     expect(slider.getAttribute("aria-valuetext")).toBe("75%");
@@ -55,34 +55,42 @@ describe("addOpacitySlider", () => {
     expect(slider.getAttribute("aria-valuetext")).toBe("40%");
   });
 
-  it("defaults slider to 100 when SDK returns transparency 0 (fully opaque)", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+  it("shows 100 when the SDK getter returns opacity 1 (a fresh, fully opaque view)", async () => {
+    getViewLayerTransparency.mockResolvedValue(1);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
     expect(slider.value).toBe("100");
   });
 
-  it("converts SDK transparency to UI opacity (opacity = 100 - transparency)", async () => {
-    getViewLayerTransparency.mockResolvedValue(40);
+  it("converts the SDK getter's 0-1 opacity to UI opacity (opacity = value * 100)", async () => {
+    getViewLayerTransparency.mockResolvedValue(0.6);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
     expect(slider.value).toBe("60");
   });
 
   it("shows the current opacity in the value display span", async () => {
-    getViewLayerTransparency.mockResolvedValue(25);
+    getViewLayerTransparency.mockResolvedValue(0.75);
     await addOpacitySlider("view-1", container);
     const display = container.querySelector(".opacity-value");
     expect(display.textContent).toBe("75%");
   });
 
-  it("rounds a fractional transparency so the slider, the label and aria-valuetext agree", async () => {
-    getViewLayerTransparency.mockResolvedValue(0.98);
+  it("rounds a fractional opacity so the slider, the label and aria-valuetext agree", async () => {
+    // 1 - 33 * 0.01, as MapX stores it after the transparency setter.
+    getViewLayerTransparency.mockResolvedValue(0.6699999999999999);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
-    expect(slider.value).toBe("99");
-    expect(slider.getAttribute("aria-valuetext")).toBe("99%");
-    expect(container.querySelector(".opacity-value").textContent).toBe("99%");
+    expect(slider.value).toBe("67");
+    expect(slider.getAttribute("aria-valuetext")).toBe("67%");
+    expect(container.querySelector(".opacity-value").textContent).toBe("67%");
+  });
+
+  it("clamps an out-of-range opacity to the slider's 0-100", async () => {
+    getViewLayerTransparency.mockResolvedValue(1.5);
+    await addOpacitySlider("view-1", container);
+    expect(container.querySelector("input[type=range]").value).toBe("100");
+    expect(container.querySelector(".opacity-value").textContent).toBe("100%");
   });
 
   it("defaults to 100% opacity when SDK call throws", async () => {
@@ -93,7 +101,7 @@ describe("addOpacitySlider", () => {
   });
 
   it("calls setViewLayerTransparency with inverted value on input event", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     setViewLayerTransparency.mockResolvedValue(undefined);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
@@ -105,7 +113,7 @@ describe("addOpacitySlider", () => {
   });
 
   it("updates the display span on slider input", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
     const display = container.querySelector(".opacity-value");
@@ -115,7 +123,7 @@ describe("addOpacitySlider", () => {
   });
 
   it("does not throw when setViewLayerTransparency rejects on input", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     setViewLayerTransparency.mockRejectedValue(new Error("SDK write error"));
     await addOpacitySlider("view-1", container);
     const slider = container.querySelector("input[type=range]");
@@ -134,13 +142,13 @@ describe("addOpacitySlider", () => {
     getViewLayerTransparency.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     const pending = addOpacitySlider("view-1", container);
     container.innerHTML = "";
-    finish(0);
+    finish(1);
     await pending;
     expect(container.querySelector("input[type=range]")).toBeNull();
   });
 
   it("keeps a slider moved while another slider's transparency was loading", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     const other = document.createElement("div");
     document.body.append(container, other);
     await addOpacitySlider("view-sync-race", container);
@@ -151,8 +159,8 @@ describe("addOpacitySlider", () => {
     const pending = addOpacitySlider("view-sync-race", other);
     first.value = "40";
     first.dispatchEvent(new Event("input"));
-    // The read started before the drag and returns the old transparency.
-    finish(0);
+    // The read started before the drag and returns the old opacity.
+    finish(1);
     await pending;
 
     expect(other.querySelector("input[type=range]").value).toBe("40");
@@ -160,7 +168,7 @@ describe("addOpacitySlider", () => {
 
     // A later read with no drag meanwhile uses the SDK value.
     const third = document.createElement("div");
-    getViewLayerTransparency.mockResolvedValue(25);
+    getViewLayerTransparency.mockResolvedValue(0.75);
     await addOpacitySlider("view-sync-race", third);
     expect(third.querySelector("input[type=range]").value).toBe("75");
     container.remove();
@@ -168,7 +176,7 @@ describe("addOpacitySlider", () => {
   });
 
   it("keeps sliders for the same view in sync", async () => {
-    getViewLayerTransparency.mockResolvedValue(0);
+    getViewLayerTransparency.mockResolvedValue(1);
     const other = document.createElement("div");
     document.body.append(container, other);
     await addOpacitySlider("view-1", container);

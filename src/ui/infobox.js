@@ -6,7 +6,7 @@
  * this module renders them as a key-value table in a floating infobox.
  */
 
-import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
+import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS, isEmptyAttributeValue } from "../utils/html.js";
 
 // Single managed Escape handler — replaced on every show, cleaned up on every close
 let _escHandler = null;
@@ -35,7 +35,7 @@ export function showInfobox(data) {
   }
 
   const entries = Object.entries(props).filter(
-    ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && v != null && v !== "",
+    ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && !isEmptyAttributeValue(v),
   );
 
   if (entries.length === 0) {

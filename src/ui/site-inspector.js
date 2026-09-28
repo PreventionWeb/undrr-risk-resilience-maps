@@ -10,7 +10,7 @@
  *   result.openViewsSnapshot   — Set<idView> of active views at click time
  *
  * For each view in the snapshot:
- *   - Any view in batch with attributes → attribute table (incl. raster-as-VT GRAY_INDEX)
+ *   - Any view in batch with attributes → attribute table (incl. raster GRAY_INDEX)
  *   - Any view in batch with no data    → "No data at this location."
  *   - RT layer not in batch             → "Raster layer — values not queryable at point."
  *   - Other layer not in batch          → "No data returned."
@@ -20,7 +20,7 @@ import { getLayerRegistry } from "../config/registry.js";
 import { getExternalRuntimeByViewId } from "../external/index.js";
 import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 import { makeDraggable, makeResizable } from "../utils/panels.js";
-import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS } from "../utils/html.js";
+import { escapeHtml, HIDDEN_ATTRIBUTE_KEYS, isEmptyAttributeValue } from "../utils/html.js";
 
 const ATTRIBUTE_LABELS = {
   GRAY_INDEX: "Pixel Value",
@@ -29,7 +29,10 @@ const ATTRIBUTE_LABELS = {
   jo_pml100_households_existingclimate: "PML housing loss (1-in-100-year event, current climate)",
 };
 
-// Float32 "no data" sentinel used by raster-as-VT layers (GRAY_INDEX nodata value)
+// Float32 "no data" sentinel. Raster (rt) views are queried with WMS
+// GetFeatureInfo, where GRAY_INDEX is GeoServer's name for a single-band
+// coverage's band; a pixel outside the data carries the coverage's nodata value
+// (-FLT_MAX here) straight through.
 const FLOAT32_NODATA = -3.4028234663852886e38;
 function isNoData(v) {
   return (
@@ -203,10 +206,11 @@ function buildLayerRow(idView, views) {
   }
 
   if (hasData) {
-    // Render attribute table. "inBatch" beats local type — raster-as-VT layers
-    // (GRAY_INDEX) come through here too.
+    // Render attribute table. "inBatch" beats local type — raster views MapX
+    // queried with WMS GetFeatureInfo (GRAY_INDEX) come through here too.
     const entries = Object.entries(props).filter(
-      ([k, v]) => !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && v != null && v !== "" && !isNoData(v),
+      ([k, v]) =>
+        !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && !isEmptyAttributeValue(v) && !isNoData(v),
     );
     const labelledEntries = entries.map(([key, value]) => [attributeLabel(key), attributeValue(value)]);
     if (labelledEntries.length > 0) {

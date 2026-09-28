@@ -319,8 +319,6 @@ export function createRiskMap(root, options = {}) {
         // Hide all MapX native UI chrome (notifications, controls panel, main
         // panel, toolbar buttons) — we provide our own sidebar and tool controls.
         await mapx.ask("set_immersive_mode", { enable: true });
-        // Enable click-to-inspect on vector features in the map
-        await mapx.ask("set_vector_highlight", { enable: true });
         // Restore any layers the state adapter carries (a shared link, or the
         // `layers` option).
         await sidebar.restoreFromUrl();
@@ -337,7 +335,9 @@ export function createRiskMap(root, options = {}) {
       scheduleState();
     });
 
-    // Route click_attributes based on inspection mode.
+    // Route click_attributes based on inspection mode. MapX dispatches these
+    // on every map click without an opt-in call; `set_vector_highlight` is a
+    // deprecated alias of `set_vector_spotlight`, an unrelated overlay.
     // When active: batch-collect events and show the site inspector.
     // When inactive: show the basic infobox (legacy behaviour).
     mapx.on("click_attributes", (...args) => {

@@ -23,14 +23,18 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 **Key behaviours:**
 
-- One event fires **per open view that MapX treats as a vector-tile source**, not per click.
-- `nPart` equals the number of such views. Many layers configured as `type: "rt"` in our app
-  are stored by MapX as VT with a `GRAY_INDEX` property — they DO contribute to `nPart`.
-  Only layers that MapX renders purely as image tiles (no vector source) are absent.
+- One event fires **per open queryable view**, not one per click. MapX queries views of type `vt`,
+  `gj` and `cc` for rendered features and `rt` views with WMS GetFeatureInfo.
+- `nPart` equals the number of such views. Raster (`rt`) views DO contribute to `nPart`; a raster
+  whose tile URL is not a valid WMS request reports an empty `attributes` array.
 - `attributes` is an empty array (not absent) when the user clicks on empty map space for a VT view.
 - MapX fires events in a `for...in` loop (see source), so delivery is ordered in practice, but the
   batch collector in `src/sdk/inspect.js` uses a `Map` keyed by `idView` and checks
   `map.size === nPart` rather than `part === nPart`, which handles out-of-order delivery safely.
+- Each click is handled asynchronously, so a slow click's events can land after the next click's
+  `part: 1`. The collector also matches `lngLat` so the two batches never merge.
+- Vector tiles cannot carry nulls: MapX fills a missing attribute with the literal string `"$NULL"`.
+  `isEmptyAttributeValue()` in `src/utils/html.js` treats it as empty.
 
 ---
 
@@ -43,21 +47,22 @@ Useful when implementing a custom inspection panel.
 mapx.ask("set_features_click_sdk_only", { enable: true });
 ```
 
-**Important:** Wrap in `.catch(() => {})` — do not `await` this call. The MapX SDK can sometimes
-hang on certain `ask()` calls if the internal resolver throws (see limitation §9 in
-`mapx-llm-skills`). This call is fire-and-forget; the UI should not depend on its response.
+**Important:** Wrap in `.catch(() => {})` — do not `await` this call. The resolver itself is
+synchronous, but the SDK's `Manager.ask()` only settles when the worker answers `success: true`
+(`sdk/src/frameManager.js`): a resolver that fails leaves the promise pending forever, never
+rejected. This call is fire-and-forget; the UI should not depend on its response.
 
 The app is also initialised with `closePanels: true`, which likely already suppresses the native
 MapX feature panel. Calling `set_features_click_sdk_only` during inspection mode is belt-and-suspenders.
 
 ---
 
-## MapX SDK: `click_attributes` and raster-as-VT layers
+## MapX SDK: `click_attributes` and raster (`rt`) layers
 
-Many MapX "raster" views (Population, Tsunami, Earthquake PGA, etc.) are **not true raster tiles
-internally** — they are stored as vector-tile layers with a single `GRAY_INDEX` property containing
-the pixel value. These layers DO fire `click_attributes` and contribute to `nPart`, just like VT
-views.
+MapX raster views (Population, Tsunami, Earthquake PGA, etc.) are WMS raster tiles. On a click MapX
+queries them with WMS GetFeatureInfo, and GeoServer answers with the pixel value under its default
+band name, `GRAY_INDEX`. These layers DO fire `click_attributes` and contribute to `nPart`, just
+like VT views.
 
 Implications:
 
@@ -65,15 +70,16 @@ Implications:
   no numeric filter widget), NOT a reliable indicator of whether MapX will fire `click_attributes`.
 - `inBatch` (the view ID appeared in a `click_attributes` event) is stronger evidence than local
   `type`. In `buildLayerRow`, check `inBatch` before `type === "rt"`.
-- The float32 "no data" sentinel value is `-3.4028234663852886e38` (≈ `-FLT_MAX`). Filter it out
-  and display "No data" instead of the raw number.
+- Outside the data, GetFeatureInfo passes through the coverage's nodata value; for these Float32
+  coverages that is `-3.4028234663852886e38` (≈ `-FLT_MAX`). Filter it out and display "No data"
+  instead of the raw number.
 - `GRAY_INDEX` should be labelled "Pixel Value" for end users.
 
 True un-queryable raster layers (those not present in any `click_attributes` batch despite being
 open) still display "Raster layer — values not queryable at point." as a fallback.
 
-**Coordinates without VT/raster-as-VT layers:** If only genuinely un-queryable RT layers are
-active, no `click_attributes` events fire and `lngLat` is unavailable.
+**Coordinates without queryable layers:** If no open view is queryable (none of `vt`, `gj`, `cc`
+or `rt` with a map source), no `click_attributes` events fire and `lngLat` is unavailable.
 
 ---
 

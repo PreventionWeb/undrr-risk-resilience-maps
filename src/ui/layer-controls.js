@@ -76,16 +76,18 @@ export async function addOpacitySlider(idView, container) {
   valueDisplay.setAttribute("aria-hidden", "true");
   valueDisplay.textContent = "100%";
 
-  // SDK uses "transparency" (0=opaque, 100=invisible); UI shows "opacity"
-  // (0=invisible, 100=opaque). Convert: opacity = 100 - transparency.
+  // The SDK's setter takes transparency (0=opaque, 100=invisible) but its
+  // getter returns opacity 0-1 (see src/sdk/filters.js); UI shows opacity
+  // 0-100. Read: opacity = value * 100. Write: transparency = 100 - opacity.
   const changesBefore = userOpacity.get(idView)?.changes ?? 0;
   let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    // MapX can answer with a fraction (0.98). The slider's step is 1, so it
-    // would round the thumb while the percentage beside it, and now
-    // aria-valuetext, still read "99.02%".
-    if (typeof current === "number") opacity = Math.round(100 - current);
+    // Round to the slider's step of 1 so the thumb, the percentage beside it
+    // and aria-valuetext agree, and clamp in case MapX stores a stray value.
+    if (typeof current === "number" && Number.isFinite(current)) {
+      opacity = Math.min(100, Math.max(0, Math.round(current * 100)));
+    }
   } catch {
     // Default to 100% opacity
   }

@@ -70,9 +70,6 @@
     set_immersive_mode: function () {
       return true;
     },
-    set_vector_highlight: function () {
-      return true;
-    },
     // src/sdk/inspect.js
     set_features_click_sdk_only: function () {
       return true;
@@ -105,9 +102,11 @@
         return { id: id, type: "rt", data: {} };
       });
     },
-    // src/sdk/filters.js — the opacity slider's read and write
+    // src/sdk/filters.js — the opacity slider's read and write. MapX's getter
+    // answers with the view's opacity 0-1 (1 for a fresh view), not the 0-100
+    // transparency the setter takes.
     get_view_layer_transparency: function () {
-      return 0;
+      return 1;
     },
     set_view_layer_transparency: function () {
       return true;

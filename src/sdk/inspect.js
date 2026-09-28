@@ -2,8 +2,9 @@
  * Site inspection mode.
  *
  * Manages an on/off toggle and collects batched `click_attributes` events from
- * the MapX SDK. MapX fires one `click_attributes` event per open vector-tile (vt)
- * view per map click; the batch is complete when all expected views have reported.
+ * the MapX SDK. MapX fires one `click_attributes` event per open queryable view
+ * per map click (types vt, gj and cc query rendered features; rt queries WMS
+ * GetFeatureInfo); the batch is complete when all expected views have reported.
  *
  * Usage (from main.js):
  *   initInspection(mapxSDK)
@@ -89,6 +90,9 @@ export function onInspectionResult(cb, { signal } = {}) {
  *
  * A generation stamp on the batch prevents stale events from a previous
  * click session or from after inspection was disabled from triggering the callback.
+ * The batch is also keyed on the click's `lngLat`: MapX handles each click
+ * asynchronously, so a late event from an earlier click can arrive after the
+ * next click's `part === 1`, and must not join (or complete) that batch.
  *
  * @param {object} data - click_attributes payload: {part, nPart, idView, attributes, lngLat}
  * @param {Set<string>} openViews - current store.openViews (snapshotted at batch start)
@@ -108,7 +112,7 @@ export function handleClickEvent(data, openViews) {
     };
   }
 
-  if (!_batch || _batch.generation !== gen) return;
+  if (!_batch || _batch.generation !== gen || !sameLngLat(_batch.lngLat, lngLat)) return;
 
   _batch.parts.set(idView, attributes ?? []);
 
@@ -131,4 +135,8 @@ export function handleClickEvent(data, openViews) {
       }
     }
   }
+}
+
+function sameLngLat(a, b) {
+  return a?.lng === b?.lng && a?.lat === b?.lat;
 }

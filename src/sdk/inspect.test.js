@@ -142,6 +142,29 @@ describe("handleClickEvent — multi-view batch", () => {
   });
 });
 
+describe("handleClickEvent — interleaved clicks", () => {
+  it("does not let a late event from an earlier click join the next click's batch", () => {
+    const cb = vi.fn();
+    subscribe(cb);
+    enableInspection();
+
+    const views = new Set(["view-1", "view-2"]);
+    const first = { lat: 1, lng: 2 };
+    const second = { lat: 3, lng: 4 };
+    handleClickEvent({ part: 1, nPart: 2, idView: "view-1", attributes: [{ a: 1 }], lngLat: first }, views);
+    // The second click starts before the first click's part 2 is delivered.
+    handleClickEvent({ part: 1, nPart: 2, idView: "view-1", attributes: [{ a: 3 }], lngLat: second }, views);
+    handleClickEvent({ part: 2, nPart: 2, idView: "view-2", attributes: [{ b: 1 }], lngLat: first }, views);
+    expect(cb).not.toHaveBeenCalled();
+
+    handleClickEvent({ part: 2, nPart: 2, idView: "view-2", attributes: [{ b: 3 }], lngLat: second }, views);
+    expect(cb).toHaveBeenCalledOnce();
+    const result = cb.mock.calls[0][0];
+    expect(result.lngLat).toEqual(second);
+    expect(result.views).toEqual({ "view-1": [{ a: 3 }], "view-2": [{ b: 3 }] });
+  });
+});
+
 describe("handleClickEvent — openViews snapshot", () => {
   it("snapshots openViews at batch start, not at callback time", () => {
     const cb = vi.fn();
