@@ -70,9 +70,6 @@
     set_immersive_mode: function () {
       return true;
     },
-    set_vector_highlight: function () {
-      return true;
-    },
     // src/sdk/inspect.js
     set_features_click_sdk_only: function () {
       return true;

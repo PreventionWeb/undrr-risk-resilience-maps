@@ -198,7 +198,8 @@ mapx.on("ready", async () => {
   // 3. Wait for MapX to load
   buildViewButtons(); // 4. Build sidebar UI
   enableActionButtons(); // 5. Wire toolbar
-  await mapx.ask("set_vector_highlight", { enable: true }); // 6. Enable clicks
+  // 6. No call needed for clicks: MapX fires click_attributes regardless.
+  //    (set_vector_highlight is a deprecated alias of set_vector_spotlight.)
   initCoordinateDisplay(2000); // 7. Start polling
 });
 

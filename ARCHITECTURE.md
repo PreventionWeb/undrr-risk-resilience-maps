@@ -735,7 +735,7 @@ the UMD bundle does. Its `Manager` appends a placeholder element instead of a
 cross-origin iframe, emits `ready` on the next tick, and answers the commands
 `src/sdk/` sends: `view_add`, `view_remove`, `get_views`,
 `get_view_legend_image`, `get_view_layer_transparency`,
-`set_view_layer_transparency`, `set_immersive_mode`, `set_vector_highlight`,
+`set_view_layer_transparency`, `set_immersive_mode`,
 `set_features_click_sdk_only` and the camera reads. `get_views` returns raster
 views with no legend URL, which is what the approved-provider policy in
 `raster-legends.js` rejects without any request, so legends resolve to the image
