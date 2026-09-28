@@ -372,6 +372,10 @@ export function createRouter({
       });
 
       // The URL is only rewritten once, in place, after every layer settles.
+      // MapX upstream: up to 1.14.0, an ask() beyond the Manager's
+      // maxSimultaneousRequest (10) rejects but still runs in MapX, so a large
+      // shared link can leave a layer recorded as failed yet shown. Fixed in
+      // 1.14.1-alpha.7; nothing to change here once prod runs 1.14.1+.
       await batch(
         () =>
           Promise.all(

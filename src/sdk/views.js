@@ -4,6 +4,11 @@
  * Thin wrappers around SDK postMessage calls for adding/removing map
  * layers ("views" in MapX terminology) and fetching their metadata.
  * All functions return Promises that resolve when the SDK responds.
+ *
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1132. Up to 1.14.0 a failing call never settles (no
+ * rejection, no timeout). From 1.14.1, ask() rejects with a MapxSdkError and
+ * the Manager's `requestTimeoutMs` (default 120 s) applies; once prod runs
+ * 1.14.1+, callers can rely on rejections instead of hanging.
  */
 import { getSDK } from "./client.js";
 

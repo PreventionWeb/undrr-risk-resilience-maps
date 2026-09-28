@@ -76,6 +76,8 @@ export function validateLayers(tabs, primaryProject) {
 
       // Public MapX views can currently be added by ID across projects. Keep a
       // warning because this behavior is not guaranteed by the SDK contract.
+      // MapX upstream: TBD (issue: embedders depend on these behaviours, item 1).
+      // If MapX confirms it's supported, this can drop to a debug log.
       if (!external && available && primaryProject && layer.project && layer.project !== primaryProject) {
         warnings.push(
           `${ctx} -- layer belongs to project "${layer.project}" while the SDK loads "${primaryProject}"; cross-project loading requires a public view.`,

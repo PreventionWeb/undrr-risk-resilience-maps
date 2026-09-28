@@ -87,6 +87,10 @@ export async function closeExternalLayer(layer) {
   return runtime;
 }
 
+// MapX upstream: TBD (issue: view_geojson_create zoom option).
+// view_geojson_create always zooms to the new layer, so replacing a view
+// captures the camera first and restores it after. If MapX adds
+// `zoomToView: false`, pass it and remove captureCamera and the restore.
 async function captureCamera(sdk) {
   try {
     const [center, zoom] = await Promise.all([sdk.ask("map_get_center"), sdk.ask("map_get_zoom")]);

@@ -45,6 +45,9 @@ export function enableInspection() {
   // In dev mode keep MapX's native popup so we can cross-check data.
   // NOTE: The production branch (enable: true call) is never exercised by the
   // test suite — Vitest always runs with import.meta.env.DEV === true.
+  // MapX upstream: https://github.com/unep-grid/mapx/issues/1132. Up to 1.14.0, ask() never settles if a resolver
+  // fails, so this call is fire-and-forget. From 1.14.1 it rejects with a
+  // MapxSdkError; once prod runs 1.14.1+, await it and handle the rejection.
   if (!import.meta.env.DEV) {
     _mapx?.ask("set_features_click_sdk_only", { enable: true }).catch(() => {});
   }
@@ -93,6 +96,9 @@ export function onInspectionResult(cb, { signal } = {}) {
  * The batch is also keyed on the click's `lngLat`: MapX handles each click
  * asynchronously, so a late event from an earlier click can arrive after the
  * next click's `part === 1`, and must not join (or complete) that batch.
+ *
+ * MapX upstream: TBD (issue: one click event per click). If MapX adds a single
+ * per-click event, subscribe to that instead and drop this batching.
  *
  * @param {object} data - click_attributes payload: {part, nPart, idView, attributes, lngLat}
  * @param {Set<string>} openViews - current store.openViews (snapshotted at batch start)
