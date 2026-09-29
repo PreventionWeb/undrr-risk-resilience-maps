@@ -7,7 +7,7 @@
 - Tracker: unisdr/undrr-risk-resilience-maps#14, built under #15
 - **Using it:** jump to [How to embed](#8-how-to-embed-phase-1)
 - Hosting: `https://www.undrr.org/m/risk-and-resilience-maps/embed.html` (built by
-  undrr/drupal-microsites at a pinned commit, undrr/web-backlog#3105) and, as a preview of `main`,
+  undrr/drupal-microsites from the latest release tag, undrr/web-backlog#3105) and, as a preview of `main`,
   GitHub Pages. See [README § Deployment](../README.md#deployment) and
   [§8 "Which sites can embed it"](#which-sites-can-embed-it)
 - Related: [docs/product-spec.md](product-spec.md) open question 1 ("Hosting path"),
@@ -362,8 +362,8 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 3. **Preview PIN in embeds.** Embeds may ship before the PIN gate is replaced. The embed shows the
    same PIN prompt as the standalone viewer (§8).
 4. **Hosting.** **Decided (September 2026), rollout in progress:**
-   `https://www.undrr.org/m/risk-and-resilience-maps/`, built into undrr/drupal-microsites at a pinned
-   commit (undrr/web-backlog#3105). GitHub Pages stays as a preview of `main`.
+   `https://www.undrr.org/m/risk-and-resilience-maps/`, built into undrr/drupal-microsites from the latest
+   release tag (undrr/web-backlog#3105). GitHub Pages stays as a preview of `main`.
 5. **Chrome and branding.** Attribution can be subtle. The info pages are not required in embeds.
 6. **Deep links.** Host-URL state is a nice-to-have, not phase 1. The embed must still never write
    to the host's history.
