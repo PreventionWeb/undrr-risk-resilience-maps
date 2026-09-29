@@ -7,8 +7,8 @@
  * UI shows opacity 0-100; the conversion happens in src/ui/layer-controls.js,
  * not here -- these functions pass raw SDK values.
  *
- * MapX upstream: TBD (issue: transparency getter/setter scales). If
- * MapX changes the getter to return 0-100 transparency, update the read in
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1135. If MapX
+ * changes the getter to return 0-100 transparency, update the read in
  * src/ui/layer-controls.js (opacity = 100 - value) and the JSDoc below.
  */
 import { getSDK } from "./client.js";
