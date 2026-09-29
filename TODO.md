@@ -18,7 +18,7 @@ The upgrade path: replace the flat Set with a keyed object (`{ [layerId]: { visi
 
 Create a dedicated UNDRR project in MapX that aggregates all needed data sources, keeping the SDK integration clean (one project, one iframe). Coordinate with the MapX platform contact at GRID-Geneva.
 
-Cross-project `view_add` calls currently work in practice (see [LEARNINGS.md](LEARNINGS.md#mapx-sdk-cross-project-view_add)), so this is not blocking. We're asking MapX whether it's supported, or whether we should share the views into our project with "Manage external views" instead (MapX upstream: TBD, issue: embedders depend on these behaviours). Decide on consolidation once they answer.
+Cross-project `view_add` calls currently work in practice (see [LEARNINGS.md](LEARNINGS.md#mapx-sdk-cross-project-view_add)), so this is not blocking. We've asked MapX whether it's supported, or whether we should share the views into our project with "Manage external views" instead ([unep-grid/mapx#1134](https://github.com/unep-grid/mapx/issues/1134), item 1). Decide on consolidation once they answer.
 
 ## Widget event bus
 
