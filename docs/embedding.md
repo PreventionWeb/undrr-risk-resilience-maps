@@ -6,6 +6,10 @@
 - Date: 2026-09-17; phase 1 built 2026-09-18
 - Tracker: unisdr/undrr-risk-resilience-maps#14, built under #15
 - **Using it:** jump to [How to embed](#8-how-to-embed-phase-1)
+- Hosting: `https://www.undrr.org/m/risk-and-resilience-maps/embed.html` (built by
+  undrr/drupal-microsites at a pinned commit, undrr/web-backlog#3105) and, as a preview of `main`,
+  GitHub Pages. See [README § Deployment](../README.md#deployment) and
+  [§8 "Framing policy"](#framing-policy)
 - Related: [docs/product-spec.md](product-spec.md) open question 1 ("Hosting path"),
   [docs/external-layers.md](external-layers.md), [docs/legends.md](legends.md)
 
@@ -257,13 +261,22 @@ giri.unepgrid.ch api.mapx.org`; `img-src data:` (legend PNGs arrive as base64); 
 CDN plus Mangrove. For the iframe embed the host only needs `frame-src <our embed origin>`. We should
 also ship our own CSP on the embed page with the same list.
 
-**Framing policy.** Production is GitHub Pages (`.github/workflows/deploy.yml`), which cannot set
-response headers. `server.js:38-40` sets only `Content-Type`. The viewer is therefore frameable by
-any site, and `<meta http-equiv>` cannot set `frame-ancestors`. Clickjacking impact is low (no
-login, no state-changing actions), but an allowlisted embed needs a host that sets
+**Framing policy.** The viewer is published in two places, and neither lets this repo set response
+headers. GitHub Pages (`.github/workflows/deploy.yml`) cannot set them at all, so that copy is
+frameable by any site. On www.undrr.org (`/m/risk-and-resilience-maps/`) the headers come from
+UNDRR's web server and Cloudflare configuration, which this repo doesn't control and which hasn't
+been checked for these files yet (§8). `server.js:38-40` sets only `Content-Type`, and
+`<meta http-equiv>` cannot set `frame-ancestors`. Clickjacking impact is low (no login, no
+state-changing actions), but an allowlisted embed needs the www.undrr.org host to send
 `Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net …`
-on `/embed`, for example a CDN or Cloudflare in front of Pages. Keep the standalone app framable only
-by `'self'` once headers are possible.
+on `embed.html`. Keep the standalone app framable only by `'self'` once headers are possible.
+
+**Same origin as Drupal.** An undrr.org page that frames `https://www.undrr.org/m/…/embed.html` is
+framing a _same-origin_ document. Nothing is partitioned between them (the gate's `sessionStorage`
+is shared with the top-level page), and the embed's scripts can reach `window.parent` and the
+Drupal page's DOM directly. The `postMessage` API is still the supported interface, but it is no
+longer the security boundary on undrr.org: the boundary is code review of this repo and the pinned
+commit drupal-microsites deploys.
 
 **`postMessage`.** MapX's SDK uses `"*"` and token filtering (above), which we can't change and which
 is acceptable because it carries only map state. Our host API must use explicit `targetOrigin` and
@@ -382,9 +395,12 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
    phase 1:** the hosting that could send `frame-ancestors` does not exist yet (answer 4), so the
    barrier is the PIN gate, rendered by the embed itself. §8 has the reasoning, the consequences for a
    host and the order in which it comes back off.
-4. **Hosting.** Not yet decided. Likely still GitHub Pages, possibly mapped to a subdomain such as
-   `riskmaps.undrr.org`. So the embed must not depend on response headers until hosting can send
-   them — `frame-ancestors` is a follow-up, not a prerequisite.
+4. **Hosting.** **Decided (September 2026), rollout in progress:**
+   `https://www.undrr.org/m/risk-and-resilience-maps/`,
+   built into undrr/drupal-microsites at a pinned commit (undrr/web-backlog#3105). GitHub Pages stays
+   as a preview of `main`. That host can send response headers, but they are set by UNDRR
+   infrastructure rather than by this repo, so `frame-ancestors` is still a follow-up, not a
+   prerequisite, and the embed must still not depend on a header.
 5. **Chrome and branding.** Attribution can be subtle. The info pages are not required in embeds.
 6. **Deep links.** Host-URL state is a nice-to-have, not phase 1. The embed must still never write
    to the host's history.
@@ -395,7 +411,8 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 
 Still open:
 
-- Whether a `frame-ancestors` allowlist can be set at all depends on question 4 landing.
+- What www.undrr.org actually sends for `/m/risk-and-resilience-maps/embed.html`, and getting a
+  `frame-ancestors` allowlist onto it (§8, "Framing policy").
 
 ## 8. How to embed (phase 1)
 
@@ -403,7 +420,7 @@ Still open:
 
 ```html
 <iframe
-  src="https://<host>/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.undrr.org"
+  src="https://www.undrr.org/m/risk-and-resilience-maps/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.preventionweb.net"
   title="Risk and resilience metrics map"
   width="100%"
   height="600"
@@ -412,6 +429,11 @@ Still open:
   style="border: 0"
 ></iframe>
 ```
+
+Use the www.undrr.org URL for anything a real audience sees. The GitHub Pages copy
+(`https://preventionweb.github.io/undrr-risk-resilience-maps/embed.html`) follows `main` and changes
+without a release; use it only to try unreleased work. Keep the trailing path exactly as shown:
+the embed loads its assets relative to its own URL.
 
 `title` is required for screen-reader users: a frame with no name is announced as an unnamed frame.
 `allow="clipboard-write"` is what lets the site inspector's "copy coordinates" button work; without
@@ -480,7 +502,7 @@ Every message, both ways, is `{ type: "undrr-risk-map", v: 1, instance?, id?, na
 
 ```js
 const frame = document.getElementById("risk-map");
-const EMBED_ORIGIN = "https://<host>";
+const EMBED_ORIGIN = "https://www.undrr.org";
 
 window.addEventListener("message", (event) => {
   if (event.origin !== EMBED_ORIGIN) return; // the host has to check too
@@ -542,18 +564,33 @@ Rules a host can rely on:
 - Prove it locally with the host harness in `tests/e2e/fixtures/embed-host.html` (it explains how to
   serve itself from a second port); `tests/e2e/embed.spec.js` is the same thing automated.
 
-### Framing policy, pending hosting
+### Framing policy
 
-Where the viewer is hosted is still open (answer 4 above), and GitHub Pages cannot set response
-headers, so **nothing in the embed depends on one**. Once hosting can send headers, the embed route
-should carry
+The embed is published in two places, and this repo sets the headers of neither, so **nothing in
+the embed depends on a header**.
+
+- **GitHub Pages** cannot send headers. That copy is frameable by any site, for as long as Pages
+  publishes `embed.html`.
+- **www.undrr.org** (`/m/risk-and-resilience-maps/`) gets its headers from UNDRR's web server and
+  Cloudflare. They have not been checked for these files yet. Cloudflare challenges scripted
+  requests, so check from a browser: open the embed URL, then look at the document response
+  headers in dev tools. Two outcomes matter:
+  - `X-Frame-Options: SAMEORIGIN` (Drupal sends this on its own pages): only undrr.org pages can
+    frame the embed. PreventionWeb and partner hosts get a blank frame, and the fix is a
+    path-scoped exception on the undrr.org side, not a change here.
+  - No framing header: any site can frame it, as on Pages.
+
+Either way, what the embed route should end up with is
 
 ```
 Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net
 ```
 
-and the standalone app `frame-ancestors 'self'`. Until then the embed is frameable by any site — which
-is why it is gated.
+with no `X-Frame-Options: SAMEORIGIN` beside it (browsers without `frame-ancestors` support fall
+back to it and would block the partner hosts), and the standalone
+app `frame-ancestors 'self'`. That is a request to UNDRR infrastructure, tracked from
+undrr/web-backlog#3105. Until it is in place, the embed stays gated; the ordered steps under
+"Before a real host gets a PIN-free embed" below also cover the Pages copy.
 
 ### The preview gate in an embed
 
@@ -561,8 +598,10 @@ is why it is gated.
 `data-mg-preview-id` (`grar-map-viewer`), the same public PIN, the same `preview-access.js`. The
 decision is deliberate and it is the maintainer's.
 
-**Why.** Merging publishes `embed.html` to GitHub Pages. Pages cannot send `frame-ancestors` or
-`X-Frame-Options`, so any site on the web can frame the prototype, brand it with the UNDRR logo it
+**Why.** Merging publishes `embed.html` to GitHub Pages, and a pin bump publishes it to
+www.undrr.org. Pages cannot send `frame-ancestors` or `X-Frame-Options`, and on www.undrr.org
+those headers are not ours to set (see "Framing policy" above), so any site on the web can frame at
+least the Pages copy of the prototype, brand it with the UNDRR logo it
 carries, and drive it over the message API. The alternative to a gate is an ungated prototype on the
 open web; the alternative to publishing is not publishing, which would leave the embed untestable by
 the people reviewing it. So the embed is published, and gated.
@@ -607,7 +646,7 @@ what it rests on:
 
 **So partitioning is not a barrier this prototype may lean on.** Where it is absent — a host that
 took the deprecation trial, a managed browser with the policy off, an older browser, or simply a host
-page on the _same site_ as the viewer — a visitor who unlocked the standalone viewer earlier in that
+page on the _same site_ as the viewer (which every www.undrr.org page now is) — a visitor who unlocked the standalone viewer earlier in that
 tab gets a PIN-free embed. That does not change the access-control story, because there was never one
 to change: the PIN is in the markup, so the gate is a "wet paint" sign and nothing more (see "What the
 gate is worth" above). It does mean the gate is worth _less_ than a reading of this section that
@@ -639,16 +678,20 @@ both.
 
 **Before a real host gets a PIN-free embed**, in order:
 
-1. Host the viewer somewhere that can set response headers (answer 4 — GitHub Pages cannot).
-2. Serve `frame-ancestors` on the embed route, as above, and `frame-ancestors 'self'` on the
-   standalone app.
-3. Then remove the gate element and the `preview-access.js` script from `embed.html`. That is the whole
+1. Host the viewer somewhere that can set response headers. **Done:** www.undrr.org (answer 4),
+   though the headers there are UNDRR infrastructure's to set.
+2. Serve `frame-ancestors` on the www.undrr.org embed route, as above, and `frame-ancestors 'self'`
+   on the standalone app. Check it from a browser, not from `curl` (Cloudflare challenges scripts).
+3. Stop GitHub Pages from publishing an ungated embed: keep the gate in the Pages build, or stop
+   publishing `embed.html` there. Otherwise removing the gate for undrr.org also removes it from a
+   copy any site can frame.
+4. Then remove the gate element and the `preview-access.js` script from `embed.html`. That is the whole
    change: `src/embed/preview-gate.js` reports "not locked" for a page with no gate, so the bridge
    opens up on its own, and the one spec group in `tests/e2e/embed.spec.js` that runs with
    `previewUnlocked: false` is what has to be deleted with it.
 
-Removing the gate before step 2 is the thing not to do: it is the only barrier the embed has while
-`frame-ancestors` cannot be sent.
+Removing the gate before steps 2 and 3 is the thing not to do: it is the only barrier the embed has
+wherever `frame-ancestors` is not sent.
 
 ### Analytics
 

@@ -7,7 +7,7 @@ See [docs/product-spec.md](docs/product-spec.md) for the V1 scope and [docs/reso
 
 ## Preview access
 
-The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until hosting can send `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); current Chrome and Firefox partition a framed page's storage by default, so an embed on someone else's site prompts inside the frame — but that is the browser's default, not a lock this prototype may rely on. It will be replaced with production access control before launch.
+The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until every place it is published sends `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); current Chrome and Firefox partition a framed page's storage by default, so an embed on someone else's site prompts inside the frame — but that is the browser's default, not a lock this prototype may rely on. It will be replaced with production access control before launch.
 
 ## Developing
 
@@ -29,6 +29,23 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow conventions (PRs, convention
 ### Claude Code
 
 When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), use the **MapX SDK skill** (`/mapx-sdk-dev`) for MapX embedding, view management, or SDK integration. It has current reference material for the SDK's postMessage bridge, view queries, and map controls.
+
+## Deployment
+
+The app is published in two places from the same source:
+
+| Where         | URL                                                           | What deploys it                                                                              | When                                |
+| ------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------- |
+| GitHub Pages  | <https://preventionweb.github.io/undrr-risk-resilience-maps/> | `.github/workflows/deploy.yml`                                                               | Every push to `main`                |
+| www.undrr.org | <https://www.undrr.org/m/risk-and-resilience-maps/>           | [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) CI, at a pinned commit | When the pin in that repo is bumped |
+
+**Merging here does not update www.undrr.org.** drupal-microsites builds this repo at the full commit SHA in its `scripts/risk-and-resilience-maps.conf`, and only a commit on `main` is accepted. To release, open a merge request there that bumps `MAPS_REF`, with a link to this repo's compare view (`compare/<old>...<new>`) for review. The SHA currently live is at <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt>. If GitHub or this build is broken, drupal-microsites has a `MAPS_BUILD` kill switch that keeps the last good build live. See that repo's `AGENTS.md` and [undrr/web-backlog#3105](https://gitlab.com/undrr/web-backlog/-/work_items/3105).
+
+What that build requires of this repo:
+
+- **Relative URLs only.** drupal-microsites runs `vite build --base=./`, so the same files work under `/undrr/risk-and-resilience-maps/` on its dev server and under `/m/risk-and-resilience-maps/` in production. A root-relative path in source (`"/assets/..."`, `"/embed.html"`) resolves to the site root and breaks there.
+- **`yarn install --frozen-lockfile --ignore-scripts` then `vite build`, on Node 20 Alpine.** Keep the build working without lifecycle scripts, and keep `yarn.lock` in sync.
+- **Same-origin with Drupal.** On www.undrr.org the app runs on the same origin as the Drupal site, so a script injection in this app is an injection into www.undrr.org. Review changes to it with that in mind.
 
 ## Project documentation
 
