@@ -7,10 +7,10 @@
  * the SDK, connects to each project, calls get_views, and writes the
  * results to JSON and CSV files.
  *
- * MapX upstream: TBD (issue: anonymous public views list). MapX
- * staging (1.14.1) adds an anonymous OGC catalogue,
- * /ogc_meta/collections/mapx/items?q=<idProject>. Once that's on prod and
- * confirmed as supported, this probe can call it instead of a browser.
+ * MapX 1.14.1 adds an anonymous OGC catalogue,
+ * /ogc_meta/collections/mapx/items?q=<idProject>. Once that's on prod, check
+ * whether it lists a project's views reliably; if so, this probe can call it
+ * instead of a browser. (We decided not to file a MapX issue for this.)
  *
  * Usage:
  *   node scripts/probe-mapx-views.js [output-dir]
