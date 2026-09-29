@@ -33,7 +33,7 @@ day be needed is kept as it was, because nothing about it has changed.
 
 ## Decision summary
 
-1. **Phase 1: iframe embed of the hosted app** (`/embed?…`), with URL config, no PIN, no footer,
+1. **Phase 1: iframe embed of the hosted app** (`/embed?…`), with URL config, the preview PIN gate, no footer,
    no history writes, and a small versioned `postMessage` API. It is cheap, isolates CSS and globals
    completely, and keeps every network request on our origin.
 2. **Phase 2 (only if a host needs it): a web component `<undrr-risk-map>` over a
@@ -342,7 +342,7 @@ maps on one page is phase 2b (see the roadmap), and it is what has to finish thi
 | ----- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                         | **Done** (#14)           |
 | 1a    | `createRiskMap` boundary: the standalone app is its first consumer; injected adapter, allowlists, `destroy()`                   | **Done** (#15)           |
-| 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, no PIN or footer     | **Done** (#15)           |
+| 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, PIN gate, no footer  | **Done** (#15)           |
 | 1c    | Hosting on www.undrr.org (undrr/web-backlog#3105) and a Gutenberg block emitting the iframe                                     | Hosting in progress      |
 | 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                          | 1.5–2 weeks, conditional |
 | 2b    | Two maps on one page (shared caches keyed per section 3, per-instance SDK client and inspect); ties in with side-by-side panels | 3–5 days                 |
@@ -382,7 +382,7 @@ Still open:
 
 ```html
 <iframe
-  src="https://www.undrr.org/m/risk-and-resilience-maps/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.preventionweb.net"
+  src="https://www.undrr.org/m/risk-and-resilience-maps/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.undrr.org"
   title="Risk and resilience metrics map"
   width="100%"
   height="600"

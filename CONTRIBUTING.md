@@ -71,11 +71,11 @@ A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr
 
    Creating a GitHub release for the tag is optional; the tag is what counts.
 
-3. The tag goes live on www.undrr.org the next time the drupal-microsites `main` pipeline runs. To publish straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
+3. The tag ships with the next drupal-microsites `main` pipeline, which runs on any push to that repo. To ship it straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Dev updates when the pipeline finishes; staging and production within the hour. Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
 
-Only plain `vX.Y.Z` tags are picked up. A tag like `v1.0.0-rc.1` is ignored, so pre-release tags are safe to push. A tag on a commit that isn't on `main` fails the drupal-microsites build.
+Only the highest plain `vX.Y.Z` tag is deployed. A pre-release tag like `v1.0.0-rc.1` is ignored, and so is a hotfix tag on an older line (`v0.0.7` after `v0.1.0`). A tag on a commit that isn't on `main` fails the drupal-microsites build, and that blocks every microsite deploy until it's fixed.
 
-To hold back or roll back, drupal-microsites can pin `MAPS_VERSION` to an earlier tag; see its `AGENTS.md`. Don't move or delete a published tag to roll back.
+To hold back or roll back, set the `MAPS_VERSION` CI/CD variable in drupal-microsites to an earlier tag; see its `AGENTS.md`. Don't move or delete a published tag to roll back.
 
 ## Documentation
 

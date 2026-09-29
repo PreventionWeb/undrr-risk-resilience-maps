@@ -34,12 +34,12 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 
 The app is published in two places from the same source:
 
-| Where         | URL                                                           | What deploys it                                                                                     | When                                                            |
-| ------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| GitHub Pages  | <https://preventionweb.github.io/undrr-risk-resilience-maps/> | `.github/workflows/deploy.yml`                                                                      | Every push to `main`                                            |
-| www.undrr.org | <https://www.undrr.org/m/risk-and-resilience-maps/>           | [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) CI, at the latest release tag | The next drupal-microsites `main` pipeline after a `vX.Y.Z` tag |
+| Where         | URL                                                           | What deploys it                                                                                     | When                                                                  |
+| ------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| GitHub Pages  | <https://preventionweb.github.io/undrr-risk-resilience-maps/> | `.github/workflows/deploy.yml`                                                                      | Every push to `main`                                                  |
+| www.undrr.org | <https://www.undrr.org/m/risk-and-resilience-maps/>           | [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) CI, at the latest release tag | After a `vX.Y.Z` tag, with the next drupal-microsites `main` pipeline |
 
-**Merging here does not update www.undrr.org; tagging a release does.** drupal-microsites builds the highest `vX.Y.Z` tag, which must be on `main`. To release, tag `main` (see [CONTRIBUTING § Releasing](CONTRIBUTING.md#releasing)). It goes live the next time the drupal-microsites `main` pipeline runs; to publish straight away, run that pipeline by hand. To hold back or roll back, drupal-microsites can pin `MAPS_VERSION` to a specific tag. The tag and commit currently live are at <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt>. If GitHub or this build is broken, drupal-microsites has a `MAPS_BUILD` kill switch that keeps the last good build live. See that repo's `AGENTS.md` and [undrr/web-backlog#3105](https://gitlab.com/undrr/web-backlog/-/work_items/3105).
+**Merging here does not update www.undrr.org; tagging a release does.** drupal-microsites builds the highest `vX.Y.Z` tag on `main`. See [CONTRIBUTING § Releasing](CONTRIBUTING.md#releasing) for how to release, and drupal-microsites' `AGENTS.md` ("External apps") for rolling back and what to do if its build fails ([undrr/web-backlog#3105](https://gitlab.com/undrr/web-backlog/-/work_items/3105)).
 
 What that build requires of this repo:
 

@@ -12,18 +12,9 @@
   <body>
     <!-- Preview access gate (Mangrove), the same one index.html carries: same
          `data-mg-preview-id`, so an unlock is shared wherever the browser gives
-         the two pages one sessionStorage, and the same public PIN.
-
-         Why an embed is gated at all: merging publishes embed.html to GitHub
-         Pages, Pages cannot send `frame-ancestors` or `X-Frame-Options`, and an
-         ungated embed is therefore an UNDRR-branded prototype that any site can
-         frame and drive. Until hosting can set those headers, the gate is the
-         barrier on both ends -- see docs/embedding.md §8, "The preview gate in
-         an embed", for what that means for a host (its visitors enter the PIN
-         inside the frame in any browser that partitions third-party storage,
-         which current Chrome and Firefox do by default -- though not
-         unconditionally; that section records what was measured) and for what
-         has to change before a host gets a PIN-free embed. -->
+         the two pages one sessionStorage, and the same public PIN. How it
+         behaves in a frame, and how to remove it: docs/embedding.md §8, "The
+         preview gate in an embed". -->
     <div
       data-mg-preview-access
       data-mg-preview-id="grar-map-viewer"
