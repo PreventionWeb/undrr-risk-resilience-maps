@@ -45,7 +45,6 @@ What that build requires of this repo:
 
 - **Relative URLs only.** drupal-microsites runs `vite build --base=./`, so the same files work under `/undrr/risk-and-resilience-maps/` on its dev server and under `/m/risk-and-resilience-maps/` in production. A root-relative path in source (`"/assets/..."`, `"/embed.html"`) resolves to the site root and breaks there.
 - **`yarn install --frozen-lockfile --ignore-scripts` then `vite build`, on Node 20 Alpine.** Keep the build working without lifecycle scripts, and keep `yarn.lock` in sync.
-- **Same-origin with Drupal.** On www.undrr.org the app runs on the same origin as the Drupal site, so a script injection in this app is an injection into www.undrr.org. Review changes to it with that in mind.
 
 ## Project documentation
 
