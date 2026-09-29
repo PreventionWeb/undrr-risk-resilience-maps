@@ -56,6 +56,27 @@ Do not add AI-assistant attribution trailers (`Co-Authored-By: Claude …`, `Cla
 
 The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-changelog.org/) format. Update it as part of any PR that introduces user-facing changes.
 
+## Releasing
+
+A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) builds the highest `vX.Y.Z` tag into `/m/risk-and-resilience-maps/`. Merging to `main` only updates the GitHub Pages preview. See [README § Deployment](README.md#deployment).
+
+1. Open a `chore: release vX.Y.Z` PR that turns `## [Unreleased]` in the CHANGELOG into `## [X.Y.Z] - YYYY-MM-DD` and sets `version` in `package.json`. Merge it.
+2. Tag the merge commit on `main` with an annotated tag and push it:
+
+   ```bash
+   git switch main && git pull
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+   Creating a GitHub release for the tag is optional; the tag is what counts.
+
+3. The tag goes live on www.undrr.org the next time the drupal-microsites `main` pipeline runs. To publish straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
+
+Only plain `vX.Y.Z` tags are picked up. A tag like `v1.0.0-rc.1` is ignored, so pre-release tags are safe to push. A tag on a commit that isn't on `main` fails the drupal-microsites build.
+
+To hold back or roll back, drupal-microsites can pin `MAPS_VERSION` to an earlier tag; see its `AGENTS.md`. Don't move or delete a published tag to roll back.
+
 ## Documentation
 
 Keep project docs updated alongside code changes. See the [README](README.md#project-documentation) for the full list of documentation files and what each one covers.
