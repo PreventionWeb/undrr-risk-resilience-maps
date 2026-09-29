@@ -50,9 +50,9 @@ export const FRAME_TITLE_WATCH_MS = 10000;
  * that becoming asynchronous upstream, and it is bounded so it can never sit
  * watching the container for the life of the page if the iframe never arrives.
  *
- * MapX upstream: TBD (issue: iframe title). If the Manager gets a
- * default title or a title option, pass ours through it in initSDK() and
- * delete this function and FRAME_TITLE_WATCH_MS.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1136. If the
+ * Manager gets a default title or a title option, pass ours through it in
+ * initSDK() and delete this function and FRAME_TITLE_WATCH_MS.
  *
  * @param {HTMLElement|string} container - the element (or its id) the map is in
  * @returns {() => void} disposes the fallback watch (a no-op once it is done)

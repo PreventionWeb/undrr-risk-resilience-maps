@@ -97,8 +97,8 @@ export function onInspectionResult(cb, { signal } = {}) {
  * asynchronously, so a late event from an earlier click can arrive after the
  * next click's `part === 1`, and must not join (or complete) that batch.
  *
- * MapX upstream: TBD (issue: one click event per click). If MapX adds a single
- * per-click event, subscribe to that instead and drop this batching.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1139. If MapX adds
+ * a single per-click event, subscribe to that instead and drop this batching.
  *
  * @param {object} data - click_attributes payload: {part, nPart, idView, attributes, lngLat}
  * @param {Set<string>} openViews - current store.openViews (snapshotted at batch start)

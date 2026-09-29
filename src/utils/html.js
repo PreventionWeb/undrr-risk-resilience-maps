@@ -11,9 +11,9 @@ export function escapeHtml(value) {
 /**
  * MapX internal feature attributes that are not meaningful to users.
  *
- * MapX upstream: TBD (issue: click_attributes includes gid). MapX has its own exclusion list (gid, mx_t0, mx_t1) but doesn't apply it to
- * `click_attributes`. If that's fixed, those three can go; keep geom/geometry
- * while any source still carries them.
+ * MapX already hides gid, mx_t0 and mx_t1 in its own popup but sends them in
+ * SDK `click_attributes`. We decided not to ask MapX to strip them (other
+ * embedders may use gid as a feature ID), so this list stays ours.
  */
 export const HIDDEN_ATTRIBUTE_KEYS = ["gid", "mx_t0", "mx_t1", "geom", "geometry"];
 
@@ -21,7 +21,7 @@ export const HIDDEN_ATTRIBUTE_KEYS = ["gid", "mx_t0", "mx_t1", "geom", "geometry
  * True when a clicked feature's attribute holds no value. Vector tiles cannot
  * carry nulls, so MapX fills a missing attribute with the literal string
  * "$NULL" before dispatching `click_attributes`. Keep this check even if MapX
- * later sends null instead (same upstream draft as above); it's harmless.
+ * later sends null instead; it's harmless.
  */
 export function isEmptyAttributeValue(value) {
   return value == null || value === "" || value === "$NULL";

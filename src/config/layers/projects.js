@@ -5,8 +5,8 @@
  * The SDK connects to one project at a time. Public views from other
  * projects still load with `view_add` and appear in `get_views` (checked
  * on MapX 1.14.0-fix.1, 2026-09-28), but MapX doesn't document this.
- * MapX upstream: TBD (issue: embedders depend on these behaviours, item 1)
- * asks MapX to treat it as supported.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1134 (item 1) asks MapX to
+ * treat it as supported.
  */
 export const ECO_DRR = "MX-2LD-FBB-58N-ROK-8RH";
 export const HOME = "MX-YBJ-YYF-08R-UUR-QW6";

@@ -111,8 +111,8 @@ export function getGeoServerLegendJsonUrl(legendUrl) {
  * MapX raster sources. This is a retry path for providers that allow
  * app.mapx.org but reject the embedding viewer's browser origin.
  *
- * MapX upstream: TBD (issue: embedders depend on these behaviours, item 3)
- * asks MapX to confirm this use; the mirror reports `x-ratelimit-limit: 2000`.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1134 (item 3) asks MapX to
+ * confirm this use; the mirror reports `x-ratelimit-limit: 2000`.
  * Mirror failures on some GeoServer endpoints:
  * https://github.com/unep-grid/mapx/issues/1108
  * Structured raster legends from MapX itself, preferable to this adapter if
