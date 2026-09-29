@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## [Unreleased]
+## [0.0.6] - 2026-09-29
 
 ### Fixed
 
 - Make the map fill the iframe embed. It was stuck at the browser's default iframe height of 150 pixels, leaving the rest of the frame empty.
+- Start the opacity slider at 100% for a newly added layer. It showed 99% because MapX's getter returns a 0–1 opacity, not the 0–100 transparency its setter takes.
+- Show missing attributes as empty in the infobox and site inspector instead of MapX's `"$NULL"` placeholder.
+- Keep each click's inspection results together: a late response from an earlier click could complete the next click's results.
+- Stop switching on MapX's vector spotlight overlay when the map loads. The call was a deprecated alias that had nothing to do with click inspection.
 
 ### Changed
 
