@@ -271,13 +271,6 @@ state-changing actions), but an allowlisted embed needs the www.undrr.org host t
 `Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net …`
 on `embed.html`. Keep the standalone app framable only by `'self'` once headers are possible.
 
-**Same origin as Drupal.** An undrr.org page that frames `https://www.undrr.org/m/…/embed.html` is
-framing a _same-origin_ document. Nothing is partitioned between them (the gate's `sessionStorage`
-is shared with the top-level page), and the embed's scripts can reach `window.parent` and the
-Drupal page's DOM directly. The `postMessage` API is still the supported interface, but it is no
-longer the security boundary on undrr.org: the boundary is code review of this repo and the pinned
-commit drupal-microsites deploys.
-
 **`postMessage`.** MapX's SDK uses `"*"` and token filtering (above), which we can't change and which
 is acceptable because it carries only map state. Our host API must use explicit `targetOrigin` and
 origin checks (section 3).
