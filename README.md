@@ -7,7 +7,7 @@ See [docs/product-spec.md](docs/product-spec.md) for the V1 scope and [docs/reso
 
 ## Preview access
 
-The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until every place it is published sends `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); current Chrome and Firefox partition a framed page's storage by default, so an embed on someone else's site prompts inside the frame — but that is the browser's default, not a lock this prototype may rely on. It will be replaced with production access control before launch.
+The prototype is behind a PIN gate for stakeholder review. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN; on another site's page a visitor enters the PIN inside the frame (see [docs/embedding.md §8](docs/embedding.md#the-preview-gate-in-an-embed)). It will be replaced with production access control before launch.
 
 ## Developing
 
@@ -54,7 +54,7 @@ What that build requires of this repo:
 | [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                              |
 | [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs    |
 | [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide    |
-| [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: how to embed, the message API, security, roadmap  |
+| [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: how to embed, the message API, hosting, roadmap   |
 | [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                    |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                       |
 | [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                       |
