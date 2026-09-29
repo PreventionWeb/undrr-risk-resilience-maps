@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Make the map fill the iframe embed. It was stuck at the browser's default iframe height of 150 pixels, leaving the rest of the frame empty.
+
 ### Changed
 
 - Upgraded the UNDRR Mangrove component library from `2.0.0-rc.3` to `2.0.0` stable across the stylesheet, `preview-access.js`, `tabs.js`, and `copy-button.js` CDN loaders.

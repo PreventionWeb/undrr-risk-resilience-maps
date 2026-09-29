@@ -10,10 +10,14 @@
 .embed-root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* A definite height, not a min-height: `#mapx` is `height: 100%` of the map,
+     which resolves only against a definite height. With min-height alone the
+     MapX iframe fell back to the browser's 150px default. The embed fills its
+     frame, so the frame's height is the right one. */
+  height: 100vh;
   /* `100dvh` where it exists: an embed is often the whole viewport on a phone,
      and the dynamic unit keeps the map off the URL bar's sliding area. */
-  min-height: 100dvh;
+  height: 100dvh;
   background: rgb(var(--mg-color-neutral-0));
 }
 

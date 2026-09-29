@@ -68,6 +68,24 @@ test.describe("embed: URL parameters", () => {
     await expect(page.locator(".embed-attribution")).toBeVisible();
   });
 
+  test("gives the map the whole height the nav and attribution leave, at any frame height", async ({
+    page,
+  }) => {
+    // `#mapx` is `height: 100%`, which only resolves if `.app-map` has a definite
+    // height. With `.embed-root` at `min-height` alone it did not, so the MapX
+    // iframe fell back to the browser's 150px default under a tall empty area.
+    for (const height of [900, 420]) {
+      await page.setViewportSize({ width: 1200, height });
+      await gotoEmbed(page, "?tab=hazard");
+      const { appMap, mapx } = await page.evaluate(() => ({
+        appMap: document.querySelector(".app-map").getBoundingClientRect().height,
+        mapx: document.querySelector("#mapx").getBoundingClientRect().height,
+      }));
+      expect(appMap).toBeGreaterThan(200);
+      expect(Math.abs(mapx - appMap)).toBeLessThanOrEqual(1);
+    }
+  });
+
   test("carries the standalone viewer's preview gate, unlocked here by the fixture", async ({ page }) => {
     await gotoEmbed(page, "?tab=hazard");
 
