@@ -87,7 +87,7 @@ export async function closeExternalLayer(layer) {
   return runtime;
 }
 
-// MapX upstream: TBD (issue: view_geojson_create zoom option).
+// MapX upstream: https://github.com/unep-grid/mapx/issues/1137.
 // view_geojson_create always zooms to the new layer, so replacing a view
 // captures the camera first and restores it after. If MapX adds
 // `zoomToView: false`, pass it and remove captureCamera and the restore.
