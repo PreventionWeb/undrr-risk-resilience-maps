@@ -56,6 +56,27 @@ Do not add AI-assistant attribution trailers (`Co-Authored-By: Claude …`, `Cla
 
 The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-changelog.org/) format. Update it as part of any PR that introduces user-facing changes.
 
+## Releasing
+
+A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) builds the highest `vX.Y.Z` tag into `/m/risk-and-resilience-maps/`. Merging to `main` only updates the GitHub Pages preview. See [README § Deployment](README.md#deployment).
+
+1. Open a `chore: release vX.Y.Z` PR that turns `## [Unreleased]` in the CHANGELOG into `## [X.Y.Z] - YYYY-MM-DD` and sets `version` in `package.json`. Merge it.
+2. Tag the merge commit on `main` with an annotated tag and push it:
+
+   ```bash
+   git switch main && git pull
+   git tag -a vX.Y.Z -m "vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+   Creating a GitHub release for the tag is optional; the tag is what counts.
+
+3. The tag ships with the next drupal-microsites `main` pipeline, which runs on any push to that repo. To ship it straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Dev updates when the pipeline finishes; staging and production within the hour. Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
+
+Only the highest plain `vX.Y.Z` tag is deployed. A pre-release tag like `v1.0.0-rc.1` is ignored, and so is a hotfix tag on an older line (`v0.0.7` after `v0.1.0`). A tag on a commit that isn't on `main` fails the drupal-microsites build, and that blocks every microsite deploy until it's fixed.
+
+To hold back or roll back, set the `MAPS_VERSION` CI/CD variable in drupal-microsites to an earlier tag; see its `AGENTS.md`. Don't move or delete a published tag to roll back.
+
 ## Documentation
 
 Keep project docs updated alongside code changes. See the [README](README.md#project-documentation) for the full list of documentation files and what each one covers.

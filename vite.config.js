@@ -28,6 +28,11 @@ const commitHash = gitValue("%h", "local");
  * the embed, and every embed spec timed out waiting for a map that no page was
  * building. `tests/e2e/global-setup.js` now refuses a dev server whose base is
  * not "/", so this cannot come back as a 20-minute timeout again.
+ *
+ * A third target overrides this from the command line: undrr/drupal-microsites
+ * runs `vite build --base=./` to serve the app at
+ * www.undrr.org/m/risk-and-resilience-maps/ (README § Deployment). Keep every
+ * asset and runtime URL relative so that build keeps working.
  */
 const base = (command) =>
   command === "build" && process.env.GITHUB_ACTIONS ? "/undrr-risk-resilience-maps/" : "/";

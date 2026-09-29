@@ -75,7 +75,9 @@ _A working prototype now renders supported MapX vector styles and approved discr
 
 ### WP-3 · Hosting & deployment
 
-_Moving from GitHub Pages (manual deploy) to UNDRR infrastructure._
+_Moving from GitHub Pages to UNDRR infrastructure._
+
+**Status (September 2026):** in progress. The target is `www.undrr.org/m/risk-and-resilience-maps/`, built by undrr/drupal-microsites CI from this repo's latest `vX.Y.Z` tag (undrr/web-backlog#3105), so no GitHub Actions → host pipeline or reverse proxy is needed. Still open: framing headers for `embed.html` ([docs/embedding.md §8](embedding.md#which-sites-can-embed-it)).
 
 **Effort:** S–M (KH) if standalone static host; M–L (KH + IT) if CMS-embedded or syndication.
 

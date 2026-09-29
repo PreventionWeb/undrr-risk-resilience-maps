@@ -6,6 +6,10 @@
 - Date: 2026-09-17; phase 1 built 2026-09-18
 - Tracker: unisdr/undrr-risk-resilience-maps#14, built under #15
 - **Using it:** jump to [How to embed](#8-how-to-embed-phase-1)
+- Hosting: `https://www.undrr.org/m/risk-and-resilience-maps/embed.html` (built by
+  undrr/drupal-microsites from the latest release tag, undrr/web-backlog#3105) and, as a preview of `main`,
+  GitHub Pages. See [README § Deployment](../README.md#deployment) and
+  [§8 "Which sites can embed it"](#which-sites-can-embed-it)
 - Related: [docs/product-spec.md](product-spec.md) open question 1 ("Hosting path"),
   [docs/external-layers.md](external-layers.md), [docs/legends.md](legends.md)
 
@@ -29,7 +33,7 @@ day be needed is kept as it was, because nothing about it has changed.
 
 ## Decision summary
 
-1. **Phase 1: iframe embed of the hosted app** (`/embed?…`), with URL config, no PIN, no footer,
+1. **Phase 1: iframe embed of the hosted app** (`/embed?…`), with URL config, the preview PIN gate, no footer,
    no history writes, and a small versioned `postMessage` API. It is cheap, isolates CSS and globals
    completely, and keeps every network request on our origin.
 2. **Phase 2 (only if a host needs it): a web component `<undrr-risk-map>` over a
@@ -46,7 +50,6 @@ day be needed is kept as it was, because nothing about it has changed.
 | CSS isolation       | Complete                                                                                                        | None. Mangrove 2.0, `body {}` and `:root` tokens leak both ways                       | Good. Mangrove CSS must load inside the shadow root; inherited properties and fonts still leak |
 | JS/global isolation | Complete                                                                                                        | Shares `window.mxsdk`, `document` listeners, `location`                               | Same as (b); Shadow DOM does not isolate JS                                                    |
 | Nesting             | Host → our app → MapX (two iframes)                                                                             | Host → MapX (one iframe)                                                              | Host → MapX (one iframe)                                                                       |
-| Security            | Strongest; host can't touch our DOM. Needs a `frame-ancestors` policy and origin-checked messages               | Our code runs with host privileges, and the host must trust our CDN (SRI, CSP)        | Same as (b)                                                                                    |
 | Network origin      | Our origin (unchanged from today)                                                                               | Host origin. Host CSP must allow MapX, EDRA and the mirror                            | Same as (b)                                                                                    |
 | Performance         | Extra document, and a second copy of Mangrove CSS/JS if the host also uses it. The app is small; MapX dominates | Can reuse host Mangrove only if versions match                                        | Mangrove CSS parsed per shadow root (can share via constructable stylesheets)                  |
 | Sizing              | Host must set a height (a map has no natural one, so phase 1 ships no auto-sizing hint — see §8)                | Flows with the page                                                                   | Flows with the page                                                                            |
@@ -232,7 +235,7 @@ Payloads are validated like hash input today (unknown keys dropped, source indic
 same names become DOM `CustomEvent`s on the web component (`riskmap:state`), so both modes share a
 vocabulary.
 
-## 4. Cross-origin and security
+## 4. Cross-origin requirements
 
 **Where requests run.** In iframe mode every `fetch` runs from our origin, exactly as today. In
 script mode it runs from the host origin. Headers checked with `curl -I` and
@@ -254,46 +257,25 @@ already a migration trigger in `docs/external-layers.md`.
 **CSP a script-embed host must allow:** `script-src` our CDN, `app.mapx.org` and
 `assets.undrr.org`; `frame-src https://app.mapx.org`; `connect-src drought.emergency.copernicus.eu
 giri.unepgrid.ch api.mapx.org`; `img-src data:` (legend PNGs arrive as base64); and `style-src` our
-CDN plus Mangrove. For the iframe embed the host only needs `frame-src <our embed origin>`. We should
-also ship our own CSP on the embed page with the same list.
+CDN plus Mangrove. For the iframe embed the host only needs `frame-src <our embed origin>`.
 
-**Framing policy.** Production is GitHub Pages (`.github/workflows/deploy.yml`), which cannot set
-response headers. `server.js:38-40` sets only `Content-Type`. The viewer is therefore frameable by
-any site, and `<meta http-equiv>` cannot set `frame-ancestors`. Clickjacking impact is low (no
-login, no state-changing actions), but an allowlisted embed needs a host that sets
-`Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net …`
-on `/embed`, for example a CDN or Cloudflare in front of Pages. Keep the standalone app framable only
-by `'self'` once headers are possible.
+**Which sites can frame it** depends on where it is served from; see §8, "Which sites can embed it".
 
-**`postMessage`.** MapX's SDK uses `"*"` and token filtering (above), which we can't change and which
-is acceptable because it carries only map state. Our host API must use explicit `targetOrigin` and
-origin checks (section 3).
-
-**Permissions-Policy.** Coordinate copy uses `navigator.clipboard.writeText`
+**The iframe `allow` attribute.** Coordinate copy uses `navigator.clipboard.writeText`
 (`src/ui/site-inspector.js:131`), which needs `allow="clipboard-write"` on the host iframe; it already
 fails silently. Recommend `allow="fullscreen; clipboard-write"`. The SDK creates the MapX iframe
 without an `allow` attribute, so geolocation and fullscreen inside MapX are unavailable in any mode.
 Immersive mode hides those controls anyway.
 
 **Storage partitioning.** Current browsers partition storage and cookies in third-party iframes by
-top-level site — by default, and not unconditionally: see "What a host has to know" in §8 for what was
-measured, and for the ways a top-level site or a policy can switch it off. The app stores nothing
-itself (B16). MapX in a nested frame works anonymously for public views
+top-level site by default (§8, "The preview gate in an embed", covers what that means for the PIN).
+The app stores nothing itself (B16). MapX in a nested frame works anonymously for public views
 today (the standalone app is already a third-party context for MapX). **Unknown:** whether any MapX
 feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
 it will break in every embed mode and needs the Storage Access API or a MapX token.
 
-**PIN gate.** This section's original position was that embeds never render the preview gate — it
-would lock the host page in script mode, and in an iframe it prompts per host site. That still holds
-for a _script_ embed (phase 2). For the iframe embed it did not survive review: the route is deployed,
-GitHub Pages cannot restrict framing, and "undeployed or restricted with `frame-ancestors`" was
-available as neither. So **the iframe embed renders the gate**, and it does prompt per host site, which
-is a cost the maintainer accepted knowingly — see "The preview gate in an embed" in §8.
-
-**Subresource Integrity.** Exact-version paths (`/embed/1.2.3/risk-map.js`) publish an SRI hash.
-SRI covers only the entry file: lazy chunks (EDRA and `proj4`) are loaded by `import()` and can't
-carry host-supplied integrity. Mitigate with content-hashed, immutable chunk filenames on the same
-versioned path. Major aliases (`/embed/1/`) are unpinned and documented as such.
+**PIN gate.** The iframe embed shows the same preview PIN prompt as the standalone viewer; a script
+embed (phase 2) would not, because it would lock the host page. See §8, "The preview gate in an embed".
 
 ## 5. Build and distribution
 
@@ -356,14 +338,14 @@ maps on one page is phase 2b (see the roadmap), and it is what has to finish thi
 
 ## 7. Roadmap and open questions
 
-| Phase | Work                                                                                                                            | Status                         |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                         | **Done** (#14)                 |
-| 1a    | `createRiskMap` boundary: the standalone app is its first consumer; injected adapter, allowlists, `destroy()`                   | **Done** (#15)                 |
-| 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, no PIN or footer     | **Done** (#15)                 |
-| 1c    | Hosting with headers (`frame-ancestors`, CSP) and a Gutenberg block emitting the iframe                                         | 2–4 days, plus infra lead time |
-| 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                          | 1.5–2 weeks, conditional       |
-| 2b    | Two maps on one page (shared caches keyed per section 3, per-instance SDK client and inspect); ties in with side-by-side panels | 3–5 days                       |
+| Phase | Work                                                                                                                            | Status                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| 0     | Refactor PRs honour section 6; `hashchange` ignores foreign hashes (B4)                                                         | **Done** (#14)           |
+| 1a    | `createRiskMap` boundary: the standalone app is its first consumer; injected adapter, allowlists, `destroy()`                   | **Done** (#15)           |
+| 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, PIN gate, no footer  | **Done** (#15)           |
+| 1c    | Hosting on www.undrr.org (undrr/web-backlog#3105) and a Gutenberg block emitting the iframe                                     | Hosting in progress      |
+| 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                          | 1.5–2 weeks, conditional |
+| 2b    | Two maps on one page (shared caches keyed per section 3, per-instance SDK client and inspect); ties in with side-by-side panels | 3–5 days                 |
 
 Carried over from 1a on purpose: the markup still lives in `index.html` and `embed.html` rather than
 being built by mount functions, and the SDK client, the inspection batch, the infobox and the site
@@ -377,14 +359,11 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 2. **Is the script embed truly needed?** No — start with the iframe and see how far it goes. That
    settles the phasing below: build phase 1, and treat phase 2 as conditional on a host needing
    something the iframe cannot give.
-3. **Access control in embeds.** Embeds may ship before the PIN gate is replaced, and a
-   `frame-ancestors` allowlist is acceptable as the prototype barrier. **Settled during review of
-   phase 1:** the hosting that could send `frame-ancestors` does not exist yet (answer 4), so the
-   barrier is the PIN gate, rendered by the embed itself. §8 has the reasoning, the consequences for a
-   host and the order in which it comes back off.
-4. **Hosting.** Not yet decided. Likely still GitHub Pages, possibly mapped to a subdomain such as
-   `riskmaps.undrr.org`. So the embed must not depend on response headers until hosting can send
-   them — `frame-ancestors` is a follow-up, not a prerequisite.
+3. **Preview PIN in embeds.** Embeds may ship before the PIN gate is replaced. The embed shows the
+   same PIN prompt as the standalone viewer (§8).
+4. **Hosting.** **Decided (September 2026), rollout in progress:**
+   `https://www.undrr.org/m/risk-and-resilience-maps/`, built into undrr/drupal-microsites from the latest
+   release tag (undrr/web-backlog#3105). GitHub Pages stays as a preview of `main`.
 5. **Chrome and branding.** Attribution can be subtle. The info pages are not required in embeds.
 6. **Deep links.** Host-URL state is a nice-to-have, not phase 1. The embed must still never write
    to the host's history.
@@ -395,7 +374,7 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 
 Still open:
 
-- Whether a `frame-ancestors` allowlist can be set at all depends on question 4 landing.
+- Which sites www.undrr.org lets frame `embed.html` (§8, "Which sites can embed it").
 
 ## 8. How to embed (phase 1)
 
@@ -403,7 +382,7 @@ Still open:
 
 ```html
 <iframe
-  src="https://<host>/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.undrr.org"
+  src="https://www.undrr.org/m/risk-and-resilience-maps/embed.html?tab=hazard&layers=river-flooding:1,landslides&parentOrigin=https://www.undrr.org"
   title="Risk and resilience metrics map"
   width="100%"
   height="600"
@@ -413,6 +392,11 @@ Still open:
 ></iframe>
 ```
 
+Use the www.undrr.org URL for anything a real audience sees. The GitHub Pages copy
+(`https://preventionweb.github.io/undrr-risk-resilience-maps/embed.html`) follows `main` and changes
+without a release; use it only to try unreleased work. Keep the trailing path exactly as shown:
+the embed loads its assets relative to its own URL.
+
 `title` is required for screen-reader users: a frame with no name is announced as an unnamed frame.
 `allow="clipboard-write"` is what lets the site inspector's "copy coordinates" button work; without
 it the copy fails silently. Give the frame a height: the embed is a map, so it has no natural one and
@@ -420,8 +404,7 @@ v1 has no auto-sizing message — the one that existed only ever reported the he
 set (see §3).
 
 **While this is a prototype, the embed is behind a PIN**, like the standalone viewer. A visitor of
-your page enters it inside the frame. Read "The preview gate in an embed" below before you paste this
-anywhere a real audience will see it.
+your page enters it inside the frame; see "The preview gate in an embed" below.
 
 ### Parameters
 
@@ -480,10 +463,10 @@ Every message, both ways, is `{ type: "undrr-risk-map", v: 1, instance?, id?, na
 
 ```js
 const frame = document.getElementById("risk-map");
-const EMBED_ORIGIN = "https://<host>";
+const EMBED_ORIGIN = "https://www.undrr.org";
 
 window.addEventListener("message", (event) => {
-  if (event.origin !== EMBED_ORIGIN) return; // the host has to check too
+  if (event.origin !== EMBED_ORIGIN) return; // ignore other frames' messages
   const message = event.data;
   if (!message || message.type !== "undrr-risk-map" || message.v !== 1) return;
   if (message.name === "ready") {
@@ -521,134 +504,78 @@ Rules a host can rely on:
   `set-layers` whose `layers` is not an array gets `malformed` — it is **not** read as "turn
   everything off", which is what a mistake in a host's code would otherwise do to the map.
 
-### Security model
+### How messages are routed
 
-- The embed posts **only** to the configured parent origin, with an explicit `targetOrigin`, never
-  `"*"`. The browser drops the message if the real parent is not that origin.
-- The embed accepts a command only when it comes from `window.parent` **and** from that origin. A
-  third-party frame on the same host page cannot drive it, even though it can reach the embed's
-  window through `parent.frames[…]`.
-- **While the preview gate is locked** the bridge reports `ready` with `locked: true` and answers
-  every command with `error: locked`. It does not set the tab, does not set layers and does not report
-  state (see the next section for why).
-- **With no parent origin** — no `parentOrigin` parameter and no readable `document.referrer`
-  (a strict `Referrer-Policy`, or the embed opened directly), or a `parentOrigin` that does not parse
-  — the embed refuses in both directions:
-  it posts nothing and accepts no command. It still renders and still works for the person looking at
-  it; it is simply not addressable. Add `&parentOrigin=<your origin>` to fix it.
-- A host can set layers, set the tab and read state. It **cannot** reach inside the embed's DOM, read
-  anything the schema above does not list, make the embed navigate, or make it touch the host page's
-  URL or history: the embed's state lives in an in-memory adapter (`src/state/memory-adapter.js`).
-- Prove it locally with the host harness in `tests/e2e/fixtures/embed-host.html` (it explains how to
+- The embed posts only to its parent origin: the `parentOrigin` parameter, or `document.referrer`'s
+  origin when that is absent.
+- It accepts a command only when it comes from `window.parent` and from that origin, so other frames
+  on the host page can't drive it.
+- With no parent origin (no `parentOrigin` and no readable referrer, for example under a strict
+  `Referrer-Policy`, or a `parentOrigin` that doesn't parse) the embed still renders and works for the
+  person looking at it, but it sends and accepts no messages. Add `&parentOrigin=<your origin>` to
+  fix it.
+- A host can set layers, set the tab and read state. It can't navigate the embed or read anything
+  the schema above doesn't list, and the embed never touches the host page's URL or history: its
+  state lives in an in-memory adapter (`src/state/memory-adapter.js`).
+- Try it locally with the host harness in `tests/e2e/fixtures/embed-host.html` (it explains how to
   serve itself from a second port); `tests/e2e/embed.spec.js` is the same thing automated.
 
-### Framing policy, pending hosting
+### Which sites can embed it
 
-Where the viewer is hosted is still open (answer 4 above), and GitHub Pages cannot set response
-headers, so **nothing in the embed depends on one**. Once hosting can send headers, the embed route
-should carry
+- **GitHub Pages copy:** any site can frame it.
+- **www.undrr.org** (`/m/risk-and-resilience-maps/embed.html`): framing is decided by the response
+  headers UNDRR's web server and Cloudflare send, which haven't been checked for these files yet.
+  Cloudflare challenges scripted requests, so check from a browser: open the embed URL and look at
+  the document's response headers in dev tools.
+  - `X-Frame-Options: SAMEORIGIN` (which Drupal sends on its own pages): only www.undrr.org pages can
+    show the embed. Other sites, PreventionWeb included, get a blank frame.
+  - No framing header: any site can show it.
+
+To let PreventionWeb and other UNDRR sites embed it, the embed URL on www.undrr.org needs
 
 ```
 Content-Security-Policy: frame-ancestors 'self' https://*.undrr.org https://*.preventionweb.net
 ```
 
-and the standalone app `frame-ancestors 'self'`. Until then the embed is frameable by any site — which
-is why it is gated.
+with no `X-Frame-Options: SAMEORIGIN` alongside it (browsers without `frame-ancestors` support fall
+back to that header). That is a change to UNDRR's hosting configuration, not to this repo; request it
+through undrr/web-backlog#3105.
 
 ### The preview gate in an embed
 
-**`embed.html` carries the same Mangrove preview gate as `index.html`**: the same
-`data-mg-preview-id` (`grar-map-viewer`), the same public PIN, the same `preview-access.js`. The
-decision is deliberate and it is the maintainer's.
+`embed.html` carries the same Mangrove preview gate as `index.html`: the same `data-mg-preview-id`
+(`grar-map-viewer`), the same PIN and the same `preview-access.js`. Until the PIN is entered, the map
+and the layer panel are hidden and inert, inside an iframe as at top level.
 
-**Why.** Merging publishes `embed.html` to GitHub Pages. Pages cannot send `frame-ancestors` or
-`X-Frame-Options`, so any site on the web can frame the prototype, brand it with the UNDRR logo it
-carries, and drive it over the message API. The alternative to a gate is an ungated prototype on the
-open web; the alternative to publishing is not publishing, which would leave the embed untestable by
-the people reviewing it. So the embed is published, and gated.
+**When a visitor is asked for the PIN.** `sessionStorage` is per tab. Current Chrome (since 115) and
+Firefox (since 103) also key a framed page's storage by the top-level site, so on another site's page
+a visitor enters the PIN inside the frame, once per tab, and an unlock on the standalone viewer
+doesn't carry over. It does carry over when the host page is on the same site as the viewer (any
+www.undrr.org page), and in browsers or policies that turn partitioning off. Safari hasn't been
+tested. When testing this, note that Playwright launches Chromium with partitioning disabled
+(microsoft/playwright#32230), and two `localhost` ports count as the same site.
 
-**What the gate is worth.** Mangrove's stylesheet hides every child of `<body>`
-(`visibility: hidden`) and the script marks them `inert` until the PIN is accepted. So before an
-unlock the map and the layer panel are not visible, not clickable, not tab stops and not announced —
-inside an iframe as much as at top level. It remains a "wet paint" sign rather than access control:
-the PIN is in the markup, by design. Anything that genuinely must not be seen has to be gated at the
-edge, and that is a hosting decision, not a markup one.
+If a browser blocks the frame's storage altogether, Mangrove reveals the page for that load and asks
+again on the next one: the PIN always works, it just isn't remembered.
 
-**What a host has to know.** `sessionStorage` is per tab, and in a browser that partitions
-third-party storage the frame's `sessionStorage` is keyed by the top-level site as well, so **a
-visitor of your page enters the PIN inside the frame, once per tab** — an unlock on the standalone
-viewer does not carry in, and an unlock inside the frame does not carry out. That is a property of
-the browser, not of anything this repo does, so it is worth being exact about what was measured and
-what it rests on:
+**The bridge while locked.** A locked embed answers `ready` with `locked: true`, answers `set-tab`,
+`set-layers` and `get-state` with `error: locked`, and posts no `state`. A second `ready`
+(`locked: false`) arrives once the PIN is entered and the map is up, so a host can show its own
+message in the meantime.
 
-- **Measured** (September 2026, the _built_ output, Playwright's Chromium 1234 / Chrome for Testing
-  153, two genuinely different sites — `viewer.test` and `hostsite.test`, both resolved to
-  `127.0.0.1` with `--host-resolver-rules`): with partitioning **on**, a viewer unlocked at top level
-  and then a host page framing `embed.html` in the same tab — the frame's `sessionStorage` was empty,
-  the gate was shut, the PIN overlay was up and `.embed-root` computed `visibility: hidden`. With
-  partitioning **off**, the same frame read the same `sessionStorage`, came up already unlocked and
-  showed no overlay at all.
-- **The trap in measuring it.** Playwright launches Chromium with
-  `--disable-features=…,ThirdPartyStoragePartitioning` (microsoft/playwright#32230), so an
-  out-of-the-box Playwright run measures a browser with partitioning switched off and will report
-  that the unlock _is_ shared. (Two `localhost` ports are also the same _site_, so a harness built
-  from two ports cannot show partitioning either, whatever the flags say.) Neither is evidence about
-  a real host.
-- **What browsers actually do.** Chrome has partitioned third-party storage for all users since
-  Chrome 115, and `sessionStorage` is explicitly in scope. Firefox's State Partitioning, on by
-  default since Firefox 103, partitions `sessionStorage` too. So the default answer in current Chrome
-  and Firefox is the one above.
-- **Uncertain.** Safari was not measured here, and neither was any browser other than Chromium — the
-  Chrome and Firefox defaults above are read from their documentation, not from a run. What _was_
-  measured is that a browser with partitioning off shares the unlock, and that state is reachable in
-  the field: Chrome's `DisableThirdPartyStoragePartitioning3` deprecation trial lets a _top-level
-  site_ opt its embedded third parties back into unpartitioned storage, enterprise policy can do the
-  same, and older browsers never partitioned at all.
+**The map warm-up and the ready budget.** Nothing to do: `canMapLoad()` treats a map container whose
+computed visibility is `hidden` as one that can't load, which is what the gate produces, so the ~30 s
+ready budget doesn't run behind the gate and a gated embed never shows the "map is temporarily
+unavailable" notice. (The information-page warm-up doesn't apply to an embed: it has no information
+pages.)
 
-**So partitioning is not a barrier this prototype may lean on.** Where it is absent — a host that
-took the deprecation trial, a managed browser with the policy off, an older browser, or simply a host
-page on the _same site_ as the viewer — a visitor who unlocked the standalone viewer earlier in that
-tab gets a PIN-free embed. That does not change the access-control story, because there was never one
-to change: the PIN is in the markup, so the gate is a "wet paint" sign and nothing more (see "What the
-gate is worth" above). It does mean the gate is worth _less_ than a reading of this section that
-treats partitioning as a second lock, and it is one more reason the ordering under "Before a real host
-gets a PIN-free embed" ends at the edge rather than in the page.
+**The "Open the full viewer" link** goes to `index.html`, which asks for the same PIN.
 
-If a browser blocks the frame's storage altogether, Mangrove catches the failure, reveals the page for
-that load and simply asks again on the next one: the PIN always works, it is only never remembered.
-There is no state in which a visitor cannot get in.
-
-**The bridge while locked.** A locked embed answers `ready` with `locked: true` and nothing else: it
-refuses `set-tab`, `set-layers` and `get-state` with `error: locked`, and posts no `state`. The
-reasoning: letting a host drive or read a gated prototype would make the gate pointless — the host
-page could operate the map and even mirror its state into its own UI while the visitor is still
-looking at a PIN prompt. But a frame that says nothing at all is indistinguishable from a broken one,
-and a host that knows the embed is locked can show its own message instead, so the one thing it does
-say is that it exists, which version it speaks, and that it is locked. The second `ready`
-(`locked: false`) arrives once the PIN is entered and the map is up.
-
-**The map warm-up and the ready budget.** Nothing to do: `canMapLoad()` already treats a map
-container whose computed visibility is `hidden` as one that cannot load, which is exactly what the
-gate produces — so the ~30 s ready budget does not run behind the gate and a gated embed never shows
-the "map is temporarily unavailable" notice for time nobody spent looking at it. (The information-page
-warm-up itself does not apply to an embed: there are no information pages to warm up behind.)
-
-**The way out.** The "Open the full viewer" link lands on `index.html`, which is gated by the same
-PIN, so both ends of that link are behind the same barrier. Nothing to fix there while the gate is on
-both.
-
-**Before a real host gets a PIN-free embed**, in order:
-
-1. Host the viewer somewhere that can set response headers (answer 4 — GitHub Pages cannot).
-2. Serve `frame-ancestors` on the embed route, as above, and `frame-ancestors 'self'` on the
-   standalone app.
-3. Then remove the gate element and the `preview-access.js` script from `embed.html`. That is the whole
-   change: `src/embed/preview-gate.js` reports "not locked" for a page with no gate, so the bridge
-   opens up on its own, and the one spec group in `tests/e2e/embed.spec.js` that runs with
-   `previewUnlocked: false` is what has to be deleted with it.
-
-Removing the gate before step 2 is the thing not to do: it is the only barrier the embed has while
-`frame-ancestors` cannot be sent.
+**Removing the gate** from the embed: delete the gate element and the `preview-access.js` script from
+`embed.html`. `src/embed/preview-gate.js` reports "not locked" for a page with no gate, so the bridge
+opens up on its own. Delete the spec group in `tests/e2e/embed.spec.js` that runs with
+`previewUnlocked: false` at the same time. The GitHub Pages build publishes the same `embed.html`, so
+this removes the gate there too.
 
 ### Analytics
 

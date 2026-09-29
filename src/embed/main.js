@@ -10,9 +10,8 @@
  *   `src/embed/params.js`;
  * - **no information pages, no header, no footer** — the embed markup simply has
  *   none of those hooks, so the sidebar builds none of them;
- * - **the same preview PIN gate as `index.html`**, because the embed is
- *   published to the open web and GitHub Pages cannot send `frame-ancestors`
- *   (docs/embedding.md §8, "The preview gate in an embed");
+ * - **the same preview PIN gate as `index.html`** (docs/embedding.md §8,
+ *   "The preview gate in an embed");
  * - **a versioned `postMessage` bridge** to the host (`src/embed/messaging.js`),
  *   which stays shut while the gate is locked;
  * - **an `embed_loaded` analytics event** naming the host it is framed in.

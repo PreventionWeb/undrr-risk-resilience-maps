@@ -7,7 +7,7 @@ See [docs/product-spec.md](docs/product-spec.md) for the V1 scope and [docs/reso
 
 ## Preview access
 
-The prototype is protected by a PIN gate — a soft barrier for stakeholder review, not a security mechanism. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN, because the embed is frameable by any site until hosting can send `frame-ancestors` (see [docs/embedding.md §8](docs/embedding.md)); current Chrome and Firefox partition a framed page's storage by default, so an embed on someone else's site prompts inside the frame — but that is the browser's default, not a lock this prototype may rely on. It will be replaced with production access control before launch.
+The prototype is behind a PIN gate for stakeholder review. Access details are shared separately. The gate is Mangrove's `preview-access` component, configured from `data-mg-preview-*` attributes on a `<div>` in `index.html`; it stores auth state in `sessionStorage` so it only prompts once per browser tab. `embed.html` carries the same gate, with the same id and PIN; on another site's page a visitor enters the PIN inside the frame (see [docs/embedding.md §8](docs/embedding.md#the-preview-gate-in-an-embed)). It will be replaced with production access control before launch.
 
 ## Developing
 
@@ -30,6 +30,22 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow conventions (PRs, convention
 
 When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code), use the **MapX SDK skill** (`/mapx-sdk-dev`) for MapX embedding, view management, or SDK integration. It has current reference material for the SDK's postMessage bridge, view queries, and map controls.
 
+## Deployment
+
+The app is published in two places from the same source:
+
+| Where         | URL                                                           | What deploys it                                                                                     | When                                                                  |
+| ------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| GitHub Pages  | <https://preventionweb.github.io/undrr-risk-resilience-maps/> | `.github/workflows/deploy.yml`                                                                      | Every push to `main`                                                  |
+| www.undrr.org | <https://www.undrr.org/m/risk-and-resilience-maps/>           | [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) CI, at the latest release tag | After a `vX.Y.Z` tag, with the next drupal-microsites `main` pipeline |
+
+**Merging here does not update www.undrr.org; tagging a release does.** drupal-microsites builds the highest `vX.Y.Z` tag on `main`. See [CONTRIBUTING § Releasing](CONTRIBUTING.md#releasing) for how to release, and drupal-microsites' `AGENTS.md` ("External apps") for rolling back and what to do if its build fails ([undrr/web-backlog#3105](https://gitlab.com/undrr/web-backlog/-/work_items/3105)).
+
+What that build requires of this repo:
+
+- **Relative URLs only.** drupal-microsites runs `vite build --base=./`, so the same files work under `/undrr/risk-and-resilience-maps/` on its dev server and under `/m/risk-and-resilience-maps/` in production. A root-relative path in source (`"/assets/..."`, `"/embed.html"`) resolves to the site root and breaks there.
+- **`yarn install --frozen-lockfile --ignore-scripts` then `vite build`, on Node 20 Alpine.** Keep the build working without lifecycle scripts, and keep `yarn.lock` in sync.
+
 ## Project documentation
 
 | File                                                         | Purpose                                                                     |
@@ -38,7 +54,7 @@ When working in this repo with [Claude Code](https://docs.anthropic.com/en/docs/
 | [docs/resourcing-plan.md](docs/resourcing-plan.md)           | Work packages, effort estimates, risk register                              |
 | [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs    |
 | [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide    |
-| [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: how to embed, the message API, security, roadmap  |
+| [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: how to embed, the message API, hosting, roadmap   |
 | [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                    |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                       |
 | [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                       |
