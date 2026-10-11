@@ -341,3 +341,26 @@ Under 1.8.0 this merely looked borderless; Mangrove 2.0 added a card shadow, so
 the same override produced a box with content flush against its edge. When
 adopting a Mangrove variant, check the local CSS is not resetting the properties
 that variant exists to set.
+
+---
+
+## MapX SDK: camera resolvers (embed host API, #47)
+
+What the embed's camera commands (`src/sdk/camera.js`) rely on, read from MapX's resolvers
+(`app/src/js/sdk/src/mapx_resolvers/static.js`) and its source-summary SQL:
+
+- `map_fly_to` and `map_jump_to` resolve on MapLibre's `moveend`, with MapX's fixed 10 s resolver
+  limit. A flight longer than that makes the resolver fail, and up to 1.14.0 a failed resolver never
+  settles `ask()`. Keep animations well under 10 s (`FLY_DURATION_MS` is 1.5 s) and time every call
+  out on our side anyway.
+- `map_set_bounds_array({ bounds })` is `fitMaxBounds`: it answers `false`, and doesn't move, for a box
+  outside the map's max bounds. It takes no animation option.
+- `common_loc_fit_bbox({ code, param })` takes ISO3 or `m49_###` codes; `param` is MapLibre fit
+  options (`duration: 0` for no animation). An unknown code fails the resolver, so on 1.14.0 it shows
+  up as a timeout.
+- `get_view_source_summary({ idView })` returns `extent_sp` as `{ lng1, lat1, lng2, lat2 }` (PostGIS
+  `ST_EstimatedExtent`, clamped to ±180/±90), not an array. For raster views MapX makes a WMS request
+  that can throw or hang; runtime GeoJSON views (EDRA) have no server source at all, so their bounds
+  are computed from the GeoJSON we build.
+- The SDK forwards no camera-move event (its events catalog for 1.14.0 has no `move` or `moveend`),
+  so the embed can't tell its host when the reader pans. Hosts poll with `get-view` if they need to.

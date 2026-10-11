@@ -223,6 +223,8 @@ deviations from the sketch above:
 - `set-state` is two commands, `set-tab` and `set-layers`. One message that may or may not carry
   layers is ambiguous at exactly the point where it matters: layers are a desired state, so
   "change the tab" and "change the tab, and turn everything else off" must not look alike.
+- Camera commands (`set-view`, `fit-bounds`, `fit-area`, `fit-layer`, `get-view` and the `view`
+  reply) were added to v1 later, with `ready.features` for detection (#47).
 - The embed's state adapter is `memoryAdapter`, not a `postMessageAdapter`. A host command is not an
   external URL change; it is delivered to `router.applyState()`, which is the same reconcile path a
   back/forward navigation takes. So the embed and the standalone app share one path instead of the
@@ -344,6 +346,7 @@ maps on one page is phase 2b (see the roadmap), and it is what has to finish thi
 | 1a    | `createRiskMap` boundary: the standalone app is its first consumer; injected adapter, allowlists, `destroy()`                   | **Done** (#15)           |
 | 1b    | `embed.html` with `tab`, `tabs`, `allow`, `layers`, `panel` URL params, in-memory adapter, v1 message API, PIN gate, no footer  | **Done** (#15)           |
 | 1c    | Hosting on www.undrr.org (undrr/web-backlog#3105) and a Gutenberg block emitting the iframe                                     | Hosting in progress      |
+| 1d    | Host camera control (`set-view`, `fit-bounds`, `fit-area`, `fit-layer`, `get-view`), camera URL params, command queue           | **Done** (#47)           |
 | 2     | Web component, Shadow DOM CSS, library build, versioned CDN, SRI, embed-code generator                                          | 1.5–2 weeks, conditional |
 | 2b    | Two maps on one page (shared caches keyed per section 3, per-instance SDK client and inspect); ties in with side-by-side panels | 3–5 days                 |
 
@@ -374,7 +377,11 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
 
 Still open:
 
-- Which sites www.undrr.org lets frame `embed.html` (§8, "Which sites can embed it").
+- Which sites www.undrr.org lets frame `embed.html`, and how Cloudflare's challenge behaves in a frame
+  (§8, "Which sites can embed it").
+- A generic MapX pass-through (`mapx { method, args }`, option B in #47). Not built: the named camera
+  commands cover the use cases so far, and a pass-through would tie hosts to MapX method names and view
+  ids. Revisit when a host needs something they don't cover.
 
 ## 8. How to embed (phase 1)
 
@@ -422,9 +429,22 @@ allowlists and `parentOrigin`, both described under the table.
 | `panel`        | `collapsed` or `expanded`                                                              | `expanded`                    |
 | `parentOrigin` | the host origin the embed exchanges messages with                                      | `document.referrer`'s origin  |
 | `instance`     | opaque id (`[A-Za-z0-9_-]`, ≤ 64) echoed in every message                              | none                          |
+| `bbox`         | `west,south,east,north` in degrees: fit the map to this box                            | the default world view        |
+| `center`       | `lng,lat` in degrees: centre the map here                                              | the default world view        |
+| `zoom`         | zoom level, clamped to 0–22                                                            | the default world view        |
+| `area`         | ISO 3166-1 alpha-3 country code (`KEN`) or M49 region code (`m49_014`): fit to it      | the default world view        |
 
 A source index the layer does not have falls back to its first source, at most 12 layers are opened,
 and info tabs (`home`, `sources`, `about`) are not addressable: an embed has no information pages.
+
+**Framing the map from the URL.** `bbox`, `center`/`zoom` and `area` set the camera once the map is
+ready and the URL's layers are on, with no animation. One of them wins, from the most precise to the
+least: **`bbox`, then `center` and/or `zoom`, then `area`**. A value that doesn't validate (a box whose
+west is east of its east, a latitude beyond ±90, `area=Kenya`) is dropped with a `console.warn` and the
+next one is used, so `?area=KEN&bbox=<typo>` still frames Kenya. Parameters outranked by a valid one
+are named in a warning too. Latitudes are clamped to the Web Mercator limit (±85.05°), and a box
+crossing the antimeridian isn't supported. If MapX can't apply the camera (an area code it doesn't
+know, say), the map keeps its default view and the host gets an `error` with no `id`.
 
 **An allowlist never widens.** `tabs` and `allow` exist to narrow what the embed shows, so the embed
 distinguishes "absent" from "resolved to nothing":
@@ -452,14 +472,50 @@ purpose.
 
 Every message, both ways, is `{ type: "undrr-risk-map", v: 1, instance?, id?, name, payload }`.
 
-| Direction    | `name`       | Payload                                                                              |
-| ------------ | ------------ | ------------------------------------------------------------------------------------ |
-| embed → host | `ready`      | `{ version, tabs, layers, locked }` — the tab ids and layer keys this embed can show |
-| embed → host | `state`      | `{ tab, layers }` after each settled change                                          |
-| embed → host | `error`      | `{ code, message }` — see the codes below                                            |
-| host → embed | `set-tab`    | `{ tab }`                                                                            |
-| host → embed | `set-layers` | `{ tab?, layers }` — a desired state, reconciled                                     |
-| host → embed | `get-state`  | `{}` — answered by a `state` message carrying the same `id`                          |
+| Direction    | `name`       | Payload                                                                            |
+| ------------ | ------------ | ---------------------------------------------------------------------------------- |
+| embed → host | `ready`      | `{ version, features, tabs, layers, locked }` — what this embed can do and show    |
+| embed → host | `state`      | `{ tab, layers }` after each settled change                                        |
+| embed → host | `view`       | `{ center: { lng, lat }, zoom, bounds: [w, s, e, n] }` — answers a camera command  |
+| embed → host | `error`      | `{ code, message }` — see the codes below                                          |
+| host → embed | `set-tab`    | `{ tab }`                                                                          |
+| host → embed | `set-layers` | `{ tab?, layers, variants? }` — a desired state, reconciled                        |
+| host → embed | `get-state`  | `{}` — answered by a `state` message carrying the same `id`                        |
+| host → embed | `set-view`   | `{ center?: { lng, lat }, zoom?, animate? }` — at least one of `center` and `zoom` |
+| host → embed | `fit-bounds` | `{ bounds: [west, south, east, north] }`                                           |
+| host → embed | `fit-area`   | `{ code, animate? }` — ISO3 (`"KEN"`) or M49 (`"m49_014"`)                         |
+| host → embed | `fit-layer`  | `{ key }` — a layer that is on (or turning on), fitted to the area it covers       |
+| host → embed | `get-view`   | `{}` — answered by a `view` message carrying the same `id`                         |
+
+`features` lists what was added to v1 after it first shipped: the five camera command names,
+`variants` (in `set-layers`), `queue` (commands sent before `ready` are kept) and `url-camera` (the
+`bbox`/`center`/`zoom`/`area` parameters). Check it before using any of them; an embed whose `ready`
+has no `features` speaks only `set-tab`, `set-layers` and `get-state`. Names are only ever added.
+
+**`variants`** is the `variants` URL parameter as an object: `{ [layerKey]: settings }`, applied to the
+entries of `layers` with those keys. It's read the same way as the URL parameter: a `variants` that
+isn't an object is ignored (with a console warning) and the layers still apply. Where an entry also
+carries its own `settings`, the variant wins, so a host can echo a `state` message's `layers` back with
+new `variants` to switch, say, the crop on the EDRA layer without reloading the frame:
+
+```js
+send("set-layers", {
+  layers: [{ key: "edra-crop-yield-reduction" }],
+  variants: { "edra-crop-yield-reduction": { crop: "MAIZE", scenario: "20" } },
+});
+```
+
+**The camera commands** answer with a `view` (carrying the command's `id`) once the camera has
+landed, or an `error`. `animate: true` flies (1.5 s); the default jumps. `zoom` is clamped to 0–22 and
+latitudes to ±85.05°, as in the URL. `fit-layer` takes the area a layer covers from the layer config's
+`bounds` when it has one, from the GeoJSON an external layer (EDRA) built, and otherwise from MapX's
+source summary for the view, which is asked once per view and given 8 seconds (raster views go through
+a WMS request that can hang). A layer that is **off** is refused with `layer-off` rather than turned
+on: turning it on is `set-layers`'s job, and the layer panel, `state` and the full-viewer link must keep
+agreeing with the map. A layer that is still **turning on** is waited for (up to 20 s), which is what
+lets a host send `set-layers` and `fit-layer` back to back. The embed doesn't post `view` when the
+reader pans or zooms: MapX's SDK has no camera-move event to hang it on, so a host that needs the
+current camera asks with `get-view`.
 
 ```js
 const frame = document.getElementById("risk-map");
@@ -478,23 +534,80 @@ window.addEventListener("message", (event) => {
 });
 ```
 
+**Orchestration: "turn on layer three, then zoom to it".** Commands run one at a time in the order
+they arrive, so a story step is a script, sent all at once. It can even be sent before `ready` arrives
+(see the rules below):
+
+```js
+const frame = document.getElementById("risk-map");
+const EMBED_ORIGIN = "https://www.undrr.org";
+const send = (name, payload, id) =>
+  frame.contentWindow.postMessage({ type: "undrr-risk-map", v: 1, name, payload, id }, EMBED_ORIGIN);
+
+// One story step. fit-layer waits for the layer set-layers is turning on.
+send("set-layers", { tab: "hazard", layers: [{ key: "landslides" }] }, "step-3a");
+send("fit-layer", { key: "landslides" }, "step-3b");
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== EMBED_ORIGIN) return;
+  const message = event.data;
+  if (!message || message.type !== "undrr-risk-map" || message.v !== 1) return;
+  if (message.id === "step-3b" && message.name === "view") console.log("framed", message.payload.bounds);
+  if (message.id === "step-3b" && message.name === "error") console.warn(message.payload.code); // e.g. layer-off
+});
+```
+
+**Framing a static figure from the URL alone.** A figure that only needs its own view needs no
+script: lock it to its layer and give it a camera.
+
+```html
+<iframe
+  src="https://www.undrr.org/m/risk-and-resilience-maps/embed.html?tabs=hazard&allow=landslides&layers=landslides&panel=collapsed&bbox=60,5,100,40"
+  title="Landslide hazard in South and South-East Asia"
+  width="100%"
+  height="480"
+  loading="lazy"
+  style="border: 0"
+></iframe>
+```
+
+Use `area=KEN` (or `area=m49_014` for Eastern Africa) to fit a country or region instead of a box, or
+`center=36.8,-1.3&zoom=6` for an exact point and zoom.
+
 Error codes:
 
-| `code`                | Meaning                                                                       |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state |
-| `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive   |
-| `malformed`           | a `set-layers` whose `layers` is not an array                                 |
-| `unsupported-version` | the `v` in a message is not one this build speaks — sent **once** per embed   |
-| `mapx-unavailable`    | the map service could not be reached                                          |
-| `layer-failed`        | one layer could not be added or removed                                       |
-| `command-failed`      | a command threw inside the embed                                              |
+| `code`                | Meaning                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state                  |
+| `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive                    |
+| `malformed`           | a `set-layers` whose `layers` is not an array, or a camera command whose values don't validate |
+| `queue-full`          | more than 32 commands were already waiting; this one was dropped                               |
+| `unknown-layer`       | `fit-layer` named a layer this embed doesn't show (outside its allowlist, or not a layer)      |
+| `layer-off`           | `fit-layer` named a layer that is off, or that failed to turn on                               |
+| `no-extent`           | `fit-layer`: neither the config nor MapX can say where the layer is                            |
+| `unknown-area`        | `fit-area`: MapX doesn't know the code                                                         |
+| `out-of-bounds`       | MapX refused to fit a box outside the map's limits; the camera didn't move                     |
+| `timeout`             | the map didn't answer a camera call in time (12 s), or a layer took over 20 s to turn on       |
+| `camera-failed`       | MapX rejected a camera call                                                                    |
+| `unsupported-version` | the `v` in a message is not one this build speaks — sent **once** per embed                    |
+| `mapx-unavailable`    | the map service could not be reached                                                           |
+| `layer-failed`        | one layer could not be added or removed                                                        |
+| `command-failed`      | a command threw inside the embed                                                               |
 
 Rules a host can rely on:
 
-- **Wait for `ready`.** Commands that arrive before MapX can accept layer changes are ignored, as a
-  back/forward navigation would be. `ready` can arrive twice while the prototype is gated: once with
-  `locked: true`, and again with `locked: false` once someone has entered the PIN in the frame.
+- **Commands sent before `ready` are queued** (feature `queue`), up to 32, and run in order once the
+  map is up, after the URL's own camera. Older embeds without `features` ignore them, so a host that
+  supports both waits for `ready`.
+- **`ready` can arrive more than once.** While the prototype is gated it arrives with `locked: true`,
+  then again with `locked: false` once someone has entered the PIN in the frame. Only the second means
+  the embed will take commands. **A locked embed queues nothing:** each command is answered with
+  `error: locked` straight away, so a host keeps its script and sends it again on the unlocked
+  `ready`. (Holding commands behind a PIN nobody may ever enter would leave a host waiting with no
+  answer.)
+- **One command at a time, in order.** A camera command is finished (answered with `view` or `error`)
+  before the next one starts; every MapX call it makes has a deadline, so the queue can't stall.
+  `set-tab` and `set-layers` are dispatched, not awaited: their outcome arrives as `state`, as before.
 - **Commands are a desired state, not a diff.** `set-layers` turns off anything not in the list.
 - **Everything is clamped** exactly as a URL parameter is: unknown keys dropped, indices checked,
   layers outside the embed's allowlist refused, at most 12 at a time.
@@ -514,8 +627,9 @@ Rules a host can rely on:
   `Referrer-Policy`, or a `parentOrigin` that doesn't parse) the embed still renders and works for the
   person looking at it, but it sends and accepts no messages. Add `&parentOrigin=<your origin>` to
   fix it.
-- A host can set layers, set the tab and read state. It can't navigate the embed or read anything
-  the schema above doesn't list, and the embed never touches the host page's URL or history: its
+- A host can set layers, set the tab, read state, and move and read the camera. It can't navigate
+  the embed, reach MapX directly (there is no pass-through to the SDK: layers are addressed by our
+  layer keys, never MapX view ids), or read anything the schema above doesn't list, and the embed never touches the host page's URL or history: its
   state lives in an in-memory adapter (`src/state/memory-adapter.js`).
 - Try it locally with the host harness in `tests/e2e/fixtures/embed-host.html` (it explains how to
   serve itself from a second port); `tests/e2e/embed.spec.js` is the same thing automated.
@@ -530,6 +644,13 @@ Rules a host can rely on:
   - `X-Frame-Options: SAMEORIGIN` (which Drupal sends on its own pages): only www.undrr.org pages can
     show the embed. Other sites, PreventionWeb included, get a blank frame.
   - No framing header: any site can show it.
+
+Cloudflare's managed-challenge response also carries `X-Frame-Options: SAMEORIGIN` (reported from the
+GAR 2026 prototype, #47). Whatever the embed's own headers say, a visitor whom Cloudflare challenges
+sees a blank frame on any other site (microsites-dev, staging, preventionweb.net, partners) until they
+have passed the challenge on www.undrr.org directly. Same-origin hosts (`/m/gar-2026/` framing
+`/m/risk-and-resilience-maps/`) aren't blocked by the header; whether the challenge itself completes
+inside a frame hasn't been checked. Both are Cloudflare and hosting settings, not code in this repo.
 
 To let PreventionWeb and other UNDRR sites embed it, the embed URL on www.undrr.org needs
 
