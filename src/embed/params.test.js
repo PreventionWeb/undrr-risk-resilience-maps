@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerRegistry } from "../config/registry.js";
-import { clampLayers, MAX_LAYERS, parseEmbedParams, parseOrigin } from "./params.js";
+import { clampLayers, MAX_LAYERS, parseCameraParams, parseEmbedParams, parseOrigin } from "./params.js";
 
 /** Parse a query string the way `embed.html` does, against the real layer config. */
 const parse = (search, context) => parseEmbedParams(search, context);
@@ -198,6 +198,7 @@ describe("parseEmbedParams", () => {
     const params = parse("?tab=hazard&pin=0403&chrome=full&__proto__=x");
     expect(params.tab).toBe("hazard");
     expect(Object.keys(params).sort()).toEqual([
+      "camera",
       "empty",
       "instance",
       "layerKeys",
@@ -207,6 +208,86 @@ describe("parseEmbedParams", () => {
       "tab",
       "tabIds",
     ]);
+  });
+});
+
+describe("parseCameraParams", () => {
+  let warn;
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => warn.mockRestore());
+
+  const camera = (search) => parseCameraParams(new URLSearchParams(search));
+  const warnings = () => warn.mock.calls.flat().join(" ");
+
+  it("is null when the URL names no camera", () => {
+    expect(camera("?tab=hazard")).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reads bbox as a fit-bounds, west,south,east,north", () => {
+    expect(camera("?bbox=-20,-35,52,38")).toEqual({
+      name: "fit-bounds",
+      payload: { bounds: [-20, -35, 52, 38] },
+    });
+  });
+
+  it("reads center and zoom as a set-view, either one alone too", () => {
+    expect(camera("?center=36.8,-1.3&zoom=6")).toEqual({
+      name: "set-view",
+      payload: { center: { lng: 36.8, lat: -1.3 }, zoom: 6 },
+    });
+    expect(camera("?zoom=4")).toEqual({ name: "set-view", payload: { zoom: 4 } });
+    expect(camera("?center=10,45")).toEqual({ name: "set-view", payload: { center: { lng: 10, lat: 45 } } });
+  });
+
+  it("reads area as a fit-area, normalising the code", () => {
+    expect(camera("?area=ken")).toEqual({ name: "fit-area", payload: { code: "KEN" } });
+    expect(camera("?area=M49_014")).toEqual({ name: "fit-area", payload: { code: "m49_014" } });
+  });
+
+  it("clamps the zoom and the latitude rather than refusing them", () => {
+    expect(camera("?center=0,89&zoom=40").payload).toEqual({ center: { lng: 0, lat: 85.051129 }, zoom: 22 });
+    expect(camera("?zoom=-3").payload).toEqual({ zoom: 0 });
+  });
+
+  it("prefers bbox, then center/zoom, then area, and names what it dropped", () => {
+    expect(camera("?area=KEN&center=10,45&bbox=0,0,10,10").name).toBe("fit-bounds");
+    expect(warnings()).toContain('"center", "area" ignored');
+    expect(camera("?area=KEN&zoom=5").name).toBe("set-view");
+  });
+
+  it("falls through to the next parameter when one does not validate", () => {
+    // A typo in the precise framing still leaves the coarse one.
+    expect(camera("?area=KEN&bbox=10,0,-10,5")).toEqual({ name: "fit-area", payload: { code: "KEN" } });
+    expect(warnings()).toContain('"bbox"');
+  });
+
+  it("ignores, and warns about, every value that is not a camera", () => {
+    for (const search of [
+      "?bbox=1,2,3",
+      "?bbox=a,b,c,d",
+      "?bbox=-200,0,10,10",
+      "?center=200,0",
+      "?center=10",
+      "?center=10,95",
+      "?zoom=",
+      "?zoom=far",
+      "?area=Kenya",
+      "?area=KE",
+      "?area=m49_1",
+      "?area=<script>",
+    ]) {
+      warn.mockClear();
+      expect(camera(search), search).toBeNull();
+      expect(warn, search).toHaveBeenCalled();
+    }
+  });
+
+  it("frames nothing for an embed that shows nothing", () => {
+    expect(parse("?allow=no-such-layer&area=KEN").camera).toBeNull();
+    expect(parse("?tab=hazard&area=KEN").camera).toEqual({ name: "fit-area", payload: { code: "KEN" } });
   });
 });
 

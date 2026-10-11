@@ -36,6 +36,13 @@
  * | `panel`        | `collapsed` or `expanded`                    | `expanded`          |
  * | `parentOrigin` | the host origin messages are exchanged with  | `document.referrer` |
  * | `instance`     | opaque id echoed in every message            | none                |
+ * | `bbox`         | `west,south,east,north` to fit the map to    | the default view    |
+ * | `center`       | `lng,lat` to centre the map on               | the default view    |
+ * | `zoom`         | zoom level, clamped to 0–22                  | the default view    |
+ * | `area`         | ISO3 country or `m49_` region code to fit to | the default view    |
+ *
+ * The camera parameters frame the map once it is ready; see `parseCameraParams`
+ * for which wins when several are given.
  *
  * `layers` and `variants` are parsed by the same code as the share-link hash
  * (`parseLayerParams` in state/hash.js), so an embed URL and a share link cannot
@@ -48,6 +55,7 @@ import { createLayerRegistry } from "../config/registry.js";
 import { clampSourceIdx } from "../services/layer-controller.js";
 import { parseLayerParams } from "../state/hash.js";
 import { selectTabs } from "../app/create-risk-map.js";
+import { parseAreaCode, parseBounds, parseCenter, parseZoom } from "../utils/camera.js";
 
 /**
  * How many layers an embed URL (or a host command) may open at once. Each one is
@@ -195,6 +203,7 @@ export function clampLayers(layers, { allowed, registry, collection = null }) {
  *   panelCollapsed: boolean,
  *   parentOrigin: string|null,
  *   instance: string|null,
+ *   camera: { name: string, payload: object }|null,
  * }}
  */
 export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {}) {
@@ -281,7 +290,71 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
     panelCollapsed: params.get("panel") === "collapsed",
     parentOrigin: resolveParentOrigin(params, referrer),
     instance: instance && INSTANCE_PATTERN.test(instance) ? instance : null,
+    camera: empty ? null : parseCameraParams(params),
   };
+}
+
+/**
+ * The camera an embed URL asks for, as the host command that would ask for it
+ * (`fit-bounds`, `set-view` or `fit-area`), or null for the default view.
+ *
+ * One camera wins, from the most precise to the least: `bbox`, then `center`
+ * and/or `zoom`, then `area`. A parameter that does not validate falls through
+ * to the next one, so `?area=KEN&bbox=<typo>` still frames Kenya. Every
+ * parameter that was dropped, as invalid or as outranked, is named in a
+ * `console.warn`.
+ *
+ * @param {URLSearchParams} params
+ * @returns {{ name: "fit-bounds"|"set-view"|"fit-area", payload: object }|null}
+ */
+export function parseCameraParams(params) {
+  const candidates = [];
+  const invalid = (name) =>
+    console.warn(`Embed parameter "${name}": "${params.get(name)}" is not valid and was ignored.`);
+
+  if (params.has("bbox")) {
+    const bounds = parseBounds(params.get("bbox"));
+    if (bounds) candidates.push({ from: ["bbox"], name: "fit-bounds", payload: { bounds } });
+    else invalid("bbox");
+  }
+
+  if (params.has("center") || params.has("zoom")) {
+    const from = [];
+    const payload = {};
+    if (params.has("center")) {
+      const center = parseCenter(params.get("center"));
+      if (center) {
+        payload.center = center;
+        from.push("center");
+      } else invalid("center");
+    }
+    if (params.has("zoom")) {
+      const zoom = parseZoom(params.get("zoom"));
+      if (zoom !== null) {
+        payload.zoom = zoom;
+        from.push("zoom");
+      } else invalid("zoom");
+    }
+    if (from.length > 0) candidates.push({ from, name: "set-view", payload });
+  }
+
+  if (params.has("area")) {
+    const code = parseAreaCode(params.get("area"));
+    if (code) candidates.push({ from: ["area"], name: "fit-area", payload: { code } });
+    else invalid("area");
+  }
+
+  const [winner, ...outranked] = candidates;
+  if (!winner) return null;
+  const dropped = outranked.flatMap((candidate) => candidate.from);
+  if (dropped.length > 0) {
+    console.warn(
+      `Embed parameters ${dropped.map((name) => `"${name}"`).join(", ")} ignored: ` +
+        `${winner.from.map((name) => `"${name}"`).join(" and ")} already frame${winner.from.length === 1 ? "s" : ""} the map ` +
+        `(precedence: bbox, then center/zoom, then area).`,
+    );
+  }
+  return { name: winner.name, payload: winner.payload };
 }
 
 /**
