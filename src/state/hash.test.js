@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseHash, writeHash, getLayerByKey } from "./hash.js";
+import { applyVariants, parseHash, writeHash, getLayerByKey } from "./hash.js";
 
 beforeEach(() => {
   window.location.hash = "";
@@ -166,5 +166,34 @@ describe("getLayerByKey", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getLayerByKey("does-not-exist")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyVariants
+// ---------------------------------------------------------------------------
+
+describe("applyVariants", () => {
+  it("attaches object settings to the entries it names, replacing any they carry", () => {
+    const layers = [{ key: "a", settings: { crop: "WHEAT" } }, { key: "b" }, { key: "c" }];
+    expect(applyVariants(layers, { a: { crop: "MAIZE" }, b: "junk", c: ["x"], d: { crop: "RICE" } })).toBe(
+      true,
+    );
+    expect(layers).toEqual([{ key: "a", settings: { crop: "MAIZE" } }, { key: "b" }, { key: "c" }]);
+  });
+
+  it("ignores variants that are not a plain object", () => {
+    for (const variants of [null, undefined, "x", 3, ["a"]]) {
+      const layers = [{ key: "a" }];
+      expect(applyVariants(layers, variants)).toBe(false);
+      expect(layers).toEqual([{ key: "a" }]);
+    }
+  });
+
+  it("does not read inherited keys", () => {
+    const layers = [{ key: "toString" }, { key: "__proto__" }];
+    applyVariants(layers, JSON.parse('{"__proto__": {"crop": "X"}}'));
+    expect(layers[0]).toEqual({ key: "toString" });
+    expect(layers[1].settings).toEqual({ crop: "X" });
   });
 });

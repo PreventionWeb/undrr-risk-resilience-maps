@@ -6,14 +6,23 @@
  *
  *   { type: "undrr-risk-map", v: 1, instance?, id?, name, payload }
  *
- * | direction    | name         | payload                                     |
- * | ------------ | ------------ | ------------------------------------------- |
- * | embed → host | `ready`      | `{ version, tabs, layers, locked }`         |
- * | embed → host | `state`      | `{ tab, layers }` after each settled change |
- * | embed → host | `error`      | `{ code, message }`                         |
- * | host → embed | `set-layers` | `{ tab?, layers }`                          |
- * | host → embed | `set-tab`    | `{ tab }`                                   |
- * | host → embed | `get-state`  | `{}` — answered by `state` with the same id  |
+ * | direction    | name         | payload                                               |
+ * | ------------ | ------------ | ----------------------------------------------------- |
+ * | embed → host | `ready`      | `{ version, features, tabs, layers, locked }`         |
+ * | embed → host | `state`      | `{ tab, layers }` after each settled change           |
+ * | embed → host | `view`       | `{ center, zoom, bounds }` answering a camera command |
+ * | embed → host | `error`      | `{ code, message }`                                   |
+ * | host → embed | `set-layers` | `{ tab?, layers, variants? }`                         |
+ * | host → embed | `set-tab`    | `{ tab }`                                             |
+ * | host → embed | `get-state`  | `{}` — answered by `state` with the same id            |
+ * | host → embed | `set-view`   | `{ center?, zoom?, animate? }`                        |
+ * | host → embed | `fit-bounds` | `{ bounds: [w, s, e, n], animate? }`                  |
+ * | host → embed | `fit-area`   | `{ code, animate? }` — ISO3 or `m49_` code            |
+ * | host → embed | `fit-layer`  | `{ key, animate? }` — a layer that is on              |
+ * | host → embed | `get-view`   | `{}` — answered by `view` with the same id             |
+ *
+ * The camera commands and `variants` are additions to v1, so `ready` lists them
+ * in `features` for a host to detect; an embed without `features` predates them.
  *
  * ## Security model
  *
@@ -54,10 +63,41 @@ export const MESSAGE_VERSION = 1;
  * exist for a map, so the honest version of the feature is not shipping it.
  * Hosts give the frame a height (docs/embedding.md §8).
  */
-export const OUTBOUND = ["ready", "state", "error"];
+export const OUTBOUND = ["ready", "state", "view", "error"];
 
 /** Names the embed accepts. */
-export const INBOUND = ["set-layers", "set-tab", "get-state"];
+export const INBOUND = [
+  "set-layers",
+  "set-tab",
+  "get-state",
+  "set-view",
+  "fit-bounds",
+  "fit-area",
+  "fit-layer",
+  "get-view",
+];
+
+/**
+ * What this build can do beyond the original v1 (`set-tab`, `set-layers`,
+ * `get-state`), advertised in `ready.features` so a host can feature-detect
+ * instead of comparing builds. Additive: a name is never removed from v1.
+ *
+ * - the camera commands, by message name;
+ * - `variants`: `set-layers` accepts a `variants` object;
+ * - `queue`: commands sent before `ready` are kept and run in order once the
+ *   map is up, instead of being ignored;
+ * - `url-camera`: the `bbox`, `center`, `zoom` and `area` URL parameters.
+ */
+export const FEATURES = [
+  "set-view",
+  "fit-bounds",
+  "fit-area",
+  "fit-layer",
+  "get-view",
+  "variants",
+  "queue",
+  "url-camera",
+];
 
 /** Largest accepted `id`, which is echoed back verbatim. */
 const MAX_ID_LENGTH = 64;

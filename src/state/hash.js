@@ -45,21 +45,39 @@ export function parseLayerParams(params) {
   const variantsStr = params.get("variants");
   if (variantsStr) {
     try {
-      const variants = JSON.parse(variantsStr);
-      if (variants && typeof variants === "object" && !Array.isArray(variants)) {
-        for (const layer of layers) {
-          const settings = variants[layer.key];
-          if (settings && typeof settings === "object" && !Array.isArray(settings)) {
-            layer.settings = settings;
-          }
-        }
-      }
+      applyVariants(layers, JSON.parse(variantsStr));
     } catch {
       // Invalid optional variant state must not break ordinary layer restore.
     }
   }
 
   return layers;
+}
+
+/**
+ * Attach per-layer provider settings (`variants`: `{ [layerKey]: settings }`)
+ * to the entries of a layers array, in place.
+ *
+ * The one reading of `variants`, shared by the share-link hash, the embed's
+ * `variants` URL parameter and its host's `set-layers` command. A `variants`
+ * that is not a plain object is ignored (returns `false`), as is an entry
+ * whose settings are not one; a key no entry has is ignored too. Where an
+ * entry already carries `settings`, the variant replaces them: a host that
+ * echoes a `state` message's layers back with new `variants` is asking for
+ * the new ones.
+ *
+ * @param {Array<{key: string, settings?: object}>} layers
+ * @param {unknown} variants
+ * @returns {boolean} whether `variants` had a usable shape
+ */
+export function applyVariants(layers, variants) {
+  if (!variants || typeof variants !== "object" || Array.isArray(variants)) return false;
+  for (const layer of layers) {
+    if (!layer || typeof layer !== "object" || !Object.hasOwn(variants, layer.key)) continue;
+    const settings = variants[layer.key];
+    if (settings && typeof settings === "object" && !Array.isArray(settings)) layer.settings = settings;
+  }
+  return true;
 }
 
 /**
