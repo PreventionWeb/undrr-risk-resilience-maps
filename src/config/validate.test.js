@@ -70,6 +70,20 @@ describe("validateLayers", () => {
     expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).not.toThrow();
   });
 
+  it("passes for a layer with valid bounds", () => {
+    const layer = makeSimpleLayer({ bounds: [-20, -35, 52, 38] });
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).not.toThrow();
+  });
+
+  it("throws for malformed bounds, which fit-layer would otherwise skip in silence", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const bounds of [[10, 0, -10, 5], [0, 0, 10], "0,0,10,10", [0, 95, 10, 96]]) {
+      const layer = makeSimpleLayer({ bounds });
+      expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY), JSON.stringify(bounds)).toThrow();
+    }
+    vi.restoreAllMocks();
+  });
+
   // --- tab-level errors ---
 
   it("throws when a tab is missing id", () => {

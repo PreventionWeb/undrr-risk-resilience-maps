@@ -277,7 +277,17 @@ describe("createEDRAView", () => {
         { color: "#557733", label: ">4%" },
         { color: "#cccccc", label: "No data" },
       ],
+      bounds: expect.any(Array),
     });
+    // The fixture region is in EPSG:3035; its bounds are reported in WGS84,
+    // which is what `fit-layer` hands to MapX.
+    const [west, south, east, north] = result.bounds;
+    expect(west).toBeLessThan(east);
+    expect(south).toBeLessThan(north);
+    expect(west).toBeGreaterThan(-30);
+    expect(east).toBeLessThan(45);
+    expect(south).toBeGreaterThan(30);
+    expect(north).toBeLessThan(75);
     expect(sdk.ask).toHaveBeenNthCalledWith(
       1,
       "view_geojson_create",

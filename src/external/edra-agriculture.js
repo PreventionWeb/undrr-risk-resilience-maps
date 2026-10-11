@@ -9,6 +9,7 @@
 import proj4 from "proj4";
 import { getSDK } from "../sdk/client.js";
 import { EDRA_CROPS, EDRA_SCENARIOS } from "./edra-agriculture-controls.js";
+import { geojsonBounds } from "../utils/camera.js";
 
 export { EDRA_CROPS, EDRA_SCENARIOS, EDRA_CONTROLS } from "./edra-agriculture-controls.js";
 
@@ -379,6 +380,9 @@ export async function createEDRAView(settings, sdk = getSDK()) {
     idView,
     settings: { crop: crop.value, scenario: scenario.value },
     legend: style.legend,
+    // What the embed's `fit-layer` fits to: MapX's source summary has nothing
+    // to report for a runtime GeoJSON view, which has no server source.
+    bounds: geojsonBounds(data),
   };
 }
 
