@@ -326,21 +326,36 @@ const reply = async (page, id) => {
 };
 
 test.describe("embed: camera from the URL", () => {
-  test("fits a country named by area once the map is ready", async ({ page }) => {
+  test("fits a country named by area once the map is ready, without MapX's own fit", async ({ page }) => {
     await gotoEmbed(page, "?tab=hazard&area=ken");
     await expect
-      .poll(() => stubCalls(page, "common_loc_fit_bbox"))
-      .toEqual([{ method: "common_loc_fit_bbox", params: { code: "KEN", param: { duration: 0 } } }]);
+      .poll(() => page.evaluate(() => window.__mapxStub.camera.bounds))
+      .toEqual([33.9, -4.7, 41.9, 5.0]);
+    expect(await stubCalls(page, "common_loc_get_bbox")).toEqual([
+      { method: "common_loc_get_bbox", params: { code: "KEN" } },
+    ]);
+    // `common_loc_fit_bbox` with no animation never answers on real MapX.
+    expect(await stubCalls(page, "common_loc_fit_bbox")).toEqual([]);
   });
 
-  test("prefers bbox to center/zoom and area, and frames the map to it", async ({ page }) => {
-    await gotoEmbed(page, "?tab=hazard&layers=landslides&area=KEN&zoom=5&bbox=-20,-35,52,38");
+  test("prefers bbox to center and area, and frames the map to it without animation", async ({ page }) => {
+    await gotoEmbed(page, "?tab=hazard&layers=landslides&area=KEN&center=10,10&bbox=-20,-35,52,38");
     await expect.poll(() => page.evaluate(() => window.__mapxStub.camera.bounds)).toEqual([-20, -35, 52, 38]);
-    expect(await stubCalls(page, "common_loc_fit_bbox")).toEqual([]);
-    expect(await stubCalls(page, "map_jump_to")).toEqual([]);
+    expect(await stubCalls(page, "common_loc_get_bbox")).toEqual([]);
+    expect(await stubCalls(page, "map_fly_to")).toEqual([]);
+    expect(await stubCalls(page, "map_jump_to")).toHaveLength(1);
     // The URL's layers are restored before the camera moves: `ready` waits for them.
     const calls = await page.evaluate(() => window.__mapxStub.calls.map((call) => call.method));
-    expect(calls.indexOf("view_add")).toBeLessThan(calls.indexOf("map_set_bounds_array"));
+    expect(calls.indexOf("view_add")).toBeLessThan(calls.indexOf("map_jump_to"));
+  });
+
+  test("applies a zoom without a centre after the area fit", async ({ page }) => {
+    await gotoEmbed(page, "?tab=hazard&area=KEN&zoom=4");
+    await expect.poll(() => page.evaluate(() => window.__mapxStub.camera.zoom)).toBe(4);
+    const jumps = await stubCalls(page, "map_jump_to");
+    expect(jumps).toHaveLength(2);
+    expect(jumps[1].params).toEqual({ zoom: 4 });
+    expect((await page.evaluate(() => window.__mapxStub.camera.center)).lng).toBeCloseTo(37.9);
   });
 
   test("ignores a camera parameter that does not validate, and keeps the default view", async ({ page }) => {
@@ -391,7 +406,8 @@ test.describe("embed: host camera control", () => {
 
     const calls = await embedFrame(page).evaluate(() => window.__mapxStub.calls.map((call) => call.method));
     expect(calls.indexOf("view_add")).toBeLessThan(calls.indexOf("get_view_source_summary"));
-    expect(calls.indexOf("get_view_source_summary")).toBeLessThan(calls.indexOf("map_set_bounds_array"));
+    expect(calls.indexOf("get_view_source_summary")).toBeLessThan(calls.indexOf("map_jump_to"));
+    expect(calls).not.toContain("map_set_bounds_array");
   });
 
   test("refuses to fit a layer that is off, or one the embed does not show", async ({ page, origins }) => {
@@ -405,9 +421,19 @@ test.describe("embed: host camera control", () => {
         "unknown-layer",
       );
     }
-    expect(await stubCalls(embedFrame(page), "map_set_bounds_array")).toEqual([]);
+    expect(await stubCalls(embedFrame(page), "map")).toEqual([]);
     // Refusing did not turn anything on behind the layer state's back.
     expect(await stubCalls(embedFrame(page), "view_add")).toEqual([]);
+  });
+
+  test("fits a raster layer whose extent MapX reports north edge first", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tab=hazard&layers=landslides");
+    await embedFrame(page).evaluate(() => {
+      window.__mapxStub.defaultExtent = { lng1: 60, lat1: 40, lng2: 100, lat2: 5 };
+    });
+    const view = await reply(page, await sendWithId(page, "fit-layer", { key: "landslides", animate: true }));
+    expect(view).toMatchObject({ name: "view", payload: { bounds: [60, 5, 100, 40] } });
+    expect(await stubCalls(embedFrame(page), "map_fly_to")).toHaveLength(1);
   });
 
   test("reports no-extent for a layer MapX cannot give an extent for", async ({ page, origins }) => {
@@ -441,15 +467,31 @@ test.describe("embed: host camera control", () => {
     expect(
       (await reply(page, await sendWithId(page, "fit-area", { code: "m49_014" }))).payload.bounds,
     ).toEqual([21.0, -26.9, 51.4, 18.0]);
+    // Answered as soon as MapX says it has no box, not after a timeout.
+    const started = Date.now();
     expect((await reply(page, await sendWithId(page, "fit-area", { code: "XYZ" }))).payload.code).toBe(
       "unknown-area",
     );
+    expect(Date.now() - started).toBeLessThan(3000);
+    const animated = await reply(page, await sendWithId(page, "fit-area", { code: "KEN", animate: true }));
+    expect(animated.payload.bounds).toEqual([33.9, -4.7, 41.9, 5.0]);
+    await embedFrame(page).evaluate(() => {
+      window.__mapxStub.maxBounds = [-30, -40, 60, 40];
+    });
+    expect(
+      (await reply(page, await sendWithId(page, "fit-bounds", { bounds: [50, 0, 70, 10] }))).payload.code,
+    ).toBe("out-of-bounds");
+    await embedFrame(page).evaluate(() => {
+      window.__mapxStub.maxBounds = null;
+    });
     expect((await reply(page, await sendWithId(page, "fit-area", { code: "Kenya" }))).payload.code).toBe(
       "malformed",
     );
-    expect((await reply(page, await sendWithId(page, "fit-bounds", { bounds: [0, 0, 10, 10] }))).name).toBe(
-      "view",
-    );
+    // The view is read once the camera has landed, not mid-flight.
+    expect(
+      (await reply(page, await sendWithId(page, "fit-bounds", { bounds: [0, 0, 10, 10], animate: true })))
+        .payload.bounds,
+    ).toEqual([0, 0, 10, 10]);
     expect(
       (await reply(page, await sendWithId(page, "fit-bounds", { bounds: [10, 0, -10, 5] }))).payload.code,
     ).toBe("malformed");
