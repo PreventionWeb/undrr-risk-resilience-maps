@@ -304,15 +304,28 @@ describe("createRiskMap", () => {
   });
 
   describe("camera", () => {
-    /** Answer `ask(method)` from a table; anything else resolves `true`. */
+    /** Answer `ask(method)` from a table (over MapX-like fitting defaults); anything else resolves `true`. */
     function answer(table) {
+      const answers = {
+        map_get_max_bounds_array: null,
+        map: ({ parameters: [bounds] }) => ({
+          center: { lng: (bounds[0] + bounds[2]) / 2, lat: (bounds[1] + bounds[3]) / 2 },
+          zoom: 3,
+        }),
+        ...table,
+      };
       manager.ask.mockImplementation(async (method, params) => {
-        const value = table[method];
-        return typeof value === "function" ? value(params) : (value ?? true);
+        if (!(method in answers)) return true;
+        const value = answers[method];
+        return typeof value === "function" ? value(params) : value;
       });
     }
 
     const asked = (method) => manager.ask.mock.calls.filter(([name]) => name === method);
+    /** The boxes the camera was fitted to (through cameraForBounds). */
+    const fitted = () => asked("map").map(([, params]) => params.parameters[0]);
+
+    beforeEach(() => answer({}));
 
     it("refuses camera calls before the map is ready", async () => {
       await start();
@@ -348,8 +361,9 @@ describe("createRiskMap", () => {
     it("reports bounds MapX will not show as out-of-bounds", async () => {
       await start();
       await manager.ready();
-      answer({ map_set_bounds_array: false });
+      answer({ map_get_max_bounds_array: [20, 20, 30, 30] });
       await expect(instance.fitBounds([0, 0, 10, 10])).rejects.toMatchObject({ code: "out-of-bounds" });
+      expect(asked("map_jump_to")).toEqual([]);
     });
 
     it("fits a layer to its configured bounds without asking MapX for an extent", async () => {
@@ -357,8 +371,9 @@ describe("createRiskMap", () => {
       await manager.ready();
       await waitFor(() => expect(instance.getState().layers).toHaveLength(1));
 
-      await instance.fitLayer("beta");
-      expect(asked("map_set_bounds_array")[0][1]).toEqual({ bounds: [-20, -35, 52, 38] });
+      await instance.fitLayer("beta", { animate: true });
+      expect(fitted()).toEqual([[-20, -35, 52, 38]]);
+      expect(asked("map_fly_to")[0][1]).toMatchObject({ center: { lng: 16, lat: 1.5 }, zoom: 3 });
       expect(asked("get_view_source_summary")).toEqual([]);
     });
 
@@ -371,10 +386,11 @@ describe("createRiskMap", () => {
       await instance.fitLayer("alpha");
       await instance.fitLayer("alpha");
       expect(asked("get_view_source_summary")).toEqual([["get_view_source_summary", { idView: "MX-ALPHA" }]]);
-      expect(asked("map_set_bounds_array").map(([, params]) => params.bounds)).toEqual([
+      expect(fitted()).toEqual([
         [-10, -5, 30, 25],
         [-10, -5, 30, 25],
       ]);
+      expect(asked("map_jump_to")).toHaveLength(2);
     });
 
     it("reports no-extent when MapX has no usable extent for the view", async () => {
@@ -384,7 +400,7 @@ describe("createRiskMap", () => {
       answer({ get_view_source_summary: { extent_sp: {} } });
 
       await expect(instance.fitLayer("alpha")).rejects.toMatchObject({ code: "no-extent" });
-      expect(asked("map_set_bounds_array")).toEqual([]);
+      expect(fitted()).toEqual([]);
     });
 
     it("refuses to fit a layer that is off, and does not turn it on", async () => {
@@ -407,13 +423,13 @@ describe("createRiskMap", () => {
       viewAdd.mockImplementationOnce(() => new Promise((resolve) => (finishAdd = resolve)));
 
       instance.setLayers([{ key: "beta", sourceIdx: 0 }]);
-      const fitted = instance.fitLayer("beta");
+      const fitting = instance.fitLayer("beta");
       await waitFor(() => expect(finishAdd).toBeTypeOf("function"));
-      expect(asked("map_set_bounds_array")).toEqual([]);
+      expect(fitted()).toEqual([]);
 
       finishAdd();
-      await fitted;
-      expect(asked("map_set_bounds_array")).toHaveLength(1);
+      await fitting;
+      expect(fitted()).toHaveLength(1);
     });
 
     it("reports layer-off when the layer it was waiting for fails to turn on", async () => {

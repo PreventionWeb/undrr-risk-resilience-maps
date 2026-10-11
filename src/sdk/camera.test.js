@@ -79,28 +79,97 @@ describe("createCamera", () => {
     expect(FLY_DURATION_MS).toBeLessThan(10_000);
   });
 
-  it("fits an area with no animation unless asked", async () => {
-    const sdk = fakeSdk();
-    const camera = createCamera(() => sdk);
-    await camera.fitArea("KEN");
-    await camera.fitArea("m49_014", { animate: true });
-    expect(sdk.ask.mock.calls).toEqual([
-      ["common_loc_fit_bbox", { code: "KEN", param: { duration: 0 } }],
-      ["common_loc_fit_bbox", { code: "m49_014", param: { duration: FLY_DURATION_MS } }],
-    ]);
-  });
-
-  it("reports an area MapX rejects, or never answers for, as unknown-area", async () => {
-    vi.useFakeTimers();
-    const rejecting = { ask: vi.fn().mockRejectedValue(new Error("unknown code")) };
-    await expect(createCamera(() => rejecting).fitArea("XYZ")).rejects.toMatchObject({
-      code: "unknown-area",
+  /** An SDK that fits like MapX: max bounds, cameraForBounds, then a move. */
+  const fittingSdk = (extra = {}) =>
+    fakeSdk({
+      map_get_max_bounds_array: null,
+      map: ({ method, parameters: [bounds] }) =>
+        method === "cameraForBounds"
+          ? {
+              center: { lng: (bounds[0] + bounds[2]) / 2, lat: (bounds[1] + bounds[3]) / 2 },
+              zoom: 5,
+              bearing: 0,
+            }
+          : true,
+      common_loc_get_bbox: ({ code }) => ({ KEN: [33.9, -4.7, 41.9, 5.0] })[code] ?? null,
+      ...extra,
     });
 
-    const hanging = createCamera(() => ({ ask: never }), { timeoutMs: 100 }).fitArea("XYZ");
-    const assertion = expect(hanging).rejects.toMatchObject({ code: "unknown-area" });
+  it("fits a box by computing the camera and jumping, or flying when asked", async () => {
+    const sdk = fittingSdk();
+    const camera = createCamera(() => sdk);
+    await camera.fitBounds([0, 0, 10, 10]);
+    await camera.fitBounds([0, 0, 10, 10], { animate: true });
+    expect(sdk.ask.mock.calls.map(([method]) => method)).toEqual([
+      "map_get_max_bounds_array",
+      "map",
+      "map_jump_to",
+      "map_get_max_bounds_array",
+      "map",
+      "map_fly_to",
+    ]);
+    expect(sdk.ask).toHaveBeenCalledWith("map", { method: "cameraForBounds", parameters: [[0, 0, 10, 10]] });
+    expect(sdk.ask).toHaveBeenCalledWith("map_jump_to", { center: { lng: 5, lat: 5 }, zoom: 5 });
+    expect(sdk.ask).toHaveBeenCalledWith("map_fly_to", {
+      center: { lng: 5, lat: 5 },
+      zoom: 5,
+      duration: FLY_DURATION_MS,
+    });
+    // Never MapX's own fitting resolvers: one answers before the camera lands,
+    // the other never answers without animation.
+    const used = sdk.ask.mock.calls.map(([method]) => method);
+    expect(used).not.toContain("map_set_bounds_array");
+    expect(used).not.toContain("common_loc_fit_bbox");
+  });
+
+  it("refuses a box outside the map's max bounds, without moving", async () => {
+    const sdk = fittingSdk({ map_get_max_bounds_array: [-30, -40, 60, 40] });
+    const camera = createCamera(() => sdk);
+    await expect(camera.fitBounds([50, 0, 70, 10])).rejects.toMatchObject({ code: "out-of-bounds" });
+    expect(sdk.ask.mock.calls.map(([method]) => method)).toEqual(["map_get_max_bounds_array"]);
+    await camera.fitBounds([0, 0, 10, 10]);
+    expect(sdk.ask).toHaveBeenCalledWith("map_jump_to", expect.anything());
+  });
+
+  it("is camera-failed when MapX cannot compute a camera for the box", async () => {
+    const sdk = fittingSdk({ map: undefined });
+    await expect(createCamera(() => sdk).fitBounds([0, 0, 10, 10])).rejects.toMatchObject({
+      code: "camera-failed",
+    });
+  });
+
+  it("fits an area from its MapX box, by the same path as a box", async () => {
+    const sdk = fittingSdk();
+    await createCamera(() => sdk).fitArea("KEN", { animate: true });
+    expect(sdk.ask).toHaveBeenCalledWith("common_loc_get_bbox", { code: "KEN" });
+    expect(sdk.ask).toHaveBeenCalledWith("map", {
+      method: "cameraForBounds",
+      parameters: [[33.9, -4.7, 41.9, 5.0]],
+    });
+    expect(sdk.ask.mock.calls.at(-1)[0]).toBe("map_fly_to");
+  });
+
+  it("reports a code MapX answers null for as unknown-area, at once and without moving", async () => {
+    const sdk = fittingSdk();
+    await expect(createCamera(() => sdk).fitArea("XYZ")).rejects.toMatchObject({ code: "unknown-area" });
+    expect(sdk.ask.mock.calls.map(([method]) => method)).toEqual(["common_loc_get_bbox"]);
+  });
+
+  it("keeps a timeout a timeout, not an unknown area", async () => {
+    vi.useFakeTimers();
+    const hanging = createCamera(() => ({ ask: never }), { timeoutMs: 100 }).fitArea("KEN");
+    const assertion = expect(hanging).rejects.toMatchObject({ code: "timeout" });
     await vi.advanceTimersByTimeAsync(100);
     await assertion;
+  });
+
+  it("names no MapX method in a message a host will read, but keeps it for the console", async () => {
+    const sdk = { ask: vi.fn().mockRejectedValue(new Error("resolver failed")) };
+    const error = await createCamera(() => sdk)
+      .setView({ zoom: 2 })
+      .catch((caught) => caught);
+    expect(error.message).not.toMatch(/map_|MX-/);
+    expect(error.method).toBe("map_jump_to");
   });
 
   it("caches a view's extent, and forgets a failure so the next fit can retry", async () => {
@@ -118,6 +187,18 @@ describe("createCamera", () => {
     await expect(camera.viewExtent("MX-1")).resolves.toEqual([-10, -5, 30, 25]);
     await expect(camera.viewExtent("MX-1")).resolves.toEqual([-10, -5, 30, 25]);
     expect(calls).toBe(2);
+  });
+
+  it("remembers a summary that timed out, rather than taking another request slot", async () => {
+    vi.useFakeTimers();
+    const ask = vi.fn(never);
+    const camera = createCamera(() => ({ ask }), { extentTimeoutMs: 200 });
+    const first = camera.viewExtent("MX-RT");
+    const assertion = expect(first).rejects.toMatchObject({ code: "no-extent" });
+    await vi.advanceTimersByTimeAsync(200);
+    await assertion;
+    await expect(camera.viewExtent("MX-RT")).rejects.toMatchObject({ code: "no-extent" });
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 
   it("gives up on a raster view whose summary hangs, as no-extent", async () => {

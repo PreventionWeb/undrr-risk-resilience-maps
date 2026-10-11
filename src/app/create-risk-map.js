@@ -64,7 +64,7 @@ export const RISK_MAP_EVENTS = ["ready", "state", "error"];
  * one (MapX up to 1.14.0, LEARNINGS.md) never settles, and the caller must
  * still get an answer.
  */
-export const LAYER_SETTLE_TIMEOUT_MS = 20_000;
+export const LAYER_SETTLE_TIMEOUT_MS = 15_000;
 
 /** A MapX call for this layer is in flight, or intent has not been applied yet. */
 const BUSY_STATUSES = new Set(["loading", "removing", "switching"]);
@@ -138,9 +138,9 @@ export function selectTabs(allTabs, { tabs: tabIds = null, layers: layerKeys = n
  *   setLayers(layers: Array<object>): void,
  *   getView(): Promise<{ center: { lng: number, lat: number }, zoom: number, bounds: number[]|null }>,
  *   setView(view: { center?: object, zoom?: number, animate?: boolean }): Promise<void>,
- *   fitBounds(bounds: number[]): Promise<void>,
+ *   fitBounds(bounds: number[], options?: { animate?: boolean }): Promise<void>,
  *   fitArea(code: string, options?: { animate?: boolean }): Promise<void>,
- *   fitLayer(key: string): Promise<void>,
+ *   fitLayer(key: string, options?: { animate?: boolean }): Promise<void>,
  *   on(event: "ready"|"state"|"error", fn: Function): () => void,
  *   destroy(): void,
  *   readonly tabs: string[],
@@ -478,10 +478,10 @@ export function createRiskMap(root, options = {}) {
       });
     },
     /** Fit the camera to validated bounds `[w, s, e, n]`. */
-    fitBounds(bounds) {
+    fitBounds(bounds, options) {
       return Promise.resolve().then(() => {
         cameraReady();
-        return camera.fitBounds(bounds);
+        return camera.fitBounds(bounds, options);
       });
     },
     /** Fit the camera to a validated ISO3 or M49 area code. */
@@ -497,8 +497,9 @@ export function createRiskMap(root, options = {}) {
      * `set-layers` and `fit-layer` back to back. A layer that is off is refused
      * (`layer-off`) rather than turned on behind the layer state's back.
      * @param {string} key
+     * @param {{ animate?: boolean }} [options]
      */
-    async fitLayer(key) {
+    async fitLayer(key, { animate = false } = {}) {
       cameraReady();
       const layer = registry.byKey(key);
       if (!layer) throw new CameraError("unknown-layer", `Layer "${key}" is not in this map`);
@@ -512,7 +513,7 @@ export function createRiskMap(root, options = {}) {
       }
       const bounds = await layerBounds(layer, record);
       cameraReady();
-      await camera.fitBounds(bounds);
+      await camera.fitBounds(bounds, { animate });
     },
 
     /**

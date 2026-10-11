@@ -115,16 +115,27 @@ export function parseBounds(value) {
 
 /**
  * A view's spatial extent as MapX's `get_view_source_summary` reports it
- * (`extent_sp: { lng1, lat1, lng2, lat2 }`, computed server-side with
- * `ST_EstimatedExtent`), as bounds. Null when the summary has none or it is
- * not a usable box (an empty source estimates to a point).
+ * (`extent_sp: { lng1, lat1, lng2, lat2 }`), as bounds. Null when the summary
+ * has none or it is not a usable box (an empty source estimates to a point).
+ *
+ * The corners are not guaranteed to be south-west then north-east: vector
+ * sources go through PostGIS `ST_EstimatedExtent` (min then max), but MapX's
+ * raster fallback reprojects a WMS bounding box and can report `lat1` as the
+ * north edge. So each axis is ordered here, min then max.
  *
  * @param {unknown} extent
  * @returns {[number, number, number, number]|null}
  */
 export function extentToBounds(extent) {
   if (!extent || typeof extent !== "object") return null;
-  return parseBounds([extent.lng1, extent.lat1, extent.lng2, extent.lat2]);
+  const [lng1, lat1, lng2, lat2] = [extent.lng1, extent.lat1, extent.lng2, extent.lat2].map(toNumber);
+  if (![lng1, lat1, lng2, lat2].every(Number.isFinite)) return null;
+  return parseBounds([
+    Math.min(lng1, lng2),
+    Math.min(lat1, lat2),
+    Math.max(lng1, lng2),
+    Math.max(lat1, lat2),
+  ]);
 }
 
 /**

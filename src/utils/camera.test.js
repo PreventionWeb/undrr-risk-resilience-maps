@@ -89,6 +89,11 @@ describe("extentToBounds", () => {
     expect(extentToBounds({ lng1: -10, lat1: -5, lng2: 30, lat2: 25 })).toEqual([-10, -5, 30, 25]);
   });
 
+  it("orders each axis, as MapX's raster fallback can report north as lat1", () => {
+    expect(extentToBounds({ lng1: -10, lat1: 25, lng2: 30, lat2: -5 })).toEqual([-10, -5, 30, 25]);
+    expect(extentToBounds({ lng1: 30, lat1: 25, lng2: -10, lat2: -5 })).toEqual([-10, -5, 30, 25]);
+  });
+
   it("is null for a missing or degenerate extent", () => {
     expect(extentToBounds(undefined)).toBeNull();
     expect(extentToBounds({})).toBeNull();
