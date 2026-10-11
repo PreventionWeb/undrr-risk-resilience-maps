@@ -45,8 +45,24 @@ const LOCKED_MESSAGE =
  */
 export const MAX_QUEUED_COMMANDS = 32;
 
+/**
+ * The most one command may take, from the moment it starts to its answer. Each
+ * MapX call already has its own deadline, but `fit-layer` chains several (the
+ * layer settling, its extent, the max bounds, the camera, the read-back), and
+ * the queue must not wait on all of them in the worst case. The command is
+ * answered `timeout` and the queue moves on; a MapX call still in flight may
+ * land later.
+ */
+export const COMMAND_DEADLINE_MS = 20_000;
+
 /** The commands that move the camera, answered with a `view` once they land. */
 const CAMERA_COMMANDS = new Set(["set-view", "fit-bounds", "fit-area", "fit-layer"]);
+
+/** The answer to a command when the map service failed before it was ready. */
+const NOT_READY = {
+  code: "not-ready",
+  message: "The map service could not be reached, so this embed cannot carry out commands until it recovers",
+};
 
 /** A command refused for a reason the host can act on, reported with `code`. */
 const refuse = (code, message) => Object.assign(new Error(message), { code });
@@ -127,10 +143,12 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
 
   const queue = [];
   let mapReady = false;
+  /** The map service failed before the map was ever ready (it may still recover). */
+  let mapFailed = false;
   let running = false;
   let destroyed = false;
 
-  if (params.camera) queue.push({ ...params.camera, fromUrl: true });
+  for (const camera of params.cameras) queue.push({ ...camera, fromUrl: true });
 
   /** A shown data tab, or undefined. */
   const shownTab = (value) =>
@@ -191,7 +209,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
         if (!bounds) {
           throw refuse("malformed", 'A "fit-bounds" command needs `bounds`: [west, south, east, north]');
         }
-        await map.fitBounds(bounds);
+        await map.fitBounds(bounds, { animate: payload.animate === true });
         return;
       }
       case "fit-area": {
@@ -214,7 +232,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
             `"fit-layer": ${JSON.stringify(payload.key)} is not a layer this embed shows`,
           );
         }
-        await map.fitLayer(payload.key);
+        await map.fitLayer(payload.key, { animate: payload.animate === true });
         return;
       }
       default:
@@ -226,6 +244,8 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   /** Tell the host why a command failed: its code when it has one. */
   function report(command, error) {
     const known = typeof error?.code === "string";
+    // The host's message names no MapX method; the console may.
+    if (error?.method) console.warn(`The "${command.name}" command failed in MapX "${error.method}":`, error);
     if (command.fromUrl) {
       console.warn("The embed URL's camera parameters could not be applied:", error);
     } else if (!known) {
@@ -246,15 +266,33 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     try {
       while (!destroyed && mapReady && !gate.locked && queue.length > 0) {
         const command = queue.shift();
+        let timer;
         try {
-          await runCommand(command);
-          // A camera command is answered with where the camera ended up. The
-          // URL's camera is not: nobody asked.
-          if (!destroyed && CAMERA_COMMANDS.has(command.name) && !command.fromUrl) {
-            bridge.post("view", await map.getView(), { id: command.id });
-          }
+          const run = (async () => {
+            await runCommand(command);
+            // A camera command is answered with where the camera ended up. The
+            // URL's camera is not: nobody asked.
+            if (CAMERA_COMMANDS.has(command.name) && !command.fromUrl) return map.getView();
+            return null;
+          })();
+          const deadline = new Promise((_resolve, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  refuse(
+                    "timeout",
+                    `The "${command.name}" command took longer than ${COMMAND_DEADLINE_MS} ms`,
+                  ),
+                ),
+              COMMAND_DEADLINE_MS,
+            );
+          });
+          const view = await Promise.race([run, deadline]);
+          if (!destroyed && view) bridge.post("view", view, { id: command.id });
         } catch (error) {
           if (!destroyed) report(command, error);
+        } finally {
+          clearTimeout(timer);
         }
       }
     } finally {
@@ -272,6 +310,10 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
       // nothing it sends reaches the map.
       if (gate.locked) {
         bridge.post("error", { code: "locked", message: LOCKED_MESSAGE }, { id: command.id });
+        return;
+      }
+      if (mapFailed && !mapReady) {
+        bridge.post("error", NOT_READY, { id: command.id });
         return;
       }
       if (queue.length >= MAX_QUEUED_COMMANDS) {
@@ -307,6 +349,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   // the gate's `visibility: hidden` — see #24), but a stubbed or future map that
   // does become ready must not tell the host the gate opened.
   map.on("ready", (payload) => {
+    mapFailed = false;
     bridge.post("ready", { version: MESSAGE_VERSION, ...payload, features: FEATURES, locked: gate.locked });
     mapReady = true;
     void pump();
@@ -333,7 +376,19 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     // the belt to that brace.
     if (!gate.locked) bridge.post("state", state);
   });
-  map.on("error", (error) => bridge.post("error", error));
+  map.on("error", (error) => {
+    bridge.post("error", error);
+    // The map service could not be reached, so nothing waiting will run until
+    // it recovers (the retry reloads the frame). Answer every waiting command
+    // now, and any that arrives until the map is ready, rather than leave a
+    // host waiting on ids that will never come back.
+    if (error?.code === "mapx-unavailable" && !mapReady) {
+      mapFailed = true;
+      for (const command of queue.splice(0)) {
+        if (!command.fromUrl) bridge.post("error", NOT_READY, { id: command.id });
+      }
+    }
+  });
 
   // A locked embed never reaches MapX's `ready`, so announce the gate instead:
   // the host learns the frame exists, which version it speaks and why it is not

@@ -198,7 +198,7 @@ describe("parseEmbedParams", () => {
     const params = parse("?tab=hazard&pin=0403&chrome=full&__proto__=x");
     expect(params.tab).toBe("hazard");
     expect(Object.keys(params).sort()).toEqual([
-      "camera",
+      "cameras",
       "empty",
       "instance",
       "layerKeys",
@@ -221,46 +221,66 @@ describe("parseCameraParams", () => {
   const camera = (search) => parseCameraParams(new URLSearchParams(search));
   const warnings = () => warn.mock.calls.flat().join(" ");
 
-  it("is null when the URL names no camera", () => {
-    expect(camera("?tab=hazard")).toBeNull();
+  it("is empty when the URL names no camera", () => {
+    expect(camera("?tab=hazard")).toEqual([]);
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("reads bbox as a fit-bounds, west,south,east,north", () => {
-    expect(camera("?bbox=-20,-35,52,38")).toEqual({
-      name: "fit-bounds",
-      payload: { bounds: [-20, -35, 52, 38] },
-    });
+    expect(camera("?bbox=-20,-35,52,38")).toEqual([
+      { name: "fit-bounds", payload: { bounds: [-20, -35, 52, 38] } },
+    ]);
   });
 
-  it("reads center and zoom as a set-view, either one alone too", () => {
-    expect(camera("?center=36.8,-1.3&zoom=6")).toEqual({
-      name: "set-view",
-      payload: { center: { lng: 36.8, lat: -1.3 }, zoom: 6 },
-    });
-    expect(camera("?zoom=4")).toEqual({ name: "set-view", payload: { zoom: 4 } });
-    expect(camera("?center=10,45")).toEqual({ name: "set-view", payload: { center: { lng: 10, lat: 45 } } });
+  it("reads center, with or without zoom, as one set-view", () => {
+    expect(camera("?center=36.8,-1.3&zoom=6")).toEqual([
+      { name: "set-view", payload: { center: { lng: 36.8, lat: -1.3 }, zoom: 6 } },
+    ]);
+    expect(camera("?center=10,45")).toEqual([
+      { name: "set-view", payload: { center: { lng: 10, lat: 45 } } },
+    ]);
+    expect(camera("?zoom=4")).toEqual([{ name: "set-view", payload: { zoom: 4 } }]);
   });
 
   it("reads area as a fit-area, normalising the code", () => {
-    expect(camera("?area=ken")).toEqual({ name: "fit-area", payload: { code: "KEN" } });
-    expect(camera("?area=M49_014")).toEqual({ name: "fit-area", payload: { code: "m49_014" } });
+    expect(camera("?area=ken")).toEqual([{ name: "fit-area", payload: { code: "KEN" } }]);
+    expect(camera("?area=M49_014")).toEqual([{ name: "fit-area", payload: { code: "m49_014" } }]);
   });
 
   it("clamps the zoom and the latitude rather than refusing them", () => {
-    expect(camera("?center=0,89&zoom=40").payload).toEqual({ center: { lng: 0, lat: 85.051129 }, zoom: 22 });
-    expect(camera("?zoom=-3").payload).toEqual({ zoom: 0 });
+    expect(camera("?center=0,89&zoom=40")[0].payload).toEqual({
+      center: { lng: 0, lat: 85.051129 },
+      zoom: 22,
+    });
+    expect(camera("?zoom=-3")[0].payload).toEqual({ zoom: 0 });
   });
 
-  it("prefers bbox, then center/zoom, then area, and names what it dropped", () => {
-    expect(camera("?area=KEN&center=10,45&bbox=0,0,10,10").name).toBe("fit-bounds");
+  it("prefers bbox, then center, then area, and names what it dropped", () => {
+    expect(camera("?area=KEN&center=10,45&bbox=0,0,10,10").map((c) => c.name)).toEqual(["fit-bounds"]);
     expect(warnings()).toContain('"center", "area" ignored');
-    expect(camera("?area=KEN&zoom=5").name).toBe("set-view");
+    expect(camera("?area=KEN&center=10,45&zoom=5")).toEqual([
+      { name: "set-view", payload: { center: { lng: 10, lat: 45 }, zoom: 5 } },
+    ]);
+  });
+
+  it("does not let a zoom without a centre outrank area or bbox: it applies after the fit", () => {
+    warn.mockClear();
+    expect(camera("?area=KEN&zoom=4")).toEqual([
+      { name: "fit-area", payload: { code: "KEN" } },
+      { name: "set-view", payload: { zoom: 4 } },
+    ]);
+    expect(camera("?bbox=0,0,10,10&zoom=7")).toEqual([
+      { name: "fit-bounds", payload: { bounds: [0, 0, 10, 10] } },
+      { name: "set-view", payload: { zoom: 7 } },
+    ]);
+    expect(warn).not.toHaveBeenCalled();
+    // An invalid centre leaves the zoom on its own, which is the same case.
+    expect(camera("?area=KEN&center=500,0&zoom=4").map((c) => c.name)).toEqual(["fit-area", "set-view"]);
   });
 
   it("falls through to the next parameter when one does not validate", () => {
     // A typo in the precise framing still leaves the coarse one.
-    expect(camera("?area=KEN&bbox=10,0,-10,5")).toEqual({ name: "fit-area", payload: { code: "KEN" } });
+    expect(camera("?area=KEN&bbox=10,0,-10,5")).toEqual([{ name: "fit-area", payload: { code: "KEN" } }]);
     expect(warnings()).toContain('"bbox"');
   });
 
@@ -280,14 +300,14 @@ describe("parseCameraParams", () => {
       "?area=<script>",
     ]) {
       warn.mockClear();
-      expect(camera(search), search).toBeNull();
+      expect(camera(search), search).toEqual([]);
       expect(warn, search).toHaveBeenCalled();
     }
   });
 
   it("frames nothing for an embed that shows nothing", () => {
-    expect(parse("?allow=no-such-layer&area=KEN").camera).toBeNull();
-    expect(parse("?tab=hazard&area=KEN").camera).toEqual({ name: "fit-area", payload: { code: "KEN" } });
+    expect(parse("?allow=no-such-layer&area=KEN").cameras).toEqual([]);
+    expect(parse("?tab=hazard&area=KEN").cameras).toEqual([{ name: "fit-area", payload: { code: "KEN" } }]);
   });
 });
 

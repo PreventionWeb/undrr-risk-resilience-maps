@@ -12,7 +12,7 @@ vi.mock("../app/create-risk-map.js", async (importOriginal) => {
 });
 
 import { createRiskMap } from "../app/create-risk-map.js";
-import { MAX_QUEUED_COMMANDS, mountEmbed } from "./main.js";
+import { COMMAND_DEADLINE_MS, MAX_QUEUED_COMMANDS, mountEmbed } from "./main.js";
 import { FEATURES } from "./messaging.js";
 
 /** The embed markup `embed.html` carries, reduced to the hooks this exercises. */
@@ -364,6 +364,26 @@ describe("mountEmbed", () => {
       error.mockRestore();
     });
 
+    it("answers queued commands with not-ready when the map service fails, and later ones too", () => {
+      mount("?tab=hazard&area=KEN");
+      windowRef.deliver(command("set-tab", { tab: "hazard" }, { id: "w1" }));
+      windowRef.deliver(command("get-view", {}, { id: "w2" }));
+
+      map.emit("error", { code: "mapx-unavailable", message: "The map service could not be reached" });
+      windowRef.deliver(command("get-state", {}, { id: "w3" }));
+
+      const errors = named(windowRef, "error").map((entry) => [entry.data.id, entry.data.payload.code]);
+      // The map's own error, then one answer per waiting command; the URL's
+      // camera is nobody's command and is dropped silently.
+      expect(errors).toEqual([
+        [undefined, "mapx-unavailable"],
+        ["w1", "not-ready"],
+        ["w2", "not-ready"],
+        ["w3", "not-ready"],
+      ]);
+      expect(map.setTab).not.toHaveBeenCalled();
+    });
+
     it("drops what is queued when the embed is destroyed", async () => {
       mount();
       windowRef.deliver(command("set-tab", { tab: "hazard" }));
@@ -454,7 +474,11 @@ describe("mountEmbed", () => {
     it("runs fit-bounds and fit-area, and answers each with the view", async () => {
       mountReady();
       expect(await ask("fit-bounds", { bounds: [-20, -35, 52, 38] }, "b")).toMatchObject({ name: "view" });
-      expect(map.fitBounds).toHaveBeenCalledWith([-20, -35, 52, 38]);
+      expect(map.fitBounds).toHaveBeenCalledWith([-20, -35, 52, 38], { animate: false });
+      await ask("fit-bounds", { bounds: [-20, -35, 52, 38], animate: true }, "b2");
+      expect(map.fitBounds).toHaveBeenLastCalledWith([-20, -35, 52, 38], { animate: true });
+      await ask("fit-layer", { key: "landslides", animate: true }, "l2");
+      expect(map.fitLayer).toHaveBeenLastCalledWith("landslides", { animate: true });
 
       expect(await ask("fit-area", { code: "ken" }, "a")).toMatchObject({ name: "view" });
       expect(map.fitArea).toHaveBeenCalledWith("KEN", { animate: false });
@@ -498,9 +522,32 @@ describe("mountEmbed", () => {
       map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
 
       await waitFor(() => expect(named(windowRef, "view")).toHaveLength(1));
-      expect(map.fitBounds).toHaveBeenCalledWith([-20, -35, 52, 38]);
+      expect(map.fitBounds).toHaveBeenCalledWith([-20, -35, 52, 38], { animate: false });
       expect(map.fitBounds.mock.invocationCallOrder[0]).toBeLessThan(map.getView.mock.invocationCallOrder[0]);
       expect(named(windowRef, "view")[0].data.id).toBe("after-url");
+    });
+
+    it("applies a URL zoom without a centre after the area fit, not instead of it", async () => {
+      mountReady("?tab=hazard&area=KEN&zoom=4");
+      await waitFor(() =>
+        expect(map.setView).toHaveBeenCalledWith({ center: null, zoom: 4, animate: false }),
+      );
+      expect(map.fitArea.mock.invocationCallOrder[0]).toBeLessThan(map.setView.mock.invocationCallOrder[0]);
+    });
+
+    it("answers timeout when a command takes longer than its deadline, and moves on", async () => {
+      vi.useFakeTimers();
+      try {
+        mountReady();
+        map.fitLayer.mockImplementationOnce(() => new Promise(() => {}));
+        windowRef.deliver(command("fit-layer", { key: "landslides" }, { id: "slow" }));
+        windowRef.deliver(command("get-state", {}, { id: "next" }));
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE_MS);
+        expect(named(windowRef, "error")[0].data).toMatchObject({ id: "slow", payload: { code: "timeout" } });
+        expect(named(windowRef, "state")[0].data.id).toBe("next");
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("tells the host, without an id, when the URL's camera cannot be applied", async () => {
