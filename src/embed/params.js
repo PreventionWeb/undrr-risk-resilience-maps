@@ -36,6 +36,13 @@
  * | `panel`        | `collapsed` or `expanded`                    | `expanded`          |
  * | `parentOrigin` | the host origin messages are exchanged with  | `document.referrer` |
  * | `instance`     | opaque id echoed in every message            | none                |
+ * | `bbox`         | `west,south,east,north` to fit the map to    | the default view    |
+ * | `center`       | `lng,lat` to centre the map on               | the default view    |
+ * | `zoom`         | zoom level, clamped to 0–22                  | the default view    |
+ * | `area`         | ISO3 country or `m49_` region code to fit to | the default view    |
+ *
+ * The camera parameters frame the map once it is ready; see `parseCameraParams`
+ * for which wins when several are given, and what a `zoom` alone does.
  *
  * `layers` and `variants` are parsed by the same code as the share-link hash
  * (`parseLayerParams` in state/hash.js), so an embed URL and a share link cannot
@@ -48,6 +55,7 @@ import { createLayerRegistry } from "../config/registry.js";
 import { clampSourceIdx } from "../services/layer-controller.js";
 import { parseLayerParams } from "../state/hash.js";
 import { selectTabs } from "../app/create-risk-map.js";
+import { parseAreaCode, parseBounds, parseCenter, parseZoom } from "../utils/camera.js";
 
 /**
  * How many layers an embed URL (or a host command) may open at once. Each one is
@@ -195,6 +203,7 @@ export function clampLayers(layers, { allowed, registry, collection = null }) {
  *   panelCollapsed: boolean,
  *   parentOrigin: string|null,
  *   instance: string|null,
+ *   cameras: Array<{ name: string, payload: object }>,
  * }}
  */
 export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {}) {
@@ -281,7 +290,74 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
     panelCollapsed: params.get("panel") === "collapsed",
     parentOrigin: resolveParentOrigin(params, referrer),
     instance: instance && INSTANCE_PATTERN.test(instance) ? instance : null,
+    cameras: empty ? [] : parseCameraParams(params),
   };
+}
+
+/**
+ * The camera an embed URL asks for, as the host commands that would ask for it
+ * (`fit-bounds`, `set-view`, `fit-area`), in the order to run them. Empty for
+ * the default view.
+ *
+ * One framing wins, from the most precise to the least: `bbox`, then `center`
+ * (with `zoom` if given), then `area`. A parameter that does not validate falls
+ * through to the next, so `?area=KEN&bbox=<typo>` still frames Kenya. A `zoom`
+ * without a valid `center` frames nothing on its own, so it doesn't outrank
+ * anything: it is applied after the winning `bbox` or `area` fit, keeping the
+ * centre that fit chose (`?area=KEN&zoom=4`), or alone when nothing else
+ * frames the map. Every parameter that was dropped, as invalid or as
+ * outranked, is named in a `console.warn`.
+ *
+ * @param {URLSearchParams} params
+ * @returns {Array<{ name: "fit-bounds"|"set-view"|"fit-area", payload: object }>}
+ */
+export function parseCameraParams(params) {
+  const candidates = [];
+  const invalid = (name) =>
+    console.warn(`Embed parameter "${name}": "${params.get(name)}" is not valid and was ignored.`);
+
+  if (params.has("bbox")) {
+    const bounds = parseBounds(params.get("bbox"));
+    if (bounds) candidates.push({ from: ["bbox"], name: "fit-bounds", payload: { bounds } });
+    else invalid("bbox");
+  }
+
+  let zoom = null;
+  if (params.has("zoom")) {
+    zoom = parseZoom(params.get("zoom"));
+    if (zoom === null) invalid("zoom");
+  }
+
+  if (params.has("center")) {
+    const center = parseCenter(params.get("center"));
+    if (center) {
+      const payload = zoom === null ? { center } : { center, zoom };
+      candidates.push({ from: zoom === null ? ["center"] : ["center", "zoom"], name: "set-view", payload });
+    } else invalid("center");
+  }
+
+  if (params.has("area")) {
+    const code = parseAreaCode(params.get("area"));
+    if (code) candidates.push({ from: ["area"], name: "fit-area", payload: { code } });
+    else invalid("area");
+  }
+
+  const [winner, ...outranked] = candidates;
+  // A zoom the winning set-view does not already carry applies after the fit.
+  const loneZoom = zoom !== null && !winner?.from.includes("zoom");
+  const dropped = outranked
+    .flatMap((candidate) => candidate.from)
+    .filter((name) => !(loneZoom && name === "zoom"));
+  if (winner && dropped.length > 0) {
+    console.warn(
+      `Embed parameters ${dropped.map((name) => `"${name}"`).join(", ")} ignored: ` +
+        `${winner.from.map((name) => `"${name}"`).join(" and ")} already frame${winner.from.length === 1 ? "s" : ""} the map ` +
+        `(precedence: bbox, then center, then area; a zoom without a center applies after the fit).`,
+    );
+  }
+  const commands = winner ? [{ name: winner.name, payload: winner.payload }] : [];
+  if (loneZoom) commands.push({ name: "set-view", payload: { zoom } });
+  return commands;
 }
 
 /**

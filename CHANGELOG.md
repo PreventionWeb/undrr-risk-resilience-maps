@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Added
+
+- Let a host page move the embedded map's camera. New v1 messages `set-view`, `fit-bounds`, `fit-area` (a country or region code) and `fit-layer` (fit to the area a layer covers) are answered with a `view` message, and `get-view` reads the camera. Layers are addressed by layer key, never by MapX view id ([#47](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/47)).
+- Frame an embed from its URL with `bbox`, `center` and `zoom`, or `area`, so a static figure needs no script.
+- Accept `variants` in the `set-layers` message, so a host can switch an external layer's crop or scenario without reloading the frame.
+- Keep commands a host sends before `ready` and run them in order once the map is up, so a host can send a whole script at once.
+- Advertise these additions in a `features` list on `ready`, so a host can detect them.
+- Accept an optional `bounds` field on a layer config entry, used by `fit-layer` instead of asking MapX.
+
 ## [0.0.6] - 2026-09-29
 
 ### Fixed

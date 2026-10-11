@@ -13,6 +13,7 @@
  *   - `ready`      — the `ready` event has been emitted
  *   - `openViews`  — the view ids MapX currently holds (view_add minus view_remove)
  *   - `calls`      — every `ask()` as `{ method, params }`, in order
+ *   - `camera`     — `{ center, zoom, bounds }`, moved by the camera commands
  */
 (function () {
   "use strict";
@@ -43,8 +44,96 @@
      * sleep: the assertions still wait on the app's own state.
      */
     delayMs: 25,
+    /**
+     * The map camera. The camera resolvers read and move it the way MapLibre
+     * would, approximately: a move sets the centre and zoom and a fit sets the
+     * bounds, which is all the embed's host API reads back.
+     */
+    camera: { center: { lng: 0, lat: 0 }, zoom: 2, bounds: [-180, -85, 180, 85] },
+    /**
+     * What `get_view_source_summary` reports as a view's `extent_sp`, by view
+     * id. A view not listed gets `defaultExtent`. A view listed as `null` gets
+     * a summary with no extent, which is what an empty or unreadable source
+     * looks like.
+     */
+    extents: {},
+    defaultExtent: { lng1: -20, lat1: -35, lng2: 52, lat2: 38 },
+    /** What `map_get_max_bounds_array` answers: `null` (no limit) or `[w, s, e, n]`. */
+    maxBounds: null,
   };
+
+  /**
+   * A handler's answer meaning "never answer", the way `Manager.ask()` behaves
+   * for a resolver that fails or hangs on MapX 1.14.0.
+   */
+  var NEVER = {};
+
+  /**
+   * The last camera `cameraForBounds` computed, so a jump to exactly that
+   * centre and zoom reports exactly the fitted box back (real MapLibre would
+   * report the box the viewport shows, which depends on its size).
+   */
+  var lastFit = null;
   window.__mapxStub = stub;
+
+  /**
+   * Country and region boxes the stub's common-location resolvers know. As in
+   * MapX, an unknown code is not an error: `getBbox` answers `null`.
+   */
+  var AREAS = {
+    KEN: [33.9, -4.7, 41.9, 5.0],
+    m49_014: [21.0, -26.9, 51.4, 18.0],
+  };
+
+  /** Point the camera at a box, as a fit does. */
+  function fitTo(bounds) {
+    stub.camera = {
+      center: { lng: (bounds[0] + bounds[2]) / 2, lat: (bounds[1] + bounds[3]) / 2 },
+      zoom: Math.max(0, Math.min(22, Math.log2(360 / Math.max(bounds[2] - bounds[0], 1e-9)))),
+      bounds: bounds.slice(),
+    };
+  }
+
+  /** MapLibre's cameraForBounds, roughly: the box's middle and a zoom that fits its width. */
+  function cameraForBounds(bounds) {
+    var camera = {
+      center: { lng: (bounds[0] + bounds[2]) / 2, lat: (bounds[1] + bounds[3]) / 2 },
+      zoom: Math.max(0, Math.min(22, Math.log2(360 / Math.max(bounds[2] - bounds[0], 1e-9)))),
+      bearing: 0,
+    };
+    lastFit = { center: camera.center, zoom: camera.zoom, bounds: bounds.slice() };
+    return camera;
+  }
+
+  /** Move the camera to a centre and/or zoom, as jumpTo and flyTo do. */
+  function moveTo(options) {
+    var center = options.center || stub.camera.center;
+    var zoom = typeof options.zoom === "number" ? options.zoom : stub.camera.zoom;
+    if (
+      lastFit &&
+      zoom === lastFit.zoom &&
+      center.lng === lastFit.center.lng &&
+      center.lat === lastFit.center.lat
+    ) {
+      stub.camera = {
+        center: { lng: center.lng, lat: center.lat },
+        zoom: zoom,
+        bounds: lastFit.bounds.slice(),
+      };
+      return;
+    }
+    var halfWidth = 180 / Math.pow(2, zoom);
+    stub.camera = {
+      center: { lng: center.lng, lat: center.lat },
+      zoom: zoom,
+      bounds: [
+        center.lng - halfWidth,
+        Math.max(-85, center.lat - halfWidth / 2),
+        center.lng + halfWidth,
+        Math.min(85, center.lat + halfWidth / 2),
+      ],
+    };
+  }
 
   // Every view id MapX has been asked to add, so `get_views` can answer for it.
   var known = new Set();
@@ -111,12 +200,61 @@
     set_view_layer_transparency: function () {
       return true;
     },
-    // src/external/index.js keeps the camera across an external layer's reopen
+    // src/external/index.js keeps the camera across an external layer's reopen,
+    // and src/sdk/camera.js is the embed host API's camera.
     map_get_center: function () {
-      return { lng: 0, lat: 0 };
+      return { lng: stub.camera.center.lng, lat: stub.camera.center.lat };
     },
     map_get_zoom: function () {
-      return 2;
+      return stub.camera.zoom;
+    },
+    map_get_bounds_array: function () {
+      return stub.camera.bounds.slice();
+    },
+    map_jump_to: function (params) {
+      moveTo(params);
+      return params;
+    },
+    map_fly_to: function (params) {
+      moveTo(params);
+      return params;
+    },
+    map_get_max_bounds_array: function () {
+      return stub.maxBounds ? stub.maxBounds.slice() : null;
+    },
+    // MapX's generic resolver: `map[method](...parameters)`. Only what the app uses.
+    map: function (params) {
+      if (params.method === "cameraForBounds") return cameraForBounds(params.parameters[0]);
+      throw new Error("mapx stub: unhandled map method " + params.method);
+    },
+    // Like MapX: starts an animated fit and answers `true` at once, before the
+    // camera has arrived (the embed must not rely on it, and doesn't).
+    map_set_bounds_array: function (params) {
+      var b = params.bounds;
+      setTimeout(function () {
+        fitTo(b);
+      }, 1000);
+      return true;
+    },
+    common_loc_get_bbox: function (params) {
+      return AREAS[params.code] ? AREAS[params.code].slice() : null;
+    },
+    // Like MapX: `null` for an unknown code, and no answer at all for a fit
+    // with `duration: 0` (MapLibre fires `moveend` before the resolver listens).
+    common_loc_fit_bbox: function (params) {
+      var bounds = AREAS[params.code];
+      if (!bounds) return null;
+      if (params.param && params.param.duration === 0) return NEVER;
+      fitTo(bounds);
+      return bounds.slice();
+    },
+    get_view_source_summary: function (params) {
+      var extent = Object.prototype.hasOwnProperty.call(stub.extents, params.idView)
+        ? stub.extents[params.idView]
+        : stub.defaultExtent;
+      var summary = { id: params.idView, attributes: [] };
+      if (extent) summary.extent_sp = extent;
+      return summary;
     },
   };
 
@@ -181,7 +319,8 @@
     return new Promise(function (resolve, reject) {
       setTimeout(function () {
         try {
-          resolve(handler(params || {}));
+          var result = handler(params || {});
+          if (result !== NEVER) resolve(result);
         } catch (error) {
           reject(error);
         }

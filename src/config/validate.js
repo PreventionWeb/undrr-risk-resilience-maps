@@ -7,6 +7,7 @@
  */
 
 import { isLayerAvailable, isLayerPublished } from "./layers/status.js";
+import { parseBounds } from "../utils/camera.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
@@ -136,6 +137,15 @@ export function validateLayers(tabs, primaryProject) {
         );
       }
       if (layer.id) seenIds.add(layer.id);
+
+      // Optional extent the embed's `fit-layer` uses instead of asking MapX
+      // (docs/embedding.md §8). A malformed one would be silently skipped at
+      // runtime, so it is an error here.
+      if (layer.bounds !== undefined && (!Array.isArray(layer.bounds) || !parseBounds(layer.bounds))) {
+        errors.push(
+          `${ctx} -- bounds must be [west, south, east, north] in degrees, with west < east and south < north`,
+        );
+      }
 
       // Legend entries should have color + label
       if (Array.isArray(layer.legend)) {

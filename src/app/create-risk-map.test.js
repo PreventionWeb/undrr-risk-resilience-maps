@@ -23,7 +23,8 @@ const config = vi.hoisted(() => {
     ...extra,
   });
   const alpha = layer("alpha", { r2rCategory: "Societies" });
-  const beta = layer("beta", { r2rCategory: "Economy" });
+  // `beta` carries a configured extent, so `fitLayer` never has to ask MapX.
+  const beta = layer("beta", { r2rCategory: "Economy", bounds: [-20, -35, 52, 38] });
   const gamma = layer("gamma");
   return {
     alpha,
@@ -300,6 +301,147 @@ describe("createRiskMap", () => {
 
     expect(errors[0].code).toBe("mapx-unavailable");
     consoleError.mockRestore();
+  });
+
+  describe("camera", () => {
+    /** Answer `ask(method)` from a table (over MapX-like fitting defaults); anything else resolves `true`. */
+    function answer(table) {
+      const answers = {
+        map_get_max_bounds_array: null,
+        map: ({ parameters: [bounds] }) => ({
+          center: { lng: (bounds[0] + bounds[2]) / 2, lat: (bounds[1] + bounds[3]) / 2 },
+          zoom: 3,
+        }),
+        ...table,
+      };
+      manager.ask.mockImplementation(async (method, params) => {
+        if (!(method in answers)) return true;
+        const value = answers[method];
+        return typeof value === "function" ? value(params) : value;
+      });
+    }
+
+    const asked = (method) => manager.ask.mock.calls.filter(([name]) => name === method);
+    /** The boxes the camera was fitted to (through cameraForBounds). */
+    const fitted = () => asked("map").map(([, params]) => params.parameters[0]);
+
+    beforeEach(() => answer({}));
+
+    it("refuses camera calls before the map is ready", async () => {
+      await start();
+      await expect(instance.getView()).rejects.toMatchObject({ code: "not-ready" });
+      await expect(instance.fitLayer("alpha")).rejects.toMatchObject({ code: "not-ready" });
+    });
+
+    it("reads the camera as { center, zoom, bounds }", async () => {
+      await start();
+      await manager.ready();
+      answer({
+        map_get_center: { lng: 10, lat: 45 },
+        map_get_zoom: 4.5,
+        map_get_bounds_array: [0, 40, 20, 50],
+      });
+      await expect(instance.getView()).resolves.toEqual({
+        center: { lng: 10, lat: 45 },
+        zoom: 4.5,
+        bounds: [0, 40, 20, 50],
+      });
+    });
+
+    it("flies when asked to animate, and jumps otherwise", async () => {
+      await start();
+      await manager.ready();
+      await instance.setView({ center: { lng: 1, lat: 2 }, zoom: 3, animate: true });
+      await instance.setView({ zoom: 6 });
+      expect(asked("map_fly_to")[0][1]).toMatchObject({ center: { lng: 1, lat: 2 }, zoom: 3 });
+      expect(asked("map_fly_to")[0][1].duration).toBeLessThan(10_000);
+      expect(asked("map_jump_to")[0][1]).toEqual({ zoom: 6 });
+    });
+
+    it("reports bounds MapX will not show as out-of-bounds", async () => {
+      await start();
+      await manager.ready();
+      answer({ map_get_max_bounds_array: [20, 20, 30, 30] });
+      await expect(instance.fitBounds([0, 0, 10, 10])).rejects.toMatchObject({ code: "out-of-bounds" });
+      expect(asked("map_jump_to")).toEqual([]);
+    });
+
+    it("fits a layer to its configured bounds without asking MapX for an extent", async () => {
+      await start({ initialTab: "one", layers: [{ key: "beta", sourceIdx: 0 }] });
+      await manager.ready();
+      await waitFor(() => expect(instance.getState().layers).toHaveLength(1));
+
+      await instance.fitLayer("beta", { animate: true });
+      expect(fitted()).toEqual([[-20, -35, 52, 38]]);
+      expect(asked("map_fly_to")[0][1]).toMatchObject({ center: { lng: 16, lat: 1.5 }, zoom: 3 });
+      expect(asked("get_view_source_summary")).toEqual([]);
+    });
+
+    it("fits a layer with no configured bounds to its MapX source extent, asked once", async () => {
+      await start({ initialTab: "one", layers: [{ key: "alpha", sourceIdx: 0 }] });
+      await manager.ready();
+      await waitFor(() => expect(instance.getState().layers).toHaveLength(1));
+      answer({ get_view_source_summary: { extent_sp: { lng1: -10, lat1: -5, lng2: 30, lat2: 25 } } });
+
+      await instance.fitLayer("alpha");
+      await instance.fitLayer("alpha");
+      expect(asked("get_view_source_summary")).toEqual([["get_view_source_summary", { idView: "MX-ALPHA" }]]);
+      expect(fitted()).toEqual([
+        [-10, -5, 30, 25],
+        [-10, -5, 30, 25],
+      ]);
+      expect(asked("map_jump_to")).toHaveLength(2);
+    });
+
+    it("reports no-extent when MapX has no usable extent for the view", async () => {
+      await start({ initialTab: "one", layers: [{ key: "alpha", sourceIdx: 0 }] });
+      await manager.ready();
+      await waitFor(() => expect(instance.getState().layers).toHaveLength(1));
+      answer({ get_view_source_summary: { extent_sp: {} } });
+
+      await expect(instance.fitLayer("alpha")).rejects.toMatchObject({ code: "no-extent" });
+      expect(fitted()).toEqual([]);
+    });
+
+    it("refuses to fit a layer that is off, and does not turn it on", async () => {
+      await start({ initialTab: "one" });
+      await manager.ready();
+      await expect(instance.fitLayer("beta")).rejects.toMatchObject({ code: "layer-off" });
+      expect(viewAdd).not.toHaveBeenCalled();
+    });
+
+    it("refuses a layer this instance does not have", async () => {
+      await start({ tabs: ["one"] });
+      await manager.ready();
+      await expect(instance.fitLayer("gamma")).rejects.toMatchObject({ code: "unknown-layer" });
+    });
+
+    it("waits for a layer that is still turning on, so set-layers and fit-layer can go back to back", async () => {
+      await start({ initialTab: "one" });
+      await manager.ready();
+      let finishAdd;
+      viewAdd.mockImplementationOnce(() => new Promise((resolve) => (finishAdd = resolve)));
+
+      instance.setLayers([{ key: "beta", sourceIdx: 0 }]);
+      const fitting = instance.fitLayer("beta");
+      await waitFor(() => expect(finishAdd).toBeTypeOf("function"));
+      expect(fitted()).toEqual([]);
+
+      finishAdd();
+      await fitting;
+      expect(fitted()).toHaveLength(1);
+    });
+
+    it("reports layer-off when the layer it was waiting for fails to turn on", async () => {
+      await start({ initialTab: "one" });
+      await manager.ready();
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      viewAdd.mockRejectedValueOnce(new Error("view_add failed"));
+
+      instance.setLayers([{ key: "beta", sourceIdx: 0 }]);
+      await expect(instance.fitLayer("beta")).rejects.toMatchObject({ code: "layer-off" });
+      warn.mockRestore();
+    });
   });
 
   describe("destroy", () => {

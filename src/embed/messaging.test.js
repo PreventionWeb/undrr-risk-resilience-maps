@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { classifyMessage, createMessageBridge, MESSAGE_TYPE, MESSAGE_VERSION } from "./messaging.js";
+import {
+  classifyMessage,
+  createMessageBridge,
+  FEATURES,
+  INBOUND,
+  MESSAGE_TYPE,
+  MESSAGE_VERSION,
+} from "./messaging.js";
 
 const HOST = "https://www.undrr.org";
 
@@ -110,13 +117,44 @@ describe("classifyMessage", () => {
   });
 
   it("accepts only the documented command names", () => {
-    for (const name of ["set-layers", "set-tab", "get-state"]) {
+    for (const name of [
+      "set-layers",
+      "set-tab",
+      "get-state",
+      "set-view",
+      "fit-bounds",
+      "fit-area",
+      "fit-layer",
+      "get-view",
+    ]) {
       expect(classifyMessage(event(envelope(name)), context).ok).toBe(true);
     }
-    // Outbound names are not commands, and neither is anything invented.
-    for (const name of ["state", "ready", "resize", "error", "eval", "", 1, undefined]) {
+    // Outbound names are not commands, and neither is anything invented — in
+    // particular no generic pass-through to the MapX SDK.
+    for (const name of [
+      "state",
+      "ready",
+      "view",
+      "resize",
+      "error",
+      "eval",
+      "mapx",
+      "map_fly_to",
+      "",
+      1,
+      undefined,
+    ]) {
       expect(classifyMessage(event(envelope(name)), context).reason).toBe("unknown-name");
     }
+  });
+
+  it("advertises every command added to v1 as a feature, and keeps the originals out of it", () => {
+    // `features` exists for detection: an embed without it speaks only the
+    // original three, so those must not be listed and every addition must be.
+    const additions = INBOUND.filter((name) => !["set-layers", "set-tab", "get-state"].includes(name));
+    for (const name of additions) expect(FEATURES).toContain(name);
+    for (const name of ["set-layers", "set-tab", "get-state"]) expect(FEATURES).not.toContain(name);
+    expect(FEATURES).toEqual(expect.arrayContaining(["variants", "queue", "url-camera"]));
   });
 
   it("rejects a payload that is not an object, and defaults a missing one", () => {
@@ -179,6 +217,8 @@ describe("createMessageBridge", () => {
     // only ever reported the height the host had already set.
     expect(bridge.post("resize", { height: 600 })).toBe(false);
     expect(windowRef.posted).toEqual([]);
+    // `view` is outbound: the answer to the camera commands.
+    expect(bridge.post("view", { zoom: 2 }, { id: "v" })).toBe(true);
   });
 
   it("is disabled, in both directions, with no parent origin", () => {

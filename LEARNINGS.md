@@ -341,3 +341,38 @@ Under 1.8.0 this merely looked borderless; Mangrove 2.0 added a card shadow, so
 the same override produced a box with content flush against its edge. When
 adopting a Mangrove variant, check the local CSS is not resetting the properties
 that variant exists to set.
+
+---
+
+## MapX SDK: camera resolvers (embed host API, #47)
+
+What the embed's camera commands (`src/sdk/camera.js`) rely on, read from MapX's resolvers
+(`app/src/js/sdk/src/mapx_resolvers/static.js`, `base.js`), `commonloc/common_loc.js` and
+`map_helpers/index.js` at 1.14.0-fix.1, and MapLibre 5's `camera.ts`:
+
+- `map_fly_to` and `map_jump_to` go through `_map_resolve_when("moveend")`, which calls `map.stop()`,
+  registers `once("moveend")` and only then moves, with a 10 s reject. They answer once the camera has
+  landed, animated or not (`jumpTo`, and `flyTo` under reduced motion, fire `moveend` synchronously,
+  which is fine because the listener is already there). Keep animations well under 10 s: up to 1.14.0 a
+  rejected resolver never settles `ask()`.
+- **`map_set_bounds_array` doesn't wait.** It's `fitMaxBounds(bounds)`: an animated `fitBounds` that
+  answers `true` immediately (or `false`, without moving, outside the max bounds). A read right after
+  it sees the camera mid-flight, and the next `map_jump_to` (`map.stop()`) cuts the flight short.
+- **`common_loc_fit_bbox` can hang, and treats an unknown code as success.** It fits with
+  `{ animate: true, ...param }` and then awaits `map.once("moveend")`. With `duration: 0` (or under
+  reduced motion) MapLibre fires `moveend` synchronously inside `fitBounds`, before that `once` is
+  registered, so the resolver never answers. For an unknown code `getBbox` warns and returns `null`,
+  and the resolver answers `null`.
+- So every fit is done the same way: `common_loc_get_bbox({ code })` for an area (`null` = unknown),
+  the max-bounds check redone from `map_get_max_bounds_array`, then
+  `ask("map", { method: "cameraForBounds", parameters: [bounds] })` through MapX's generic `map`
+  resolver, then `map_jump_to` / `map_fly_to`.
+- `get_view_source_summary({ idView })` returns `extent_sp` as `{ lng1, lat1, lng2, lat2 }`. Vector
+  sources come from PostGIS `ST_EstimatedExtent` (min then max), but the raster fallback reprojects a
+  WMS bounding box and can report north as `lat1`: order each axis before use. For raster views the WMS
+  request can throw or hang, and a hung request holds one of the SDK's `maxSimultaneousRequest` (10)
+  slots, so a summary that timed out is not asked again in the session. Runtime GeoJSON views (EDRA)
+  have no server source; their bounds are computed from the GeoJSON we build.
+- The SDK forwards no camera-move event, but the generic `map` resolver special-cases `once`:
+  `ask("map", { method: "once", parameters: "moveend" })` resolves on the next `moveend`. A long-poll
+  over it could report user pans to a host (#49); it would hold a request slot while the map is still.

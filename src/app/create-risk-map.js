@@ -48,12 +48,30 @@ import {
   watchForMapReady,
 } from "../sdk/availability.js";
 import * as store from "../state/store.js";
+import { CameraError, createCamera } from "../sdk/camera.js";
+import { getExternalLayerRuntime, isExternalLayer } from "../external/index.js";
+import { parseBounds } from "../utils/camera.js";
 
 /** The `data-ui` hooks `createRiskMap` itself looks up (the sidebar has its own). */
 const PARTS = { appMap: "app-map", mapx: "mapx", inspectToggle: "inspect-toggle" };
 
 /** The events `on()` accepts. Same vocabulary as the host message names (§3). */
 export const RISK_MAP_EVENTS = ["ready", "state", "error"];
+
+/**
+ * How long `fitLayer()` waits for a layer that is still turning on (or
+ * switching source) to settle. A real `view_add` takes a few seconds; a hung
+ * one (MapX up to 1.14.0, LEARNINGS.md) never settles, and the caller must
+ * still get an answer.
+ */
+export const LAYER_SETTLE_TIMEOUT_MS = 15_000;
+
+/** A MapX call for this layer is in flight, or intent has not been applied yet. */
+const BUSY_STATUSES = new Set(["loading", "removing", "switching"]);
+const isSettled = (record) =>
+  !BUSY_STATUSES.has(record.status) &&
+  record.desired === record.applied &&
+  (!record.applied || record.sourceIdx === record.appliedSourceIdx);
 
 /**
  * The tabs and layers an instance may show.
@@ -118,6 +136,11 @@ export function selectTabs(allTabs, { tabs: tabIds = null, layers: layerKeys = n
  *   setState(state: { tab?: string, layers?: Array<object> }): void,
  *   setTab(tabId: string): void,
  *   setLayers(layers: Array<object>): void,
+ *   getView(): Promise<{ center: { lng: number, lat: number }, zoom: number, bounds: number[]|null }>,
+ *   setView(view: { center?: object, zoom?: number, animate?: boolean }): Promise<void>,
+ *   fitBounds(bounds: number[], options?: { animate?: boolean }): Promise<void>,
+ *   fitArea(code: string, options?: { animate?: boolean }): Promise<void>,
+ *   fitLayer(key: string, options?: { animate?: boolean }): Promise<void>,
  *   on(event: "ready"|"state"|"error", fn: Function): () => void,
  *   destroy(): void,
  *   readonly tabs: string[],
@@ -353,6 +376,62 @@ export function createRiskMap(root, options = {}) {
 
   void startMapX();
 
+  // --- Camera --------------------------------------------------------------
+
+  const camera = createCamera(() => mapx);
+
+  /** Camera calls need MapX up and the instance alive. */
+  function cameraReady() {
+    if (destroyed || !readyPayload || !mapx) throw new CameraError("not-ready", "The map is not ready");
+  }
+
+  /**
+   * Resolve with the layer's record once nothing is pending for it: on, off,
+   * or failed. Rejects with `timeout` after LAYER_SETTLE_TIMEOUT_MS.
+   */
+  function whenLayerSettled(key) {
+    const layersStore = sidebar.store;
+    return new Promise((resolve, reject) => {
+      let off = () => {};
+      let timer = null;
+      const finish = () => {
+        off();
+        clearTimeout(timer);
+      };
+      const check = () => {
+        const record = layersStore.get(key);
+        if (!isSettled(record)) return false;
+        finish();
+        resolve(record);
+        return true;
+      };
+      if (check()) return;
+      off = layersStore.subscribe((changed) => changed === key && check());
+      timer = setTimeout(() => {
+        finish();
+        reject(new CameraError("timeout", `Layer "${key}" did not finish loading in time`));
+      }, LAYER_SETTLE_TIMEOUT_MS);
+    });
+  }
+
+  /**
+   * Where a layer is, as bounds. In order: the layer config's `bounds` (free
+   * and predictable, and the only answer for views MapX cannot summarise); an
+   * external layer's runtime bounds, computed from the GeoJSON it built; else
+   * the MapX view's source extent (`get_view_source_summary`, timed out and
+   * cached per view).
+   */
+  function layerBounds(layer, record) {
+    const configured = parseBounds(layer.bounds);
+    if (configured) return configured;
+    if (isExternalLayer(layer)) {
+      const runtime = parseBounds(getExternalLayerRuntime(layer)?.bounds);
+      if (runtime) return runtime;
+      throw new CameraError("no-extent", `Layer "${layer.key}" has no known extent`);
+    }
+    return camera.viewExtent(record.viewId);
+  }
+
   return {
     /** `{ tab, layers }` — exactly what a share link or a `state` message carries. */
     getState: readState,
@@ -375,6 +454,66 @@ export function createRiskMap(root, options = {}) {
     /** Reconcile the open layers to exactly this list. */
     setLayers(layers) {
       if (!destroyed) sidebar.setLayers(layers ?? []);
+    },
+
+    /**
+     * The camera: `{ center: { lng, lat }, zoom, bounds: [w, s, e, n] }`.
+     * Every camera method rejects with a `CameraError` (`code` and `message`)
+     * and never hangs: each MapX call is timed out (src/sdk/camera.js).
+     */
+    getView() {
+      return Promise.resolve().then(() => {
+        cameraReady();
+        return camera.getView();
+      });
+    },
+    /**
+     * Move to a centre and/or zoom, already validated (src/utils/camera.js).
+     * @param {{ center?: { lng: number, lat: number }, zoom?: number, animate?: boolean }} view
+     */
+    setView(view) {
+      return Promise.resolve().then(() => {
+        cameraReady();
+        return camera.setView(view);
+      });
+    },
+    /** Fit the camera to validated bounds `[w, s, e, n]`. */
+    fitBounds(bounds, options) {
+      return Promise.resolve().then(() => {
+        cameraReady();
+        return camera.fitBounds(bounds, options);
+      });
+    },
+    /** Fit the camera to a validated ISO3 or M49 area code. */
+    fitArea(code, options) {
+      return Promise.resolve().then(() => {
+        cameraReady();
+        return camera.fitArea(code, options);
+      });
+    },
+    /**
+     * Fit the camera to the area a layer covers. The layer has to be on, or
+     * turning on: one still loading is waited for, so a host can send
+     * `set-layers` and `fit-layer` back to back. A layer that is off is refused
+     * (`layer-off`) rather than turned on behind the layer state's back.
+     * @param {string} key
+     * @param {{ animate?: boolean }} [options]
+     */
+    async fitLayer(key, { animate = false } = {}) {
+      cameraReady();
+      const layer = registry.byKey(key);
+      if (!layer) throw new CameraError("unknown-layer", `Layer "${key}" is not in this map`);
+      const current = sidebar.store.get(key);
+      if (!current.desired && !current.applied) {
+        throw new CameraError("layer-off", `Layer "${key}" is off; turn it on with set-layers first`);
+      }
+      const record = await whenLayerSettled(key);
+      if (!record.applied || !record.viewId) {
+        throw new CameraError("layer-off", `Layer "${key}" is not on the map`);
+      }
+      const bounds = await layerBounds(layer, record);
+      cameraReady();
+      await camera.fitBounds(bounds, { animate });
     },
 
     /**
