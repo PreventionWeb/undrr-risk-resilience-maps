@@ -15,6 +15,15 @@ const embedRow = (frame, label) =>
     .locator(".layer-item")
     .filter({ has: frame.locator(".layer-label", { hasText: new RegExp(`^${label}$`) }) });
 
+let nextId = 0;
+/** Send a command with a fresh id, and return the id. */
+async function sendWithId(page, name, payload) {
+  nextId += 1;
+  const id = `${name}-${nextId}`;
+  await hostSend(page, name, payload, { id });
+  return id;
+}
+
 /** The messages the host has received, by name. */
 const named = async (page, name) => (await hostMessages(page)).filter((message) => message.name === name);
 
@@ -300,6 +309,179 @@ test.describe("embed: the host message API", () => {
     // Still on the tab it started on, and not a word said in reply.
     await expect(embed.locator('.nav-tab-link[data-tab="hazard"]')).toHaveClass(/is-active/);
     expect((await hostMessages(page)).length).toBe(before);
+  });
+});
+
+/** The embed's own frame, for reading the MapX stub inside it. */
+const embedFrame = (page) => page.frames().find((frame) => frame.url().includes("/embed.html"));
+
+/** The MapX calls the embed made, by method, in order. */
+const stubCalls = (target, method) =>
+  target.evaluate((name) => window.__mapxStub.calls.filter((call) => call.method === name), method);
+
+/** The host's message carrying `id`, once it arrives. */
+const reply = async (page, id) => {
+  await expect.poll(async () => (await hostMessages(page)).some((message) => message.id === id)).toBe(true);
+  return (await hostMessages(page)).find((message) => message.id === id);
+};
+
+test.describe("embed: camera from the URL", () => {
+  test("fits a country named by area once the map is ready", async ({ page }) => {
+    await gotoEmbed(page, "?tab=hazard&area=ken");
+    await expect
+      .poll(() => stubCalls(page, "common_loc_fit_bbox"))
+      .toEqual([{ method: "common_loc_fit_bbox", params: { code: "KEN", param: { duration: 0 } } }]);
+  });
+
+  test("prefers bbox to center/zoom and area, and frames the map to it", async ({ page }) => {
+    await gotoEmbed(page, "?tab=hazard&layers=landslides&area=KEN&zoom=5&bbox=-20,-35,52,38");
+    await expect.poll(() => page.evaluate(() => window.__mapxStub.camera.bounds)).toEqual([-20, -35, 52, 38]);
+    expect(await stubCalls(page, "common_loc_fit_bbox")).toEqual([]);
+    expect(await stubCalls(page, "map_jump_to")).toEqual([]);
+    // The URL's layers are restored before the camera moves: `ready` waits for them.
+    const calls = await page.evaluate(() => window.__mapxStub.calls.map((call) => call.method));
+    expect(calls.indexOf("view_add")).toBeLessThan(calls.indexOf("map_set_bounds_array"));
+  });
+
+  test("ignores a camera parameter that does not validate, and keeps the default view", async ({ page }) => {
+    await gotoEmbed(page, "?tab=hazard&bbox=10,0,-10,5&center=200,0");
+    await expect(page.locator('.nav-tab-link[data-tab="hazard"]')).toHaveClass(/is-active/);
+    expect(await stubCalls(page, "map_set_bounds_array")).toEqual([]);
+    expect(await stubCalls(page, "map_jump_to")).toEqual([]);
+  });
+});
+
+test.describe("embed: host camera control", () => {
+  test("advertises what it can do in ready", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tab=hazard");
+    const [ready] = await named(page, "ready");
+    expect(ready.payload.features).toEqual(
+      expect.arrayContaining([
+        "set-view",
+        "fit-bounds",
+        "fit-area",
+        "fit-layer",
+        "get-view",
+        "variants",
+        "queue",
+      ]),
+    );
+  });
+
+  test("turns on a layer, then zooms to the area it covers", async ({ page, origins }) => {
+    // The issue's story step, sent as one script without waiting in between:
+    // fit-layer waits for the layer set-layers is still turning on.
+    const embed = await gotoHost(page, origins, "?tab=hazard");
+    // Landslides is a raster (`rt`) view with no configured bounds, so its
+    // extent comes from MapX's source summary. A slow `view_add` makes sure
+    // fit-layer really arrives while the layer is still loading.
+    await embedFrame(page).evaluate(() => {
+      window.__mapxStub.delayMs = 300;
+      window.__mapxStub.defaultExtent = { lng1: 60, lat1: 5, lng2: 100, lat2: 40 };
+    });
+
+    await hostSend(page, "set-layers", { layers: [{ key: "landslides" }] }, { id: "s1" });
+    await hostSend(page, "fit-layer", { key: "landslides" }, { id: "s2" });
+
+    const view = await reply(page, "s2");
+    expect(view.name).toBe("view");
+    expect(view.payload.bounds).toEqual([60, 5, 100, 40]);
+    expect(view.payload.center).toEqual({ lng: 80, lat: 22.5 });
+    await expect(layerSwitch(embedRow(embed, "Landslides"))).toBeChecked();
+
+    const calls = await embedFrame(page).evaluate(() => window.__mapxStub.calls.map((call) => call.method));
+    expect(calls.indexOf("view_add")).toBeLessThan(calls.indexOf("get_view_source_summary"));
+    expect(calls.indexOf("get_view_source_summary")).toBeLessThan(calls.indexOf("map_set_bounds_array"));
+  });
+
+  test("refuses to fit a layer that is off, or one the embed does not show", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tabs=hazard&allow=landslides,river-flooding");
+
+    expect((await reply(page, await sendWithId(page, "fit-layer", { key: "landslides" }))).payload.code).toBe(
+      "layer-off",
+    );
+    for (const key of ["population", "no-such-layer"]) {
+      expect((await reply(page, await sendWithId(page, "fit-layer", { key }))).payload.code).toBe(
+        "unknown-layer",
+      );
+    }
+    expect(await stubCalls(embedFrame(page), "map_set_bounds_array")).toEqual([]);
+    // Refusing did not turn anything on behind the layer state's back.
+    expect(await stubCalls(embedFrame(page), "view_add")).toEqual([]);
+  });
+
+  test("reports no-extent for a layer MapX cannot give an extent for", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tab=hazard&layers=landslides");
+    await embedFrame(page).evaluate(() => {
+      window.__mapxStub.defaultExtent = null;
+    });
+    const error = await reply(page, await sendWithId(page, "fit-layer", { key: "landslides" }));
+    expect(error).toMatchObject({ name: "error", payload: { code: "no-extent" } });
+  });
+
+  test("sets and reads the view", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tab=hazard");
+
+    const moved = await reply(
+      page,
+      await sendWithId(page, "set-view", { center: { lng: 36.8, lat: -1.3 }, zoom: 99, animate: true }),
+    );
+    expect(moved.payload).toMatchObject({ center: { lng: 36.8, lat: -1.3 }, zoom: 22 });
+    const [fly] = await stubCalls(embedFrame(page), "map_fly_to");
+    expect(fly.params.duration).toBeLessThan(10_000);
+
+    const read = await reply(page, await sendWithId(page, "get-view", {}));
+    expect(read).toMatchObject({ name: "view", payload: { center: { lng: 36.8, lat: -1.3 }, zoom: 22 } });
+    expect(read.payload.bounds).toHaveLength(4);
+  });
+
+  test("fits an area and a box, and names what it cannot do", async ({ page, origins }) => {
+    await gotoHost(page, origins, "?tab=hazard");
+
+    expect(
+      (await reply(page, await sendWithId(page, "fit-area", { code: "m49_014" }))).payload.bounds,
+    ).toEqual([21.0, -26.9, 51.4, 18.0]);
+    expect((await reply(page, await sendWithId(page, "fit-area", { code: "XYZ" }))).payload.code).toBe(
+      "unknown-area",
+    );
+    expect((await reply(page, await sendWithId(page, "fit-area", { code: "Kenya" }))).payload.code).toBe(
+      "malformed",
+    );
+    expect((await reply(page, await sendWithId(page, "fit-bounds", { bounds: [0, 0, 10, 10] }))).name).toBe(
+      "view",
+    );
+    expect(
+      (await reply(page, await sendWithId(page, "fit-bounds", { bounds: [10, 0, -10, 5] }))).payload.code,
+    ).toBe("malformed");
+  });
+
+  test("queues a whole script sent before ready and runs it in order", async ({ page, origins }) => {
+    await page.addInitScript(() => {
+      window.__mapxStubHoldReady = true;
+    });
+    await page.goto(hostUrl(origins, "?tab=hazard", { parentOrigin: origins.host }));
+    const embed = page.frameLocator("#map");
+    // The embed is mounted (and listening) once its nav is drawn; the map is not ready.
+    await expect(embed.locator('.nav-tab-link[data-tab="hazard"]')).toBeVisible();
+    expect(await named(page, "ready")).toEqual([]);
+
+    await hostSend(page, "set-layers", { layers: [{ key: "landslides" }] }, { id: "q1" });
+    await hostSend(page, "fit-area", { code: "KEN" }, { id: "q2" });
+    await hostSend(page, "get-state", {}, { id: "q3" });
+    await page.waitForTimeout(200);
+    // Kept, not refused and not lost.
+    expect(await named(page, "error")).toEqual([]);
+
+    await embedFrame(page).evaluate(() => window.__mapxStub.releaseReady());
+
+    const state = await reply(page, "q3");
+    const messages = (await hostMessages(page)).map((message) => `${message.name}:${message.id ?? ""}`);
+    expect(messages.indexOf("ready:")).toBeLessThan(messages.indexOf("view:q2"));
+    expect(messages.indexOf("view:q2")).toBeLessThan(messages.indexOf("state:q3"));
+    // set-layers was dispatched first; by the time get-state ran, fit-area had
+    // been awaited, so the layer had time to land.
+    expect(state.payload.tab).toBe("hazard");
+    await expect(layerSwitch(embedRow(embed, "Landslides"))).toBeChecked();
   });
 });
 
