@@ -381,7 +381,8 @@ Still open:
   (§8, "Which sites can embed it").
 - A generic MapX pass-through (`mapx { method, args }`, option B in #47). Not built: the named camera
   commands cover the use cases so far, and a pass-through would tie hosts to MapX method names and view
-  ids. Revisit when a host needs something they don't cover.
+  ids. Revisit when a host needs something they don't cover. Tracked, with emitting `view` on user pans
+  and framing from other origins, in #49.
 
 ## 8. How to embed (phase 1)
 
@@ -438,13 +439,16 @@ A source index the layer does not have falls back to its first source, at most 1
 and info tabs (`home`, `sources`, `about`) are not addressable: an embed has no information pages.
 
 **Framing the map from the URL.** `bbox`, `center`/`zoom` and `area` set the camera once the map is
-ready and the URL's layers are on, with no animation. One of them wins, from the most precise to the
-least: **`bbox`, then `center` and/or `zoom`, then `area`**. A value that doesn't validate (a box whose
-west is east of its east, a latitude beyond ±90, `area=Kenya`) is dropped with a `console.warn` and the
-next one is used, so `?area=KEN&bbox=<typo>` still frames Kenya. Parameters outranked by a valid one
-are named in a warning too. Latitudes are clamped to the Web Mercator limit (±85.05°), and a box
-crossing the antimeridian isn't supported. If MapX can't apply the camera (an area code it doesn't
-know, say), the map keeps its default view and the host gets an `error` with no `id`.
+ready and the URL's layers are on, with no animation. One framing wins, from the most precise to the
+least: **`bbox`, then `center` (with `zoom` if given), then `area`**. A `zoom` without a valid
+`center` doesn't frame anything by itself, so it doesn't outrank the others: it is applied after the
+`bbox` or `area` fit, keeping the centre that fit chose (`?area=KEN&zoom=4` is Kenya's centre at zoom
+4), or on its own when nothing else frames the map. A value that doesn't validate (a box whose west is
+east of its east, a latitude beyond ±90, `area=Kenya`) is dropped with a `console.warn` and the next
+one is used, so `?area=KEN&bbox=<typo>` still frames Kenya. Parameters outranked by a valid one are
+named in a warning too. Latitudes are clamped to the Web Mercator limit (±85.05°), and a box crossing
+the antimeridian isn't supported. If MapX can't apply the camera (an area code it doesn't know, a box
+outside the map's limits), the map keeps its default view and the host gets an `error` with no `id`.
 
 **An allowlist never widens.** `tabs` and `allow` exist to narrow what the embed shows, so the embed
 distinguishes "absent" from "resolved to nothing":
@@ -482,9 +486,9 @@ Every message, both ways, is `{ type: "undrr-risk-map", v: 1, instance?, id?, na
 | host → embed | `set-layers` | `{ tab?, layers, variants? }` — a desired state, reconciled                        |
 | host → embed | `get-state`  | `{}` — answered by a `state` message carrying the same `id`                        |
 | host → embed | `set-view`   | `{ center?: { lng, lat }, zoom?, animate? }` — at least one of `center` and `zoom` |
-| host → embed | `fit-bounds` | `{ bounds: [west, south, east, north] }`                                           |
+| host → embed | `fit-bounds` | `{ bounds: [west, south, east, north], animate? }`                                 |
 | host → embed | `fit-area`   | `{ code, animate? }` — ISO3 (`"KEN"`) or M49 (`"m49_014"`)                         |
-| host → embed | `fit-layer`  | `{ key }` — a layer that is on (or turning on), fitted to the area it covers       |
+| host → embed | `fit-layer`  | `{ key, animate? }` — a layer that is on (or turning on), fitted to what it covers |
 | host → embed | `get-view`   | `{}` — answered by a `view` message carrying the same `id`                         |
 
 `features` lists what was added to v1 after it first shipped: the five camera command names,
@@ -506,16 +510,24 @@ send("set-layers", {
 ```
 
 **The camera commands** answer with a `view` (carrying the command's `id`) once the camera has
-landed, or an `error`. `animate: true` flies (1.5 s); the default jumps. `zoom` is clamped to 0–22 and
-latitudes to ±85.05°, as in the URL. `fit-layer` takes the area a layer covers from the layer config's
-`bounds` when it has one, from the GeoJSON an external layer (EDRA) built, and otherwise from MapX's
-source summary for the view, which is asked once per view and given 8 seconds (raster views go through
-a WMS request that can hang). A layer that is **off** is refused with `layer-off` rather than turned
-on: turning it on is `set-layers`'s job, and the layer panel, `state` and the full-viewer link must keep
-agreeing with the map. A layer that is still **turning on** is waited for (up to 20 s), which is what
-lets a host send `set-layers` and `fit-layer` back to back. The embed doesn't post `view` when the
-reader pans or zooms: MapX's SDK has no camera-move event to hang it on, so a host that needs the
-current camera asks with `get-view`.
+landed, or an `error`. `animate: true` flies (1.5 s; MapLibre jumps instead under
+`prefers-reduced-motion`); the default jumps. `zoom` is clamped to 0–22 and latitudes to ±85.05°, as in
+the URL. Every fit (`fit-bounds`, `fit-area`, `fit-layer`) works out the camera for its box and then
+jumps or flies to it, and is refused with `out-of-bounds` if the box is outside the map's limits.
+`fit-area` asks MapX for the area's box first, so an unknown code is answered `unknown-area` at once.
+`fit-layer` takes the area a layer covers from the layer config's `bounds` when it has one, from the
+GeoJSON an external layer (EDRA) built, and otherwise from MapX's source summary for the view, which
+is asked once per view and given 8 seconds (raster views go through a WMS request that can hang; a
+view whose summary timed out isn't asked again in the same session). A layer that is **off** is
+refused with `layer-off` rather than turned on: turning it on is `set-layers`'s job, and the layer
+panel, `state` and the full-viewer link must keep agreeing with the map. A layer that is still
+**turning on** is waited for (up to 15 s), which is what lets a host send `set-layers` and `fit-layer`
+back to back. No command takes longer than 20 s to be answered: past that it gets `timeout` and the
+queue moves on.
+
+The embed doesn't post `view` when the reader pans or zooms. MapX's SDK forwards no camera-move event;
+a long-poll over its generic `map` resolver (`once("moveend")`) could do it, and is a follow-up
+(#49). Until then a host that needs the current camera asks with `get-view`.
 
 ```js
 const frame = document.getElementById("risk-map");
@@ -576,29 +588,33 @@ Use `area=KEN` (or `area=m49_014` for Eastern Africa) to fit a country or region
 
 Error codes:
 
-| `code`                | Meaning                                                                                        |
-| --------------------- | ---------------------------------------------------------------------------------------------- |
-| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state                  |
-| `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive                    |
-| `malformed`           | a `set-layers` whose `layers` is not an array, or a camera command whose values don't validate |
-| `queue-full`          | more than 32 commands were already waiting; this one was dropped                               |
-| `unknown-layer`       | `fit-layer` named a layer this embed doesn't show (outside its allowlist, or not a layer)      |
-| `layer-off`           | `fit-layer` named a layer that is off, or that failed to turn on                               |
-| `no-extent`           | `fit-layer`: neither the config nor MapX can say where the layer is                            |
-| `unknown-area`        | `fit-area`: MapX doesn't know the code                                                         |
-| `out-of-bounds`       | MapX refused to fit a box outside the map's limits; the camera didn't move                     |
-| `timeout`             | the map didn't answer a camera call in time (12 s), or a layer took over 20 s to turn on       |
-| `camera-failed`       | MapX rejected a camera call                                                                    |
-| `unsupported-version` | the `v` in a message is not one this build speaks — sent **once** per embed                    |
-| `mapx-unavailable`    | the map service could not be reached                                                           |
-| `layer-failed`        | one layer could not be added or removed                                                        |
-| `command-failed`      | a command threw inside the embed                                                               |
+| `code`                | Meaning                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state                    |
+| `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive                      |
+| `malformed`           | a `set-layers` whose `layers` is not an array, or a camera command whose values don't validate   |
+| `queue-full`          | more than 32 commands were already waiting; this one was dropped                                 |
+| `unknown-layer`       | `fit-layer` named a layer this embed doesn't show (outside its allowlist, or not a layer)        |
+| `layer-off`           | `fit-layer` named a layer that is off, or that failed to turn on                                 |
+| `no-extent`           | `fit-layer`: neither the config nor MapX can say where the layer is                              |
+| `unknown-area`        | `fit-area`: MapX has no box for the code (answered at once)                                      |
+| `not-ready`           | the map service couldn't be reached before the map was ready; waiting commands get this too      |
+| `out-of-bounds`       | MapX refused to fit a box outside the map's limits; the camera didn't move                       |
+| `timeout`             | the map didn't answer in time: one MapX call (12 s), a layer turning on (15 s), a command (20 s) |
+| `camera-failed`       | MapX rejected a camera call                                                                      |
+| `unsupported-version` | the `v` in a message is not one this build speaks — sent **once** per embed                      |
+| `mapx-unavailable`    | the map service could not be reached                                                             |
+| `layer-failed`        | one layer could not be added or removed                                                          |
+| `command-failed`      | a command threw inside the embed                                                                 |
 
 Rules a host can rely on:
 
+- **Post commands after the iframe's `load` event, or on `ready`.** Anything sent before the embed's
+  script has mounted its message listener is lost, with no answer.
 - **Commands sent before `ready` are queued** (feature `queue`), up to 32, and run in order once the
   map is up, after the URL's own camera. Older embeds without `features` ignore them, so a host that
-  supports both waits for `ready`.
+  supports both waits for `ready`. If the map service can't be reached, waiting commands (and any sent
+  until the map is ready) are answered `not-ready`.
 - **`ready` can arrive more than once.** While the prototype is gated it arrives with `locked: true`,
   then again with `locked: false` once someone has entered the PIN in the frame. Only the second means
   the embed will take commands. **A locked embed queues nothing:** each command is answered with

@@ -347,20 +347,32 @@ that variant exists to set.
 ## MapX SDK: camera resolvers (embed host API, #47)
 
 What the embed's camera commands (`src/sdk/camera.js`) rely on, read from MapX's resolvers
-(`app/src/js/sdk/src/mapx_resolvers/static.js`) and its source-summary SQL:
+(`app/src/js/sdk/src/mapx_resolvers/static.js`, `base.js`), `commonloc/common_loc.js` and
+`map_helpers/index.js` at 1.14.0-fix.1, and MapLibre 5's `camera.ts`:
 
-- `map_fly_to` and `map_jump_to` resolve on MapLibre's `moveend`, with MapX's fixed 10 s resolver
-  limit. A flight longer than that makes the resolver fail, and up to 1.14.0 a failed resolver never
-  settles `ask()`. Keep animations well under 10 s (`FLY_DURATION_MS` is 1.5 s) and time every call
-  out on our side anyway.
-- `map_set_bounds_array({ bounds })` is `fitMaxBounds`: it answers `false`, and doesn't move, for a box
-  outside the map's max bounds. It takes no animation option.
-- `common_loc_fit_bbox({ code, param })` takes ISO3 or `m49_###` codes; `param` is MapLibre fit
-  options (`duration: 0` for no animation). An unknown code fails the resolver, so on 1.14.0 it shows
-  up as a timeout.
-- `get_view_source_summary({ idView })` returns `extent_sp` as `{ lng1, lat1, lng2, lat2 }` (PostGIS
-  `ST_EstimatedExtent`, clamped to ±180/±90), not an array. For raster views MapX makes a WMS request
-  that can throw or hang; runtime GeoJSON views (EDRA) have no server source at all, so their bounds
-  are computed from the GeoJSON we build.
-- The SDK forwards no camera-move event (its events catalog for 1.14.0 has no `move` or `moveend`),
-  so the embed can't tell its host when the reader pans. Hosts poll with `get-view` if they need to.
+- `map_fly_to` and `map_jump_to` go through `_map_resolve_when("moveend")`, which calls `map.stop()`,
+  registers `once("moveend")` and only then moves, with a 10 s reject. They answer once the camera has
+  landed, animated or not (`jumpTo`, and `flyTo` under reduced motion, fire `moveend` synchronously,
+  which is fine because the listener is already there). Keep animations well under 10 s: up to 1.14.0 a
+  rejected resolver never settles `ask()`.
+- **`map_set_bounds_array` doesn't wait.** It's `fitMaxBounds(bounds)`: an animated `fitBounds` that
+  answers `true` immediately (or `false`, without moving, outside the max bounds). A read right after
+  it sees the camera mid-flight, and the next `map_jump_to` (`map.stop()`) cuts the flight short.
+- **`common_loc_fit_bbox` can hang, and treats an unknown code as success.** It fits with
+  `{ animate: true, ...param }` and then awaits `map.once("moveend")`. With `duration: 0` (or under
+  reduced motion) MapLibre fires `moveend` synchronously inside `fitBounds`, before that `once` is
+  registered, so the resolver never answers. For an unknown code `getBbox` warns and returns `null`,
+  and the resolver answers `null`.
+- So every fit is done the same way: `common_loc_get_bbox({ code })` for an area (`null` = unknown),
+  the max-bounds check redone from `map_get_max_bounds_array`, then
+  `ask("map", { method: "cameraForBounds", parameters: [bounds] })` through MapX's generic `map`
+  resolver, then `map_jump_to` / `map_fly_to`.
+- `get_view_source_summary({ idView })` returns `extent_sp` as `{ lng1, lat1, lng2, lat2 }`. Vector
+  sources come from PostGIS `ST_EstimatedExtent` (min then max), but the raster fallback reprojects a
+  WMS bounding box and can report north as `lat1`: order each axis before use. For raster views the WMS
+  request can throw or hang, and a hung request holds one of the SDK's `maxSimultaneousRequest` (10)
+  slots, so a summary that timed out is not asked again in the session. Runtime GeoJSON views (EDRA)
+  have no server source; their bounds are computed from the GeoJSON we build.
+- The SDK forwards no camera-move event, but the generic `map` resolver special-cases `once`:
+  `ask("map", { method: "once", parameters: "moveend" })` resolves on the next `moveend`. A long-poll
+  over it could report user pans to a host (#49); it would hold a request slot while the map is still.
