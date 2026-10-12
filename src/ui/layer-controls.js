@@ -7,6 +7,7 @@
 import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
 import { resolveMapXLegend } from "../sdk/legends.js";
+import { setLoadingText } from "./inline-loader.js";
 
 const IMAGE_FALLBACK_LABELS = {
   raster: "Structured raster legend not supported — showing MapX image",
@@ -269,7 +270,7 @@ function addImageLegendComparison(idView, container) {
     status?.remove();
     status = document.createElement("span");
     status.className = "legend-diagnostic-status";
-    status.textContent = "Loading MapX image legend…";
+    setLoadingText(status, "Loading MapX image legend…");
     status.setAttribute("role", "status");
     status.setAttribute("aria-live", "polite");
     details.appendChild(status);

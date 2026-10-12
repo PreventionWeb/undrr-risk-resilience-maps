@@ -409,6 +409,7 @@ describe("addLegend", () => {
         "MapX image legend is not available.",
       ),
     );
+    expect(details.querySelector(".legend-diagnostic-status .mg-loader")).toBeNull();
   });
 
   it("does not commit a stale async legend after its slot is cleared and reused", async () => {

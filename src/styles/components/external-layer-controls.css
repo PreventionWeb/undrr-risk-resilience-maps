@@ -54,6 +54,11 @@
   display: none;
 }
 
+/* Mangrove's inline loader (setLoadingText in ui/inline-loader.js) before the message. */
+.external-layer-status > .mg-loader--inline {
+  margin-inline-end: 0.4em;
+}
+
 /* The same colour `.mg-form-error` uses, which `src/ui/layer-row.js` applies to
    the row's own error line. Not the class itself: this line keeps the controls'
    smaller type, which `mg-form-error` would reset. */
