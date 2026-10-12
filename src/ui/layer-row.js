@@ -31,6 +31,7 @@ import { getExternalLayerDefinition, getExternalLayerRuntime, isExternalLayer } 
 import { clampSourceIdx, isBusyStatus, settingsMatch } from "../services/layer-controller.js";
 import { offRecord } from "../state/layers-store.js";
 import { createLayerAnnouncer } from "./announcer.js";
+import { setLoadingText } from "./inline-loader.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -197,6 +198,18 @@ export function layerDescriptionText(layer, description) {
 // Write only what differs, so rendering the same record twice mutates nothing.
 function setText(element, text) {
   if (element.textContent !== text) element.textContent = text;
+}
+
+/**
+ * A compact row's external status: a loading message carries an inline
+ * spinner, a failure does not. Like setText, it writes only on a change.
+ */
+function renderStatusText(element, status) {
+  const text = status?.text ?? "";
+  const loading = Boolean(status && !status.isError);
+  if (element.textContent === text && Boolean(element.querySelector(".mg-loader")) === loading) return;
+  if (loading) setLoadingText(element, text);
+  else element.textContent = text;
 }
 
 function setHidden(element, hidden) {
@@ -752,7 +765,7 @@ export function createLayerRow(
       // Visual only: the switch is aria-busy while loading, and a failure is
       // announced by the row's announcer.
       statusP.className = "external-layer-status";
-      statusP.textContent = text;
+      setLoadingText(statusP, text);
       widgetSlot.appendChild(statusP);
       return;
     }
@@ -792,7 +805,7 @@ export function createLayerRow(
       } else if (isVisible()) {
         if (desc) setText(desc, layerDescriptionText(layer, details?.legendLayer?.desc || layer.desc));
         setHidden(statusEl, !status);
-        setText(statusEl, status?.text ?? "");
+        renderStatusText(statusEl, status);
         setClass(statusEl, "is-error", Boolean(status?.isError));
         setHidden(body, false);
       }

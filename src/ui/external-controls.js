@@ -1,3 +1,5 @@
+import { setLoadingText } from "./inline-loader.js";
+
 /**
  * Build generic select controls declared by an external layer provider.
  * @param {{ signal?: AbortSignal }} [options] - aborting the signal removes the controls' listeners
@@ -48,7 +50,7 @@ export function buildExternalControls(definition, initialSettings, onChange, { s
         const next = { ...current, [key]: select.value };
         for (const input of selects.values()) input.disabled = true;
         status.classList.remove("is-error");
-        status.textContent = "Updating external layer…";
+        setLoadingText(status, "Updating external layer…");
 
         try {
           const result = await onChange(next);

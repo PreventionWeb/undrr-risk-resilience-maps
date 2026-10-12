@@ -110,6 +110,10 @@
   color: rgb(var(--mg-color-neutral-500));
 }
 
+.legend-diagnostic-status > .mg-loader--inline {
+  margin-inline-end: 0.4em;
+}
+
 .legend-image-fallback-label {
   margin-top: 0.3rem;
   color: rgb(var(--mg-color-neutral-500));

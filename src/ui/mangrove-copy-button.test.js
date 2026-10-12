@@ -3,7 +3,7 @@ import { initMangroveCopyButtons, COPY_BUTTON_MODULE_URL } from "./mangrove-copy
 
 describe("COPY_BUTTON_MODULE_URL", () => {
   it("points at the same Mangrove release as the stylesheet", () => {
-    expect(COPY_BUTTON_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.0/js/copy-button.js");
+    expect(COPY_BUTTON_MODULE_URL).toBe("https://assets.undrr.org/mangrove/2.0.1/js/copy-button.js");
   });
 });
 

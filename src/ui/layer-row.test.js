@@ -570,10 +570,12 @@ describe("createLayerRow compact variant", () => {
 
     await settle({ desired: true, status: "loading" });
     expect(el.querySelector(".external-layer-status").textContent).toBe("Loading Crops…");
+    expect(el.querySelector(".external-layer-status .mg-loader--inline")).not.toBeNull();
     await settle({ desired: false, status: "error", error: new Error("offline") });
     expect(el.querySelector(".external-layer-status").textContent).toBe(
       "Could not load Crops. Please try again.",
     );
+    expect(el.querySelector(".external-layer-status .mg-loader")).toBeNull();
 
     expect(mocks.addLegend).not.toHaveBeenCalled();
     expect(mocks.addOpacitySlider).not.toHaveBeenCalled();
@@ -711,6 +713,7 @@ describe.each(["full", "compact"])("createLayerRow (%s) visible pending text", (
 
     // The row's own status line, where its controls go, is the one message.
     expect(el.querySelector(".external-layer-status").textContent).toBe("Loading Crops…");
+    expect(el.querySelector(".external-layer-status .mg-loader--inline")).not.toBeNull();
     expect(pending(el).textContent).toBe("");
   });
 

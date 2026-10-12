@@ -43,10 +43,12 @@ describe("buildExternalControls", () => {
     change(select, "20");
     expect(select.disabled).toBe(true);
     expect(controls.querySelector(".external-layer-status").textContent).toBe("Updating external layer…");
+    expect(controls.querySelector(".external-layer-status .mg-loader--inline")).not.toBeNull();
 
     resolveChange({ settings: { scenario: "20" } });
     await waitFor(() => expect(select.disabled).toBe(false));
     expect(select.value).toBe("20");
+    expect(controls.querySelector(".external-layer-status .mg-loader")).toBeNull();
   });
 
   it("restores the prior setting and shows a provider-neutral error", async () => {
@@ -61,6 +63,7 @@ describe("buildExternalControls", () => {
     expect(controls.querySelector(".external-layer-status").textContent).toBe(
       "Could not update the external layer. Please try again.",
     );
+    expect(controls.querySelector(".external-layer-status .mg-loader")).toBeNull();
   });
 
   it("removes its listeners when the signal aborts", () => {

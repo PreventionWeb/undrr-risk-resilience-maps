@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.0` to `2.0.1` across the stylesheet, `preview-access.js`, `tabs.js` and `copy-button.js` CDN loaders. The release only adds to 2.0.0: no class or token the app uses was renamed or removed, and the three scripts are unchanged.
+- Show Mangrove's new inline spinner beside the loading messages that were text alone: an external layer's "Loading…" line, "Updating external layer…" and "Loading MapX image legend…". It goes away as soon as the result or an error is shown.
+
 ## [0.0.7] - 2026-10-11
 
 ### Added

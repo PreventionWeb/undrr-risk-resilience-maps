@@ -35,7 +35,7 @@
  * so nothing is copied or announced twice.
  */
 
-const MANGROVE_VERSION = "2.0.0";
+const MANGROVE_VERSION = "2.0.1";
 const COPY_BUTTON_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/copy-button.js`;
 
 let modulePromise = null;
