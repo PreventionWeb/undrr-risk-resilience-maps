@@ -56,7 +56,8 @@ vi.mock("../ui/info-panels.js", () => ({
 }));
 vi.mock("../ui/mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../ui/layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
-vi.mock("../sdk/client.js", () => ({
+vi.mock("../sdk/client.js", async (importOriginal) => ({
+  isMapXAtLeast: (await importOriginal()).isMapXAtLeast,
   initSDK: vi.fn(),
   setSDKReady: vi.fn(),
   isSDKReady: () => true,
@@ -155,6 +156,54 @@ describe("createRiskMap", () => {
     await waitFor(() => expect(manager.on).toHaveBeenCalled());
     return instance;
   }
+
+  describe("map clicks", () => {
+    function addInfobox() {
+      document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div id="infobox" style="display: none">
+          <div class="infobox-title"></div><div class="infobox-body"></div>
+          <button class="infobox-close"></button>
+        </div>`,
+      );
+      return document.getElementById("infobox");
+    }
+
+    it("listens to click_features alone on MapX 1.14.2+", async () => {
+      manager.version = "1.14.2-alpha.3";
+      await start();
+      expect(manager.handlers.has("click_features")).toBe(true);
+      expect(manager.handlers.has("click_attributes")).toBe(false);
+    });
+
+    it("listens to click_attributes alone on older MapX", async () => {
+      manager.version = "1.14.1";
+      await start();
+      expect(manager.handlers.has("click_attributes")).toBe(true);
+      expect(manager.handlers.has("click_features")).toBe(false);
+    });
+
+    it("shows a custom coded view's plain-object attributes in the infobox", async () => {
+      const box = addInfobox();
+      manager.version = "1.14.2";
+      await start();
+      manager.handlers.get("click_features")({
+        attributes: { "MX-EMPTY": [], "MX-CC": { name: "Site A", value: 3 } },
+        lngLat: { lng: 1, lat: 2 },
+      });
+      expect(box.style.display).not.toBe("none");
+      expect(box.querySelector(".infobox-title").textContent).toBe("Site A");
+    });
+
+    it("closes the infobox on an empty click", async () => {
+      const box = addInfobox();
+      manager.version = "1.14.2";
+      await start();
+      manager.handlers.get("click_features")({ attributes: { "MX-A": [{ name: "Site A" }] } });
+      manager.handlers.get("click_features")({ attributes: {} });
+      expect(box.style.display).toBe("none");
+    });
+  });
 
   it("validates the layer config before building anything", async () => {
     await start({ mapxProject: "MX-TEST-PROJECT" });

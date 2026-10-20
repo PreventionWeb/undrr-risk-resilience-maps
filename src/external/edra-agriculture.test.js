@@ -295,6 +295,7 @@ describe("createEDRAView", () => {
         save: false,
         fileType: "geojson",
         title: expect.stringContaining("Barley"),
+        zoomToView: true,
       }),
     );
     expect(sdk.ask).toHaveBeenNthCalledWith(

@@ -4,10 +4,16 @@
  * These are used inside layer accordions after a layer is activated.
  * Extracted here so sidebar.js doesn't own SDK + DOM concerns at once.
  */
-import { getViewLayerTransparency, setViewLayerTransparency } from "../sdk/filters.js";
+import {
+  getViewLayerTransparency,
+  normalizeLayerTransparency,
+  setViewLayerTransparency,
+} from "../sdk/filters.js";
 import { getViewLegendImage } from "../sdk/views.js";
 import { resolveMapXLegend } from "../sdk/legends.js";
 import { setLoadingText } from "./inline-loader.js";
+
+export { normalizeLayerTransparency };
 
 const IMAGE_FALLBACK_LABELS = {
   raster: "Structured raster legend not supported — showing MapX image",
@@ -77,17 +83,16 @@ export async function addOpacitySlider(idView, container) {
   valueDisplay.setAttribute("aria-hidden", "true");
   valueDisplay.textContent = "100%";
 
-  // The SDK's setter takes transparency (0=opaque, 100=invisible) but its
-  // getter returns opacity 0-1 (see src/sdk/filters.js); UI shows opacity
-  // 0-100. Read: opacity = value * 100. Write: transparency = 100 - opacity.
+  // In MapX 1.14.1 the getter returned opacity 0-1 (1 = fully opaque).
+  // In MapX 1.14.2 it returns transparency 0-100 (0 = fully opaque).
+  // normalizeLayerTransparency() normalizes both gracefully to UI opacity 0-100.
+  // Write: transparency = 100 - opacity.
   const changesBefore = userOpacity.get(idView)?.changes ?? 0;
   let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    // Round to the slider's step of 1 so the thumb, the percentage beside it
-    // and aria-valuetext agree, and clamp in case MapX stores a stray value.
     if (typeof current === "number" && Number.isFinite(current)) {
-      opacity = Math.min(100, Math.max(0, Math.round(current * 100)));
+      opacity = normalizeLayerTransparency(current);
     }
   } catch {
     // Default to 100% opacity

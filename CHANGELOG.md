@@ -8,8 +8,20 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- Upgraded the UNDRR Mangrove component library from `2.0.1` to `2.2.0` across the stylesheet, `preview-access.js`, `tabs.js` and `copy-button.js` CDN loaders. No class or token the app uses was renamed or removed, and `tabs.js` and `copy-button.js` are unchanged.
-- The preview PIN is now remembered across tabs and browser restarts (Mangrove 2.2's `data-mg-preview-persist="local"`), instead of being asked for again in every new tab. Changing the PIN asks for it again.
+- Upgraded the UNDRR Mangrove component library from `2.0.1` to `2.2.0` across the stylesheet, `preview-access.js`, `tabs.js` and `copy-button.js` CDN loaders. No class or token the app uses was renamed or removed, and `tabs.js` and `copy-button.js` are unchanged ([#54](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/54)).
+- The preview PIN is now remembered across tabs and browser restarts (Mangrove 2.2's `data-mg-preview-persist="local"`), instead of being asked for again in every new tab. Changing the PIN asks for it again ([#54](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/54)).
+
+### Added
+
+- Added `?mapxEnv=staging` to load the map from MapX staging (`app.staging.mapx.org`) to try an upcoming MapX release. Production MapX stays the default. Staging's database is an older copy, so most UNDRR-project layers do not load there ([#55](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/55)).
+
+### Fixed
+
+- Got ready for MapX 1.14.2 without waiting for it to reach production. The app reads the MapX version the SDK reports and uses the 1.14.2 behaviour once it is there, so nothing breaks on the day it ships ([#55](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/55)):
+  - The opacity slider reads the layer opacity on the scale that version uses ([mapx#1135](https://github.com/unep-grid/mapx/issues/1135)). Without this, every slider would have shown 0% on a fully visible layer under 1.14.2.
+  - The map frame's title is passed to the new `iframeTitle` option ([mapx#1136](https://github.com/unep-grid/mapx/issues/1136)).
+  - Changing an EDRA layer's settings passes `zoomToView: false` ([mapx#1137](https://github.com/unep-grid/mapx/issues/1137)) so the map stays still.
+  - Map clicks come through the new single `click_features` event ([mapx#1139](https://github.com/unep-grid/mapx/issues/1139)), and a click that hits nothing closes the infobox.
 
 ## [0.0.8] - 2026-10-12
 

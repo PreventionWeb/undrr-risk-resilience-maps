@@ -2,10 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { waitFor } from "../../tests/support/async.js";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
-vi.mock("../sdk/filters.js", () => ({
-  getViewLayerTransparency: vi.fn(),
-  setViewLayerTransparency: vi.fn(),
+const mapx = vi.hoisted(() => ({ version: null }));
+vi.mock("../sdk/client.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  getMapXVersion: () => mapx.version,
 }));
+vi.mock("../sdk/filters.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getViewLayerTransparency: vi.fn(),
+    setViewLayerTransparency: vi.fn(),
+  };
+});
 vi.mock("../sdk/views.js", () => ({
   getViewLegendImage: vi.fn(),
 }));
@@ -86,11 +95,67 @@ describe("addOpacitySlider", () => {
     expect(container.querySelector(".opacity-value").textContent).toBe("67%");
   });
 
-  it("clamps an out-of-range opacity to the slider's 0-100", async () => {
-    getViewLayerTransparency.mockResolvedValue(1.5);
+  it("clamps an out-of-range transparency to the slider's 0-100", async () => {
+    getViewLayerTransparency.mockResolvedValue(-10);
     await addOpacitySlider("view-1", container);
     expect(container.querySelector("input[type=range]").value).toBe("100");
     expect(container.querySelector(".opacity-value").textContent).toBe("100%");
+
+    container.innerHTML = "";
+    getViewLayerTransparency.mockResolvedValue(120);
+    await addOpacitySlider("view-2", container);
+    expect(container.querySelector("input[type=range]").value).toBe("0");
+    expect(container.querySelector(".opacity-value").textContent).toBe("0%");
+  });
+
+  it("shows 100 when MapX 1.14.2 returns transparency 0 (fresh view)", async () => {
+    getViewLayerTransparency.mockResolvedValue(0);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("100");
+    expect(container.querySelector(".opacity-value").textContent).toBe("100%");
+  });
+
+  it("converts MapX 1.14.2 transparency to UI opacity (opacity = 100 - value)", async () => {
+    getViewLayerTransparency.mockResolvedValue(30);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("70");
+    expect(container.querySelector(".opacity-value").textContent).toBe("70%");
+  });
+
+  it("converts MapX 1.14.2 100% transparency to 0% opacity", async () => {
+    getViewLayerTransparency.mockResolvedValue(100);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("0");
+    expect(container.querySelector(".opacity-value").textContent).toBe("0%");
+  });
+
+  it("preserves precision when MapX 1.14.2 returns 1% transparency (99% opacity)", async () => {
+    try {
+      mapx.version = "1.14.2-alpha.3";
+      getViewLayerTransparency.mockResolvedValue(1);
+      await addOpacitySlider("view-1", container);
+      const slider = container.querySelector("input[type=range]");
+      expect(slider.value).toBe("99");
+      expect(container.querySelector(".opacity-value").textContent).toBe("99%");
+    } finally {
+      mapx.version = null;
+    }
+  });
+
+  it("preserves 0% opacity on MapX 1.14.1 without turning fully opaque", async () => {
+    try {
+      mapx.version = "1.14.1";
+      getViewLayerTransparency.mockResolvedValue(0);
+      await addOpacitySlider("view-1", container);
+      const slider = container.querySelector("input[type=range]");
+      expect(slider.value).toBe("0");
+      expect(container.querySelector(".opacity-value").textContent).toBe("0%");
+    } finally {
+      mapx.version = null;
+    }
   });
 
   it("defaults to 100% opacity when SDK call throws", async () => {

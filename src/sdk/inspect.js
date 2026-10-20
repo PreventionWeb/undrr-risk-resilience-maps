@@ -129,16 +129,44 @@ export function handleClickEvent(data, openViews) {
       openViewsSnapshot: _batch.openViewsSnapshot,
     };
     _batch = null;
-    // A snapshot, so a subscriber that unsubscribes (or subscribes) while the
-    // result is being delivered cannot change who is called for this batch.
-    // One subscriber that throws must not starve the ones after it, the way the
-    // layers store already isolates its subscribers.
-    for (const subscriber of [..._subscribers]) {
-      try {
-        subscriber(result);
-      } catch (error) {
-        console.error("An inspection-result subscriber threw:", error);
-      }
+    deliverInspectionResult(result);
+  }
+}
+
+/**
+ * Process a single `click_features` event from MapX 1.14.2+ (MapX upstream #1139).
+ * MapX passes { attributes, lngLat, point } where attributes is an object keyed by
+ * view ID ({ [idView]: attrs[] }). When empty or clicking an empty region, attributes is {}.
+ *
+ * @param {object} data - { attributes?: Record<string, object[]>, lngLat?: object }
+ * @param {Set<string>} openViews - current store.openViews
+ */
+export function handleFeaturesEvent(data, openViews) {
+  if (!_active) return;
+  const rawAttrs = data?.attributes;
+  const views = {};
+  if (rawAttrs && typeof rawAttrs === "object") {
+    for (const [idView, attrs] of Object.entries(rawAttrs)) {
+      views[idView] = Array.isArray(attrs) ? attrs : [attrs];
+    }
+  }
+  deliverInspectionResult({
+    lngLat: data?.lngLat ?? null,
+    views,
+    openViewsSnapshot: new Set(openViews),
+  });
+}
+
+function deliverInspectionResult(result) {
+  // A snapshot, so a subscriber that unsubscribes (or subscribes) while the
+  // result is being delivered cannot change who is called for this batch.
+  // One subscriber that throws must not starve the ones after it, the way the
+  // layers store already isolates its subscribers.
+  for (const subscriber of [..._subscribers]) {
+    try {
+      subscriber(result);
+    } catch (error) {
+      console.error("An inspection-result subscriber threw:", error);
     }
   }
 }

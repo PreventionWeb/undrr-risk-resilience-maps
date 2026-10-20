@@ -16,7 +16,16 @@
  *   - `camera`     — `{ center, zoom, bounds }`, moved by the camera commands
  */
 (function () {
-  "use strict";
+  // The MapX version to impersonate, set by the fixture's `mapxVersion`
+  // option. Production runs 1.14.1 until 1.14.2 ships.
+  var VERSION = window.__MAPX_STUB_VERSION__ || "1.14.1";
+  var IS_1_14_2 = (function () {
+    var parts = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION);
+    if (!parts) return false;
+    var n = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+    return n[0] > 1 || (n[0] === 1 && (n[1] > 14 || (n[1] === 14 && n[2] >= 2)));
+  })();
+  ("use strict");
 
   var stub = {
     ready: false,
@@ -34,6 +43,15 @@
     holdReady: Boolean(window.__mapxStubHoldReady),
     /** Emit the held `ready`. Replaced per manager; a no-op until one is built. */
     releaseReady: function () {},
+    /**
+     * Fire a MapX event (`click_features`, `click_attributes`) at the app, the
+     * way a map click would. Replaced per manager; a no-op until one is built.
+     */
+    emit: function () {},
+    /** Whether the app has a handler for `event`. Replaced per manager. */
+    listening: function () {
+      return false;
+    },
     openViews: [],
     calls: [],
     /**
@@ -191,11 +209,12 @@
         return { id: id, type: "rt", data: {} };
       });
     },
-    // src/sdk/filters.js — the opacity slider's read and write. MapX's getter
-    // answers with the view's opacity 0-1 (1 for a fresh view), not the 0-100
-    // transparency the setter takes.
+    // src/sdk/filters.js — the opacity slider's read and write. The getter
+    // changed scale in MapX 1.14.2: it answers transparency 0-100 (0 for a
+    // fresh, fully opaque view), where 1.14.1 answered the view's opacity 0-1
+    // (1 for a fresh view). The setter takes transparency 0-100 on both.
     get_view_layer_transparency: function () {
-      return 1;
+      return IS_1_14_2 ? 0 : 1;
     },
     set_view_layer_transparency: function () {
       return true;
@@ -262,6 +281,9 @@
 
   function Manager(options) {
     this._listeners = Object.create(null);
+    // The real SDK has no window.mxsdk.version; the version is a getter on
+    // the Manager instance (src/sdk/client.js getMapXVersion()).
+    this.version = VERSION;
 
     // Stand in for the SDK's iframe. Nothing is loaded into it: the point of
     // the stub is that no cross-origin document exists to wait for.
@@ -275,6 +297,12 @@
     // The app registers its `ready` handler after initSDK() returns, so the
     // event cannot be emitted synchronously.
     var self = this;
+    stub.emit = function (event, payload) {
+      self._emit(event, payload);
+    };
+    stub.listening = function (event) {
+      return (self._listeners[event] || []).length > 0;
+    };
     var emitReady = function () {
       stub.ready = true;
       self._emit("ready", {});

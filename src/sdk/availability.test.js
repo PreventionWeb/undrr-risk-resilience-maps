@@ -4,10 +4,15 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   canMapLoad,
   findMapContainer,
-  isMapOnScreen,
+  getMapXBaseUrl,
+  getMapXEnvironment,
+  getMapXSdkUrl,
   hideMapServiceNotice,
   initMapServiceRetry,
+  isMapOnScreen,
   loadMapXSdk,
+  MAPX_PROD_URL,
+  MAPX_STAGING_URL,
   showMapServiceNotice,
   startMapServiceRetryCountdown,
   watchForMapReady,
@@ -59,6 +64,35 @@ describe("MapX availability", () => {
     await vi.advanceTimersByTimeAsync(100);
     await rejection;
     expect(document.head.querySelector("script")).toBeNull();
+  });
+
+  it.each([
+    ["by default", {}, "https://app.mapx.org/sdk/mxsdk.umd.js"],
+    [
+      "for ?mapxEnv=staging",
+      { location: { search: "?mapxEnv=staging" } },
+      MAPX_STAGING_URL + "/sdk/mxsdk.umd.js",
+    ],
+  ])("loads the SDK from the right MapX %s", async (_label, windowRef, src) => {
+    const promise = loadMapXSdk({ windowRef });
+    const script = document.head.querySelector("script");
+    expect(script.src).toBe(src);
+    script.onload();
+    await promise.catch(() => {});
+  });
+
+  it("uses production MapX unless the page asks for staging", () => {
+    expect(getMapXEnvironment()).toBe("prod");
+    expect(getMapXEnvironment(null)).toBe("prod");
+    expect(getMapXEnvironment({})).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "" } })).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=prod" } })).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=nonsense" } })).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "?layers=a&mapxEnv=Staging" } })).toBe("staging");
+
+    expect(getMapXBaseUrl({})).toBe(MAPX_PROD_URL);
+    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=staging" } })).toBe(MAPX_STAGING_URL);
+    expect(getMapXSdkUrl({})).toBe(`${MAPX_PROD_URL}/sdk/mxsdk.umd.js`);
   });
 
   it("can cancel the ready-event timeout", () => {
