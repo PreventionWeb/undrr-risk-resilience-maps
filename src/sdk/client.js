@@ -5,6 +5,9 @@
  * We create one Manager per project, which embeds an iframe and communicates
  * via postMessage.
  */
+import { getMapXBaseUrl } from "./availability.js";
+
+export const MAPX_FRAME_TITLE = "Interactive map";
 
 let _mapx = null;
 let _sdkReady = false;
@@ -12,11 +15,13 @@ let _sdkReady = false;
 // can accept layer changes (the layer switches) can re-render itself.
 const _readyListeners = new Set();
 
-export function initSDK(container, projectId) {
+export function initSDK(container, projectId, options = {}) {
   if (!window.mxsdk?.Manager) throw new Error("MapX SDK is unavailable");
+  const baseUrl = options.baseUrl ?? getMapXBaseUrl(typeof window !== "undefined" ? window : undefined);
   _mapx = new window.mxsdk.Manager({
     container,
-    url: `https://app.mapx.org/?project=${projectId}`,
+    url: `${baseUrl}/?project=${projectId}`,
+    iframeTitle: MAPX_FRAME_TITLE,
     params: {
       closePanels: true,
       language: "en",
@@ -41,18 +46,12 @@ export const FRAME_TITLE_WATCH_MS = 10000;
 /**
  * Name the iframe the SDK embeds.
  *
- * The Manager builds it itself and gives it no `title`, which axe reports as a
- * serious `frame-title` violation and which leaves screen-reader users with an
- * unnamed frame in the frames list.
+ * MapX 1.14.2 takes `iframeTitle` in the Manager options, which initSDK()
+ * passes. MapX 1.14.1 and earlier ignore it and build the iframe with no
+ * `title`, which axe reports as a serious `frame-title` violation. This sets
+ * the same title on those versions and leaves an existing one alone.
  *
- * `Manager._build()` appends the iframe inside the constructor, so the first
- * attempt below always succeeds today. The observer is cheap insurance against
- * that becoming asynchronous upstream, and it is bounded so it can never sit
- * watching the container for the life of the page if the iframe never arrives.
- *
- * MapX upstream: https://github.com/unep-grid/mapx/issues/1136. If the
- * Manager gets a default title or a title option, pass ours through it in
- * initSDK() and delete this function and FRAME_TITLE_WATCH_MS.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1136.
  *
  * @param {HTMLElement|string} container - the element (or its id) the map is in
  * @returns {() => void} disposes the fallback watch (a no-op once it is done)
@@ -61,7 +60,7 @@ export function titleMapXFrame(container) {
   const noop = () => {};
   const host = typeof container === "string" ? document.getElementById(container) : container;
   if (!host) return noop;
-  const title = "Interactive map (MapX)";
+  const title = MAPX_FRAME_TITLE;
   const apply = () => {
     const frame = host.querySelector("iframe");
     if (!frame) return false;
@@ -82,6 +81,42 @@ export function titleMapXFrame(container) {
   observer.observe(host, { childList: true, subtree: true });
   timer = setTimeout(dispose, FRAME_TITLE_WATCH_MS);
   return dispose;
+}
+
+/**
+ * The SDK version the Manager reports, e.g. "1.14.2-alpha.3" or "1.14.1".
+ *
+ * The UMD exposes no module-level version; it is a getter on the Manager
+ * instance. Null before initSDK() or if the SDK stops reporting one.
+ *
+ * @returns {string|null}
+ */
+export function getMapXVersion() {
+  const version = _mapx?.version;
+  return typeof version === "string" ? version : null;
+}
+
+/**
+ * Whether a MapX version is at least `minimum`. Pre-release tags count as
+ * their release ("1.14.2-alpha.3" satisfies "1.14.2"), since the alphas are
+ * where the behaviour we gate on first appears.
+ *
+ * @param {string|null|undefined} version
+ * @param {string} minimum - "major.minor.patch"
+ * @returns {boolean} false when the version is missing or unparseable
+ */
+export function isMapXAtLeast(version, minimum) {
+  const parse = (v) => {
+    const match = /^(\d+)\.(\d+)\.(\d+)/.exec(v ?? "");
+    return match ? match.slice(1).map(Number) : null;
+  };
+  const have = parse(version);
+  const want = parse(minimum);
+  if (!have || !want) return false;
+  for (let i = 0; i < 3; i++) {
+    if (have[i] !== want[i]) return have[i] > want[i];
+  }
+  return true;
 }
 
 export function getSDK() {

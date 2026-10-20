@@ -2,7 +2,34 @@
 // MapX app, so a pinned Manager can drift from the worker (err_version_mismatch).
 // If @fxi/mxsdk is published in step with app releases, reconsider pinning
 // through jsDelivr with SRI.
-export const MAPX_SDK_URL = "https://app.mapx.org/sdk/mxsdk.umd.js";
+export const MAPX_PROD_URL = "https://app.mapx.org";
+export const MAPX_STAGING_URL = "https://app.staging.mapx.org";
+
+/**
+ * Which MapX instance to load: production, or staging with `?mapxEnv=staging`.
+ *
+ * Staging is an opt-in for trying an upcoming MapX release before it reaches
+ * production. Its database is an older copy: view IDs are shared with
+ * production, but most UNDRR-project views are missing there, so expect many
+ * layers to fail to load.
+ *
+ * @param {{ location?: { search?: string } }} [windowRef]
+ * @returns {"staging" | "prod"}
+ */
+export function getMapXEnvironment(windowRef = globalThis.window) {
+  const search = windowRef?.location?.search;
+  if (typeof search !== "string" || !search) return "prod";
+  return new URLSearchParams(search).get("mapxEnv")?.toLowerCase() === "staging" ? "staging" : "prod";
+}
+
+/** @returns {string} the MapX app origin, e.g. "https://app.mapx.org" */
+export function getMapXBaseUrl(windowRef = globalThis.window) {
+  return getMapXEnvironment(windowRef) === "staging" ? MAPX_STAGING_URL : MAPX_PROD_URL;
+}
+
+export function getMapXSdkUrl(windowRef = globalThis.window) {
+  return `${getMapXBaseUrl(windowRef)}/sdk/mxsdk.umd.js`;
+}
 
 const SDK_LOAD_TIMEOUT_MS = 15_000;
 
@@ -77,6 +104,7 @@ export function loadMapXSdk({
   documentRef = document,
   windowRef = window,
   timeoutMs = SDK_LOAD_TIMEOUT_MS,
+  sdkUrl,
 } = {}) {
   if (windowRef.mxsdk?.Manager) return Promise.resolve(windowRef.mxsdk);
 
@@ -98,7 +126,7 @@ export function loadMapXSdk({
 
     const timeout = setTimeout(() => finish(new Error("MapX SDK load timed out")), timeoutMs);
 
-    script.src = MAPX_SDK_URL;
+    script.src = sdkUrl ?? getMapXSdkUrl(windowRef);
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {

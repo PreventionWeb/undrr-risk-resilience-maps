@@ -8,6 +8,10 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ## MapX SDK: `click_attributes` event
 
+From MapX 1.14.2 the app listens to `click_features` instead (one event per click, see
+ARCHITECTURE.md "Feature popups and click handling"); this section still describes the
+1.14.1 path, which production runs until 1.14.2 ships.
+
 **Payload shape** (confirmed from MapX source `app/src/js/map_helpers/index.js`):
 
 ```js

@@ -348,7 +348,7 @@ export async function buildEDRAGeoJSON(settings) {
   };
 }
 
-export async function createEDRAView(settings, sdk = getSDK()) {
+export async function createEDRAView(settings, sdk = getSDK(), { zoomToView = true } = {}) {
   const crop = optionFor(EDRA_CROPS, settings.crop, "crop");
   const scenario = optionFor(EDRA_SCENARIOS, settings.scenario, "scenario");
   const [data, style] = await Promise.all([buildEDRAGeoJSON(settings), getEDRAStyle(crop.value)]);
@@ -358,6 +358,7 @@ export async function createEDRAView(settings, sdk = getSDK()) {
     fileType: "geojson",
     title: `EDRA crop yield reduction — ${crop.label}, ${scenario.label}`,
     abstract: "Average annual crop yield reduction due to drought, from the European Drought Risk Atlas.",
+    zoomToView,
   });
   const idView = view?.id;
   if (!idView) throw new Error("MapX did not return an ID for the temporary EDRA view");
