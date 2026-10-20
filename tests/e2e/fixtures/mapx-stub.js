@@ -262,6 +262,9 @@
 
   function Manager(options) {
     this._listeners = Object.create(null);
+    // The real SDK has no window.mxsdk.version; the version is a getter on
+    // the Manager instance (src/sdk/client.js getMapXVersion()).
+    this.version = "1.14.2-alpha.3";
 
     // Stand in for the SDK's iframe. Nothing is loaded into it: the point of
     // the stub is that no cross-origin document exists to wait for.
@@ -332,5 +335,5 @@
     if (this.frame && this.frame.parentNode) this.frame.parentNode.removeChild(this.frame);
   };
 
-  window.mxsdk = { Manager: Manager, version: "1.14.2-alpha" };
+  window.mxsdk = { Manager: Manager };
 })();

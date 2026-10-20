@@ -91,7 +91,8 @@ export async function closeExternalLayer(layer) {
 // MapX 1.14.2 adds `zoomToView: false` to view_geojson_create to prevent
 // automatically zooming to the layer extent. We pass `zoomToView: false`
 // while keeping captureCamera + map_jump_to as a backward-compatibility
-// fallback for MapX <= 1.14.1.
+// fallback for MapX <= 1.14.1, which ignores the option. Once production
+// MapX runs 1.14.2+, drop captureCamera and the restore.
 async function captureCamera(sdk) {
   try {
     const [center, zoom] = await Promise.all([sdk.ask("map_get_center"), sdk.ask("map_get_zoom")]);

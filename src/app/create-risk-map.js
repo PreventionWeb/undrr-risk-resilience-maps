@@ -30,7 +30,7 @@ import { createSidebar } from "../ui/sidebar.js";
 import { initBuildInfo } from "../ui/build-info.js";
 import { closeInfobox, showInfobox } from "../ui/infobox.js";
 import { buildSiteInspectorPanel, hideSiteInspector, showSiteInspector } from "../ui/site-inspector.js";
-import { initSDK, setSDKReady } from "../sdk/client.js";
+import { initSDK, isMapXAtLeast, setSDKReady } from "../sdk/client.js";
 import {
   disableInspection,
   enableInspection,
@@ -359,41 +359,46 @@ export function createRiskMap(root, options = {}) {
       scheduleState();
     });
 
-    // Route click events based on inspection mode.
-    // MapX 1.14.2 adds `click_features` (MapX upstream #1139), firing once per map click
-    // with { attributes, lngLat, point }. When active, it delivers the full multi-view
-    // result in one tick; when inactive, it populates the infobox or dismisses it if the
-    // click hit an empty region (attributes is {}).
-    // Older MapX versions fire only `click_attributes` (one per open view).
-    let hasClickFeatures = false;
-    mapx.on("click_features", (data) => {
-      if (destroyed) return;
-      hasClickFeatures = true;
-      if (!data) return;
-
-      if (isInspectionActive()) {
-        handleFeaturesEvent(data, store.openViews);
-      } else {
-        const views =
-          data.attributes && typeof data.attributes === "object" ? Object.values(data.attributes) : [];
-        const firstViewAttrs = views.find((attrs) => Array.isArray(attrs) && attrs.length > 0) || null;
-        if (firstViewAttrs) {
-          showInfobox({ attributes: firstViewAttrs, lngLat: data.lngLat });
-        } else {
-          closeInfobox();
+    // Route map clicks by inspection mode: when active, collect every open
+    // view's result for the site inspector; when inactive, show the infobox.
+    //
+    // MapX 1.14.2 fires one `click_features` per click with
+    // { attributes: { [idView]: attrs }, lngLat, point }, including on empty
+    // clicks (attributes {}), and still fires the per-view `click_attributes`
+    // alongside it. Older MapX fires only `click_attributes`, one per open view.
+    // Listen to exactly one, chosen by the Manager's version, so a click is
+    // never handled twice whatever order the two arrive in.
+    // MapX upstream: https://github.com/unep-grid/mapx/issues/1139. Once
+    // production MapX runs 1.14.2+, drop the click_attributes branch and the
+    // batching in src/sdk/inspect.js.
+    if (isMapXAtLeast(mapx.version, "1.14.2")) {
+      mapx.on("click_features", (data) => {
+        if (destroyed || !data) return;
+        if (isInspectionActive()) {
+          handleFeaturesEvent(data, store.openViews);
+          return;
         }
-      }
-    });
+        // Vector views send an array of features, custom coded views a plain
+        // object; showInfobox() takes either.
+        const attributes =
+          data.attributes && typeof data.attributes === "object" ? Object.values(data.attributes) : [];
+        const first = attributes.find((attrs) =>
+          Array.isArray(attrs) ? attrs.length > 0 : attrs && typeof attrs === "object",
+        );
+        if (first) showInfobox({ attributes: first, lngLat: data.lngLat });
+        else closeInfobox();
+      });
+    } else {
+      mapx.on("click_attributes", (...args) => {
+        if (destroyed) return;
+        let data = args.length === 1 ? args[0] : null;
+        if (!data && args.length > 0) data = { attributes: args };
+        if (!data) return;
 
-    mapx.on("click_attributes", (...args) => {
-      if (destroyed || hasClickFeatures) return;
-      let data = args.length === 1 ? args[0] : null;
-      if (!data && args.length > 0) data = { attributes: args };
-      if (!data) return;
-
-      if (isInspectionActive()) handleClickEvent(data, store.openViews);
-      else showInfobox(data);
-    });
+        if (isInspectionActive()) handleClickEvent(data, store.openViews);
+        else showInfobox(data);
+      });
+    }
   }
 
   void startMapX();

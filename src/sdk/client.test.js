@@ -103,7 +103,7 @@ describe("titleMapXFrame", () => {
 
     const dispose = titleMapXFrame(host);
 
-    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(host.querySelector("iframe").title).toBe("Interactive map");
     expect(observe).not.toHaveBeenCalled();
     dispose();
     observe.mockRestore();
@@ -131,7 +131,7 @@ describe("titleMapXFrame", () => {
     host.appendChild(document.createElement("iframe"));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(host.querySelector("iframe").title).toBe("Interactive map");
     expect(disconnect).toHaveBeenCalled();
     host.remove();
     disconnect.mockRestore();
@@ -195,15 +195,15 @@ describe("initSDK", () => {
       }),
     );
     expect(manager).toBeDefined();
-    expect(container.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(container.querySelector("iframe").title).toBe("Interactive map");
   });
 
-  it("leaves MapX 1.14.2 iframeTitle untouched without overwriting it", async () => {
+  it("leaves a title the SDK already set untouched", async () => {
     const { initSDK } = await freshClient();
     const ManagerMock = vi.fn().mockImplementation(function (opts) {
       this.opts = opts;
       const iframe = document.createElement("iframe");
-      iframe.title = opts.iframeTitle;
+      iframe.title = "MapX map";
       opts.container.appendChild(iframe);
     });
     window.mxsdk = { Manager: ManagerMock };
@@ -211,7 +211,7 @@ describe("initSDK", () => {
     const container = document.createElement("div");
     initSDK(container, "PRJ-1142");
 
-    expect(container.querySelector("iframe").title).toBe("Interactive map");
+    expect(container.querySelector("iframe").title).toBe("MapX map");
   });
 
   it("allows passing a custom baseUrl to initSDK", async () => {
@@ -230,5 +230,40 @@ describe("initSDK", () => {
         iframeTitle: "Interactive map",
       }),
     );
+  });
+});
+
+describe("MapX version", () => {
+  it("reads the version from the Manager instance, not window.mxsdk", async () => {
+    const { initSDK, getMapXVersion } = await freshClient();
+    expect(getMapXVersion()).toBeNull();
+    window.mxsdk = {
+      version: "9.9.9",
+      Manager: vi.fn().mockImplementation(function () {
+        Object.defineProperty(this, "version", { get: () => "1.14.2-alpha.3" });
+      }),
+    };
+    initSDK(document.createElement("div"), "PRJ");
+    expect(getMapXVersion()).toBe("1.14.2-alpha.3");
+  });
+
+  it("returns null when the Manager reports no version", async () => {
+    const { initSDK, getMapXVersion } = await freshClient();
+    window.mxsdk = { Manager: vi.fn() };
+    initSDK(document.createElement("div"), "PRJ");
+    expect(getMapXVersion()).toBeNull();
+  });
+
+  it("compares versions, counting pre-releases as their release", async () => {
+    const { isMapXAtLeast } = await freshClient();
+    expect(isMapXAtLeast("1.14.2-alpha.3", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.2", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.10", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.15.0", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("2.0.0", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.1", "1.14.2")).toBe(false);
+    expect(isMapXAtLeast("1.9.30", "1.14.2")).toBe(false);
+    expect(isMapXAtLeast(null, "1.14.2")).toBe(false);
+    expect(isMapXAtLeast("dev", "1.14.2")).toBe(false);
   });
 });

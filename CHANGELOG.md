@@ -11,10 +11,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Upgraded the UNDRR Mangrove component library from `2.0.1` to `2.2.0` across stylesheets (`index.html`, `embed.html`) and CDN script loaders (`preview-access.js`, `tabs.js`, and `copy-button.js`).
 - Adopted Mangrove 2.2's `data-mg-preview-persist="local"` in `index.html` and `embed.html` to persist preview unlocks across browser tabs and sessions.
 - Adopted MapX 1.14.2-alpha release testing on staging (`https://app.staging.mapx.org`), with fallback support for production MapX via `?mapxEnv=prod` ([#53](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/53)).
-- Supported MapX Manager `iframeTitle: "Interactive map"` option (#1136) with backward-compatibility title fallback for older SDK versions.
-- Normalized layer transparency across MapX 1.14.1 (0–1 float opacity) and 1.14.2 (0–100 integer transparency), preventing 0% opacity from turning fully opaque and preserving precision for 1% transparency.
-- Passed `zoomToView: false` to temporary GeoJSON layer creation (`view_geojson_create`) to avoid unintended auto-zooming on layer changes (#1137).
-- Supported MapX 1.14.2's new `click_features` single event (#1139) with fallback to `click_attributes`, delivering full multi-view inspection in a single tick and enabling click-to-dismiss on empty map regions.
+- Passed the map frame's title to the MapX Manager's new `iframeTitle` option ([mapx#1136](https://github.com/unep-grid/mapx/issues/1136)), keeping the fallback that titles the frame on older MapX.
+- Read layer opacity on the scale the running MapX uses: 0–100 transparency on 1.14.2+, 0–1 opacity before ([mapx#1135](https://github.com/unep-grid/mapx/issues/1135)). The scale is chosen from the Manager's reported version.
+- Kept the map still when an EDRA layer's settings change by passing `zoomToView: false` to `view_geojson_create` ([mapx#1137](https://github.com/unep-grid/mapx/issues/1137)). Opening the layer still zooms to it.
+- Handled map clicks through MapX 1.14.2's single `click_features` event ([mapx#1139](https://github.com/unep-grid/mapx/issues/1139)), falling back to per-view `click_attributes` on older MapX. Clicking an empty part of the map now closes the infobox.
 
 ## [0.0.8] - 2026-10-12
 

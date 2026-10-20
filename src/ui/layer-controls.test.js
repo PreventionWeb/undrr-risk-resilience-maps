@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { waitFor } from "../../tests/support/async.js";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
+const mapx = vi.hoisted(() => ({ version: null }));
+vi.mock("../sdk/client.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  getMapXVersion: () => mapx.version,
+}));
 vi.mock("../sdk/filters.js", async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -128,32 +133,28 @@ describe("addOpacitySlider", () => {
   });
 
   it("preserves precision when MapX 1.14.2 returns 1% transparency (99% opacity)", async () => {
-    const originalLocation = window.location;
     try {
-      delete window.location;
-      window.location = { search: "?mapxEnv=staging" };
+      mapx.version = "1.14.2-alpha.3";
       getViewLayerTransparency.mockResolvedValue(1);
       await addOpacitySlider("view-1", container);
       const slider = container.querySelector("input[type=range]");
       expect(slider.value).toBe("99");
       expect(container.querySelector(".opacity-value").textContent).toBe("99%");
     } finally {
-      window.location = originalLocation;
+      mapx.version = null;
     }
   });
 
   it("preserves 0% opacity on MapX 1.14.1 without turning fully opaque", async () => {
-    const originalLocation = window.location;
     try {
-      delete window.location;
-      window.location = { search: "?mapxEnv=prod" };
+      mapx.version = "1.14.1";
       getViewLayerTransparency.mockResolvedValue(0);
       await addOpacitySlider("view-1", container);
       const slider = container.querySelector("input[type=range]");
       expect(slider.value).toBe("0");
       expect(container.querySelector(".opacity-value").textContent).toBe("0%");
     } finally {
-      window.location = originalLocation;
+      mapx.version = null;
     }
   });
 

@@ -348,7 +348,7 @@ export async function buildEDRAGeoJSON(settings) {
   };
 }
 
-export async function createEDRAView(settings, sdk = getSDK(), { zoomToView = false } = {}) {
+export async function createEDRAView(settings, sdk = getSDK(), { zoomToView = true } = {}) {
   const crop = optionFor(EDRA_CROPS, settings.crop, "crop");
   const scenario = optionFor(EDRA_SCENARIOS, settings.scenario, "scenario");
   const [data, style] = await Promise.all([buildEDRAGeoJSON(settings), getEDRAStyle(crop.value)]);

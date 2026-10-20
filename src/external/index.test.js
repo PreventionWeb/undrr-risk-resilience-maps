@@ -92,6 +92,11 @@ describe("external runtime registry", () => {
     await openExternalLayer(layer);
     const result = await replaceExternalLayer(layer, { crop: "MAIZE", scenario: "30" });
 
+    // Opening zooms to the layer; replacing it must not move the map.
+    expect(mocks.create).toHaveBeenNthCalledWith(1, layer.external.defaults);
+    expect(mocks.create).toHaveBeenNthCalledWith(2, { crop: "MAIZE", scenario: "30" }, mocks.sdk, {
+      zoomToView: false,
+    });
     expect(result.previousIdView).toBe("MX-GJ-OLD");
     expect(result.runtime.idView).toBe("MX-GJ-NEW");
     expect(getExternalRuntimeByViewId("MX-GJ-OLD")).toBeNull();

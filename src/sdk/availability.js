@@ -71,8 +71,6 @@ export function getMapXSdkUrl(windowRef = typeof window !== "undefined" ? window
   return `${getMapXBaseUrl(windowRef)}/sdk/mxsdk.umd.js`;
 }
 
-export const MAPX_SDK_URL = `${MAPX_STAGING_URL}/sdk/mxsdk.umd.js`;
-
 const SDK_LOAD_TIMEOUT_MS = 15_000;
 
 /**

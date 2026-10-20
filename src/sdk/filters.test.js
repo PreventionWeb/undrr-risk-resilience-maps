@@ -3,14 +3,18 @@ import { getViewLayerTransparency, normalizeLayerTransparency, setViewLayerTrans
 
 const mocks = vi.hoisted(() => ({
   sdk: { ask: vi.fn() },
+  version: null,
 }));
 
-vi.mock("./client.js", () => ({
+vi.mock("./client.js", async (importOriginal) => ({
+  ...(await importOriginal()),
   getSDK: () => mocks.sdk,
+  getMapXVersion: () => mocks.version,
 }));
 
 beforeEach(() => {
   mocks.sdk.ask.mockReset();
+  mocks.version = null;
 });
 
 describe("normalizeLayerTransparency", () => {
@@ -22,88 +26,44 @@ describe("normalizeLayerTransparency", () => {
     expect(normalizeLayerTransparency(Infinity)).toBe(100);
   });
 
-  it("handles fresh view defaults for both MapX 1.14.2 (0) and 1.14.1 (1) in unconfigured fallback", () => {
-    // MapX 1.14.2 transparency 0 = 100% opacity
+  it("reads MapX 1.14.2+ as transparency 0-100", () => {
+    for (const version of ["1.14.2-alpha.3", "1.14.2", "1.15.0"]) {
+      expect(normalizeLayerTransparency(0, version)).toBe(100);
+      // Not rounded up to 100: 1 is a real 1% transparency on this scale.
+      expect(normalizeLayerTransparency(1, version)).toBe(99);
+      expect(normalizeLayerTransparency(30, version)).toBe(70);
+      expect(normalizeLayerTransparency(100, version)).toBe(0);
+    }
+  });
+
+  it("reads MapX 1.14.1 and earlier as opacity 0-1", () => {
+    // A layer the user faded out must stay faded out, not snap back to opaque.
+    expect(normalizeLayerTransparency(0, "1.14.1")).toBe(0);
+    expect(normalizeLayerTransparency(1, "1.14.1")).toBe(100);
+    expect(normalizeLayerTransparency(0.75, "1.14.1")).toBe(75);
+    expect(normalizeLayerTransparency(0.6699999999999999, "1.13.0")).toBe(67);
+  });
+
+  it("clamps out-of-range values", () => {
+    expect(normalizeLayerTransparency(-15, "1.14.2")).toBe(100);
+    expect(normalizeLayerTransparency(130, "1.14.2")).toBe(0);
+    expect(normalizeLayerTransparency(1.5, "1.14.1")).toBe(100);
+  });
+
+  it("uses the Manager's version by default", () => {
+    mocks.version = "1.14.1";
+    expect(normalizeLayerTransparency(0)).toBe(0);
+    mocks.version = "1.14.2-alpha.3";
     expect(normalizeLayerTransparency(0)).toBe(100);
-    // MapX 1.14.1 opacity 1 = 100% opacity
-    expect(normalizeLayerTransparency(1)).toBe(100);
+    expect(normalizeLayerTransparency(1)).toBe(99);
   });
 
-  it("normalizes MapX 1.14.1 fractional opacity (0 < value < 1)", () => {
+  it("guesses from the value when no version is known", () => {
     expect(normalizeLayerTransparency(0.75)).toBe(75);
-    expect(normalizeLayerTransparency(0.5)).toBe(50);
-    expect(normalizeLayerTransparency(0.6699999999999999)).toBe(67);
-  });
-
-  it("normalizes MapX 1.14.2 integer transparency (value > 1)", () => {
     expect(normalizeLayerTransparency(30)).toBe(70);
-    expect(normalizeLayerTransparency(50)).toBe(50);
-    expect(normalizeLayerTransparency(80)).toBe(20);
-    expect(normalizeLayerTransparency(100)).toBe(0);
-  });
-
-  it("clamps out-of-range transparency values to 0-100 opacity", () => {
-    expect(normalizeLayerTransparency(-15)).toBe(100);
-    expect(normalizeLayerTransparency(130)).toBe(0);
-  });
-
-  it("accurately handles MapX 1.14.1 legacy opacity without regressions (0 remains 0, 1 remains 100)", () => {
-    // Crucial edge case: user set 0% opacity on MapX 1.14.1; must NOT turn 100% opaque!
-    expect(normalizeLayerTransparency(0, { env: "prod" })).toBe(0);
-    expect(normalizeLayerTransparency(0, { version: "1.14.1" })).toBe(0);
-
-    // Fresh view on 1.14.1
-    expect(normalizeLayerTransparency(1, { env: "prod" })).toBe(100);
-    expect(normalizeLayerTransparency(1, { version: "1.14.1" })).toBe(100);
-
-    // Fractional values
-    expect(normalizeLayerTransparency(0.4, { env: "prod" })).toBe(40);
-    expect(normalizeLayerTransparency(0.75, { version: "1.14.1" })).toBe(75);
-  });
-
-  it("accurately handles MapX 1.14.2 transparency without precision loss (0 is 100, 1 is 99)", () => {
-    // Fresh view on 1.14.2: 0 transparency = 100% opacity
-    expect(normalizeLayerTransparency(0, { env: "staging" })).toBe(100);
-    expect(normalizeLayerTransparency(0, { version: "1.14.2-alpha" })).toBe(100);
-
-    // Crucial edge case: 1 transparency = 99% opacity (must not round up to 100%)
-    expect(normalizeLayerTransparency(1, { env: "staging" })).toBe(99);
-    expect(normalizeLayerTransparency(1, { version: "1.14.2-alpha" })).toBe(99);
-
-    // Other values
-    expect(normalizeLayerTransparency(30, { env: "staging" })).toBe(70);
-    expect(normalizeLayerTransparency(100, { env: "staging" })).toBe(0);
-  });
-
-  it("detects SDK version from window.mxsdk.version", () => {
-    const originalMxsdk = window.mxsdk;
-    try {
-      window.mxsdk = { version: "1.14.1" };
-      expect(normalizeLayerTransparency(0)).toBe(0);
-      expect(normalizeLayerTransparency(1)).toBe(100);
-
-      window.mxsdk = { version: "1.14.2-alpha" };
-      expect(normalizeLayerTransparency(0)).toBe(100);
-      expect(normalizeLayerTransparency(1)).toBe(99);
-    } finally {
-      window.mxsdk = originalMxsdk;
-    }
-  });
-
-  it("detects environment from window.location.search", () => {
-    const originalLocation = window.location;
-    try {
-      delete window.location;
-      window.location = { search: "?mapxEnv=prod" };
-      expect(normalizeLayerTransparency(0)).toBe(0);
-      expect(normalizeLayerTransparency(1)).toBe(100);
-
-      window.location = { search: "?mapxEnv=staging" };
-      expect(normalizeLayerTransparency(0)).toBe(100);
-      expect(normalizeLayerTransparency(1)).toBe(99);
-    } finally {
-      window.location = originalLocation;
-    }
+    // 0 and 1 are the fresh-view default on one scale each, so read as opaque.
+    expect(normalizeLayerTransparency(0)).toBe(100);
+    expect(normalizeLayerTransparency(1)).toBe(100);
   });
 });
 
