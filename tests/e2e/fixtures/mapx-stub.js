@@ -16,6 +16,8 @@
  *   - `camera`     — `{ center, zoom, bounds }`, moved by the camera commands
  */
 (function () {
+  "use strict";
+
   // The MapX version to impersonate, set by the fixture's `mapxVersion`
   // option. Production runs 1.14.1 until 1.14.2 ships.
   var VERSION = window.__MAPX_STUB_VERSION__ || "1.14.1";
@@ -25,7 +27,6 @@
     var n = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
     return n[0] > 1 || (n[0] === 1 && (n[1] > 14 || (n[1] === 14 && n[2] >= 2)));
   })();
-  ("use strict");
 
   var stub = {
     ready: false,

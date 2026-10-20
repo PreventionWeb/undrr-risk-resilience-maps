@@ -1,4 +1,13 @@
-import { expect, gotoApp, layerRow, layerSwitch, settled, test, toggleLayer } from "./fixtures/app.js";
+import {
+  expect,
+  gotoApp,
+  layerRow,
+  layerSwitch,
+  settled,
+  test,
+  toggleLayer,
+  viewId,
+} from "./fixtures/app.js";
 
 /**
  * MapX 1.14.2 changed what the opacity getter answers and added a one-per-click
@@ -43,6 +52,30 @@ for (const { version, clickEvent, otherEvent } of [
       );
       await expect(infobox).toBeVisible();
       await expect(infobox.locator(".infobox-title")).toHaveText("Site A");
+    });
+
+    test("the site inspector reads a raster layer that missed as queried", async ({ page }) => {
+      await gotoApp(page, "#hazard");
+      const flooding = layerRow(page, "River Flooding");
+      await toggleLayer(flooding);
+      await settled(flooding);
+      await page.locator('[data-ui="inspect-toggle"]').click();
+
+      // A click that hits nothing on an open raster view: 1.14.1 reports the
+      // view with no features, 1.14.2 leaves it out of `attributes`.
+      await page.evaluate(
+        ({ event, idView }) =>
+          window.__mapxStub.emit(
+            event,
+            event === "click_features"
+              ? { attributes: {}, lngLat: { lng: 1, lat: 2 } }
+              : { part: 1, nPart: 1, idView, attributes: [], lngLat: { lng: 1, lat: 2 } },
+          ),
+        { event: clickEvent, idView: viewId("river-flooding") },
+      );
+      const row = page.locator("#site-inspector .site-inspector-layer-row");
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText("No data at this location.");
     });
   });
 }
