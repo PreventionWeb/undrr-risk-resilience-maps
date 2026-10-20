@@ -72,7 +72,7 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 
 ## Mangrove 2.0 follow-ups
 
-- Updated to `2.0.1` (stable `2.0.0` followed release candidates `2.0.0-rc.1` through `2.0.0-rc.3`).
+- Updated to `2.2.0` (previous upgrades: `2.0.1`, stable `2.0.0`, release candidates `2.0.0-rc.1` through `2.0.0-rc.3`).
   Continue to monitor breaking changes listed in Mangrove's `llms.txt` (notably the
   `--sendai-*` colour tokens, which are scheduled for removal in 2.1 — we do not
   use them today).

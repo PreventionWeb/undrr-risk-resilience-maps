@@ -4,10 +4,15 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   canMapLoad,
   findMapContainer,
-  isMapOnScreen,
+  getMapXBaseUrl,
+  getMapXEnvironment,
+  getMapXSdkUrl,
   hideMapServiceNotice,
   initMapServiceRetry,
+  isMapOnScreen,
   loadMapXSdk,
+  MAPX_PROD_URL,
+  MAPX_STAGING_URL,
   showMapServiceNotice,
   startMapServiceRetryCountdown,
   watchForMapReady,
@@ -59,6 +64,74 @@ describe("MapX availability", () => {
     await vi.advanceTimersByTimeAsync(100);
     await rejection;
     expect(document.head.querySelector("script")).toBeNull();
+  });
+
+  it("loads the staging SDK URL by default", async () => {
+    const windowRef = {};
+    const promise = loadMapXSdk({ windowRef });
+    const script = document.head.querySelector("script");
+    expect(script.src).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
+    script.onload();
+    await promise.catch(() => {});
+  });
+
+  it("loads the production SDK URL when mapxEnv=prod", async () => {
+    const windowRef = { location: { search: "?mapxEnv=prod" } };
+    const promise = loadMapXSdk({ windowRef });
+    const script = document.head.querySelector("script");
+    expect(script.src).toBe("https://app.mapx.org/sdk/mxsdk.umd.js");
+    script.onload();
+    await promise.catch(() => {});
+  });
+
+  it("loads the staging SDK URL when mapxEnv=staging", async () => {
+    const windowRef = { location: { search: "?mapxEnv=staging" } };
+    const promise = loadMapXSdk({ windowRef });
+    const script = document.head.querySelector("script");
+    expect(script.src).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
+    script.onload();
+    await promise.catch(() => {});
+  });
+
+  it("resolves getMapXEnvironment and getMapXBaseUrl across query params, objects and edge cases", () => {
+    // Default fallback to staging
+    expect(getMapXEnvironment()).toBe("staging");
+    expect(getMapXBaseUrl()).toBe(MAPX_STAGING_URL);
+
+    // Standard location object with search
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=prod" } })).toBe("prod");
+    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=prod" } })).toBe(MAPX_PROD_URL);
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=production" } })).toBe("prod");
+    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=production" } })).toBe(MAPX_PROD_URL);
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=staging" } })).toBe("staging");
+    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=staging" } })).toBe(MAPX_STAGING_URL);
+
+    // Case-insensitivity
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=PROD" } })).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=Staging" } })).toBe("staging");
+
+    // String URLs and URL instances
+    expect(getMapXEnvironment("https://example.com/?mapxEnv=prod")).toBe("prod");
+    expect(getMapXBaseUrl("https://example.com/?mapxEnv=prod")).toBe(MAPX_PROD_URL);
+    expect(getMapXEnvironment(new URL("https://example.com/?mapxEnv=prod"))).toBe("prod");
+    expect(getMapXEnvironment({ location: "https://example.com/?mapxEnv=prod" })).toBe("prod");
+
+    // Null, undefined, empty, SSR, or malformed edge cases
+    expect(getMapXEnvironment(null)).toBe("staging");
+    expect(getMapXBaseUrl(null)).toBe(MAPX_STAGING_URL);
+    expect(getMapXEnvironment(undefined)).toBe("staging");
+    expect(getMapXEnvironment({})).toBe("staging");
+    expect(getMapXEnvironment({ location: null })).toBe("staging");
+    expect(getMapXEnvironment({ location: {} })).toBe("staging");
+    expect(getMapXEnvironment({ location: { search: "" } })).toBe("staging");
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=unknown" } })).toBe("staging");
+    expect(getMapXEnvironment("not-a-valid-url")).toBe("staging");
+
+    // SDK URL construction
+    expect(getMapXSdkUrl({ location: { search: "?mapxEnv=prod" } })).toBe(
+      "https://app.mapx.org/sdk/mxsdk.umd.js",
+    );
+    expect(getMapXSdkUrl()).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
   });
 
   it("can cancel the ready-event timeout", () => {

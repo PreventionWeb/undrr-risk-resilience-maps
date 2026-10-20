@@ -6,6 +6,7 @@ import {
   isInspectionActive,
   onInspectionResult,
   handleClickEvent,
+  handleFeaturesEvent,
 } from "./inspect.js";
 
 const mockMapx = { ask: vi.fn().mockResolvedValue(undefined) };
@@ -382,5 +383,73 @@ describe("onInspectionResult subscribers", () => {
     expect(late).not.toHaveBeenCalled();
     click();
     expect(late).toHaveBeenCalledOnce();
+  });
+});
+
+describe("handleFeaturesEvent (MapX 1.14.2+ click_features #1139)", () => {
+  it("drops events while inspection is inactive", () => {
+    const cb = vi.fn();
+    subscribe(cb);
+    handleFeaturesEvent({ attributes: { "MX-TEST": [{ name: "Feature" }] } }, new Set(["MX-TEST"]));
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it("delivers multi-view results to subscribers in a single tick", () => {
+    const cb = vi.fn();
+    subscribe(cb);
+    enableInspection();
+
+    const lngLat = { lng: 12.34, lat: 56.78 };
+    handleFeaturesEvent(
+      {
+        lngLat,
+        attributes: {
+          "MX-VIEW-1": [{ id: 1, hazard: "flood" }],
+          "MX-VIEW-2": [{ id: 2, vulnerability: "high" }],
+        },
+      },
+      new Set(["MX-VIEW-1", "MX-VIEW-2"]),
+    );
+
+    expect(cb).toHaveBeenCalledOnce();
+    expect(cb).toHaveBeenCalledWith({
+      lngLat,
+      views: {
+        "MX-VIEW-1": [{ id: 1, hazard: "flood" }],
+        "MX-VIEW-2": [{ id: 2, vulnerability: "high" }],
+      },
+      openViewsSnapshot: new Set(["MX-VIEW-1", "MX-VIEW-2"]),
+    });
+  });
+
+  it("handles empty attributes when clicking empty regions", () => {
+    const cb = vi.fn();
+    subscribe(cb);
+    enableInspection();
+
+    handleFeaturesEvent({ lngLat: { lng: 0, lat: 0 }, attributes: {} }, new Set(["MX-VIEW-1"]));
+
+    expect(cb).toHaveBeenCalledOnce();
+    expect(cb).toHaveBeenCalledWith({
+      lngLat: { lng: 0, lat: 0 },
+      views: {},
+      openViewsSnapshot: new Set(["MX-VIEW-1"]),
+    });
+  });
+
+  it("isolates throwing subscribers", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const faulty = vi.fn(() => {
+      throw new Error("subscriber crash");
+    });
+    const good = vi.fn();
+    subscribe(faulty);
+    subscribe(good);
+    enableInspection();
+
+    expect(() => handleFeaturesEvent({ attributes: {} }, new Set())).not.toThrow();
+    expect(faulty).toHaveBeenCalledOnce();
+    expect(good).toHaveBeenCalledOnce();
+    error.mockRestore();
   });
 });

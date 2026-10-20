@@ -21,7 +21,10 @@ import { readFileSync } from "node:fs";
 import { test as base, expect } from "@playwright/test";
 import { TABS } from "../../../src/config/layers.js";
 
-const MAPX_SDK_URL = "https://app.mapx.org/sdk/mxsdk.umd.js";
+const MAPX_SDK_URLS = [
+  "https://app.mapx.org/sdk/mxsdk.umd.js",
+  "https://app.staging.mapx.org/sdk/mxsdk.umd.js",
+];
 const MAPX_STUB = readFileSync(new URL("./mapx-stub.js", import.meta.url), "utf8");
 
 /**
@@ -49,7 +52,9 @@ export const PREVIEW_PIN = previewGateAttributes("index.html").pin;
 /** Requests a test must never make. */
 const BLOCKED = [
   "https://app.mapx.org/**",
+  "https://app.staging.mapx.org/**",
   "https://api.mapx.org/**",
+  "https://api.staging.mapx.org/**",
   "https://*.unepgrid.ch/**",
   "https://*.copernicus.eu/**",
 ];
@@ -92,15 +97,17 @@ export const test = base.extend({
       }),
     );
 
-    await page.route(MAPX_SDK_URL, (route) =>
-      route.fulfill({
-        contentType: "application/javascript",
-        // `loadMapXSdk()` requests the script with crossOrigin="anonymous",
-        // so the response has to pass the CORS check.
-        headers: { "access-control-allow-origin": "*" },
-        body: MAPX_STUB,
-      }),
-    );
+    for (const url of MAPX_SDK_URLS) {
+      await page.route(url, (route) =>
+        route.fulfill({
+          contentType: "application/javascript",
+          // `loadMapXSdk()` requests the script with crossOrigin="anonymous",
+          // so the response has to pass the CORS check.
+          headers: { "access-control-allow-origin": "*" },
+          body: MAPX_STUB,
+        }),
+      );
+    }
 
     await use(page);
   },

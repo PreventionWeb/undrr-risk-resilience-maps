@@ -191,11 +191,11 @@
         return { id: id, type: "rt", data: {} };
       });
     },
-    // src/sdk/filters.js — the opacity slider's read and write. MapX's getter
-    // answers with the view's opacity 0-1 (1 for a fresh view), not the 0-100
-    // transparency the setter takes.
+    // src/sdk/filters.js — the opacity slider's read and write. In MapX 1.14.2,
+    // get_view_layer_transparency answers with transparency 0-100 (0 for a fresh,
+    // fully opaque view).
     get_view_layer_transparency: function () {
-      return 1;
+      return 0;
     },
     set_view_layer_transparency: function () {
       return true;
@@ -262,6 +262,9 @@
 
   function Manager(options) {
     this._listeners = Object.create(null);
+    // The real SDK has no window.mxsdk.version; the version is a getter on
+    // the Manager instance (src/sdk/client.js getMapXVersion()).
+    this.version = "1.14.2-alpha.3";
 
     // Stand in for the SDK's iframe. Nothing is loaded into it: the point of
     // the stub is that no cross-origin document exists to wait for.

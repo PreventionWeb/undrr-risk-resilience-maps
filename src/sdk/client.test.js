@@ -103,7 +103,7 @@ describe("titleMapXFrame", () => {
 
     const dispose = titleMapXFrame(host);
 
-    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(host.querySelector("iframe").title).toBe("Interactive map");
     expect(observe).not.toHaveBeenCalled();
     dispose();
     observe.mockRestore();
@@ -131,7 +131,7 @@ describe("titleMapXFrame", () => {
     host.appendChild(document.createElement("iframe"));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(host.querySelector("iframe").title).toBe("Interactive map (MapX)");
+    expect(host.querySelector("iframe").title).toBe("Interactive map");
     expect(disconnect).toHaveBeenCalled();
     host.remove();
     disconnect.mockRestore();
@@ -160,5 +160,110 @@ describe("titleMapXFrame", () => {
   it("is a no-op, and safely disposable, when the container is missing", async () => {
     const { titleMapXFrame } = await freshClient();
     expect(() => titleMapXFrame("no-such-element")()).not.toThrow();
+  });
+});
+
+describe("initSDK", () => {
+  it("throws when window.mxsdk.Manager is unavailable", async () => {
+    const { initSDK } = await freshClient();
+    delete window.mxsdk;
+    expect(() => initSDK(document.createElement("div"), "PRJ-1")).toThrow("MapX SDK is unavailable");
+  });
+
+  it("configures Manager with iframeTitle and staging URL by default", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+      const iframe = document.createElement("iframe");
+      opts.container.appendChild(iframe);
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    const manager = initSDK(container, "PRJ-TEST");
+
+    expect(ManagerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        url: "https://app.staging.mapx.org/?project=PRJ-TEST",
+        iframeTitle: "Interactive map",
+        params: expect.objectContaining({
+          closePanels: true,
+          language: "en",
+          theme: "color_light",
+        }),
+      }),
+    );
+    expect(manager).toBeDefined();
+    expect(container.querySelector("iframe").title).toBe("Interactive map");
+  });
+
+  it("leaves a title the SDK already set untouched", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+      const iframe = document.createElement("iframe");
+      iframe.title = "MapX map";
+      opts.container.appendChild(iframe);
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    initSDK(container, "PRJ-1142");
+
+    expect(container.querySelector("iframe").title).toBe("MapX map");
+  });
+
+  it("allows passing a custom baseUrl to initSDK", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    initSDK(container, "PRJ-TEST", { baseUrl: "https://app.mapx.org" });
+
+    expect(ManagerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://app.mapx.org/?project=PRJ-TEST",
+        iframeTitle: "Interactive map",
+      }),
+    );
+  });
+});
+
+describe("MapX version", () => {
+  it("reads the version from the Manager instance, not window.mxsdk", async () => {
+    const { initSDK, getMapXVersion } = await freshClient();
+    expect(getMapXVersion()).toBeNull();
+    window.mxsdk = {
+      version: "9.9.9",
+      Manager: vi.fn().mockImplementation(function () {
+        Object.defineProperty(this, "version", { get: () => "1.14.2-alpha.3" });
+      }),
+    };
+    initSDK(document.createElement("div"), "PRJ");
+    expect(getMapXVersion()).toBe("1.14.2-alpha.3");
+  });
+
+  it("returns null when the Manager reports no version", async () => {
+    const { initSDK, getMapXVersion } = await freshClient();
+    window.mxsdk = { Manager: vi.fn() };
+    initSDK(document.createElement("div"), "PRJ");
+    expect(getMapXVersion()).toBeNull();
+  });
+
+  it("compares versions, counting pre-releases as their release", async () => {
+    const { isMapXAtLeast } = await freshClient();
+    expect(isMapXAtLeast("1.14.2-alpha.3", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.2", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.10", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.15.0", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("2.0.0", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.1", "1.14.2")).toBe(false);
+    expect(isMapXAtLeast("1.9.30", "1.14.2")).toBe(false);
+    expect(isMapXAtLeast(null, "1.14.2")).toBe(false);
+    expect(isMapXAtLeast("dev", "1.14.2")).toBe(false);
   });
 });

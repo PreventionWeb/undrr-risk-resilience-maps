@@ -7,7 +7,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.1). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.2.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -482,7 +482,7 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.1/css/style.css) (v2.0.1). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.2.0/css/style.css) (v2.2.0). Components used:
 
 - `mg-page-header` (`--default`, `__decoration`, `__toolbar-wrapper`, `__block--logo`) — UNDRR branding bar with Sendai stripe, matching PageHeader's rendered HTML. The logo is `mg-logo mg-logo--autocrop` and is preloaded from `assets.undrr.org/logos/...` (the canonical path, with no `/static/` segment); the decoration divs are `aria-hidden`. `--autocrop` only applies below 1164px, where Mangrove crops the lockup to the emblem and wordmark
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles
@@ -494,7 +494,7 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-empty-state` (`--compact`, `--panel`) — the "nothing published in this category" message in a layer tab
 - `mg-form-label`, `mg-form-select`, `mg-form-error` — compound-layer source switcher and the row-level failure message
 - `mg-form-help` — layer descriptions and the row-level "Turning on" / "Turning off" pending text
-- `mg-loader--inline` (2.0.1) — a decorative 1em spinner before the text-only loading messages: an external layer's "Loading X…" (full and cross-tab rows), "Updating external layer…" and "Loading MapX image legend…". It follows Mangrove's inline loading pattern: `aria-hidden`, beside visible text that is what assistive technology reads, and replaced along with the text when the outcome is written. The "Turning on" / "Turning off" pending text gets none, because the switch beside it already draws Mangrove's pending ring. `mg-progress-bar` is not used yet: nothing in the app has measurable progress, and the one long indeterminate wait (MapX starting up) happens inside MapX's own iframe
+- `mg-loader--inline` (2.0.1+) — a decorative 1em spinner before the text-only loading messages: an external layer's "Loading X…" (full and cross-tab rows), "Updating external layer…" and "Loading MapX image legend…". It follows Mangrove's inline loading pattern: `aria-hidden`, beside visible text that is what assistive technology reads, and replaced along with the text when the outcome is written. The "Turning on" / "Turning off" pending text gets none, because the switch beside it already draws Mangrove's pending ring. `mg-progress-bar` is not used yet: nothing in the app has measurable progress, and the one long indeterminate wait (MapX starting up) happens inside MapX's own iframe
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
 - `mg-icon` (`-close`, `-exclamation-triangle`, `-refresh`, `-external-link`, `-copy`) — the close buttons on the infobox and site inspector; the map-service notice's warning symbol, its "Try again" arrow and the new-tab mark on its status link; and the site inspector's copy control. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
 - `mg-status-label` — publication status for planned datasets on the Sources page, and the "Offline" badge in the map-service notice
