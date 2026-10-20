@@ -7,7 +7,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.0.1). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.2.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -482,7 +482,7 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.0.1/css/style.css) (v2.0.1). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.2.0/css/style.css) (v2.2.0). Components used:
 
 - `mg-page-header` (`--default`, `__decoration`, `__toolbar-wrapper`, `__block--logo`) — UNDRR branding bar with Sendai stripe, matching PageHeader's rendered HTML. The logo is `mg-logo mg-logo--autocrop` and is preloaded from `assets.undrr.org/logos/...` (the canonical path, with no `/static/` segment); the decoration divs are `aria-hidden`. `--autocrop` only applies below 1164px, where Mangrove crops the lockup to the emblem and wordmark
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles
@@ -494,7 +494,7 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 - `mg-empty-state` (`--compact`, `--panel`) — the "nothing published in this category" message in a layer tab
 - `mg-form-label`, `mg-form-select`, `mg-form-error` — compound-layer source switcher and the row-level failure message
 - `mg-form-help` — layer descriptions and the row-level "Turning on" / "Turning off" pending text
-- `mg-loader--inline` (2.0.1) — a decorative 1em spinner before the text-only loading messages: an external layer's "Loading X…" (full and cross-tab rows), "Updating external layer…" and "Loading MapX image legend…". It follows Mangrove's inline loading pattern: `aria-hidden`, beside visible text that is what assistive technology reads, and replaced along with the text when the outcome is written. The "Turning on" / "Turning off" pending text gets none, because the switch beside it already draws Mangrove's pending ring. `mg-progress-bar` is not used yet: nothing in the app has measurable progress, and the one long indeterminate wait (MapX starting up) happens inside MapX's own iframe
+- `mg-loader--inline` (2.0.1+) — a decorative 1em spinner before the text-only loading messages: an external layer's "Loading X…" (full and cross-tab rows), "Updating external layer…" and "Loading MapX image legend…". It follows Mangrove's inline loading pattern: `aria-hidden`, beside visible text that is what assistive technology reads, and replaced along with the text when the outcome is written. The "Turning on" / "Turning off" pending text gets none, because the switch beside it already draws Mangrove's pending ring. `mg-progress-bar` is not used yet: nothing in the app has measurable progress, and the one long indeterminate wait (MapX starting up) happens inside MapX's own iframe
 - `mg-range`, `mg-range__ticks` — slider track and stepped ticks for opacity and source selection
 - `mg-icon` (`-close`, `-exclamation-triangle`, `-refresh`, `-external-link`, `-copy`) — the close buttons on the infobox and site inspector; the map-service notice's warning symbol, its "Try again" arrow and the new-tab mark on its status link; and the site inspector's copy control. The inspect tool's crosshair and the panel's collapse chevron stay inline SVG: neither has an equivalent in the icon set, and the collapsed state rotates the chevron 180 degrees
 - `mg-status-label` — publication status for planned datasets on the Sources page, and the "Offline" badge in the map-service notice
@@ -549,7 +549,11 @@ leaves the authored markup working, not broken.
 
 The prototype sits behind Mangrove's `preview-access` component: a
 `<div data-mg-preview-access>` in `index.html` plus `js/preview-access.js` from
-the CDN, which builds the overlay and persists the unlock in `sessionStorage`.
+the CDN, which builds the overlay and persists the unlock. With
+`data-mg-preview-persist="local"` (Mangrove 2.2) the unlock is kept in
+`localStorage`, tied to the PIN, so it survives new tabs and browser restarts and
+lapses when the PIN changes; where localStorage is blocked it falls back to
+`sessionStorage` for the tab.
 It replaced a hand-rolled gate. This is a soft barrier, not access control —
 the PIN is public in the markup by design.
 
@@ -772,9 +776,9 @@ cross-origin and genuinely local, and they are what a person reproducing this by
 
 The Mangrove stylesheet and `preview-access.js` are still loaded from
 assets.undrr.org: they are the app's own design system, and without them the
-page under test is not the page. The preview PIN gate persists its unlock as
-`mg-preview-access:<data-mg-preview-id>` in sessionStorage, so the fixture seeds
-that key (and marks the gate unlocked directly as a fallback) rather than typing
+page under test is not the page. The preview PIN gate honours an unlock stored as
+`mg-preview-access:<data-mg-preview-id>` in sessionStorage in either persist
+mode, so the fixture seeds that key (and marks the gate unlocked directly as a fallback) rather than typing
 the PIN in every test.
 
 | Spec                    | What it proves end to end                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
