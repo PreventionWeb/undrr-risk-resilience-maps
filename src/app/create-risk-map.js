@@ -35,6 +35,7 @@ import {
   disableInspection,
   enableInspection,
   handleClickEvent,
+  handleFeaturesEvent,
   initInspection,
   isInspectionActive,
   onInspectionResult,
@@ -358,13 +359,34 @@ export function createRiskMap(root, options = {}) {
       scheduleState();
     });
 
-    // Route click_attributes based on inspection mode. MapX dispatches these
-    // on every map click without an opt-in call; `set_vector_highlight` is a
-    // deprecated alias of `set_vector_spotlight`, an unrelated overlay.
-    // When active: batch-collect events and show the site inspector.
-    // When inactive: show the basic infobox (legacy behaviour).
-    mapx.on("click_attributes", (...args) => {
+    // Route click events based on inspection mode.
+    // MapX 1.14.2 adds `click_features` (MapX upstream #1139), firing once per map click
+    // with { attributes, lngLat, point }. When active, it delivers the full multi-view
+    // result in one tick; when inactive, it populates the infobox or dismisses it if the
+    // click hit an empty region (attributes is {}).
+    // Older MapX versions fire only `click_attributes` (one per open view).
+    let hasClickFeatures = false;
+    mapx.on("click_features", (data) => {
       if (destroyed) return;
+      hasClickFeatures = true;
+      if (!data) return;
+
+      if (isInspectionActive()) {
+        handleFeaturesEvent(data, store.openViews);
+      } else {
+        const views =
+          data.attributes && typeof data.attributes === "object" ? Object.values(data.attributes) : [];
+        const firstViewAttrs = views.find((attrs) => Array.isArray(attrs) && attrs.length > 0) || null;
+        if (firstViewAttrs) {
+          showInfobox({ attributes: firstViewAttrs, lngLat: data.lngLat });
+        } else {
+          closeInfobox();
+        }
+      }
+    });
+
+    mapx.on("click_attributes", (...args) => {
+      if (destroyed || hasClickFeatures) return;
       let data = args.length === 1 ? args[0] : null;
       if (!data && args.length > 0) data = { attributes: args };
       if (!data) return;
