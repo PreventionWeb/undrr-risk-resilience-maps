@@ -9,6 +9,35 @@ import { getViewLegendImage } from "../sdk/views.js";
 import { resolveMapXLegend } from "../sdk/legends.js";
 import { setLoadingText } from "./inline-loader.js";
 
+/**
+ * Normalizes a raw get_view_layer_transparency value into an opacity percentage (0-100).
+ *
+ * - In MapX 1.14.1, the getter returned opacity 0-1 (fresh view = 1).
+ * - In MapX 1.14.2, the getter returns transparency 0-100 (fresh view = 0).
+ *
+ * Handling 0 and 1:
+ * - 0: In 1.14.2, a fresh view returns 0 transparency, representing 100% opacity.
+ * - 1: In 1.14.1, a fresh view returns 1.0 opacity, representing 100% opacity.
+ *   (In 1.14.2, 1 transparency corresponds to 99% opacity, so rounding to 100% is safe.)
+ * - 0 < value < 1: Legacy 1.14.1 float opacity (e.g. 0.75 -> 75%).
+ * - value > 1: MapX 1.14.2 integer transparency (e.g. 30 -> 70%).
+ *
+ * @param {number} value - Raw value returned by get_view_layer_transparency
+ * @returns {number} Normalized opacity percentage (0-100)
+ */
+export function normalizeLayerTransparency(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 100;
+  }
+  if (value === 0 || value === 1) {
+    return 100;
+  }
+  if (value > 0 && value < 1) {
+    return Math.min(100, Math.max(0, Math.round(value * 100)));
+  }
+  return Math.min(100, Math.max(0, 100 - Math.round(value)));
+}
+
 const IMAGE_FALLBACK_LABELS = {
   raster: "Structured raster legend not supported — showing MapX image",
   "raster-json-unavailable": "Structured raster legend unavailable — showing MapX image",
@@ -77,17 +106,16 @@ export async function addOpacitySlider(idView, container) {
   valueDisplay.setAttribute("aria-hidden", "true");
   valueDisplay.textContent = "100%";
 
-  // The SDK's setter takes transparency (0=opaque, 100=invisible) but its
-  // getter returns opacity 0-1 (see src/sdk/filters.js); UI shows opacity
-  // 0-100. Read: opacity = value * 100. Write: transparency = 100 - opacity.
+  // In MapX 1.14.1 the getter returned opacity 0-1 (1 = fully opaque).
+  // In MapX 1.14.2 it returns transparency 0-100 (0 = fully opaque).
+  // normalizeLayerTransparency() normalizes both gracefully to UI opacity 0-100.
+  // Write: transparency = 100 - opacity.
   const changesBefore = userOpacity.get(idView)?.changes ?? 0;
   let opacity = null;
   try {
     const current = await getViewLayerTransparency(idView);
-    // Round to the slider's step of 1 so the thumb, the percentage beside it
-    // and aria-valuetext agree, and clamp in case MapX stores a stray value.
     if (typeof current === "number" && Number.isFinite(current)) {
-      opacity = Math.min(100, Math.max(0, Math.round(current * 100)));
+      opacity = normalizeLayerTransparency(current);
     }
   } catch {
     // Default to 100% opacity

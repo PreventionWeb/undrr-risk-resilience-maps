@@ -86,11 +86,41 @@ describe("addOpacitySlider", () => {
     expect(container.querySelector(".opacity-value").textContent).toBe("67%");
   });
 
-  it("clamps an out-of-range opacity to the slider's 0-100", async () => {
-    getViewLayerTransparency.mockResolvedValue(1.5);
+  it("clamps an out-of-range transparency to the slider's 0-100", async () => {
+    getViewLayerTransparency.mockResolvedValue(-10);
     await addOpacitySlider("view-1", container);
     expect(container.querySelector("input[type=range]").value).toBe("100");
     expect(container.querySelector(".opacity-value").textContent).toBe("100%");
+
+    container.innerHTML = "";
+    getViewLayerTransparency.mockResolvedValue(120);
+    await addOpacitySlider("view-2", container);
+    expect(container.querySelector("input[type=range]").value).toBe("0");
+    expect(container.querySelector(".opacity-value").textContent).toBe("0%");
+  });
+
+  it("shows 100 when MapX 1.14.2 returns transparency 0 (fresh view)", async () => {
+    getViewLayerTransparency.mockResolvedValue(0);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("100");
+    expect(container.querySelector(".opacity-value").textContent).toBe("100%");
+  });
+
+  it("converts MapX 1.14.2 transparency to UI opacity (opacity = 100 - value)", async () => {
+    getViewLayerTransparency.mockResolvedValue(30);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("70");
+    expect(container.querySelector(".opacity-value").textContent).toBe("70%");
+  });
+
+  it("converts MapX 1.14.2 100% transparency to 0% opacity", async () => {
+    getViewLayerTransparency.mockResolvedValue(100);
+    await addOpacitySlider("view-1", container);
+    const slider = container.querySelector("input[type=range]");
+    expect(slider.value).toBe("0");
+    expect(container.querySelector(".opacity-value").textContent).toBe("0%");
   });
 
   it("defaults to 100% opacity when SDK call throws", async () => {

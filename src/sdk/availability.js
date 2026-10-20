@@ -2,7 +2,40 @@
 // MapX app, so a pinned Manager can drift from the worker (err_version_mismatch).
 // If @fxi/mxsdk is published in step with app releases, reconsider pinning
 // through jsDelivr with SRI.
-export const MAPX_SDK_URL = "https://app.mapx.org/sdk/mxsdk.umd.js";
+export const MAPX_PROD_URL = "https://app.mapx.org";
+export const MAPX_STAGING_URL = "https://app.staging.mapx.org";
+
+/**
+ * Determine the MapX base URL to use.
+ *
+ * Defaults to the staging instance (`https://app.staging.mapx.org`) on this test branch
+ * to evaluate MapX 1.14.2-alpha features.
+ * Can be overridden via URL parameter: `?mapxEnv=prod` (or `?mapxEnv=production`) to test
+ * fallback against production MapX, or `?mapxEnv=staging` to explicitly select staging.
+ *
+ * @param {Window} [windowRef]
+ * @returns {string} Base URL (e.g. "https://app.staging.mapx.org")
+ */
+export function getMapXBaseUrl(windowRef = typeof window !== "undefined" ? window : undefined) {
+  try {
+    const search = windowRef?.location?.search;
+    if (search) {
+      const params = new URLSearchParams(search);
+      const env = params.get("mapxEnv");
+      if (env === "prod" || env === "production") return MAPX_PROD_URL;
+      if (env === "staging") return MAPX_STAGING_URL;
+    }
+  } catch {
+    // windowRef or search unavailable
+  }
+  return MAPX_STAGING_URL;
+}
+
+export function getMapXSdkUrl(windowRef = typeof window !== "undefined" ? window : undefined) {
+  return `${getMapXBaseUrl(windowRef)}/sdk/mxsdk.umd.js`;
+}
+
+export const MAPX_SDK_URL = `${MAPX_STAGING_URL}/sdk/mxsdk.umd.js`;
 
 const SDK_LOAD_TIMEOUT_MS = 15_000;
 
@@ -77,6 +110,7 @@ export function loadMapXSdk({
   documentRef = document,
   windowRef = window,
   timeoutMs = SDK_LOAD_TIMEOUT_MS,
+  sdkUrl,
 } = {}) {
   if (windowRef.mxsdk?.Manager) return Promise.resolve(windowRef.mxsdk);
 
@@ -98,7 +132,7 @@ export function loadMapXSdk({
 
     const timeout = setTimeout(() => finish(new Error("MapX SDK load timed out")), timeoutMs);
 
-    script.src = MAPX_SDK_URL;
+    script.src = sdkUrl ?? getMapXSdkUrl(windowRef);
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {

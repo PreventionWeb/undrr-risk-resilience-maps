@@ -162,3 +162,57 @@ describe("titleMapXFrame", () => {
     expect(() => titleMapXFrame("no-such-element")()).not.toThrow();
   });
 });
+
+describe("initSDK", () => {
+  it("throws when window.mxsdk.Manager is unavailable", async () => {
+    const { initSDK } = await freshClient();
+    delete window.mxsdk;
+    expect(() => initSDK(document.createElement("div"), "PRJ-1")).toThrow("MapX SDK is unavailable");
+  });
+
+  it("configures Manager with iframeTitle and staging URL by default", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+      const iframe = document.createElement("iframe");
+      opts.container.appendChild(iframe);
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    const manager = initSDK(container, "PRJ-TEST");
+
+    expect(ManagerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        url: "https://app.staging.mapx.org/?project=PRJ-TEST",
+        iframeTitle: "Interactive map",
+        params: expect.objectContaining({
+          closePanels: true,
+          language: "en",
+          theme: "color_light",
+        }),
+      }),
+    );
+    expect(manager).toBeDefined();
+    expect(container.querySelector("iframe").title).toBe("Interactive map (MapX)");
+  });
+
+  it("allows passing a custom baseUrl to initSDK", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    initSDK(container, "PRJ-TEST", { baseUrl: "https://app.mapx.org" });
+
+    expect(ManagerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://app.mapx.org/?project=PRJ-TEST",
+        iframeTitle: "Interactive map",
+      }),
+    );
+  });
+});

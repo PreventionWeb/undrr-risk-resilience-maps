@@ -5,6 +5,7 @@
  * We create one Manager per project, which embeds an iframe and communicates
  * via postMessage.
  */
+import { getMapXBaseUrl } from "./availability.js";
 
 let _mapx = null;
 let _sdkReady = false;
@@ -12,11 +13,13 @@ let _sdkReady = false;
 // can accept layer changes (the layer switches) can re-render itself.
 const _readyListeners = new Set();
 
-export function initSDK(container, projectId) {
+export function initSDK(container, projectId, options = {}) {
   if (!window.mxsdk?.Manager) throw new Error("MapX SDK is unavailable");
+  const baseUrl = options.baseUrl ?? getMapXBaseUrl(typeof window !== "undefined" ? window : undefined);
   _mapx = new window.mxsdk.Manager({
     container,
-    url: `https://app.mapx.org/?project=${projectId}`,
+    url: `${baseUrl}/?project=${projectId}`,
+    iframeTitle: "Interactive map",
     params: {
       closePanels: true,
       language: "en",
@@ -41,18 +44,12 @@ export const FRAME_TITLE_WATCH_MS = 10000;
 /**
  * Name the iframe the SDK embeds.
  *
- * The Manager builds it itself and gives it no `title`, which axe reports as a
- * serious `frame-title` violation and which leaves screen-reader users with an
- * unnamed frame in the frames list.
+ * MapX 1.14.2 supports `iframeTitle: "Interactive map"` directly in Manager options (#1136).
+ * For backward compatibility with MapX <= 1.14.1, `titleMapXFrame()` acts as a fallback:
+ * if the iframe already has a title set by the SDK, it does not overwrite it; if the iframe
+ * lacks a title, it sets "Interactive map (MapX)".
  *
- * `Manager._build()` appends the iframe inside the constructor, so the first
- * attempt below always succeeds today. The observer is cheap insurance against
- * that becoming asynchronous upstream, and it is bounded so it can never sit
- * watching the container for the life of the page if the iframe never arrives.
- *
- * MapX upstream: https://github.com/unep-grid/mapx/issues/1136. If the
- * Manager gets a default title or a title option, pass ours through it in
- * initSDK() and delete this function and FRAME_TITLE_WATCH_MS.
+ * MapX upstream: https://github.com/unep-grid/mapx/issues/1136.
  *
  * @param {HTMLElement|string} container - the element (or its id) the map is in
  * @returns {() => void} disposes the fallback watch (a no-op once it is done)
