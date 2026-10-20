@@ -643,11 +643,16 @@ test.describe("embed: the preview gate", () => {
     // which has to keep working, rather than trap a visitor behind a gate whose
     // answer never takes.
     await page.addInitScript(() => {
+      const throwBlocked = () => {
+        throw new Error("storage blocked");
+      };
       Object.defineProperty(window, "sessionStorage", {
         configurable: true,
-        get() {
-          throw new Error("storage blocked");
-        },
+        get: throwBlocked,
+      });
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        get: throwBlocked,
       });
     });
 

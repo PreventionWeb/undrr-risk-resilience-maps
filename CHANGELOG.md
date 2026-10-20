@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.1` to `2.2.0` across the stylesheet, `preview-access.js`, `tabs.js` and `copy-button.js` CDN loaders. No class or token the app uses was renamed or removed, and `tabs.js` and `copy-button.js` are unchanged.
+- The preview PIN is now remembered across tabs and browser restarts (Mangrove 2.2's `data-mg-preview-persist="local"`), instead of being asked for again in every new tab. Changing the PIN asks for it again.
+
 ## [0.0.8] - 2026-10-12
 
 ### Changed

@@ -4,7 +4,7 @@
  *   - MapX is the stub in `mapx-stub.js` (served from the real SDK URL) and no
  *     request can reach MapX, GeoServer, the MapX mirror or Copernicus/EDRA;
  *   - the Mangrove preview PIN gate is already unlocked, so no spec has to
- *     fight it (it persists the unlock in sessionStorage — see below), unless
+ *     fight it (it honours an unlock seeded in sessionStorage — see below), unless
  *     the spec says `test.use({ previewUnlocked: false })` and answers it with
  *     `unlockPreviewGate()`. `embed.html` carries the same gate, with the same
  *     id, so the seeding covers the embed and an embed inside a host page too;
@@ -26,7 +26,8 @@ const MAPX_STUB = readFileSync(new URL("./mapx-stub.js", import.meta.url), "utf8
 
 /**
  * The preview gate keys its unlock by `data-mg-preview-id`, as
- * `mg-preview-access:<id>` in sessionStorage. Seeding it means the overlay is
+ * `mg-preview-access:<id>`, and honours one in sessionStorage even with
+ * `data-mg-preview-persist="local"`. Seeding it means the overlay is
  * never built, so nothing steals focus or covers the map. (The gate's CSS
  * hides the page until the gate is marked unlocked, so the init script also
  * marks it directly — if assets.undrr.org ever fails to serve the script, the
