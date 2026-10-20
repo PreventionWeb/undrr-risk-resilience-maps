@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Upgraded the UNDRR Mangrove component library from `2.0.1` to `2.2.0` across stylesheets (`index.html`, `embed.html`) and CDN script loaders (`preview-access.js`, `tabs.js`, and `copy-button.js`).
+- Adopted MapX 1.14.2-alpha release testing on staging (`https://app.staging.mapx.org`), with fallback support for production MapX via `?mapxEnv=prod` ([#53](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/53)).
+- Supported MapX Manager `iframeTitle: "Interactive map"` option (#1136) with backward-compatibility title fallback for older SDK versions.
+- Normalized layer transparency across MapX 1.14.1 (0–1 float opacity) and 1.14.2 (0–100 integer transparency), preventing 0% opacity from turning fully opaque and preserving precision for 1% transparency.
+- Passed `zoomToView: false` to temporary GeoJSON layer creation (`view_geojson_create`) to avoid unintended auto-zooming on layer changes (#1137).
+
 ## [0.0.8] - 2026-10-12
 
 ### Changed

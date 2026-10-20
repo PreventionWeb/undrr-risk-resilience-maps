@@ -22,7 +22,7 @@ describe("normalizeLayerTransparency", () => {
     expect(normalizeLayerTransparency(Infinity)).toBe(100);
   });
 
-  it("handles fresh view defaults for both MapX 1.14.2 (0) and 1.14.1 (1)", () => {
+  it("handles fresh view defaults for both MapX 1.14.2 (0) and 1.14.1 (1) in unconfigured fallback", () => {
     // MapX 1.14.2 transparency 0 = 100% opacity
     expect(normalizeLayerTransparency(0)).toBe(100);
     // MapX 1.14.1 opacity 1 = 100% opacity
@@ -45,6 +45,65 @@ describe("normalizeLayerTransparency", () => {
   it("clamps out-of-range transparency values to 0-100 opacity", () => {
     expect(normalizeLayerTransparency(-15)).toBe(100);
     expect(normalizeLayerTransparency(130)).toBe(0);
+  });
+
+  it("accurately handles MapX 1.14.1 legacy opacity without regressions (0 remains 0, 1 remains 100)", () => {
+    // Crucial edge case: user set 0% opacity on MapX 1.14.1; must NOT turn 100% opaque!
+    expect(normalizeLayerTransparency(0, { env: "prod" })).toBe(0);
+    expect(normalizeLayerTransparency(0, { version: "1.14.1" })).toBe(0);
+
+    // Fresh view on 1.14.1
+    expect(normalizeLayerTransparency(1, { env: "prod" })).toBe(100);
+    expect(normalizeLayerTransparency(1, { version: "1.14.1" })).toBe(100);
+
+    // Fractional values
+    expect(normalizeLayerTransparency(0.4, { env: "prod" })).toBe(40);
+    expect(normalizeLayerTransparency(0.75, { version: "1.14.1" })).toBe(75);
+  });
+
+  it("accurately handles MapX 1.14.2 transparency without precision loss (0 is 100, 1 is 99)", () => {
+    // Fresh view on 1.14.2: 0 transparency = 100% opacity
+    expect(normalizeLayerTransparency(0, { env: "staging" })).toBe(100);
+    expect(normalizeLayerTransparency(0, { version: "1.14.2-alpha" })).toBe(100);
+
+    // Crucial edge case: 1 transparency = 99% opacity (must not round up to 100%)
+    expect(normalizeLayerTransparency(1, { env: "staging" })).toBe(99);
+    expect(normalizeLayerTransparency(1, { version: "1.14.2-alpha" })).toBe(99);
+
+    // Other values
+    expect(normalizeLayerTransparency(30, { env: "staging" })).toBe(70);
+    expect(normalizeLayerTransparency(100, { env: "staging" })).toBe(0);
+  });
+
+  it("detects SDK version from window.mxsdk.version", () => {
+    const originalMxsdk = window.mxsdk;
+    try {
+      window.mxsdk = { version: "1.14.1" };
+      expect(normalizeLayerTransparency(0)).toBe(0);
+      expect(normalizeLayerTransparency(1)).toBe(100);
+
+      window.mxsdk = { version: "1.14.2-alpha" };
+      expect(normalizeLayerTransparency(0)).toBe(100);
+      expect(normalizeLayerTransparency(1)).toBe(99);
+    } finally {
+      window.mxsdk = originalMxsdk;
+    }
+  });
+
+  it("detects environment from window.location.search", () => {
+    const originalLocation = window.location;
+    try {
+      delete window.location;
+      window.location = { search: "?mapxEnv=prod" };
+      expect(normalizeLayerTransparency(0)).toBe(0);
+      expect(normalizeLayerTransparency(1)).toBe(100);
+
+      window.location = { search: "?mapxEnv=staging" };
+      expect(normalizeLayerTransparency(0)).toBe(100);
+      expect(normalizeLayerTransparency(1)).toBe(99);
+    } finally {
+      window.location = originalLocation;
+    }
   });
 });
 

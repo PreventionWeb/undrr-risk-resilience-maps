@@ -191,11 +191,11 @@
         return { id: id, type: "rt", data: {} };
       });
     },
-    // src/sdk/filters.js — the opacity slider's read and write. MapX's getter
-    // answers with the view's opacity 0-1 (1 for a fresh view), not the 0-100
-    // transparency the setter takes.
+    // src/sdk/filters.js — the opacity slider's read and write. In MapX 1.14.2,
+    // get_view_layer_transparency answers with transparency 0-100 (0 for a fresh,
+    // fully opaque view).
     get_view_layer_transparency: function () {
-      return 1;
+      return 0;
     },
     set_view_layer_transparency: function () {
       return true;
@@ -332,5 +332,5 @@
     if (this.frame && this.frame.parentNode) this.frame.parentNode.removeChild(this.frame);
   };
 
-  window.mxsdk = { Manager: Manager };
+  window.mxsdk = { Manager: Manager, version: "1.14.2-alpha" };
 })();

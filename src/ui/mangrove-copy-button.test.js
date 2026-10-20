@@ -64,7 +64,7 @@ describe("initMangroveCopyButtons with a signal", () => {
   });
 
   /**
-   * 2.0.0 exports only `mgCopyButton`. Its single listener is a `click`
+   * Mangrove exports only `mgCopyButton`. Its single listener is a `click`
    * on the button element, so it is collected with the markup the caller
    * replaces -- there is nothing global to undo. The abort still calls a
    * destroy export if a later release adds one.

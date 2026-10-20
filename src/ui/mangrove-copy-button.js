@@ -89,7 +89,7 @@ export async function initMangroveCopyButtons(scope = document, { importImpl, si
   }
 }
 
-/** How long the copied state stays up, matching 2.0.0's copy-button module. */
+/** How long the copied state stays up, matching Mangrove's copy-button module. */
 const FEEDBACK_MS = 2000;
 const FAILURE_MS = 5000;
 

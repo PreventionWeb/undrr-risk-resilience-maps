@@ -198,6 +198,22 @@ describe("initSDK", () => {
     expect(container.querySelector("iframe").title).toBe("Interactive map (MapX)");
   });
 
+  it("leaves MapX 1.14.2 iframeTitle untouched without overwriting it", async () => {
+    const { initSDK } = await freshClient();
+    const ManagerMock = vi.fn().mockImplementation(function (opts) {
+      this.opts = opts;
+      const iframe = document.createElement("iframe");
+      iframe.title = opts.iframeTitle;
+      opts.container.appendChild(iframe);
+    });
+    window.mxsdk = { Manager: ManagerMock };
+
+    const container = document.createElement("div");
+    initSDK(container, "PRJ-1142");
+
+    expect(container.querySelector("iframe").title).toBe("Interactive map");
+  });
+
   it("allows passing a custom baseUrl to initSDK", async () => {
     const { initSDK } = await freshClient();
     const ManagerMock = vi.fn().mockImplementation(function (opts) {
