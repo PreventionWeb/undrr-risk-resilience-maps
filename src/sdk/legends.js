@@ -6,6 +6,7 @@
  * live catalogue lifecycle, parses vector views, and dispatches raster views
  * to their separate adapter.
  */
+import { resolveCustomMapXLegend } from "./custom-legends.js";
 import { getSDK } from "./client.js";
 import {
   displayLegendValue,
@@ -196,6 +197,7 @@ export async function resolveMapXLegend(idView, language = "en") {
   }
   if (!view) return { legend: null, reason: "catalog-miss" };
   if (view.type === "rt") return resolveRasterMapXLegend(view, language);
+  if (view.type === "cc") return resolveCustomMapXLegend(view);
   return resolveParsedMapXLegend(view, language);
 }
 

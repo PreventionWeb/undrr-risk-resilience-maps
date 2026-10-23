@@ -25,6 +25,9 @@ const LANGUAGE_KEY_PATTERN = /^[a-z]{2}(?:-[a-z]{2})?$/i;
  * @typedef {Object} LegendDefinition
  * @property {string} title
  * @property {LegendEntry[]} entries
+ * @property {number[]} [ramp] Strictly increasing numeric quantities, aligned with entries.
+ * @property {LegendDefinition[]} [groups] Ordered sublayers, each with its own title.
+ * @property {{xTitle:string,yTitle:string,columns:string[],rows:string[],colors:string[][]}} [matrix]
  */
 
 export function isSafeLegendColor(value) {

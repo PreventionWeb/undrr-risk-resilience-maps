@@ -234,9 +234,10 @@ describe("parseGeoServerRasterLegend", () => {
 
   it.each([
     [
-      "continuous ramps",
+      "ramps without increasing quantities",
       (payload) => {
         payload.Legend[0].rules[0].symbolizers[0].Raster.colormap.type = "ramp";
+        payload.Legend[0].rules[0].symbolizers[0].Raster.colormap.entries[1].quantity = "0";
       },
     ],
     [
@@ -448,5 +449,31 @@ describe("resolveRasterMapXLegend", () => {
       diagnostic: { transport: "direct", failureKind: "provider-policy", status: null },
     });
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe("continuous and grouped raster legends", () => {
+  it("retains unequal numeric stop positions for continuous interpolation", () => {
+    const payload = structuredClone(earthquakePayload);
+    payload.Legend[0].rules[0].symbolizers[0].Raster.colormap.type = "ramp";
+    expect(parseGeoServerRasterLegend(payload).ramp).toEqual([0.1, 100, 250, 500, 1000, 5000]);
+  });
+  it.each(["", "NaN", Infinity, [], true, null])("rejects invalid ramp quantity %j", (quantity) => {
+    const payload = structuredClone(earthquakePayload);
+    const map = payload.Legend[0].rules[0].symbolizers[0].Raster.colormap;
+    map.type = "ramp";
+    map.entries[1].quantity = quantity;
+    expect(parseGeoServerRasterLegend(payload)).toBeNull();
+  });
+  it("keeps grouped titles and fails the entire group if a sublayer is unsupported", () => {
+    const payload = structuredClone(earthquakePayload);
+    payload.Legend.push(structuredClone(payload.Legend[0]));
+    payload.Legend[1].title = "Second sublayer";
+    expect(parseGeoServerRasterLegend(payload).groups.map((group) => group.title)).toEqual([
+      payload.Legend[0].title,
+      "Second sublayer",
+    ]);
+    payload.Legend[1].rules[0].symbolizers[0].Raster.colormap.type = "unknown";
+    expect(parseGeoServerRasterLegend(payload)).toBeNull();
   });
 });

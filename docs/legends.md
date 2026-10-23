@@ -4,7 +4,7 @@ This guide explains how legends are resolved, rendered, diagnosed, tested, and e
 maintainer documentation, not a release checklist. One-time acceptance status and screenshots
 belong in the relevant pull request.
 
-Last contract verification: **2026-07-24**
+Last contract verification: **2026-10-23**
 
 ## Principles
 
@@ -18,7 +18,7 @@ Use these terms consistently:
 
 - **Provider-owned structured legend:** entries supplied by local/runtime layer configuration.
 - **MapX-derived vector legend:** entries validated from a MapX vector view.
-- **GeoServer-derived raster legend:** discrete entries validated from GeoServer JSON.
+- **GeoServer-derived raster legend:** classes, grouped layers, and continuous ramps validated from GeoServer JSON.
 - **MapX image fallback:** the image returned by `get_view_legend_image`.
 
 ## Resolution flow
@@ -27,10 +27,11 @@ Use these terms consistently:
 provider-owned structured legend
   └─ otherwise: MapX get_views catalogue
        ├─ vt: validate supported data.style fields
+       ├─ cc: match a reviewed definition and SHA-256 of data.methods
        └─ rt: validate approved data.source.legend URL
               ├─ request GeoServer JSON directly
               └─ on the approved provider's HTTP 403 origin denial, retry through MapX mirror
-                    └─ accept discrete intervals/values only
+                    └─ accept intervals/values, numeric ramps, and validated groups
   └─ normalize into LegendDefinition and render structured HTML
        └─ if any step fails: request and display the MapX image fallback
 ```
@@ -78,13 +79,14 @@ MapX image.
 | MapX `/get/mirror`                | `url` query parameter                                                                                                                             | Internal, unversioned MapX route inferred from [MapX source](https://github.com/unep-grid/mapx/blob/e618823c3b869efe77842d69f6bfed9d4404f9f2/app/src/js/mirror_util/index.js); not an SDK contract | Direct request remains first; mirror failure falls back to the image |
 | MapX `/get/view/item/:id`         | Public view object used by the live contract script                                                                                               | Observed public for eligible public views; not used by the application runtime                                                                                                                     | Live check fails visibly                                             |
 
-The current approved structured-raster provider is:
+The approved structured-raster providers are:
 
-| Host               | Direct request | MapX mirror retry |
-| ------------------ | -------------- | ----------------- |
-| `giri.unepgrid.ch` | HTTPS only     | Allowed           |
+| Host                   | Direct request | MapX mirror retry |
+| ---------------------- | -------------- | ----------------- |
+| `giri.unepgrid.ch`     | HTTPS only     | Allowed           |
+| `datacore.unepgrid.ch` | HTTPS only     | Allowed           |
 
-The allowlist is a security boundary. It pins the HTTPS host, exact WMS path, five approved PGA
+The allowlist is a security boundary. It pins the HTTPS host, exact WMS path, the exact configured
 layer names, permitted query keys, and mirror permission; duplicate or unknown query parameters
 are rejected. A new endpoint or layer must be reviewed before being added to
 `APPROVED_RASTER_PROVIDERS`. Do not make the mirror generic: legend URLs come from mutable MapX
@@ -102,7 +104,8 @@ still requires MapX confirmation of its destination/redirect controls and change
 | MapX vector point/line/polygon rules            | Yes             | Colors, opacity, size, border, localized labels/title, and visible null rules |
 | GeoServer raster `intervals`                    | Yes             | Discrete classes                                                              |
 | GeoServer raster `values`                       | Yes             | Discrete values                                                               |
-| GeoServer raster `ramp`                         | No              | Requires a separately designed continuous-gradient component                  |
+| Reviewed custom-code definitions                | Yes             | Exact view ID and methods SHA-256; fall back on drift                         |
+| GeoServer raster `ramp`                         | Yes             | Continuous sRGB gradient with value-weighted stops and readable labels        |
 | Vector sprites or enabled custom JSON           | No              | Image preserves symbols/custom behavior                                       |
 | Static raster images and non-approved providers | No              | No trusted structured contract                                                |
 | Unknown, malformed, unsafe, or excessive rules  | No              | Never render a plausible partial legend                                       |
@@ -141,7 +144,7 @@ Stable DOM markers make the path inspectable without changing user-facing copy:
 | `raster`                             | Static/non-WMS URL, unapproved host, insecure URL, or no structured raster contract | Confirm the image is correct; approve a new provider only after review |
 | `raster-json-unavailable`            | Network/CORS, timeout, HTTP failure, or failure of the approved 403 mirror retry    | Inspect transport/failure/status markers; run the live contract check  |
 | `raster-json-invalid`                | Wrong content type, excessive/stalled body, invalid JSON                            | Inspect provider response; do not loosen limits to hide upstream drift |
-| `raster-json-unsupported`            | Valid JSON with an unsupported schema or colormap such as `ramp`                    | Add a separate, tested adapter/component only if required              |
+| `raster-json-unsupported`            | Valid JSON with an unsupported schema or colormap                                   | Add a separate, tested adapter/component only if required              |
 | `catalog-miss`                       | View absent after one catalogue refresh                                             | Confirm `view_add`, project, and view ID                               |
 | `custom-style` / `unsupported-style` | Custom JSON, sprite, unsafe, or unfamiliar vector rule                              | Keep the image unless faithful structured support is designed          |
 | `schema-invalid` / `too-many-rules`  | MapX schema drift or safety limit                                                   | Inspect the current view and update tests before changing the adapter  |
@@ -176,10 +179,9 @@ provider incident:
 yarn test:mapx-raster-contract
 ```
 
-The script derives the five Earthquake PGA IDs from product configuration. It verifies the public
-MapX view response, GIRI's six JSON classes, the transparent first class, and that a simulated
-non-MapX origin exercises the mirror retry. It is not a substitute for a real browser/CORS and
-visual test.
+The script derives every configured MapX source from product configuration, including unpublished
+prototypes. It verifies vector rules, raster JSON (with a simulated non-MapX origin), and reviewed
+custom-code definitions. It is not a substitute for a real browser/CORS and visual test.
 
 For representative structured legends:
 
@@ -189,8 +191,8 @@ For representative structured legends:
 4. Test at 200% zoom and traverse the scroll region by keyboard.
 5. Record any difference as a defect or an intentional presentation decision.
 
-Also test one example of each deliberate fallback: continuous raster ramp, static/non-approved
-raster, vector sprite, custom-coded view, catalogue miss, and missing MapX image.
+Also test one example of each deliberate fallback: invalid raster ramp, static/non-approved
+raster, vector sprite, changed/unreviewed custom-coded view, catalogue miss, and missing MapX image.
 
 ## Extension rules
 
@@ -204,8 +206,7 @@ When adding a new provider or style:
 6. Add or update a live contract check when the dependency is external.
 7. Complete browser visual comparison before merge.
 
-Continuous ramps need a dedicated gradient model and renderer. Another raster service needs its
-own adapter unless it returns the exact validated GeoServer representation.
+Another raster service needs its own adapter unless it returns the exact validated GeoServer representation.
 
 ## Ownership and retirement
 
@@ -232,3 +233,33 @@ If MapX supplies an official structured raster API, migrate the raster resolver 
 direct/mirror permissions and the corresponding live contract, and reassess the comparison UI
 separately. If the undocumented contracts cannot be governed, disable structured extraction and
 retain the MapX image fallback.
+
+## Complete configured coverage
+
+The 2026-10-23 audit covers 68 configured public MapX views: 44 vectors, 20 rasters,
+and four custom-code views. Layers with no assigned view ID cannot be audited yet.
+EDRA owns its separate runtime HTML legend. This is coverage of the current catalogue,
+not a promise to render every future MapX style or unavailable provider response.
+
+Raster groups retain each sublayer title and order. Continuous ramps interpolate by
+numeric quantity, not evenly spaced labels; the stop list remains readable text.
+River flood depth now follows the provider JSON instead of a hand-maintained palette.
+HDI is configured as raster, matching its actual MapX type.
+
+Custom-code views do not expose a portable structured style. Their definitions in
+`src/sdk/custom-legend-definitions.js` were reviewed against the full public
+`data.methods` code and are pinned to its SHA-256. Runtime never executes that code.
+An unknown ID, missing crypto support, or any code change falls back to MapX's image.
+To update a definition, fetch the view, review its actual paint/filter expressions,
+update the HTML definition and hash, and refresh the recorded fixture together.
+Do not simply update the hash to silence a failed live check.
+
+The water/nutrition view uses a labelled HTML matrix; magnitude/IDP circles retain
+relative size (scaled to fit the legend). The disasters/IDPs classes follow the
+actual MapLibre step expressions: upstream's hand-built legend gives misleading
+upper bounds and omits the open-ended class. These are prototype source styles;
+HTML rendering does not validate the underlying scientific classifications.
+
+Recorded contracts in `tests/fixtures/legends/` keep default tests offline and verify
+coverage against every configured source ID. `tests/e2e/html-legends.spec.js` exercises
+discrete, continuous, grouped and bivariate rendering with intercepted provider JSON.

@@ -207,7 +207,11 @@
      */
     get_views: function () {
       return Array.from(known).map(function (id) {
-        return { id: id, type: "rt", data: {} };
+        return (
+          (window.__mapxStubViews || []).find(function (view) {
+            return view.id === id;
+          }) || { id: id, type: "rt", data: {} }
+        );
       });
     },
     // src/sdk/filters.js — the opacity slider's read and write. The getter

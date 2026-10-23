@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## Unreleased
+
+### Changed
+
+- Render HTML legends for all 68 configured MapX views, including cyclone surge and the other datacore rasters, continuous colour ramps, grouped raster layers, and four reviewed custom-code views. Keep MapX images as a fallback when metadata changes or requests fail.
+- Use provider colours for river flood depth and match disasters/IDPs legend bounds to the actual source style.
+
 ## [0.0.9] - 2026-10-20
 
 ### Changed
