@@ -60,3 +60,15 @@ limits become significant.
 
 Prefer migration to an official MapX API. If these dependencies cannot be governed, remove
 structured extraction and retain the MapX image fallback.
+
+## 2026-10-23 extension: full configured catalogue
+
+Extend the guarded raster adapter to the reviewed datacore layers, grouped raster
+legends and numeric continuous ramps. GeoServer documents value-weighted linear
+interpolation; retain stop quantities and text alongside the gradient. Keep exact
+host/path/layer/query approval and existing bounded transport limits.
+
+For the four configured custom-code views, use reviewed local legend definitions
+pinned to SHA-256 of the upstream methods. Never evaluate upstream JavaScript.
+Fall back on drift; the live catalogue audit makes that drift visible before release.
+This adds current catalogue coverage without a generic custom-code or SLD interpreter.

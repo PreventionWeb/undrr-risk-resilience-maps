@@ -20,7 +20,7 @@ const MAX_LEGEND_BYTES = 256 * 1024;
 const REQUEST_TIMEOUT_MS = 5000;
 const MAPX_MIRROR_URL = "https://api.mapx.org/get/mirror";
 const APPROVED_MIRROR_ENDPOINTS = new Set([MAPX_MIRROR_URL]);
-const SUPPORTED_COLORMAP_TYPES = new Set(["intervals", "values"]);
+const SUPPORTED_COLORMAP_TYPES = new Set(["intervals", "values", "ramp"]);
 
 /**
  * Provider hosts approved for structured raster requests.
@@ -40,6 +40,41 @@ const APPROVED_RASTER_PROVIDERS = new Map([
         "ingeniar:PGA_975y",
         "ingeniar:PGA_1500y",
         "ingeniar:PGA_2475y",
+        "unepgrid:global_pc_h25glob",
+      ]),
+      paths: new Set(["/geoserver/wms"]),
+      queryKeys: new Set([
+        "service",
+        "version",
+        "style",
+        "styles",
+        "request",
+        "layer",
+        "format",
+        "transparent",
+        "tranparent",
+      ]),
+    },
+  ],
+  [
+    "datacore.unepgrid.ch",
+    {
+      allowMirror: true,
+      layers: new Set([
+        "ECO-DRR:fl_freq_P3",
+        "ECO-DRR:fl_phex_P3",
+        "ECO-DRR:cs_phex_P3",
+        "ECO-DRR:cy_freqa_P3",
+        "ECO-DRR:cy_phex_P3",
+        "ECO-DRR:ls_phex_P3",
+        "ECO-DRR:ls_freq2af_P3",
+        "ECO-DRR:ts_phex_P3",
+        "ECO-DRR:ts_freqaf_P3",
+        "ECO-DRR:HRSL_wGHSL_pop_count",
+        "ECO-DRR:forestkm2a_P3",
+        "ECO-DRR:mangrokm2a_P3",
+        "unccd:hdi_predictions",
+        "undrr:sdg15_3_1_droughtfrequency30",
       ]),
       paths: new Set(["/geoserver/wms"]),
       queryKeys: new Set([
@@ -149,14 +184,21 @@ export function getMapXMirrorUrl(providerUrl, mirrorBaseUrl = MAPX_MIRROR_URL) {
 /**
  * Parse GeoServer's documented GetLegendGraphic JSON representation.
  *
- * Only discrete raster colour maps are supported initially. Continuous
- * `ramp` legends fall back to the provider image because reproducing their
- * interpolation faithfully requires a different visual component.
+ * Preserve grouped layers and continuous ramps; ramp stops retain their numeric
+ * quantities so the renderer can interpolate by value, rather than by row index.
  */
 export function parseGeoServerRasterLegend(payload, title = "") {
-  if (!payload || !Array.isArray(payload.Legend) || payload.Legend.length !== 1) return null;
+  if (!payload || !Array.isArray(payload.Legend) || payload.Legend.length === 0 || payload.Legend.length > 20)
+    return null;
+  const groups = payload.Legend.map((legend) => parseRasterGroup(legend));
+  if (groups.some((group) => group == null)) return null;
+  if (groups.reduce((total, group) => total + group.entries.length, 0) > MAX_LEGEND_ENTRIES) return null;
+  if (groups.length === 1)
+    return { ...groups[0], title: isSafeLegendText(title) ? title.trim() : groups[0].title };
+  return { title: isSafeLegendText(title) ? title.trim() : "", entries: [], groups };
+}
 
-  const legend = payload.Legend[0];
+function parseRasterGroup(legend) {
   if (!legend || !Array.isArray(legend.rules) || legend.rules.length === 0) return null;
 
   const symbolizers = legend.rules.flatMap((rule) =>
@@ -195,11 +237,23 @@ export function parseGeoServerRasterLegend(payload, title = "") {
   });
   if (entries.some((entry) => entry == null)) return null;
 
-  const resolvedTitle = isSafeLegendText(title)
-    ? title.trim()
-    : isSafeLegendText(legend.title)
-      ? legend.title.trim()
-      : "";
+  const resolvedTitle = isSafeLegendText(legend.title) ? legend.title.trim() : "";
+  if (colormap.type === "ramp") {
+    const quantities = colormap.entries.map((entry) => Number(entry.quantity));
+    if (
+      quantities.length < 2 ||
+      quantities.some(
+        (value, index) =>
+          !Number.isFinite(value) ||
+          !["number", "string"].includes(typeof colormap.entries[index].quantity) ||
+          colormap.entries[index].quantity == null ||
+          String(colormap.entries[index].quantity).trim() === "" ||
+          (index > 0 && value <= quantities[index - 1]),
+      )
+    )
+      return null;
+    return { title: resolvedTitle, entries, ramp: quantities };
+  }
   return { title: resolvedTitle, entries };
 }
 

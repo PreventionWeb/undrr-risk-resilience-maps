@@ -1,0 +1,194 @@
+{
+  "MX-8C214-22C3A-82165": {
+    "Legend": [
+      {
+        "layerName": "cs_phex_P3",
+        "title": "Tropical cyclone surge hazard exposure",
+        "rules": [
+          {
+            "symbolizers": [
+              {
+                "Raster": {
+                  "geometry": "[grid]",
+                  "colormap": {
+                    "entries": [
+                      {
+                        "label": "Absent",
+                        "quantity": "1.0E-19",
+                        "color": "#FEEBE2",
+                        "opacity": "0.0"
+                      },
+                      {
+                        "label": "Low exposure",
+                        "quantity": "7.45771",
+                        "color": "#FEEBE2",
+                        "opacity": "1.0"
+                      },
+                      {
+                        "label": "Medium exposure",
+                        "quantity": "29.83084",
+                        "color": "#F768A1",
+                        "opacity": "1.0"
+                      },
+                      {
+                        "label": "High exposure",
+                        "quantity": "1000",
+                        "color": "#7A0177",
+                        "opacity": "1.0"
+                      }
+                    ],
+                    "type": "intervals"
+                  },
+                  "opacity": "1.0"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "MX-S7OAB-FQ220-REV2E": {
+    "Legend": [
+      {
+        "layerName": "hdi_predictions",
+        "title": "Global High Resolution Estimates of the Human Development Index, Version 2.0",
+        "rules": [
+          {
+            "symbolizers": [
+              {
+                "Raster": {
+                  "colormap": {
+                    "entries": [
+                      {
+                        "label": " 0.057",
+                        "quantity": "0.057173725832189",
+                        "color": "#000004"
+                      },
+                      {
+                        "label": " 0.293",
+                        "quantity": "0.29288029437414176",
+                        "color": "#50127B"
+                      },
+                      {
+                        "label": " 0.529",
+                        "quantity": "0.5285868629160945",
+                        "color": "#B6377A"
+                      },
+                      {
+                        "label": " 0.764",
+                        "quantity": "0.7642934314580472",
+                        "color": "#FB8761"
+                      },
+                      {
+                        "label": " 1.000",
+                        "quantity": "1",
+                        "color": "#FCFDBF"
+                      }
+                    ],
+                    "type": "ramp"
+                  },
+                  "opacity": "1.0"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "MX-5FSR9-Y7LUW-BUCCB": {
+    "Legend": [
+      {
+        "layerName": "SDG15_3_1",
+        "title": "SDG15.3.1",
+        "rules": [
+          {
+            "symbolizers": [
+              {
+                "Raster": {
+                  "colormap": {
+                    "entries": [
+                      {
+                        "label": "-2",
+                        "quantity": "-2",
+                        "color": "#A50F15",
+                        "opacity": "0.0"
+                      },
+                      {
+                        "label": "Degraded Soil",
+                        "quantity": "-1",
+                        "color": "#FFE100"
+                      },
+                      {
+                        "label": "0",
+                        "quantity": "0",
+                        "color": "#000000"
+                      },
+                      {
+                        "label": "No data",
+                        "quantity": "1",
+                        "color": "#000000"
+                      }
+                    ],
+                    "type": "values"
+                  },
+                  "opacity": "1.0"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "layerName": "droughtfreq30",
+        "title": "Drought frequency 30",
+        "rules": [
+          {
+            "symbolizers": [
+              {
+                "Raster": {
+                  "colormap": {
+                    "entries": [
+                      {
+                        "label": "<= 15",
+                        "quantity": "15",
+                        "color": "#FF00FF",
+                        "opacity": "0.0"
+                      },
+                      {
+                        "label": "15 - 100",
+                        "quantity": "100",
+                        "color": "#C30100"
+                      },
+                      {
+                        "label": "no data",
+                        "quantity": "252",
+                        "color": "#000000",
+                        "opacity": "0.0"
+                      },
+                      {
+                        "label": "no season",
+                        "quantity": "253",
+                        "color": "#666666",
+                        "opacity": "0.0"
+                      },
+                      {
+                        "label": "no cropland",
+                        "quantity": "300",
+                        "color": "#CCCCCC",
+                        "opacity": "0.0"
+                      }
+                    ],
+                    "type": "intervals"
+                  },
+                  "opacity": "1.0"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

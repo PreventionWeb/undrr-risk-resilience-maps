@@ -134,3 +134,46 @@
   outline: 1px solid rgb(var(--mg-color-neutral-900) / 0.1);
   outline-offset: -1px;
 }
+
+.html-legend-ramp {
+  display: flex;
+  height: 0.9rem;
+  margin-block: 0.35rem;
+  border: 1px solid rgb(var(--mg-color-neutral-900) / 0.15);
+}
+
+.html-legend-ramp > span {
+  flex-basis: 0;
+  min-width: 0;
+}
+
+.html-legend-matrix {
+  width: 100%;
+  table-layout: fixed;
+  border-spacing: 2px;
+  margin-block: 0.4rem;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.html-legend-matrix caption {
+  margin-bottom: 0.35rem;
+  text-align: start;
+}
+
+.html-legend-matrix th {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.html-legend-matrix td[aria-label] {
+  height: 1.8rem;
+  border: 1px solid rgb(var(--mg-color-neutral-900) / 0.15);
+}
+
+.html-legend-scale-note {
+  margin-block: 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: rgb(var(--mg-color-neutral-600));
+}
