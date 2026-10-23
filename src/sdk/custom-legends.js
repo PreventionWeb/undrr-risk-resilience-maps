@@ -1,4 +1,11 @@
-/** Explicitly reviewed custom views; mutable upstream JavaScript is never executed. */
+/**
+ * MANUAL MAINTENANCE: these four custom-code legends are local definitions,
+ * unlike vector/raster legends read from remote style metadata.
+ * Changing remote data values alone does not invalidate them. Any change to
+ * data.methods does: fail back to the MapX image until a maintainer reviews
+ * the style and updates the definition AND its hash. Never just refresh a hash.
+ * Upstream JavaScript is never executed. See docs/legends.md.
+ */
 import { CUSTOM_LEGENDS } from "./custom-legend-definitions.js";
 
 export async function resolveCustomMapXLegend(view) {

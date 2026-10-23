@@ -1,4 +1,6 @@
-/** Reviewed MapX custom-code styles, captured 2026-10-23.
+/** MANUALLY MAINTAINED MapX custom-code styles, reviewed 2026-10-23.
+ * These definitions do not automatically follow upstream style changes.
+ * Review paint/filter expressions and legend together before changing a hash.
  * SHA-256 pins each definition to its exact upstream methods; never execute them.
  * See docs/legends.md for review/update instructions. */
 export const CUSTOM_LEGENDS = {

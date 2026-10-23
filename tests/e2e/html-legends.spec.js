@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { test, expect, gotoApp } from "./fixtures/app.js";
-const views = JSON.parse(readFileSync(new URL("../fixtures/legends/mapx-views.json", import.meta.url)));
-const rasters = JSON.parse(readFileSync(new URL("../fixtures/legends/geoserver.json", import.meta.url)));
+const views = JSON.parse(
+  readFileSync(new URL("../fixtures/legends/representative-mapx-views.json", import.meta.url)),
+);
+const rasters = JSON.parse(
+  readFileSync(new URL("../fixtures/legends/representative-geoserver.json", import.meta.url)),
+);
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((catalogue) => {

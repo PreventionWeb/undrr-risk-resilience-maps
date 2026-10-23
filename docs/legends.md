@@ -251,7 +251,7 @@ Custom-code views do not expose a portable structured style. Their definitions i
 `data.methods` code and are pinned to its SHA-256. Runtime never executes that code.
 An unknown ID, missing crypto support, or any code change falls back to MapX's image.
 To update a definition, fetch the view, review its actual paint/filter expressions,
-update the HTML definition and hash, and refresh the recorded fixture together.
+update the HTML definition and hash, and refresh the representative custom-code fixture together.
 Do not simply update the hash to silence a failed live check.
 
 The water/nutrition view uses a labelled HTML matrix; magnitude/IDP circles retain
@@ -260,6 +260,24 @@ actual MapLibre step expressions: upstream's hand-built legend gives misleading
 upper bounds and omits the open-ended class. These are prototype source styles;
 HTML rendering does not validate the underlying scientific classifications.
 
-Recorded contracts in `tests/fixtures/legends/` keep default tests offline and verify
-coverage against every configured source ID. `tests/e2e/html-legends.spec.js` exercises
+Representative contracts in `tests/fixtures/legends/` keep default tests offline.
+They cover three raster shapes and the four manually reviewed custom-code views.
+They are not an inventory of every map: the opt-in live audit checks every configured source ID. `tests/e2e/html-legends.spec.js` exercises
 discrete, continuous, grouped and bivariate rendering with intercepted provider JSON.
+
+## Remote changes and manual maintenance
+
+| Change                                                  | What happens                                                                                                            | Maintainer action                                                                                                                                                  |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| New/changed data values, with the same style            | Legends still describe the same style; data refresh is managed by the source/MapX.                                      | Usually none. This viewer does not compute a new classification from the data.                                                                                     |
+| A supported vector or raster style changes              | A fresh page load reads current MapX rules or GeoServer JSON. The open page caches results and does not poll for edits. | Usually none; check the live audit before release.                                                                                                                 |
+| Any code changes in one of the four custom-code views   | The SHA-256 no longer matches, so HTML falls back to MapX's image legend.                                               | Review actual paint/filter expressions, then update the local definition, hash and representative fixture together. Even unrelated code edits trigger this review. |
+| A new provider/layer or unsupported style is introduced | It may use an image fallback until supported.                                                                           | Review the endpoint/style and update the allowlist or adapter as needed.                                                                                           |
+
+When communicating with MapX, distinguish the dynamic raster/vector adapters from
+these four manually maintained exceptions, and distinguish this draft from what is
+already deployed in production. The draft demonstrates HTML rendering
+for the current catalogue; it does not provide a generic MapX structured legend API
+or eliminate every future need for MapX development. Raster HTML still depends on
+GeoServer JSON and, for some requests, MapX's mirror. A supported upstream API
+would reduce these dependencies and the manual maintenance burden.

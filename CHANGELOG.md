@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- Render HTML legends for all 68 configured MapX views, including cyclone surge and the other datacore rasters, continuous colour ramps, grouped raster layers, and four reviewed custom-code views. Keep MapX images as a fallback when metadata changes or requests fail.
+- Render HTML legends for all 68 configured MapX views, including cyclone surge and the other datacore rasters, continuous colour ramps, grouped raster layers, and four manually maintained custom-code views. Vector/raster legends follow supported remote styles on a fresh page load; custom-code changes require review and fall back to MapX images until updated. Keep image fallback when metadata is unsupported or requests fail.
 - Use provider colours for river flood depth and match disasters/IDPs legend bounds to the actual source style.
 
 ## [0.0.9] - 2026-10-20

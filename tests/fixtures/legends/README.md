@@ -1,11 +1,14 @@
-# Public legend contracts
+# Representative public legend contracts
 
-Captured from the MapX public view API and the two GeoServer providers on 2026-10-23.
-These fixtures contain only legend-relevant fields, including the full methods text
-for the four custom-code views so SHA-256 drift checks run without executing code.
-The application's runtime uses `get_views`, not these fixtures or the public view API.
+Captured from the MapX public view API and GeoServer on 2026-10-23.
+Keep only discrete (cyclone surge), continuous (HDI) and grouped (GAR drought)
+raster examples, plus the four custom-code views. Existing vector adapter unit
+tests cover vector styles; repeating the entire catalogue here adds little value.
 
-`src/sdk/legend-coverage.test.js` checks every configured MapX source against this
-recording. New source IDs must be added here after review. The opt-in live check
-`yarn test:mapx-raster-contract` audits all configured sources against current data.
-Do not refresh a custom-code hash without reviewing the source style and legend.
+The full methods text for each custom-code view is retained to exercise the real
+SHA-256 pin without executing upstream code. These four definitions are manually
+maintained: review the source style before changing a definition, hash or fixture.
+
+These samples test supported shapes offline; they do not prove current coverage of
+every map. `yarn test:mapx-raster-contract` fetches and audits all configured MapX
+sources live. The runtime uses `get_views` and provider JSON, never these fixtures.

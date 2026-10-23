@@ -5,6 +5,12 @@
  * dedicated legend image command returns only an image. This module owns the
  * live catalogue lifecycle, parses vector views, and dispatches raster views
  * to their separate adapter.
+ *
+ * Vector rules and raster legend JSON follow remote styles on a fresh page
+ * load; this catalogue and successful raster resolutions are cached during
+ * the page/SDK lifecycle, without polling for remote edits. Custom-code views
+ * are the exception: their local definitions require manual review on drift
+ * (see custom-legends.js). A data-value change alone usually needs no update.
  */
 import { resolveCustomMapXLegend } from "./custom-legends.js";
 import { getSDK } from "./client.js";
