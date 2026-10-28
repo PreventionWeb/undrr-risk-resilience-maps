@@ -35,6 +35,13 @@ MapX origin and chooses behaviour from `Manager.version`.
   `click_features`. Beta is now explicit in the version, opacity, click-routing,
   inspection and empty-click regression coverage, alongside production 1.14.1.
 
+A live staging browser confirmed `Manager.version` and the iframe title
+`Interactive map`, queried 86 ECO-DRR views, and added/removed raster view
+`MX-0E3D6-C78BA-24067` twice. Its transparency getter returned `0` when fresh
+and `33` after setting 33% transparency and allowing the debounced update to
+settle. These smoke checks do not verify feature clicks, EDRA replacement, or
+the full configured layer set.
+
 Keep production as the default and retain 1.14.1 compatibility until production
 reports stable 1.14.2 or later and the live-map checks in
 [PR #53](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/53) pass.
