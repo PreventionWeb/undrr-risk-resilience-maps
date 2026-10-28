@@ -18,6 +18,7 @@ import {
 for (const { version, clickEvent, otherEvent } of [
   { version: "1.14.1", clickEvent: "click_attributes", otherEvent: "click_features" },
   { version: "1.14.2-alpha.3", clickEvent: "click_features", otherEvent: "click_attributes" },
+  { version: "1.14.2-beta.0", clickEvent: "click_features", otherEvent: "click_attributes" },
 ]) {
   test.describe(`MapX ${version}`, () => {
     test.use({ mapxVersion: version });
@@ -81,7 +82,7 @@ for (const { version, clickEvent, otherEvent } of [
 }
 
 test.describe("MapX 1.14.2 empty clicks", () => {
-  test.use({ mapxVersion: "1.14.2-alpha.3" });
+  test.use({ mapxVersion: "1.14.2-beta.0" });
 
   test("a click that hits nothing closes the infobox", async ({ page }) => {
     await gotoApp(page, "#hazard");

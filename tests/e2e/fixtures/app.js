@@ -74,7 +74,7 @@ export const test = base.extend({
   /**
    * The MapX version the stub reports, and whose behaviour it follows where
    * 1.14.2 changed it. Production's version by default; a spec about the
-   * 1.14.2 paths says `test.use({ mapxVersion: "1.14.2-alpha.3" })`.
+   * 1.14.2 paths says `test.use({ mapxVersion: "1.14.2-beta.0" })`.
    */
   mapxVersion: ["1.14.1", { option: true }],
 

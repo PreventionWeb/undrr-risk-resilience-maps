@@ -6,6 +6,50 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ---
 
+## MapX 1.14.2-beta.0 release review (28 October 2026)
+
+The [beta tag](https://github.com/unep-grid/mapx/releases/tag/1.14.2-beta.0)
+points to `40cf4cb637791b65b8f8953460fae617761a28d9`. On this date, the SDK bundles
+at `https://app.mapx.org/sdk/mxsdk.umd.js` and
+`https://app.staging.mapx.org/sdk/mxsdk.umd.js` report `1.14.1` and
+`1.14.2-beta.0`, respectively. These deployments can change independently of tags.
+There is no package version to bump here: the app loads the SDK from the selected
+MapX origin and chooses behaviour from `Manager.version`.
+
+[Changes since alpha.5](https://github.com/unep-grid/mapx/compare/1.14.2-alpha.5...1.14.2-beta.0):
+
+- **View lifecycle:** [595e94f7](https://github.com/unep-grid/mapx/commit/595e94f7)
+  queues render/clear operations per view, so they cannot remove each other's
+  layers or widgets. Dashboard creation/removal also rejects stale asynchronous
+  results, and story steps preserve existing widgets and layer order. This is
+  relevant to layer toggling and custom-code views. Upstream adds regression
+  tests for overlapping operations; our stubbed tests do not exercise that fix.
+- **ARCO (alpha.6/alpha.7):** accepts zartigl layer styles, deprecates flat style
+  settings with compatibility adapters, adds particle backdrop controls, and
+  formats variable units in charts/cursor readouts. Zartigl moves from a
+  submodule to an npm dependency. This app does not call those extension APIs;
+  no local migration was identified.
+- **SDK contract:** no changes under `app/src/js/sdk/src` or to
+  `map_helpers/view_filters.js` since alpha.5. The version bump uses our existing
+  1.14.2 paths for transparency, `iframeTitle`, `zoomToView: false`, and
+  `click_features`. Beta is now explicit in the version, opacity, click-routing,
+  inspection and empty-click regression coverage, alongside production 1.14.1.
+
+A live staging browser confirmed `Manager.version` and the iframe title
+`Interactive map`, queried 86 ECO-DRR views, and added/removed raster view
+`MX-0E3D6-C78BA-24067` twice. Its transparency getter returned `0` when fresh
+and `33` after setting 33% transparency and allowing the debounced update to
+settle. These smoke checks do not verify feature clicks, EDRA replacement, or
+the full configured layer set.
+
+Keep production as the default and retain 1.14.1 compatibility until production
+reports stable 1.14.2 or later and the live-map checks in
+[PR #53](https://github.com/PreventionWeb/undrr-risk-resilience-maps/pull/53) pass.
+Staging remains opt-in via `?mapxEnv=staging`; its older database does not contain
+most configured UNDRR views. A beta tag alone does not satisfy the cleanup gate.
+
+---
+
 ## MapX SDK: `click_attributes` event
 
 From MapX 1.14.2 the app listens to `click_features` instead (one event per click, see

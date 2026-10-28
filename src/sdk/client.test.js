@@ -240,11 +240,11 @@ describe("MapX version", () => {
     window.mxsdk = {
       version: "9.9.9",
       Manager: vi.fn().mockImplementation(function () {
-        Object.defineProperty(this, "version", { get: () => "1.14.2-alpha.3" });
+        Object.defineProperty(this, "version", { get: () => "1.14.2-beta.0" });
       }),
     };
     initSDK(document.createElement("div"), "PRJ");
-    expect(getMapXVersion()).toBe("1.14.2-alpha.3");
+    expect(getMapXVersion()).toBe("1.14.2-beta.0");
   });
 
   it("returns null when the Manager reports no version", async () => {
@@ -257,6 +257,7 @@ describe("MapX version", () => {
   it("compares versions, counting pre-releases as their release", async () => {
     const { isMapXAtLeast } = await freshClient();
     expect(isMapXAtLeast("1.14.2-alpha.3", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.2-beta.0", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.14.2", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.14.10", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.15.0", "1.14.2")).toBe(true);
