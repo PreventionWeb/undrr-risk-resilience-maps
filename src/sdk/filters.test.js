@@ -27,7 +27,7 @@ describe("normalizeLayerTransparency", () => {
   });
 
   it("reads MapX 1.14.2+ as transparency 0-100", () => {
-    for (const version of ["1.14.2-alpha.3", "1.14.2", "1.15.0"]) {
+    for (const version of ["1.14.2-alpha.3", "1.14.2-beta.0", "1.14.2", "1.15.0"]) {
       expect(normalizeLayerTransparency(0, version)).toBe(100);
       // Not rounded up to 100: 1 is a real 1% transparency on this scale.
       expect(normalizeLayerTransparency(1, version)).toBe(99);

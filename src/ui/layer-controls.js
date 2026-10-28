@@ -172,7 +172,7 @@ export async function addLegend(layer, container) {
         geometry: item.geometry ?? layer.geometry ?? "polygon",
       })),
     };
-  } else if (layer.type === "vt" || layer.type === "rt") {
+  } else if (["vt", "rt", "cc"].includes(layer.type)) {
     try {
       const resolution = await resolveMapXLegend(layer.id);
       if (!isCurrentRequest()) return;
@@ -181,7 +181,9 @@ export async function addLegend(layer, container) {
       structuredMode = structuredLegend
         ? layer.type === "rt"
           ? "mapx-raster-structured"
-          : "mapx-vector-structured"
+          : layer.type === "cc"
+            ? "mapx-custom-structured"
+            : "mapx-vector-structured"
         : null;
       fallbackReason = resolution.reason;
       fallbackDiagnostic = resolution.diagnostic ?? null;
@@ -309,12 +311,19 @@ function renderStructuredLegend(definition, container, mode, transport) {
     el.appendChild(title);
   }
 
+  if (definition.groups) {
+    for (const group of definition.groups) renderStructuredLegend(group, el, mode, transport);
+  }
+  if (definition.matrix) renderLegendMatrix(definition.matrix, el);
+  if (definition.ramp) renderLegendRamp(definition, el);
+
   const rules = document.createElement("div");
   rules.className = "html-legend-rules";
   rules.setAttribute("role", "list");
   rules.setAttribute("aria-label", definition.title || "Legend");
   rules.tabIndex = 0;
 
+  const sizeScale = Math.min(1, 56 / Math.max(1, ...definition.entries.map((item) => item.size ?? 0)));
   for (const item of definition.entries) {
     const row = document.createElement("div");
     row.className = "html-legend-row";
@@ -335,7 +344,9 @@ function renderStructuredLegend(definition, container, mode, transport) {
     }
     if (item.borderColor) swatch.style.borderColor = item.borderColor;
     if (Number.isFinite(item.size)) {
-      const size = Math.min(14, Math.max(5, item.size));
+      const size = Math.max(5, item.size * sizeScale);
+      symbol.style.width = `${Math.max(18, size)}px`;
+      symbol.style.height = `${Math.max(16, size)}px`;
       swatch.style.setProperty("--legend-symbol-size", `${size}px`);
     }
     symbol.appendChild(swatch);
@@ -349,6 +360,59 @@ function renderStructuredLegend(definition, container, mode, transport) {
     rules.appendChild(row);
   }
 
-  el.appendChild(rules);
+  if (definition.entries.length > 0) el.appendChild(rules);
   container.appendChild(el);
+}
+
+// A separate span per stop allows opacity interpolation without rewriting safe
+// provider colours. Stops use numeric quantities, including uneven intervals.
+function renderLegendRamp(definition, container) {
+  const ramp = document.createElement("div");
+  ramp.className = "html-legend-ramp";
+  ramp.setAttribute("aria-hidden", "true");
+  const quantities = definition.ramp;
+  const min = quantities[0];
+  const range = quantities.at(-1) - min;
+  for (let i = 1; i < quantities.length; i += 1) {
+    const segment = document.createElement("span");
+    segment.style.flexGrow = String((quantities[i] - quantities[i - 1]) / range);
+    segment.style.background = `linear-gradient(to right, ${definition.entries[i - 1].color}, ${definition.entries[i].color})`;
+    // Mask alpha separately so transparent endpoints retain their RGB colour.
+    segment.style.maskImage = `linear-gradient(to right, rgba(0,0,0,${definition.entries[i - 1].opacity}), rgba(0,0,0,${definition.entries[i].opacity}))`;
+    ramp.appendChild(segment);
+  }
+  container.appendChild(ramp);
+  const description = document.createElement("div");
+  description.className = "html-legend-scale-note";
+  description.textContent = "Continuous scale; colour stops listed below.";
+  container.appendChild(description);
+}
+
+function renderLegendMatrix(matrix, container) {
+  const table = document.createElement("table");
+  table.className = "html-legend-matrix";
+  const caption = table.createCaption();
+  caption.textContent = `${matrix.yTitle} / ${matrix.xTitle}`;
+  const header = table.createTHead().insertRow();
+  header.appendChild(document.createElement("td"));
+  for (const label of matrix.columns) {
+    const cell = document.createElement("th");
+    cell.scope = "col";
+    cell.textContent = label;
+    header.appendChild(cell);
+  }
+  const body = table.createTBody();
+  matrix.rows.forEach((label, index) => {
+    const row = body.insertRow();
+    const heading = document.createElement("th");
+    heading.scope = "row";
+    heading.textContent = label;
+    row.appendChild(heading);
+    matrix.colors[index].forEach((color, column) => {
+      const cell = row.insertCell();
+      cell.style.backgroundColor = color;
+      cell.setAttribute("aria-label", `Child nutrition ${label}; water scarcity ${matrix.columns[column]}`);
+    });
+  });
+  container.appendChild(table);
 }

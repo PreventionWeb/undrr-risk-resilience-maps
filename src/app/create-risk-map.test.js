@@ -169,12 +169,15 @@ describe("createRiskMap", () => {
       return document.getElementById("infobox");
     }
 
-    it("listens to click_features alone on MapX 1.14.2+", async () => {
-      manager.version = "1.14.2-alpha.3";
-      await start();
-      expect(manager.handlers.has("click_features")).toBe(true);
-      expect(manager.handlers.has("click_attributes")).toBe(false);
-    });
+    it.each(["1.14.2-alpha.3", "1.14.2-beta.0"])(
+      "listens to click_features alone on MapX %s",
+      async (version) => {
+        manager.version = version;
+        await start();
+        expect(manager.handlers.has("click_features")).toBe(true);
+        expect(manager.handlers.has("click_attributes")).toBe(false);
+      },
+    );
 
     it("listens to click_attributes alone on older MapX", async () => {
       manager.version = "1.14.1";

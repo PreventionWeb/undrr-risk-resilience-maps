@@ -6,68 +6,28 @@ export const MAPX_PROD_URL = "https://app.mapx.org";
 export const MAPX_STAGING_URL = "https://app.staging.mapx.org";
 
 /**
- * Determine the MapX environment ("staging" or "prod").
+ * Which MapX instance to load: production, or staging with `?mapxEnv=staging`.
  *
- * Defaults to "staging" on this test branch to evaluate MapX 1.14.2-alpha.
- * Returns "prod" when configured via URL parameter (`?mapxEnv=prod` or `?mapxEnv=production`).
- * Bulletproof against undefined window, SSR, custom windowRef, URL strings, or edge URLs.
+ * Staging is an opt-in for trying an upcoming MapX release before it reaches
+ * production. Its database is an older copy: view IDs are shared with
+ * production, but most UNDRR-project views are missing there, so expect many
+ * layers to fail to load.
  *
- * @param {Window | string | URL} [windowRef]
+ * @param {{ location?: { search?: string } }} [windowRef]
  * @returns {"staging" | "prod"}
  */
-export function getMapXEnvironment(windowRef = typeof window !== "undefined" ? window : undefined) {
-  try {
-    let search = "";
-    if (typeof windowRef === "string") {
-      try {
-        search = new URL(windowRef, "https://example.com").search;
-      } catch {
-        // invalid URL string
-      }
-    } else if (windowRef instanceof URL) {
-      search = windowRef.search;
-    } else if (windowRef && typeof windowRef === "object") {
-      const loc = windowRef.location;
-      if (typeof loc === "string") {
-        try {
-          search = new URL(loc, "https://example.com").search;
-        } catch {
-          // invalid location string
-        }
-      } else if (loc && typeof loc === "object" && typeof loc.search === "string") {
-        search = loc.search;
-      } else if (typeof windowRef.search === "string") {
-        search = windowRef.search;
-      }
-    }
-    if (search) {
-      const params = new URLSearchParams(search);
-      const env = params.get("mapxEnv")?.toLowerCase();
-      if (env === "prod" || env === "production") return "prod";
-      if (env === "staging") return "staging";
-    }
-  } catch {
-    // windowRef or search unavailable / malformed
-  }
-  return "staging";
+export function getMapXEnvironment(windowRef = globalThis.window) {
+  const search = windowRef?.location?.search;
+  if (typeof search !== "string" || !search) return "prod";
+  return new URLSearchParams(search).get("mapxEnv")?.toLowerCase() === "staging" ? "staging" : "prod";
 }
 
-/**
- * Determine the MapX base URL to use.
- *
- * Defaults to the staging instance (`https://app.staging.mapx.org`) on this test branch
- * to evaluate MapX 1.14.2-alpha features.
- * Can be overridden via URL parameter: `?mapxEnv=prod` (or `?mapxEnv=production`) to test
- * fallback against production MapX, or `?mapxEnv=staging` to explicitly select staging.
- *
- * @param {Window | string | URL} [windowRef]
- * @returns {string} Base URL (e.g. "https://app.staging.mapx.org")
- */
-export function getMapXBaseUrl(windowRef = typeof window !== "undefined" ? window : undefined) {
-  return getMapXEnvironment(windowRef) === "prod" ? MAPX_PROD_URL : MAPX_STAGING_URL;
+/** @returns {string} the MapX app origin, e.g. "https://app.mapx.org" */
+export function getMapXBaseUrl(windowRef = globalThis.window) {
+  return getMapXEnvironment(windowRef) === "staging" ? MAPX_STAGING_URL : MAPX_PROD_URL;
 }
 
-export function getMapXSdkUrl(windowRef = typeof window !== "undefined" ? window : undefined) {
+export function getMapXSdkUrl(windowRef = globalThis.window) {
   return `${getMapXBaseUrl(windowRef)}/sdk/mxsdk.umd.js`;
 }
 

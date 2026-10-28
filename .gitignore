@@ -4,4 +4,3 @@ dist
 test-results/
 playwright-report/
 playwright/.cache/
-/docs/mapx-issues

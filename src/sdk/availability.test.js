@@ -66,72 +66,33 @@ describe("MapX availability", () => {
     expect(document.head.querySelector("script")).toBeNull();
   });
 
-  it("loads the staging SDK URL by default", async () => {
-    const windowRef = {};
+  it.each([
+    ["by default", {}, "https://app.mapx.org/sdk/mxsdk.umd.js"],
+    [
+      "for ?mapxEnv=staging",
+      { location: { search: "?mapxEnv=staging" } },
+      MAPX_STAGING_URL + "/sdk/mxsdk.umd.js",
+    ],
+  ])("loads the SDK from the right MapX %s", async (_label, windowRef, src) => {
     const promise = loadMapXSdk({ windowRef });
     const script = document.head.querySelector("script");
-    expect(script.src).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
+    expect(script.src).toBe(src);
     script.onload();
     await promise.catch(() => {});
   });
 
-  it("loads the production SDK URL when mapxEnv=prod", async () => {
-    const windowRef = { location: { search: "?mapxEnv=prod" } };
-    const promise = loadMapXSdk({ windowRef });
-    const script = document.head.querySelector("script");
-    expect(script.src).toBe("https://app.mapx.org/sdk/mxsdk.umd.js");
-    script.onload();
-    await promise.catch(() => {});
-  });
-
-  it("loads the staging SDK URL when mapxEnv=staging", async () => {
-    const windowRef = { location: { search: "?mapxEnv=staging" } };
-    const promise = loadMapXSdk({ windowRef });
-    const script = document.head.querySelector("script");
-    expect(script.src).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
-    script.onload();
-    await promise.catch(() => {});
-  });
-
-  it("resolves getMapXEnvironment and getMapXBaseUrl across query params, objects and edge cases", () => {
-    // Default fallback to staging
-    expect(getMapXEnvironment()).toBe("staging");
-    expect(getMapXBaseUrl()).toBe(MAPX_STAGING_URL);
-
-    // Standard location object with search
+  it("uses production MapX unless the page asks for staging", () => {
+    expect(getMapXEnvironment()).toBe("prod");
+    expect(getMapXEnvironment(null)).toBe("prod");
+    expect(getMapXEnvironment({})).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "" } })).toBe("prod");
     expect(getMapXEnvironment({ location: { search: "?mapxEnv=prod" } })).toBe("prod");
-    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=prod" } })).toBe(MAPX_PROD_URL);
-    expect(getMapXEnvironment({ location: { search: "?mapxEnv=production" } })).toBe("prod");
-    expect(getMapXBaseUrl({ location: { search: "?mapxEnv=production" } })).toBe(MAPX_PROD_URL);
-    expect(getMapXEnvironment({ location: { search: "?mapxEnv=staging" } })).toBe("staging");
+    expect(getMapXEnvironment({ location: { search: "?mapxEnv=nonsense" } })).toBe("prod");
+    expect(getMapXEnvironment({ location: { search: "?layers=a&mapxEnv=Staging" } })).toBe("staging");
+
+    expect(getMapXBaseUrl({})).toBe(MAPX_PROD_URL);
     expect(getMapXBaseUrl({ location: { search: "?mapxEnv=staging" } })).toBe(MAPX_STAGING_URL);
-
-    // Case-insensitivity
-    expect(getMapXEnvironment({ location: { search: "?mapxEnv=PROD" } })).toBe("prod");
-    expect(getMapXEnvironment({ location: { search: "?mapxEnv=Staging" } })).toBe("staging");
-
-    // String URLs and URL instances
-    expect(getMapXEnvironment("https://example.com/?mapxEnv=prod")).toBe("prod");
-    expect(getMapXBaseUrl("https://example.com/?mapxEnv=prod")).toBe(MAPX_PROD_URL);
-    expect(getMapXEnvironment(new URL("https://example.com/?mapxEnv=prod"))).toBe("prod");
-    expect(getMapXEnvironment({ location: "https://example.com/?mapxEnv=prod" })).toBe("prod");
-
-    // Null, undefined, empty, SSR, or malformed edge cases
-    expect(getMapXEnvironment(null)).toBe("staging");
-    expect(getMapXBaseUrl(null)).toBe(MAPX_STAGING_URL);
-    expect(getMapXEnvironment(undefined)).toBe("staging");
-    expect(getMapXEnvironment({})).toBe("staging");
-    expect(getMapXEnvironment({ location: null })).toBe("staging");
-    expect(getMapXEnvironment({ location: {} })).toBe("staging");
-    expect(getMapXEnvironment({ location: { search: "" } })).toBe("staging");
-    expect(getMapXEnvironment({ location: { search: "?mapxEnv=unknown" } })).toBe("staging");
-    expect(getMapXEnvironment("not-a-valid-url")).toBe("staging");
-
-    // SDK URL construction
-    expect(getMapXSdkUrl({ location: { search: "?mapxEnv=prod" } })).toBe(
-      "https://app.mapx.org/sdk/mxsdk.umd.js",
-    );
-    expect(getMapXSdkUrl()).toBe("https://app.staging.mapx.org/sdk/mxsdk.umd.js");
+    expect(getMapXSdkUrl({})).toBe(`${MAPX_PROD_URL}/sdk/mxsdk.umd.js`);
   });
 
   it("can cancel the ready-event timeout", () => {

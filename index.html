@@ -17,9 +17,10 @@
     <a href="#app-map" class="mg-skip-link" data-ui="skip-link">Skip to map</a>
 
     <!-- Preview access gate (Mangrove). The runtime builds the overlay from
-         these attributes and persists the unlock in localStorage/sessionStorage. Soft
-         barrier for the prototype, not access control -- the PIN is public in
-         the markup by design. -->
+         these attributes and, with persist="local", keeps the unlock in
+         localStorage so it survives new tabs and restarts. Soft barrier for the
+         prototype, not access control -- the PIN is public in the markup by
+         design. -->
     <div
       data-mg-preview-access
       data-mg-preview-id="grar-map-viewer"

@@ -170,7 +170,7 @@ describe("initSDK", () => {
     expect(() => initSDK(document.createElement("div"), "PRJ-1")).toThrow("MapX SDK is unavailable");
   });
 
-  it("configures Manager with iframeTitle and staging URL by default", async () => {
+  it("configures Manager with iframeTitle and the production URL by default", async () => {
     const { initSDK } = await freshClient();
     const ManagerMock = vi.fn().mockImplementation(function (opts) {
       this.opts = opts;
@@ -185,7 +185,7 @@ describe("initSDK", () => {
     expect(ManagerMock).toHaveBeenCalledWith(
       expect.objectContaining({
         container,
-        url: "https://app.staging.mapx.org/?project=PRJ-TEST",
+        url: "https://app.mapx.org/?project=PRJ-TEST",
         iframeTitle: "Interactive map",
         params: expect.objectContaining({
           closePanels: true,
@@ -222,11 +222,11 @@ describe("initSDK", () => {
     window.mxsdk = { Manager: ManagerMock };
 
     const container = document.createElement("div");
-    initSDK(container, "PRJ-TEST", { baseUrl: "https://app.mapx.org" });
+    initSDK(container, "PRJ-TEST", { baseUrl: "https://app.staging.mapx.org" });
 
     expect(ManagerMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "https://app.mapx.org/?project=PRJ-TEST",
+        url: "https://app.staging.mapx.org/?project=PRJ-TEST",
         iframeTitle: "Interactive map",
       }),
     );
@@ -240,11 +240,11 @@ describe("MapX version", () => {
     window.mxsdk = {
       version: "9.9.9",
       Manager: vi.fn().mockImplementation(function () {
-        Object.defineProperty(this, "version", { get: () => "1.14.2-alpha.3" });
+        Object.defineProperty(this, "version", { get: () => "1.14.2-beta.0" });
       }),
     };
     initSDK(document.createElement("div"), "PRJ");
-    expect(getMapXVersion()).toBe("1.14.2-alpha.3");
+    expect(getMapXVersion()).toBe("1.14.2-beta.0");
   });
 
   it("returns null when the Manager reports no version", async () => {
@@ -257,6 +257,7 @@ describe("MapX version", () => {
   it("compares versions, counting pre-releases as their release", async () => {
     const { isMapXAtLeast } = await freshClient();
     expect(isMapXAtLeast("1.14.2-alpha.3", "1.14.2")).toBe(true);
+    expect(isMapXAtLeast("1.14.2-beta.0", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.14.2", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.14.10", "1.14.2")).toBe(true);
     expect(isMapXAtLeast("1.15.0", "1.14.2")).toBe(true);

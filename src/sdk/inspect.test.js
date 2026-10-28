@@ -422,7 +422,7 @@ describe("handleFeaturesEvent (MapX 1.14.2+ click_features #1139)", () => {
     });
   });
 
-  it("handles empty attributes when clicking empty regions", () => {
+  it("reports every open view on an empty click, as click_attributes did", () => {
     const cb = vi.fn();
     subscribe(cb);
     enableInspection();
@@ -432,9 +432,25 @@ describe("handleFeaturesEvent (MapX 1.14.2+ click_features #1139)", () => {
     expect(cb).toHaveBeenCalledOnce();
     expect(cb).toHaveBeenCalledWith({
       lngLat: { lng: 0, lat: 0 },
-      views: {},
+      views: { "MX-VIEW-1": [] },
       openViewsSnapshot: new Set(["MX-VIEW-1"]),
     });
+  });
+
+  it("reports an open view that missed as queried with no features", () => {
+    // MapX leaves views with no hit out of `attributes`. The site inspector
+    // reads a view absent from the result as not queried (a raster then shows
+    // as "not queryable"), so a miss has to come through as [].
+    const cb = vi.fn();
+    subscribe(cb);
+    enableInspection();
+
+    handleFeaturesEvent(
+      { lngLat: { lng: 1, lat: 1 }, attributes: { "MX-HIT": [{ name: "A" }] } },
+      new Set(["MX-HIT", "MX-RASTER-MISS"]),
+    );
+
+    expect(cb.mock.calls[0][0].views).toEqual({ "MX-HIT": [{ name: "A" }], "MX-RASTER-MISS": [] });
   });
 
   it("isolates throwing subscribers", () => {
