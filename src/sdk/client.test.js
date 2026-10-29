@@ -94,75 +94,6 @@ describe("SDK readiness", () => {
   });
 });
 
-describe("titleMapXFrame", () => {
-  it("names an iframe that is already there without starting a watch", async () => {
-    const { titleMapXFrame } = await freshClient();
-    const host = document.createElement("div");
-    host.appendChild(document.createElement("iframe"));
-    const observe = vi.spyOn(MutationObserver.prototype, "observe");
-
-    const dispose = titleMapXFrame(host);
-
-    expect(host.querySelector("iframe").title).toBe("Interactive map");
-    expect(observe).not.toHaveBeenCalled();
-    dispose();
-    observe.mockRestore();
-  });
-
-  it("does not overwrite a title the SDK already set", async () => {
-    const { titleMapXFrame } = await freshClient();
-    const host = document.createElement("div");
-    const frame = document.createElement("iframe");
-    frame.title = "Theirs";
-    host.appendChild(frame);
-
-    titleMapXFrame(host);
-
-    expect(frame.title).toBe("Theirs");
-  });
-
-  it("names an iframe that appears later, then stops watching", async () => {
-    const { titleMapXFrame } = await freshClient();
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-
-    titleMapXFrame(host);
-    host.appendChild(document.createElement("iframe"));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(host.querySelector("iframe").title).toBe("Interactive map");
-    expect(disconnect).toHaveBeenCalled();
-    host.remove();
-    disconnect.mockRestore();
-  });
-
-  it("gives up after a bounded wait rather than observing forever", async () => {
-    const { titleMapXFrame, FRAME_TITLE_WATCH_MS } = await freshClient();
-    vi.useFakeTimers();
-    try {
-      const host = document.createElement("div");
-      document.body.appendChild(host);
-      const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-
-      titleMapXFrame(host);
-      expect(disconnect).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(FRAME_TITLE_WATCH_MS);
-
-      expect(disconnect).toHaveBeenCalled();
-      host.remove();
-      disconnect.mockRestore();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("is a no-op, and safely disposable, when the container is missing", async () => {
-    const { titleMapXFrame } = await freshClient();
-    expect(() => titleMapXFrame("no-such-element")()).not.toThrow();
-  });
-});
-
 describe("initSDK", () => {
   it("throws when window.mxsdk.Manager is unavailable", async () => {
     const { initSDK } = await freshClient();
@@ -175,6 +106,7 @@ describe("initSDK", () => {
     const ManagerMock = vi.fn().mockImplementation(function (opts) {
       this.opts = opts;
       const iframe = document.createElement("iframe");
+      iframe.title = opts.iframeTitle;
       opts.container.appendChild(iframe);
     });
     window.mxsdk = { Manager: ManagerMock };
@@ -240,11 +172,11 @@ describe("MapX version", () => {
     window.mxsdk = {
       version: "9.9.9",
       Manager: vi.fn().mockImplementation(function () {
-        Object.defineProperty(this, "version", { get: () => "1.14.2-beta.0" });
+        Object.defineProperty(this, "version", { get: () => "1.14.2" });
       }),
     };
     initSDK(document.createElement("div"), "PRJ");
-    expect(getMapXVersion()).toBe("1.14.2-beta.0");
+    expect(getMapXVersion()).toBe("1.14.2");
   });
 
   it("returns null when the Manager reports no version", async () => {
@@ -252,19 +184,5 @@ describe("MapX version", () => {
     window.mxsdk = { Manager: vi.fn() };
     initSDK(document.createElement("div"), "PRJ");
     expect(getMapXVersion()).toBeNull();
-  });
-
-  it("compares versions, counting pre-releases as their release", async () => {
-    const { isMapXAtLeast } = await freshClient();
-    expect(isMapXAtLeast("1.14.2-alpha.3", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("1.14.2-beta.0", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("1.14.2", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("1.14.10", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("1.15.0", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("2.0.0", "1.14.2")).toBe(true);
-    expect(isMapXAtLeast("1.14.1", "1.14.2")).toBe(false);
-    expect(isMapXAtLeast("1.9.30", "1.14.2")).toBe(false);
-    expect(isMapXAtLeast(null, "1.14.2")).toBe(false);
-    expect(isMapXAtLeast("dev", "1.14.2")).toBe(false);
   });
 });

@@ -56,8 +56,7 @@ vi.mock("../ui/info-panels.js", () => ({
 }));
 vi.mock("../ui/mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../ui/layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
-vi.mock("../sdk/client.js", async (importOriginal) => ({
-  isMapXAtLeast: (await importOriginal()).isMapXAtLeast,
+vi.mock("../sdk/client.js", () => ({
   initSDK: vi.fn(),
   setSDKReady: vi.fn(),
   isSDKReady: () => true,
@@ -169,21 +168,10 @@ describe("createRiskMap", () => {
       return document.getElementById("infobox");
     }
 
-    it.each(["1.14.2-alpha.3", "1.14.2-beta.0"])(
-      "listens to click_features alone on MapX %s",
-      async (version) => {
-        manager.version = version;
-        await start();
-        expect(manager.handlers.has("click_features")).toBe(true);
-        expect(manager.handlers.has("click_attributes")).toBe(false);
-      },
-    );
-
-    it("listens to click_attributes alone on older MapX", async () => {
-      manager.version = "1.14.1";
+    it("listens only to the single click_features event", async () => {
       await start();
-      expect(manager.handlers.has("click_attributes")).toBe(true);
-      expect(manager.handlers.has("click_features")).toBe(false);
+      expect(manager.handlers.has("click_features")).toBe(true);
+      expect(manager.handlers.has("click_attributes")).toBe(false);
     });
 
     it("shows a custom coded view's plain-object attributes in the infobox", async () => {

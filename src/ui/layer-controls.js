@@ -83,10 +83,7 @@ export async function addOpacitySlider(idView, container) {
   valueDisplay.setAttribute("aria-hidden", "true");
   valueDisplay.textContent = "100%";
 
-  // In MapX 1.14.1 the getter returned opacity 0-1 (1 = fully opaque).
-  // In MapX 1.14.2 it returns transparency 0-100 (0 = fully opaque).
-  // normalizeLayerTransparency() normalizes both gracefully to UI opacity 0-100.
-  // Write: transparency = 100 - opacity.
+  // MapX uses transparency 0-100; the UI reads and writes opacity 0-100.
   const changesBefore = userOpacity.get(idView)?.changes ?? 0;
   let opacity = null;
   try {

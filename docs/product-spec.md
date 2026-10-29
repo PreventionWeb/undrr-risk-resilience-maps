@@ -197,7 +197,7 @@ Browser
             ├── src/sdk/                MapX SDK wrappers
             │    ├── client.js          SDK initialisation + singleton
             │    ├── views.js           viewAdd / viewRemove
-            │    └── inspect.js         click_attributes event handling
+            │    └── inspect.js         click_features event handling
             ├── src/state/
             │    ├── hash.js            URL hash encode/decode
             │    └── store.js           Active tab + active layers state

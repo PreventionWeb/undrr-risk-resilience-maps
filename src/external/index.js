@@ -87,25 +87,6 @@ export async function closeExternalLayer(layer) {
   return runtime;
 }
 
-// MapX upstream: https://github.com/unep-grid/mapx/issues/1137.
-// MapX 1.14.2 adds `zoomToView: false` to view_geojson_create to prevent
-// automatically zooming to the layer extent. We pass `zoomToView: false`
-// while keeping captureCamera + map_jump_to as a backward-compatibility
-// fallback for MapX <= 1.14.1, which ignores the option. Once production
-// MapX runs 1.14.2+, drop captureCamera and the restore.
-async function captureCamera(sdk) {
-  try {
-    const [center, zoom] = await Promise.all([sdk.ask("map_get_center"), sdk.ask("map_get_zoom")]);
-    if (!center || typeof zoom !== "number") return null;
-    return {
-      center: Array.isArray(center) ? center : [center.lng, center.lat],
-      zoom,
-    };
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Replace a temporary view while preserving the current map camera. The new
  * view is created before the old one is removed, so failed requests leave the
@@ -116,40 +97,24 @@ export async function replaceExternalLayer(layer, settings) {
   if (!current) throw new Error(`External layer "${layer.key}" is not open`);
 
   const sdk = getSDK();
-  const camera = await captureCamera(sdk);
   const provider = providerFor(layer);
-  let next;
+  const next = await provider.create(settings, sdk, { zoomToView: false });
   try {
-    next = await provider.create(settings, sdk, { zoomToView: false });
+    await provider.remove(current.idView, sdk);
+  } catch (error) {
+    // Keep the currently registered view authoritative. Best-effort cleanup
+    // of the candidate prevents a duplicate if old-view deletion failed.
     try {
-      await provider.remove(current.idView, sdk);
-    } catch (error) {
-      // Keep the currently registered view authoritative. Best-effort cleanup
-      // of the candidate prevents a duplicate if old-view deletion failed.
-      try {
-        await provider.remove(next.idView, sdk);
-      } catch (cleanupError) {
-        console.warn(`Failed to clean up replacement external view ${next.idView}:`, cleanupError);
-      }
-      throw error;
+      await provider.remove(next.idView, sdk);
+    } catch (cleanupError) {
+      console.warn(`Failed to clean up replacement external view ${next.idView}:`, cleanupError);
     }
-
-    unregister(current);
-    const runtime = register(layer, next);
-    return { runtime, previousIdView: current.idView };
-  } finally {
-    if (camera) {
-      try {
-        await sdk.ask("map_jump_to", camera);
-      } catch {
-        // Camera restoration is best-effort and must not corrupt view state.
-        // MapX upstream: https://github.com/unep-grid/mapx/issues/1133
-        // map_jump_to gives up after a fixed 10 s. A jump has no animation,
-        // so that shouldn't trigger here; if it did, prod (1.14.0) would never
-        // settle this await, while 1.14.1+ rejects into this catch.
-      }
-    }
+    throw error;
   }
+
+  unregister(current);
+  const runtime = register(layer, next);
+  return { runtime, previousIdView: current.idView };
 }
 
 /** Test helper for clearing module state without issuing SDK calls. */
