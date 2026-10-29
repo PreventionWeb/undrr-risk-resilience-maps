@@ -70,9 +70,11 @@ operational risks, migration triggers, and the merge-blocking acceptance checkli
 
 Clicking a country on the map (via site inspection) should link to the UNDRR Risk & Resilience country profile page. Implementation is straightforward (S effort) once the URL pattern is confirmed by the programme team. See resourcing plan WP-4.
 
-## Mangrove 2.0 follow-ups
+## Mangrove follow-ups
 
-- Updated to `2.2.0` (previous upgrades: `2.0.1`, stable `2.0.0`, release candidates `2.0.0-rc.1` through `2.0.0-rc.3`).
-  Continue to monitor breaking changes listed in Mangrove's `llms.txt` (notably the
-  `--sendai-*` colour tokens, which are scheduled for removal in 2.1 — we do not
-  use them today).
+- Updated to `2.3.0` (previous: `2.2.0`, `2.0.1`, `2.0.0`). CDN CSS and
+  vanilla tabs/copy/preview modules are pinned together. The 2.3.0 release's
+  runtime translation catalogues apply to React/hydrated components; the viewer
+  remains English and uses vanilla modules with explicit labels.
+- Continue checking future releases for changes to consumed tokens and classes.
+  The 2.3.0 CSS review found no removed tokens used here.

@@ -8,6 +8,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Upgrade the Mangrove CDN stylesheet and tabs, copy-button and preview-access modules from `2.2.0` to `2.3.0`. Keep navigation scrolling on one rail across mobile and the 900px breakpoint, taking advantage of the new non-shrinking navigation labels and fully revealing links as they receive keyboard focus. The viewer remains English; the new React/hydration translations do not change its vanilla controls.
+
 - Require MapX 1.14.2 or later now that it is deployed on production. Use the native iframe title and camera-preserving GeoJSON replacement, one `click_features` event per click, and the 0–100 transparency scale; remove the 1.14.1 fallbacks. Keep `?mapxEnv=staging` for future release testing.
 
 - Render HTML legends for all 68 configured MapX views, including cyclone surge and the other datacore rasters, continuous colour ramps, grouped raster layers, and four manually maintained custom-code views. Vector/raster legends follow supported remote styles on a fresh page load; custom-code changes require review and fall back to MapX images until updated. Keep image fallback when metadata is unsupported or requests fail.

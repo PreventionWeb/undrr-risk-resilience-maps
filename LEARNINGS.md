@@ -6,6 +6,33 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ---
 
+## Mangrove 2.3.0 review (29 October 2026)
+
+The versioned CDN stylesheet identifies itself as `2.3.0`; the stylesheet and
+all three consumed vanilla modules return HTTP 200 at the new versioned paths.
+The 2.2.0 and 2.3.0 copies of `tabs.js`, `copy-button.js` and `preview-access.js`
+are byte-for-byte identical, so our initialization, teardown, fallback copy
+handler and persistent preview unlock contracts are unchanged.
+
+The [release](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.3.0)
+adds runtime translation catalogues to React/hydrated components. This app uses
+vanilla HTML/JS, explicit English labels and `<html lang="en">`; those catalogue
+APIs do not translate our controls. No React dependency or hydration is needed
+for this upgrade. Our explicit copy labels and optional CDN enhancements stay.
+
+The consumed CSS changes are in MegaMenu. Navigation items now do not shrink,
+and mobile section rails scroll with aligned breakpoints. Our simple category
+navigation has no hamburger or nested menu. Keep overflow on its existing
+`mg-mega-topbar` rail at every width, including 900px and just above it; remove
+the redundant outer-container mobile scrolling override and the unused
+`mg-container-full-width` selector. A delegated `focusin` handler reveals a focused link fully: browser-native focus
+scrolling can leave About partly clipped at 900–901px when the rail overflows
+by only a few pixels. Keep ordinary links rather than ARIA menu roles. No consumed
+token or class was removed. The release's security/tooling updates do not
+change our npm dependency tree because this app consumes the CDN assets.
+
+---
+
 ## MapX 1.14.2 production acceptance (29 October 2026)
 
 Production and staging SDK endpoints now serve stable `1.14.2`. A local app

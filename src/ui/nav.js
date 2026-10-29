@@ -77,6 +77,17 @@ export function createNav(root, { tabs, onSelect, signal }) {
       .map((link) => [link, link.classList.contains("is-active")]),
   );
 
+  // Native focus scrolling can leave a partly visible link clipped when only
+  // a few pixels overflow (notably at Mangrove's 900px breakpoint).
+  root.addEventListener(
+    "focusin",
+    (event) => {
+      const link = event.target.closest?.("a");
+      if (link && root.contains(link)) link.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    },
+    listen,
+  );
+
   homeLink?.addEventListener(
     "click",
     (e) => {

@@ -7,7 +7,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.2.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.3.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -482,10 +482,10 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.2.0/css/style.css) (v2.2.0). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.3.0/css/style.css) (v2.3.0). Components used:
 
 - `mg-page-header` (`--default`, `__decoration`, `__toolbar-wrapper`, `__block--logo`) — UNDRR branding bar with Sendai stripe, matching PageHeader's rendered HTML. The logo is `mg-logo mg-logo--autocrop` and is preloaded from `assets.undrr.org/logos/...` (the canonical path, with no `/static/` segment); the decoration divs are `aria-hidden`. `--autocrop` only applies below 1164px, where Mangrove crops the lockup to the emblem and wordmark
-- `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles
+- `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles. Mangrove 2.3 keeps labels from shrinking; overflow stays on the rail at all widths and keyboard focus reveals the whole focused link
 - `mg-card`, `mg-card__icon--bordered` — interactive category cards on the home page
 - `mg-highlight-box` — callout boxes on info pages
 - `mg-button` (`-primary`, `-secondary`, `-outline`, `--icon`, `--icon--small`) — actions, map toolbar and icon tools
