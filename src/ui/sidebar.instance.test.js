@@ -492,9 +492,9 @@ describe("createSidebar", () => {
     expect(onPage.map(({ target }) => target.id || target.className).sort()).toEqual(
       expect.arrayContaining(["layer-clear-btn", "layer-disabled-toggle", "panel-toggle"]),
     );
-    // The three buttons, the drag handle, and the home and two info links (the
-    // generated tab links and the resize grip are removed from the page).
-    expect(onPage).toHaveLength(7);
+    // Three buttons, the drag handle, home/two info links and delegated nav
+    // focus handling. Generated tab links and the resize grip are removed.
+    expect(onPage).toHaveLength(8);
     for (const { type, signal, target } of onPage) {
       expect(signal?.aborted, `${type} listener on ${target.id || target.className}`).toBe(true);
     }

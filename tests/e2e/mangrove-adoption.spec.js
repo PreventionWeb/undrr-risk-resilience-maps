@@ -77,3 +77,41 @@ test.describe("the Sources table on paper", () => {
     await page.emulateMedia({ media: null });
   });
 });
+
+// Mangrove 2.3 no longer shrinks topbar items. All destinations must remain
+// reachable on the rail, including on either side of its 900px breakpoint.
+for (const width of [375, 899, 900, 901, 1280]) {
+  test(`category navigation stays reachable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await gotoApp(page, "#hazard");
+    const nav = page.locator('nav[aria-label="Map navigation"]');
+    const links = nav.getByRole("link");
+    await expect(links).toHaveCount(9);
+    await links.first().focus();
+    for (let i = 1; i < 9; i++) await page.keyboard.press("Tab");
+    await expect(links.last()).toBeFocused();
+
+    const geometry = await nav.evaluate((outer) => {
+      const rail = outer.querySelector("ul");
+      const last = rail.querySelector("li:last-child a").getBoundingClientRect();
+      const box = rail.getBoundingClientRect();
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+        outerOverflow: getComputedStyle(outer).overflowX,
+        railOverflow: getComputedStyle(rail).overflowX,
+        lastLeft: last.left,
+        lastRight: last.right,
+        railLeft: box.left,
+        railRight: box.right,
+      };
+    });
+    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth);
+    expect(geometry.outerOverflow).toBe("clip");
+    expect(geometry.railOverflow).toBe("auto");
+    expect(geometry.lastLeft).toBeGreaterThanOrEqual(geometry.railLeft - 1);
+    expect(geometry.lastRight).toBeLessThanOrEqual(geometry.railRight + 1);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".nav-info-link[data-panel=about]")).toHaveClass(/is-active/);
+  });
+}

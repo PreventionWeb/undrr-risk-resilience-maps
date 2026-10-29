@@ -74,14 +74,22 @@ body {
 
 /* ── Navigation bar overrides ─────────────────────── */
 
-nav.mg-container,
-.mg-mega-topbar.mg-container-full-width {
+nav.mg-container {
   box-sizing: border-box;
   max-width: 100%;
 }
 
 nav.mg-container {
   overflow-x: clip;
+}
+
+/* Mangrove 2.3 keeps category labels from shrinking. Keep scrolling on the
+   navigation rail at every width, including the 900px desktop boundary; the
+   outer container must not become a second horizontal scrolling surface. */
+.mg-mega-topbar {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
 }
 
 .nav-home-link {
@@ -125,18 +133,6 @@ nav.mg-container {
   }
   .infobox {
     max-width: calc(100vw - 1.5rem);
-  }
-}
-
-@media (max-width: 900px) {
-  nav.mg-container {
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin;
-  }
-
-  .mg-mega-topbar.mg-container-full-width {
-    min-width: max-content;
   }
 }
 
