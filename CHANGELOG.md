@@ -8,6 +8,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Require MapX 1.14.2 or later now that it is deployed on production. Use the native iframe title and camera-preserving GeoJSON replacement, one `click_features` event per click, and the 0–100 transparency scale; remove the 1.14.1 fallbacks. Keep `?mapxEnv=staging` for future release testing.
+
 - Render HTML legends for all 68 configured MapX views, including cyclone surge and the other datacore rasters, continuous colour ramps, grouped raster layers, and four manually maintained custom-code views. Vector/raster legends follow supported remote styles on a fresh page load; custom-code changes require review and fall back to MapX images until updated. Keep image fallback when metadata is unsupported or requests fail.
 - Use provider colours for river flood depth and match disasters/IDPs legend bounds to the actual source style.
 

@@ -31,18 +31,15 @@
  *
  * ## Every call has a deadline
  *
- * Up to MapX 1.14.0 a resolver that fails never settles its `ask()` promise
- * (LEARNINGS.md, "set_features_click_sdk_only"; MapX upstream
- * https://github.com/unep-grid/mapx/issues/1132). Camera calls are awaited by
- * the embed's command queue, so one hung call would stall every command behind
- * it. `askWithTimeout()` races each call against a timer, and animations stay
- * well inside the resolvers' fixed 10 s limit (`FLY_DURATION_MS`).
+ * MapX 1.14.2 rejects failures and bounds SDK calls, but its default timeout
+ * is too long for the embed command queue. askWithTimeout() retains a shorter
+ * deadline so one stalled call cannot block all later host commands.
  *
  * Nothing runs on import.
  */
 import { extentToBounds, parseBounds, parseCenter } from "../utils/camera.js";
 
-/** How long an animated move takes. MapX's resolvers give up at 10 s. */
+/** How long an animated move takes; keep host commands responsive. */
 export const FLY_DURATION_MS = 1500;
 
 /** The deadline for one camera call: the longest animation, plus headroom. */

@@ -71,14 +71,7 @@ export const test = base.extend({
    */
   previewUnlocked: [true, { option: true }],
 
-  /**
-   * The MapX version the stub reports, and whose behaviour it follows where
-   * 1.14.2 changed it. Production's version by default; a spec about the
-   * 1.14.2 paths says `test.use({ mapxVersion: "1.14.2-beta.0" })`.
-   */
-  mapxVersion: ["1.14.1", { option: true }],
-
-  page: async ({ page, previewUnlocked, mapxVersion }, use) => {
+  page: async ({ page, previewUnlocked }, use) => {
     if (previewUnlocked) {
       await page.addInitScript(
         ({ key }) => {
@@ -112,7 +105,7 @@ export const test = base.extend({
           // `loadMapXSdk()` requests the script with crossOrigin="anonymous",
           // so the response has to pass the CORS check.
           headers: { "access-control-allow-origin": "*" },
-          body: `window.__MAPX_STUB_VERSION__ = ${JSON.stringify(mapxVersion)};\n${MAPX_STUB}`,
+          body: MAPX_STUB,
         }),
       );
     }

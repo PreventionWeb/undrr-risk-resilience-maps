@@ -6,6 +6,40 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ---
 
+## MapX 1.14.2 production acceptance (29 October 2026)
+
+Production and staging SDK endpoints now serve stable `1.14.2`. A local app
+connected to production reports `Manager.version === "1.14.2"` and reaches
+`ready`. All 68 configured view IDs are present in production's public catalogue
+and completed SDK add/remove calls without errors. This checks view operations,
+not every source tile at every extent or zoom.
+
+The viewer now requires MapX 1.14.2+: the opacity getter is transparency 0–100,
+`iframeTitle` names the frame, `zoomToView: false` preserves the camera during
+EDRA replacement, and only `click_features` feeds the infobox/site inspector.
+The 1.14.1 title observer, camera capture/restore and per-view click batching
+have been removed. Keep `?mapxEnv=staging` for future release testing.
+
+Live checks of the cleanup branch against production also passed:
+
+- EDRA opened as Wheat; switching to Maize replaced it with 242 features,
+  passed `zoomToView: false`, preserved center/zoom exactly, and issued no
+  camera movement calls. First opening still zoomed to the view.
+- Setting the opacity slider to 67% read back as SDK transparency 33.
+- An actual map click at 12° E, 48° N returned Oberbayern's EDRA properties
+  in the infobox and, with inspection enabled, in Site Details.
+- An empty click at 30° W, 0° N emitted `attributes: {}` and closed the infobox.
+- The frame title is `Interactive map`, supplied by the SDK without our observer.
+
+These checks used the local app with the real production MapX backend. The
+www.undrr.org page presented a Cloudflare challenge in the automation browser;
+no end-to-end acceptance of that hosted page is claimed.
+
+Older sections below describe historical SDK behavior and prior investigations;
+they do not imply that the removed compatibility paths remain in the app.
+
+---
+
 ## MapX 1.14.2-beta.0 release review (28 October 2026)
 
 The [beta tag](https://github.com/unep-grid/mapx/releases/tag/1.14.2-beta.0)

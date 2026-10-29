@@ -18,15 +18,7 @@
 (function () {
   "use strict";
 
-  // The MapX version to impersonate, set by the fixture's `mapxVersion`
-  // option. Production runs 1.14.1 until 1.14.2 ships.
-  var VERSION = window.__MAPX_STUB_VERSION__ || "1.14.1";
-  var IS_1_14_2 = (function () {
-    var parts = /^(\d+)\.(\d+)\.(\d+)/.exec(VERSION);
-    if (!parts) return false;
-    var n = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
-    return n[0] > 1 || (n[0] === 1 && (n[1] > 14 || (n[1] === 14 && n[2] >= 2)));
-  })();
+  var VERSION = "1.14.2";
 
   var stub = {
     ready: false,
@@ -45,7 +37,7 @@
     /** Emit the held `ready`. Replaced per manager; a no-op until one is built. */
     releaseReady: function () {},
     /**
-     * Fire a MapX event (`click_features`, `click_attributes`) at the app, the
+     * Fire a MapX event (`click_features`) at the app, the
      * way a map click would. Replaced per manager; a no-op until one is built.
      */
     emit: function () {},
@@ -214,12 +206,9 @@
         );
       });
     },
-    // src/sdk/filters.js — the opacity slider's read and write. The getter
-    // changed scale in MapX 1.14.2: it answers transparency 0-100 (0 for a
-    // fresh, fully opaque view), where 1.14.1 answered the view's opacity 0-1
-    // (1 for a fresh view). The setter takes transparency 0-100 on both.
+    // The getter and setter use transparency 0-100 (0 = fully opaque).
     get_view_layer_transparency: function () {
-      return IS_1_14_2 ? 0 : 1;
+      return 0;
     },
     set_view_layer_transparency: function () {
       return true;

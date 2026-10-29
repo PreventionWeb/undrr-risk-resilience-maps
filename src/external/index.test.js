@@ -74,7 +74,7 @@ describe("external runtime registry", () => {
     expect(getExternalRuntimeByViewId("MX-GJ-STILL-OPEN")).toBe(opened);
   });
 
-  it("replaces a view, preserves the camera, and updates both indexes", async () => {
+  it("replaces a view without camera commands and updates both indexes", async () => {
     mocks.create
       .mockResolvedValueOnce({
         idView: "MX-GJ-OLD",
@@ -84,10 +84,6 @@ describe("external runtime registry", () => {
         idView: "MX-GJ-NEW",
         settings: { crop: "MAIZE", scenario: "30" },
       });
-    mocks.sdk.ask
-      .mockResolvedValueOnce({ lng: 12, lat: 48 })
-      .mockResolvedValueOnce(5)
-      .mockResolvedValueOnce(true);
 
     await openExternalLayer(layer);
     const result = await replaceExternalLayer(layer, { crop: "MAIZE", scenario: "30" });
@@ -102,10 +98,7 @@ describe("external runtime registry", () => {
     expect(getExternalRuntimeByViewId("MX-GJ-OLD")).toBeNull();
     expect(getExternalRuntimeByViewId("MX-GJ-NEW")).toBe(result.runtime);
     expect(mocks.remove).toHaveBeenCalledWith("MX-GJ-OLD", mocks.sdk);
-    expect(mocks.sdk.ask).toHaveBeenLastCalledWith("map_jump_to", {
-      center: [12, 48],
-      zoom: 5,
-    });
+    expect(mocks.sdk.ask).not.toHaveBeenCalled();
   });
 
   it("keeps the current view registered when a replacement request fails", async () => {
@@ -115,7 +108,6 @@ describe("external runtime registry", () => {
         settings: { crop: "WHEAT", scenario: "20" },
       })
       .mockRejectedValueOnce(new Error("EDRA unavailable"));
-    mocks.sdk.ask.mockResolvedValueOnce({ lng: 12, lat: 48 }).mockResolvedValueOnce(5);
 
     const current = await openExternalLayer(layer);
     await expect(replaceExternalLayer(layer, { crop: "BARLEY", scenario: "30" })).rejects.toThrow(
@@ -138,10 +130,6 @@ describe("external runtime registry", () => {
         settings: { crop: "BARLEY", scenario: "30" },
       });
     mocks.remove.mockRejectedValueOnce(new Error("Could not delete current")).mockResolvedValueOnce();
-    mocks.sdk.ask
-      .mockResolvedValueOnce({ lng: 12, lat: 48 })
-      .mockResolvedValueOnce(5)
-      .mockResolvedValueOnce(true);
 
     const current = await openExternalLayer(layer);
     await expect(replaceExternalLayer(layer, { crop: "BARLEY", scenario: "30" })).rejects.toThrow(
