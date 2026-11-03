@@ -31,6 +31,7 @@ import { initBuildInfo } from "../ui/build-info.js";
 import { closeInfobox, showInfobox } from "../ui/infobox.js";
 import { buildSiteInspectorPanel, hideSiteInspector, showSiteInspector } from "../ui/site-inspector.js";
 import { initSDK, setSDKReady } from "../sdk/client.js";
+import { MAP_INSPECTION_ENABLED } from "../config/features.js";
 import {
   disableInspection,
   enableInspection,
@@ -125,6 +126,8 @@ export function selectTabs(allTabs, { tabs: tabIds = null, layers: layerKeys = n
  *   adapter is created and destroyed with the instance.
  * @param {string} [options.mapxProject] - MapX project id
  * @param {boolean} [options.validate] - run `validateLayers()` first (default true)
+ * @param {boolean} [options.inspectionEnabled] - allow click info windows and
+ *   site inspection (temporary global default: false)
  * @param {boolean} [options.buildInfo] - wire the build-info footer if the page
  *   has one (default true)
  * @param {() => void} [options.reload] - how the map-service notice retries
@@ -156,6 +159,7 @@ export function createRiskMap(root, options = {}) {
     stateAdapter,
     mapxProject = PRIMARY_PROJECT,
     validate = true,
+    inspectionEnabled = MAP_INSPECTION_ENABLED,
     buildInfo = true,
     reload,
     loadSdk = loadMapXSdk,
@@ -197,6 +201,12 @@ export function createRiskMap(root, options = {}) {
 
   const appMap = part("appMap");
   const inspectToggle = part("inspectToggle");
+  const allowInspection = inspectionEnabled === true;
+  const originalInspectHidden = inspectToggle?.hidden;
+  if (inspectToggle) {
+    inspectToggle.hidden = !allowInspection;
+    inspectToggle.disabled = true;
+  }
 
   // --- Events --------------------------------------------------------------
 
@@ -248,6 +258,7 @@ export function createRiskMap(root, options = {}) {
   // --- UI ------------------------------------------------------------------
 
   function setInspectionMode(active) {
+    if (!allowInspection) return;
     if (active) {
       closeInfobox();
       enableInspection();
@@ -268,7 +279,7 @@ export function createRiskMap(root, options = {}) {
     // Keep the inspect button enabled/disabled in sync with the layers on the map.
     onViewsChanged(count) {
       if (!inspectToggle) return;
-      inspectToggle.disabled = count === 0;
+      inspectToggle.disabled = !allowInspection || count === 0;
       if (count === 0 && isInspectionActive()) setInspectionMode(false);
     },
     onLayerError(key, error, action) {
@@ -326,10 +337,12 @@ export function createRiskMap(root, options = {}) {
       { documentRef: doc },
     );
 
-    initInspection(mapx);
+    initInspection(mapx, { enabled: allowInspection });
     disposers.push(onInspectionResult((result) => showSiteInspector(result)));
 
-    inspectToggle?.addEventListener("click", () => setInspectionMode(!isInspectionActive()), { signal });
+    if (allowInspection) {
+      inspectToggle?.addEventListener("click", () => setInspectionMode(!isInspectionActive()), { signal });
+    }
 
     mapx.on("ready", async () => {
       if (destroyed) return;
@@ -338,6 +351,15 @@ export function createRiskMap(root, options = {}) {
       hideMapServiceNotice(doc);
       setSDKReady(true);
 
+      if (!allowInspection) {
+        // Blocking our click handler alone leaves MapX's own popup visible.
+        // Suppress it before restoring layers, in dev and production alike,
+        // independently of whether immersive-mode setup succeeds.
+        await mapx.ask("set_features_click_sdk_only", { enable: true }).catch((error) => {
+          console.warn("Could not suppress MapX native click popups:", error);
+        });
+      }
+      if (destroyed) return;
       try {
         // Hide all MapX native UI chrome (notifications, controls panel, main
         // panel, toolbar buttons) — we provide our own sidebar and tool controls.
@@ -351,7 +373,7 @@ export function createRiskMap(root, options = {}) {
       if (destroyed) return;
 
       // Enable the inspect button only if layers are already open (e.g. restore).
-      if (inspectToggle) inspectToggle.disabled = store.openViews.size === 0;
+      if (inspectToggle) inspectToggle.disabled = !allowInspection || store.openViews.size === 0;
 
       readyPayload = { tabs: tabs.map((tab) => tab.id), layers: [...registry.urlKeyOrder()] };
       emit("ready", readyPayload);
@@ -361,7 +383,7 @@ export function createRiskMap(root, options = {}) {
     // MapX 1.14.2+ sends one result per click, including empty clicks.
     // Listen only to click_features; MapX also emits legacy per-view events.
     mapx.on("click_features", (data) => {
-      if (destroyed || !data) return;
+      if (destroyed || !allowInspection || !data) return;
       if (isInspectionActive()) {
         handleFeaturesEvent(data, store.openViews);
         return;
@@ -557,6 +579,10 @@ export function createRiskMap(root, options = {}) {
       stopAutoRetry();
       for (const dispose of disposers.splice(0).reverse()) dispose();
       lifetime.abort();
+      if (inspectToggle) inspectToggle.hidden = originalInspectHidden;
+      appMap?.classList.remove("inspection-active");
+      inspectToggle?.classList.remove("is-active");
+      inspectToggle?.setAttribute("aria-pressed", "false");
       hideSiteInspector();
       closeInfobox();
       sidebar.destroy();

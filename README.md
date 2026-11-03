@@ -66,9 +66,11 @@ What that build requires of this repo:
 | [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                           |
 | [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns   |
 
-The inventory importer requires the repository's exact 14-column CSV header and fails fast when columns are missing or renamed. Colleague `.xlsx` files must currently be exported or converted to that CSV shape before import.
+The inventory importer requires the repository's 14 core CSV columns and fails fast when columns are missing or renamed. It also syncs optional `Note` and `Explainer link` columns; older files without these columns preserve configured metadata. Colleague `.xlsx` files must be converted to this CSV shape before import.
 
 ## URL routing
+
+Map click info windows and site inspection are temporarily off by default following programme-lead feedback while the info-window design is revisited. Enable them per page load with `?inspect=1` before the hash (for example, `?inspect=1#gar`), or explicitly disable them with `?inspect=0`. The same query parameter works on `embed.html`. The central default is `MAP_INSPECTION_ENABLED` in `src/config/features.js`; programmatic instances use the boolean `inspectionEnabled` option. Panning, zooming, layer controls and legends remain available.
 
 Hash-based routing (`#risk-resilience`, `#hazard`, `#sources`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.
 

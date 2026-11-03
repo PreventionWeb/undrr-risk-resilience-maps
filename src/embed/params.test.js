@@ -28,6 +28,11 @@ describe("parseOrigin", () => {
 });
 
 describe("parseEmbedParams", () => {
+  it("shares the standalone runtime inspection policy", () => {
+    expect(parse("").inspectionEnabled).toBe(false);
+    expect(parse("?inspect=1").inspectionEnabled).toBe(true);
+    expect(parse("?inspect=false").inspectionEnabled).toBe(false);
+  });
   // The warnings below are deliberate output for a host's console; silence them
   // here so a passing suite does not read like a failing one.
   let warn;
@@ -200,6 +205,7 @@ describe("parseEmbedParams", () => {
     expect(Object.keys(params).sort()).toEqual([
       "cameras",
       "empty",
+      "inspectionEnabled",
       "instance",
       "layerKeys",
       "layers",

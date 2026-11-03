@@ -5,6 +5,19 @@ vi.mock("../utils/export-layers.js", () => ({ downloadLayerInventory: vi.fn() })
 import { buildSourcesPanel } from "./info-panels.js";
 
 describe("buildSourcesPanel", () => {
+  it("gives each GAR2026 map its own note, ID and data-request context", () => {
+    const panel = buildSourcesPanel();
+    const rows = [...panel.querySelectorAll("tbody tr")].filter((row) =>
+      row.querySelector('a[href^="mailto:"]'),
+    );
+    expect(rows).toHaveLength(30);
+    const rice = rows.find((row) => row.textContent.includes("Rice AAL (%) – Warming level +2°C"));
+    expect(rice.textContent).toContain("MX-KU5ID-GHTH8-C2WG3");
+    expect(rice.textContent).toContain("under a +2°C warming level");
+    const request = new URL(rice.querySelector('a[href^="mailto:"]').href);
+    expect(request.searchParams.get("body")).toContain("MX-KU5ID-GHTH8-C2WG3");
+    expect(request.searchParams.get("body")).not.toContain("MX-WYZ5O-SZGIE-T597Q");
+  });
   it("shows published data before collapsed metrics under development", () => {
     const panel = buildSourcesPanel();
     const firstCategory = panel.querySelector(".info-page-section--wide");

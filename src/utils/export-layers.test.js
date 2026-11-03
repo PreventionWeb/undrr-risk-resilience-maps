@@ -118,14 +118,15 @@ describe("generateLayerInventoryCSV", () => {
 
   it("exports GAR category layers with their MapX IDs and Uploaded status", () => {
     const garLines = lines.filter((l) => l.includes(",GAR,"));
-    expect(garLines).toHaveLength(5);
+    expect(garLines).toHaveLength(35);
+    expect(garLines.filter((line) => line.includes("GAR2026"))).toHaveLength(30);
     expect(csv).toContain("water-scarcity-child-nutrition");
     expect(csv).toContain("fatalities-gem");
     expect(csv).toContain("ecolosses-gem");
     expect(csv).toContain("disasters-idp");
     expect(csv).toContain("sdg-drought");
     for (const line of garLines) {
-      expect(line).toContain("GAR2025");
+      expect(line).toMatch(/GAR202[56]/);
       expect(line).toContain("Uploaded");
     }
   });

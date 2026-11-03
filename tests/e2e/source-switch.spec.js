@@ -12,6 +12,35 @@ import {
 } from "./fixtures/app.js";
 
 test.describe("source switch", () => {
+  test("GAR crop scenarios keep the map, explanation, request and shared link together", async ({ page }) => {
+    await gotoApp(page, "#gar?layers=gar26-aal-crops");
+    const crops = layerRow(page, "Crop average annual loss (%)");
+    await settled(crops);
+    const select = crops.getByRole("combobox", { name: "Crop and climate scenario" });
+    await expect(select.locator("option")).toHaveCount(12);
+    await select.selectOption("7");
+    await settled(crops);
+    await expect(crops.locator(".layer-desc")).toContainText(
+      "rice production loss under a +2°C warming level",
+    );
+    await expect(crops.locator(".layer-slider-slot input.mg-range")).toHaveAttribute(
+      "data-view-id",
+      "MX-KU5ID-GHTH8-C2WG3",
+    );
+    const request = new URL(
+      await crops.getByRole("link", { name: "Request data (placeholder)" }).getAttribute("href"),
+    );
+    expect(request.searchParams.get("body")).toContain(
+      "Map: Rice AAL (%) – Warming level +2°C (MX-KU5ID-GHTH8-C2WG3)",
+    );
+    await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
+    await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+    await expect(layerRow(page, "Crop average annual loss (%)").getByRole("combobox")).toHaveValue("7");
+    await expect(layerRow(page, "Crop average annual loss (%)").locator(".layer-desc")).toContainText(
+      "rice production loss under a +2°C warming level",
+    );
+  });
+
   test("quick picks end on the last one, with widget, URL and legend agreeing", async ({ page }) => {
     await gotoApp(page, "#hazard");
 

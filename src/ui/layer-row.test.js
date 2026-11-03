@@ -94,6 +94,35 @@ beforeEach(() => {
 });
 
 describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
+  it("keeps the applied variant's explanation and links during a failed scenario switch", () => {
+    const layer = {
+      ...compound,
+      r2rCategory: "GAR2026",
+      sources: compound.sources.map((source, i) => ({
+        ...source,
+        note: `Explanation ${i}`,
+        explainerUrl: `https://example.org/metrics#scenario-${i}`,
+      })),
+    };
+    const { store, el } = setup(layer, { variant });
+    store.set("flood", {
+      desired: true,
+      applied: true,
+      viewId: "MX-F100",
+      appliedSourceIdx: 1,
+      sourceIdx: 1,
+      status: "idle",
+    });
+    expect(el.querySelector(".layer-desc").textContent).toContain("Explanation 1");
+    expect(el.querySelector('a[href="https://example.org/metrics#scenario-1"]')).not.toBeNull();
+    expect(new URL(el.querySelector('a[href^="mailto:"]').href).searchParams.get("body")).toContain(
+      "Map: 100y (MX-F100)",
+    );
+    store.set("flood", { sourceIdx: 0, status: "switching" });
+    store.set("flood", { sourceIdx: 1, status: "error", error: "failed" });
+    expect(el.querySelector(".layer-desc").textContent).toContain("Explanation 1");
+    expect(el.querySelector('a[href="https://example.org/metrics#scenario-1"]')).not.toBeNull();
+  });
   it("renders the same record twice without DOM changes or SDK calls", async () => {
     const { store, row, el } = setup(simple, { variant });
     store.set("pop", { desired: true, status: "loading" });

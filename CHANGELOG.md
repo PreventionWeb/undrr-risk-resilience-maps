@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Added
+
+- Add all 30 supplied GAR 2026 MapX maps under four GAR controls, preserving crop, climate scenario and unit distinctions. Show each variant's explanatory note in the map panel and its own Sources entry.
+- Support per-map methodology links and prefilled data requests. The request recipient is explicitly marked as a placeholder pending programme-team details; methodology links remain absent until supplied.
+- Preserve optional notes and explainer links in inventory import/export, including multiline CSV notes. Keep the original GAR 2026 handoff alongside the normalized inventory.
+
+### Changed
+
+- Temporarily disable map click info windows and site inspection by default, following programme-lead feedback while their visual design is revisited. Suppress MapX native popups too. Standalone and embed URLs can opt in with `inspect=1` or opt out with `inspect=0`; programmatic instances accept `inspectionEnabled`.
+
 ## [0.0.10] - 2026-10-29
 
 ### Changed

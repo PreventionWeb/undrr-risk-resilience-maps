@@ -27,8 +27,10 @@
  *
  * What --apply does NOT change (review manually):
  *   - Published ↔ disabled transitions (adding/removing the status field entirely)
- *   - source, citation, license, legend, widget, sourceUrl, geometry, note
+ *   - source, citation, license, legend, widget, sourceUrl, geometry
  *   - external provider definitions (external rows intentionally have no MapX ID)
+ * Optional Note and Explainer link columns are synced when supplied; omitting
+ * either column preserves its configured values.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -55,30 +57,31 @@ const removedKeys = new Set(
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
 function parseCSV(text) {
-  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   const rows = [];
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const cells = [];
-    let cur = "";
-    let inQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuote && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else inQuote = !inQuote;
-      } else if (ch === "," && !inQuote) {
-        cells.push(cur);
-        cur = "";
-      } else {
-        cur += ch;
-      }
-    }
-    cells.push(cur);
-    rows.push(cells);
+  let cells = [],
+    cur = "",
+    inQuote = false;
+  const input = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === '"') {
+      if (inQuote && input[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else inQuote = !inQuote;
+    } else if (ch === "," && !inQuote) {
+      cells.push(cur);
+      cur = "";
+    } else if (ch === "\n" && !inQuote) {
+      cells.push(cur);
+      if (cells.some((cell) => cell.trim())) rows.push(cells);
+      cells = [];
+      cur = "";
+    } else cur += ch;
   }
+  if (inQuote) throw new Error("Inventory CSV has an unterminated quoted field");
+  cells.push(cur);
+  if (cells.some((cell) => cell.trim())) rows.push(cells);
   return rows;
 }
 
@@ -138,7 +141,11 @@ for (const r of dataRows) {
   const subMap = inventory.get(key);
   if (!subMap.has(subSource)) subMap.set(subSource, []);
   const desc = (r[H["Description"]] || "").trim();
-  subMap.get(subSource).push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep });
+  const note = H["Note"] === undefined ? undefined : (r[H["Note"]] || "").trim();
+  const explainerUrl = H["Explainer link"] === undefined ? undefined : (r[H["Explainer link"]] || "").trim();
+  subMap
+    .get(subSource)
+    .push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep, note, explainerUrl });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -193,6 +200,8 @@ function extractLayerEntries(src, file) {
           currentStatus: "",
           currentLayerLabel,
           currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
+          ...extractOptionalMetadata(forwardBlock.slice(0, sourcesMatch.index), src),
+          ...extractOptionalMetadata(sm[0], src),
           file,
         });
       }
@@ -224,11 +233,23 @@ function extractLayerEntries(src, file) {
         currentStatus,
         currentLayerLabel,
         currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
+        ...extractOptionalMetadata(forwardBlock, src),
         file,
       });
     }
   }
   return entries;
+}
+
+function extractOptionalMetadata(block, src) {
+  const result = {};
+  for (const field of ["note", "explainerUrl"]) {
+    const match = new RegExp(`${field}:\\s*(?:"((?:\\\\.|[^"\\\\])*)"|([A-Z_]+))`).exec(block);
+    if (!match) continue;
+    const constant = match[2] && new RegExp(`const ${match[2]}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`).exec(src);
+    result[field] = decodeJsString(match[1] ?? constant?.[1] ?? "");
+  }
+  return result;
 }
 
 const jsEntries = [];
@@ -265,6 +286,7 @@ const idChanges = [];
 const statusChanges = [];
 const labelChanges = new Map();
 const descChanges = [];
+const metadataChanges = [];
 
 // Track which CSV entries were matched
 const csvMatched = new Map();
@@ -293,6 +315,12 @@ for (const entry of jsEntries) {
 
   csvMatched.set(occurrenceKey, occurrence + 1);
   matched.push({ ...entry, csvEntry });
+
+  for (const field of ["note", "explainerUrl"]) {
+    if (csvEntry[field] !== undefined && csvEntry[field] !== (entry[field] ?? "")) {
+      metadataChanges.push({ ...entry, field, value: csvEntry[field] });
+    }
+  }
 
   // Check for MapX ID change
   const csvId = csvEntry.mapxId.startsWith("MX-") ? csvEntry.mapxId : "";
@@ -410,6 +438,14 @@ if (onlyInCSV.length) {
   }
 }
 
+if (metadataChanges.length) {
+  console.log(`\nNotes / explainer link changes: ${metadataChanges.length}`);
+  for (const change of metadataChanges) {
+    console.log(`  ${change.key}${change.subSource ? ` / ${change.subSource}` : ""}: ${change.field}`);
+    console.log(`    ${JSON.stringify(change[change.field] ?? "")} → ${JSON.stringify(change.value)}`);
+  }
+}
+
 if (!APPLY) {
   console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
   process.exit(0);
@@ -425,6 +461,7 @@ if (
   idChanges.length === 0 &&
   labelChanges.size === 0 &&
   descChanges.length === 0 &&
+  metadataChanges.length === 0 &&
   applyableStatusChanges.length === 0
 ) {
   console.log("\n--apply: nothing to change.\n");
@@ -444,6 +481,7 @@ for (const change of labelChanges.values()) {
 for (const change of descChanges) {
   changesByFile[change.file] ??= [];
 }
+for (const change of metadataChanges) changesByFile[change.file] ??= [];
 for (const change of applyableStatusChanges) {
   changesByFile[change.file] ??= [];
 }
@@ -515,6 +553,25 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
   }
 
   // Apply status changes (disabled ↔ disabled transitions only)
+  for (const change of metadataChanges.filter((change) => change.file === relPath)) {
+    const result = replaceInLayerBlock(src, change.key, (block) => {
+      const patch = (object) => {
+        const fieldPattern = new RegExp(`(${change.field}:\\s*)(?:"(?:\\\\.|[^"\\\\])*"|[A-Z_]+)`);
+        if (fieldPattern.test(object))
+          return object.replace(fieldPattern, (_match, prefix) => prefix + JSON.stringify(change.value));
+        return object.replace(
+          /(label:\s*"(?:\\.|[^"\\])*",)/,
+          (_match, label) => `${label}\n        ${change.field}: ${JSON.stringify(change.value)},`,
+        );
+      };
+      if (!change.subSource) return patch(block);
+      const source = new RegExp(`\\{[^}]*?label:\\s*"${escapeRe(change.subSource)}"[^}]*\\}`);
+      return block.replace(source, patch);
+    });
+    src = result.src;
+    modified ||= result.modified;
+  }
+
   const fileStatusChanges = (statusChanges || []).filter(
     (c) => c.file === relPath && c.oldStatus !== "published" && c.newStatus !== "published",
   );

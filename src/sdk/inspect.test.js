@@ -38,6 +38,19 @@ describe("initial state", () => {
 });
 
 describe("enableInspection / disableInspection", () => {
+  it("cannot activate or restore native popups when globally disabled", () => {
+    initInspection(mockMapx, { enabled: false });
+    enableInspection();
+    expect(isInspectionActive()).toBe(false);
+    disableInspection();
+    expect(mockMapx.ask).toHaveBeenCalledWith("set_features_click_sdk_only", { enable: true });
+  });
+
+  it("resets a previous session's active mode on reinitialization", () => {
+    enableInspection();
+    initInspection(mockMapx, { enabled: false });
+    expect(isInspectionActive()).toBe(false);
+  });
   it("becomes active on enable", () => {
     enableInspection();
     expect(isInspectionActive()).toBe(true);

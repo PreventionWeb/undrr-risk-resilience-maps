@@ -237,6 +237,10 @@
     scale var(--mg-motion-duration-fast) var(--mg-motion-easing-standard);
 }
 
+.inspect-toggle-btn[hidden] {
+  display: none;
+}
+
 .inspect-toggle-btn.is-active {
   background-color: var(--mg-color-button-background);
   color: rgb(var(--mg-color-button));
