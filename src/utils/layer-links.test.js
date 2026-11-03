@@ -48,8 +48,7 @@ describe("map metadata links", () => {
       "Map link: https://www.undrr.org/m/risk-and-resilience-maps/#gar?layers=gar26-aal-crops:7",
     );
     expect(body).toContain("Intended use: [briefly describe how you plan to use the data]");
-    expect(body).toContain("Thank you for your assistance.");
-    expect(body).toMatch(/Kind regards,\r\n\[Name\]\r\n\[Organisation, if applicable\]\r\n$/);
+    expect(body).toMatch(/Intended use: \[briefly describe how you plan to use the data\]\r\n$/);
     expect(body.replaceAll("\r\n", "")).not.toContain("\n");
     expect(body).not.toContain("PREVIEW");
     expect(url.href).not.toContain(";");

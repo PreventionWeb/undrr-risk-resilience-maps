@@ -34,12 +34,6 @@ export function dataRequestUrl(layer, config = DATA_REQUESTS) {
     `Map link: ${mapLink}`,
     "Intended use: [briefly describe how you plan to use the data]",
     "",
-    "Thank you for your assistance.",
-    "",
-    "Kind regards,",
-    "[Name]",
-    "[Organisation, if applicable]",
-    "",
   ].join("\r\n");
   const cc = config.cc?.length ? `cc=${encodeURIComponent(config.cc.join(","))}&` : "";
   return `mailto:${encodeURIComponent(config.recipient).replace(/%40/g, "@")}?${cc}subject=${encodeURIComponent(config.subject)}&body=${encodeURIComponent(body)}`;
