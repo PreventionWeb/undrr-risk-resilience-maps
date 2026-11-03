@@ -15,8 +15,8 @@ describe("buildSourcesPanel", () => {
     expect(rice.textContent).toContain("MX-KU5ID-GHTH8-C2WG3");
     expect(rice.textContent).toContain("under a +2°C warming level");
     const request = new URL(rice.querySelector('a[href^="mailto:"]').href);
-    expect(request.searchParams.get("body")).toContain("MX-KU5ID-GHTH8-C2WG3");
-    expect(request.searchParams.get("body")).not.toContain("MX-WYZ5O-SZGIE-T597Q");
+    expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
+    expect(request.searchParams.get("body")).toContain("#gar?layers=gar26-aal-crops:7");
   });
   it("shows published data before collapsed metrics under development", () => {
     const panel = buildSourcesPanel();

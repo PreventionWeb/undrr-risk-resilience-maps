@@ -28,10 +28,11 @@ test.describe("source switch", () => {
       "MX-KU5ID-GHTH8-C2WG3",
     );
     const request = new URL(
-      await crops.getByRole("link", { name: "Request data (placeholder)" }).getAttribute("href"),
+      await crops.getByRole("link", { name: "Request data", exact: true }).getAttribute("href"),
     );
+    expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
     expect(request.searchParams.get("body")).toContain(
-      "Map: Rice AAL (%) – Warming level +2°C (MX-KU5ID-GHTH8-C2WG3)",
+      "https://www.undrr.org/m/risk-and-resilience-maps/#gar?layers=gar26-aal-crops:7",
     );
     await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
     await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
