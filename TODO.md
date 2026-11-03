@@ -8,7 +8,6 @@ Deferred technical items — implementation details, refactors, and infrastructu
 
 - Revisit the temporary global inspection default after the info-window design and programme-lead preference are reviewed. The implementation remains available through `?inspect=1` / the `inspectionEnabled` option; `src/config/features.js` controls the central default.
 
-- Replace the explicitly labelled data-request email placeholder in `src/config/data-requests.js` with the programme team's recipient and approved wording.
 - Add verified metric-specific methodology URLs to the inventory's `Explainer link` column. Coordinate stable anchors in the methodology page generator; the supplied workbook leaves these blank.
 - Confirm licences for the 30 supplied GAR2026 maps (`TBD`) and reconcile subsequent map batches.
 - Coordinate the GAR landing-page embed replacement after viewer review/release.

@@ -17,21 +17,48 @@ describe("map metadata links", () => {
       {
         recipient: "team@example.org",
         subject: "Data & access",
-        placeholder: false,
       },
     );
     const url = new URL(href);
     expect(decodeURIComponent(url.pathname)).toBe("team@example.org");
     expect(url.searchParams.get("subject")).toBe("Data & access");
-    expect(url.searchParams.get("body")).toContain("Map: Rice +2°C & drought (MX-RICE)");
+    expect(url.searchParams.get("body")).toContain("Map title: Rice +2°C & drought");
     expect(url.searchParams.get("body")).toContain("Intended use:");
-    expect(url.searchParams.get("body")).toContain("Required resolution / format:");
+    expect(url.searchParams.get("body")).toContain("Country or region: [insert location]");
+    expect(url.searchParams.get("cc")).toBeNull();
     expect(dataRequestUrl({}, { recipient: "" })).toBeNull();
   });
 
-  it("labels the configured placeholder and does not invent absent methodology URLs", () => {
+  it("uses the supplied recipients and wording with a public link to the exact selected scenario", () => {
+    const url = new URL(
+      dataRequestUrl({
+        id: "MX-KU5ID-GHTH8-C2WG3",
+        label: "Rice AAL (%) – Warming level +2°C",
+      }),
+    );
+    expect(url.pathname).toBe("kenneth.hawkins@un.org");
+    expect(url.searchParams.get("cc")).toBe("katsanakis@un.org,jenty.kirsch-wood@un.org");
+    expect(url.searchParams.get("subject")).toBe("Request for underlying map data");
+    const body = url.searchParams.get("body");
+    expect(body).toContain(
+      "Dear UNDRR team,\r\n\r\nI would like to request the underlying data needed to reproduce the following map from the Map Viewer:",
+    );
+    expect(body).toContain("Map title: Rice AAL (%) – Warming level +2°C");
+    expect(body).toContain(
+      "Map link: https://www.undrr.org/m/risk-and-resilience-maps/#gar?layers=gar26-aal-crops:7",
+    );
+    expect(body).toContain("Intended use: [briefly describe how you plan to use the data]");
+    expect(body).toContain("Thank you for your assistance.");
+    expect(body).toMatch(/Kind regards,\r\n\[Name\]\r\n\[Organisation, if applicable\]\r\n$/);
+    expect(body.replaceAll("\r\n", "")).not.toContain("\n");
+    expect(body).not.toContain("PREVIEW");
+    expect(url.href).not.toContain(";");
+  });
+
+  it("offers requests without placeholder labels or invented methodology URLs", () => {
     const html = layerLinksHtml({ r2rCategory: "GAR2026", label: "Rice", id: "MX-RICE" });
-    expect(html).toContain("Request data (placeholder)");
+    expect(html).toContain(">Request data</a>");
+    expect(html).not.toContain("placeholder");
     expect(html).not.toContain("Learn more");
   });
 });

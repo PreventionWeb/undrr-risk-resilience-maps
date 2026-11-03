@@ -116,7 +116,7 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
     expect(el.querySelector(".layer-desc").textContent).toContain("Explanation 1");
     expect(el.querySelector('a[href="https://example.org/metrics#scenario-1"]')).not.toBeNull();
     expect(new URL(el.querySelector('a[href^="mailto:"]').href).searchParams.get("body")).toContain(
-      "Map: 100y (MX-F100)",
+      "Map title: 100y",
     );
     store.set("flood", { sourceIdx: 0, status: "switching" });
     store.set("flood", { sourceIdx: 1, status: "error", error: "failed" });

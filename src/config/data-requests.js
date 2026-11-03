@@ -1,6 +1,7 @@
-// Replace with the programme team's recipient and wording before launch.
+// Programme-team source-data request recipients and subject.
 export const DATA_REQUESTS = {
-  recipient: "data-requests@example.org",
-  placeholder: true,
-  subject: "Request for map data access",
+  recipient: "kenneth.hawkins@un.org",
+  cc: ["katsanakis@un.org", "jenty.kirsch-wood@un.org"],
+  subject: "Request for underlying map data",
+  viewerUrl: "https://www.undrr.org/m/risk-and-resilience-maps/",
 };
