@@ -36,8 +36,8 @@ describe("map metadata links", () => {
         label: "Rice AAL (%) – Warming level +2°C",
       }),
     );
-    expect(url.pathname).toBe("kenneth.hawkins@un.org");
-    expect(url.searchParams.get("cc")).toBe("katsanakis@un.org,jenty.kirsch-wood@un.org");
+    expect(url.pathname).toBe("katsanakis@un.org");
+    expect(url.searchParams.get("cc")).toBe("kenneth.hawkins@un.org,jenty.kirsch-wood@un.org");
     expect(url.searchParams.get("subject")).toBe("Request for underlying map data");
     const body = url.searchParams.get("body");
     expect(body).toContain(
