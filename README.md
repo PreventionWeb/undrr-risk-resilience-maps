@@ -11,7 +11,10 @@ The prototype is behind a PIN gate for stakeholder review. Access details are sh
 
 ## Developing
 
+Use Node 24 (24.15.0 or newer) and Yarn 1.22.22. `.nvmrc` selects the Node 24 line for local development and both GitHub workflows; `package.json` enforces the supported major.
+
 ```bash
+nvm use        # if using nvm
 yarn install
 yarn dev        # Vite dev server at http://localhost:3001
 yarn build      # Production build to dist/
@@ -44,7 +47,7 @@ The app is published in two places from the same source:
 What that build requires of this repo:
 
 - **Relative URLs only.** drupal-microsites runs `vite build --base=./`, so the same files work under `/undrr/risk-and-resilience-maps/` on its dev server and under `/m/risk-and-resilience-maps/` in production. A root-relative path in source (`"/assets/..."`, `"/embed.html"`) resolves to the site root and breaks there.
-- **`yarn install --frozen-lockfile --ignore-scripts` then `vite build`, on Node 20 Alpine.** Keep the build working without lifecycle scripts, and keep `yarn.lock` in sync.
+- **`yarn install --frozen-lockfile --ignore-scripts` then `vite build`, on Node 24 Alpine.** The downstream `build-maps` job must use Node 24 before deploying a release with these dependencies. Keep the build working without lifecycle scripts, and keep `yarn.lock` in sync.
 
 ## Project documentation
 

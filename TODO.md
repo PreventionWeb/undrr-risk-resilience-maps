@@ -81,6 +81,8 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 
 ## Mangrove follow-ups
 
+- Remove the temporary `eslint/**/minimatch` resolution when ESLint and `@eslint/config-array` adopt a patched minimatch release. The override uses 11.0.4 to address GHSA-g3hv-75wg-m249; ESLint's use of the retained `Minimatch.match()` API and the full project lint were checked. Yarn reports the intentional override of the upstream 10.x ranges.
+
 - Updated to `2.3.0` (previous: `2.2.0`, `2.0.1`, `2.0.0`). CDN CSS and
   vanilla tabs/copy/preview modules are pinned together. The 2.3.0 release's
   runtime translation catalogues apply to React/hydrated components; the viewer
