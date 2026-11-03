@@ -11,6 +11,9 @@
  * The instance lives as long as the page, so nothing here calls `destroy()`.
  */
 import { createRiskMap } from "./app/create-risk-map.js";
+import { inspectionEnabledFromSearch } from "./config/features.js";
 import "./styles/shared.css";
 
-createRiskMap(document.body);
+createRiskMap(document.body, {
+  inspectionEnabled: inspectionEnabledFromSearch(window.location.search),
+});

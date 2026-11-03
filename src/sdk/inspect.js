@@ -2,6 +2,7 @@
 
 let _mapx = null;
 let _active = false;
+let _enabled = true;
 /** Every subscriber, in registration order (see onInspectionResult). */
 const _subscribers = new Set();
 
@@ -13,12 +14,15 @@ const _subscribers = new Set();
  * delivering results into a detached panel. Callers that want to keep a
  * subscription register it after this call, the way `main.js` does.
  */
-export function initInspection(mapx) {
+export function initInspection(mapx, { enabled = true } = {}) {
   _mapx = mapx;
+  _enabled = enabled;
+  _active = false;
   _subscribers.clear();
 }
 
 export function enableInspection() {
+  if (!_enabled) return;
   _active = true;
   // In dev mode keep MapX's native popup so we can cross-check data.
   // NOTE: The production branch (enable: true call) is never exercised by the
@@ -32,8 +36,8 @@ export function enableInspection() {
 export function disableInspection() {
   _active = false;
   // See enableInspection() comment — production path untested by automated tests.
-  if (!import.meta.env.DEV) {
-    _mapx?.ask("set_features_click_sdk_only", { enable: false }).catch(() => {});
+  if (!_enabled || !import.meta.env.DEV) {
+    _mapx?.ask("set_features_click_sdk_only", { enable: !_enabled }).catch(() => {});
   }
 }
 

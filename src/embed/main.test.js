@@ -284,6 +284,14 @@ describe("mountEmbed", () => {
       map.emit("state", { tab: "hazard", layers: [{ key: "landslides", sourceIdx: 0 }] });
       expect(document.querySelector("[data-ui-full-viewer]").href).toContain("#hazard?layers=landslides");
     });
+
+    it.each(["0", "1"])("passes the inspection=%s policy to the map and its full-viewer link", (value) => {
+      mount(`?tab=hazard&inspect=${value}`);
+      expect(createRiskMap.mock.calls.at(-1)[1].inspectionEnabled).toBe(value === "1");
+      expect(new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.get("inspect")).toBe(
+        value,
+      );
+    });
   });
 
   describe("the command queue", () => {

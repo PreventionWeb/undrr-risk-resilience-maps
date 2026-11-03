@@ -14,7 +14,7 @@ test.describe("MapX 1.14.2", () => {
   });
 
   test("listens to click_features alone and fills the infobox", async ({ page }) => {
-    await gotoApp(page, "#hazard");
+    await gotoApp(page, "?inspect=1#hazard");
     expect(await page.evaluate(() => window.__mapxStub.listening("click_features"))).toBe(true);
     expect(await page.evaluate(() => window.__mapxStub.listening("click_attributes"))).toBe(false);
     await page.evaluate(() =>
@@ -29,7 +29,7 @@ test.describe("MapX 1.14.2", () => {
   });
 
   test("the site inspector reads a raster layer that missed as queried", async ({ page }) => {
-    await gotoApp(page, "#hazard");
+    await gotoApp(page, "?inspect=1#hazard");
     const flooding = layerRow(page, "River Flooding");
     await toggleLayer(flooding);
     await settled(flooding);
@@ -46,7 +46,7 @@ test.describe("MapX 1.14.2", () => {
   });
 
   test("a click that hits nothing closes the infobox", async ({ page }) => {
-    await gotoApp(page, "#hazard");
+    await gotoApp(page, "?inspect=1#hazard");
     const infobox = page.locator("#infobox");
     await page.evaluate(() =>
       window.__mapxStub.emit("click_features", {

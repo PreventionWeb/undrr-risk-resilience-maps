@@ -34,6 +34,7 @@
  * | `tabs`         | tab-id allowlist, comma separated            | every tab           |
  * | `allow`        | layer-key allowlist, comma separated         | every layer         |
  * | `panel`        | `collapsed` or `expanded`                    | `expanded`          |
+ * | `inspect`      | `1`/`true` to opt in, `0`/`false` to disable | disabled            |
  * | `parentOrigin` | the host origin messages are exchanged with  | `document.referrer` |
  * | `instance`     | opaque id echoed in every message            | none                |
  * | `bbox`         | `west,south,east,north` to fit the map to    | the default view    |
@@ -51,6 +52,7 @@
  * Nothing runs on import.
  */
 import { TABS } from "../config/layers.js";
+import { inspectionEnabledFromSearch } from "../config/features.js";
 import { createLayerRegistry } from "../config/registry.js";
 import { clampSourceIdx } from "../services/layer-controller.js";
 import { parseLayerParams } from "../state/hash.js";
@@ -201,6 +203,7 @@ export function clampLayers(layers, { allowed, registry, collection = null }) {
  *   layerKeys: string[],
  *   empty: boolean,
  *   panelCollapsed: boolean,
+ *   inspectionEnabled: boolean,
  *   parentOrigin: string|null,
  *   instance: string|null,
  *   cameras: Array<{ name: string, payload: object }>,
@@ -288,6 +291,7 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
     /** Configured to show nothing (see "Absent is not resolved to nothing"). */
     empty,
     panelCollapsed: params.get("panel") === "collapsed",
+    inspectionEnabled: inspectionEnabledFromSearch(search),
     parentOrigin: resolveParentOrigin(params, referrer),
     instance: instance && INSTANCE_PATTERN.test(instance) ? instance : null,
     cameras: empty ? [] : parseCameraParams(params),

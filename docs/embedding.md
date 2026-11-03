@@ -119,6 +119,7 @@ const map = createRiskMap(rootElement, {
   mapxProject: PRIMARY_PROJECT,
   validate: true, // run validateLayers() first
   buildInfo: true, // wire the build-info footer if the page has one
+  inspectionEnabled: false, // temporary default; true restores click info windows and inspection
   reload: () => window.location.reload(), // how the map-service notice retries
 });
 
@@ -387,6 +388,23 @@ Still open:
 ## 8. How to embed (phase 1)
 
 ### The snippet
+
+**Temporary inspection policy.** Click info windows and the site-inspection tool are off by default
+following programme-lead feedback while the info-window visual design is revisited. MapX native
+popups are suppressed as well, in development and production. This is a presentation preference,
+not a data-access restriction. Panning, zooming, layer selectors and legends still work.
+
+Append `&inspect=1` to an embed URL to restore inspection for that instance, or `&inspect=0` to
+explicitly disable it. Standalone URLs use the query before the hash, e.g. `?inspect=1#gar`.
+`true`/`false` are also accepted; blank, invalid or repeated values disable inspection. These are
+runtime options read at page load: change the iframe URL and reload it to change the setting;
+no new build is needed. The embed's full-viewer link preserves the resolved setting. The existing
+postMessage API is unchanged.
+
+Programmatic callers can pass `createRiskMap(root, { inspectionEnabled: true })`. The central default
+is `MAP_INSPECTION_ENABLED` in `src/config/features.js`. Revisit that default after the info-window
+design and programme preference are reviewed. Native suppression uses MapX's
+`set_features_click_sdk_only` method; a rejected call is logged and does not prevent maps loading.
 
 ```html
 <iframe

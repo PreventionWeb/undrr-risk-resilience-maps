@@ -177,7 +177,7 @@ describe("createRiskMap", () => {
     it("shows a custom coded view's plain-object attributes in the infobox", async () => {
       const box = addInfobox();
       manager.version = "1.14.2";
-      await start();
+      await start({ inspectionEnabled: true });
       manager.handlers.get("click_features")({
         attributes: { "MX-EMPTY": [], "MX-CC": { name: "Site A", value: 3 } },
         lngLat: { lng: 1, lat: 2 },
@@ -189,10 +189,36 @@ describe("createRiskMap", () => {
     it("closes the infobox on an empty click", async () => {
       const box = addInfobox();
       manager.version = "1.14.2";
-      await start();
+      await start({ inspectionEnabled: true });
       manager.handlers.get("click_features")({ attributes: { "MX-A": [{ name: "Site A" }] } });
       manager.handlers.get("click_features")({ attributes: {} });
       expect(box.style.display).toBe("none");
+    });
+
+    it("ignores feature results and suppresses native popups by default without blocking layers", async () => {
+      const box = addInfobox();
+      await start({ initialTab: "one", layers: [{ key: "alpha" }] });
+      await manager.handlers.get("ready")();
+      expect(manager.ask).toHaveBeenCalledWith("set_features_click_sdk_only", { enable: true });
+      expect(viewAdd).toHaveBeenCalled();
+      const toggle = document.querySelector('[data-ui="inspect-toggle"]');
+      expect(toggle.hidden).toBe(true);
+      expect(toggle.disabled).toBe(true);
+      toggle.dispatchEvent(new MouseEvent("click"));
+      manager.handlers.get("click_features")({ attributes: { "MX-A": [{ name: "Hidden" }] } });
+      expect(box.style.display).toBe("none");
+      expect(document.getElementById("site-inspector").hidden).toBe(true);
+    });
+
+    it("continues restoring layers if native popup suppression is rejected", async () => {
+      manager.ask.mockImplementation((method) =>
+        method === "set_features_click_sdk_only"
+          ? Promise.reject(new Error("unavailable"))
+          : Promise.resolve(),
+      );
+      await start({ initialTab: "one", layers: [{ key: "alpha" }] });
+      await manager.handlers.get("ready")();
+      expect(viewAdd).toHaveBeenCalled();
     });
   });
 

@@ -70,6 +70,8 @@ The inventory importer requires the repository's 14 core CSV columns and fails f
 
 ## URL routing
 
+Map click info windows and site inspection are temporarily off by default following programme-lead feedback while the info-window design is revisited. Enable them per page load with `?inspect=1` before the hash (for example, `?inspect=1#gar`), or explicitly disable them with `?inspect=0`. The same query parameter works on `embed.html`. The central default is `MAP_INSPECTION_ENABLED` in `src/config/features.js`; programmatic instances use the boolean `inspectionEnabled` option. Panning, zooming, layer controls and legends remain available.
+
 Hash-based routing (`#risk-resilience`, `#hazard`, `#sources`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.
 
 ## Ecosystem context

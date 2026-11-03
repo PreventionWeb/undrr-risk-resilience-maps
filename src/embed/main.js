@@ -116,6 +116,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     layers: params.layers,
     tabs: params.tabIds,
     layerAllowlist: params.layerKeys,
+    inspectionEnabled: params.inspectionEnabled,
     stateAdapter: createMemoryAdapter({ initial: { tab: params.tab, layers: params.layers } }),
     // No build-info footer in an embed, and the retry reloads the frame's own
     // document — never the host page.
@@ -339,7 +340,11 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     if (!fullViewerLink) return;
     // The standalone app sits next to embed.html, so "." is its URL under any
     // base (local root, or the /undrr-risk-resilience-maps/ Pages subpath).
-    fullViewerLink.href = new URL(".", windowRef.location.href).href + formatHash(state.tab, state.layers);
+    const url = new URL(".", windowRef.location.href);
+    // Preserve this runtime policy when leaving the embed for the full viewer.
+    url.searchParams.set("inspect", params.inspectionEnabled ? "1" : "0");
+    url.hash = formatHash(state.tab, state.layers);
+    fullViewerLink.href = url.href;
   };
   updateFullViewerLink(map.getState());
 
