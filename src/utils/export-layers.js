@@ -75,6 +75,8 @@ export function generateLayerInventoryCSV() {
       "Citation",
       "License",
       "Inventory status",
+      "Note",
+      "Explainer link",
     ),
   ];
 
@@ -113,6 +115,8 @@ export function generateLayerInventoryCSV() {
               layer.citation || "",
               layer.license || "",
               inventoryStatus(layer, src),
+              src.note ?? layer.note ?? "",
+              src.explainerUrl ?? layer.explainerUrl ?? "",
             ),
           );
         }
@@ -133,6 +137,8 @@ export function generateLayerInventoryCSV() {
             layer.citation || "",
             layer.license || "",
             inventoryStatus(layer),
+            layer.note || "",
+            layer.explainerUrl || "",
           ),
         );
       }

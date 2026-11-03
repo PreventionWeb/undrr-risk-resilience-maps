@@ -4,6 +4,13 @@ Deferred technical items — implementation details, refactors, and infrastructu
 
 > See [LEARNINGS.md](LEARNINGS.md) for design decisions, SDK quirks, and hard-won knowledge.
 
+## GAR 2026 launch content
+
+- Replace the explicitly labelled data-request email placeholder in `src/config/data-requests.js` with the programme team's recipient and approved wording.
+- Add verified metric-specific methodology URLs to the inventory's `Explainer link` column. Coordinate stable anchors in the methodology page generator; the supplied workbook leaves these blank.
+- Confirm licences for the 30 supplied GAR2026 maps (`TBD`) and reconcile subsequent map batches.
+- Coordinate the GAR landing-page embed replacement after viewer review/release. See [docs/gar2026-intake.md](docs/gar2026-intake.md) for the handoff, inventory mapping and wider page actions.
+
 ## State store upgrade
 
 The current store (`src/state/store.js`) is a Set of open view IDs plus an active tab string. This works for basic layer toggling, but will need to grow when we add:

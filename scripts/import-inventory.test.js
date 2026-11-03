@@ -25,6 +25,60 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
+  it("preserves configured metadata when an older CSV omits optional columns", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    writeFileSync(csvPath, readFileSync(csvPath, "utf8").replace(",Note,Explainer link", ""));
+    const configPath = join(fixture, "src/config/layers/gar.js");
+    const before = readFileSync(configPath, "utf8").replace(
+      'explainerUrl: ""',
+      'explainerUrl: "https://example.org/methodology#rice"',
+    );
+    writeFileSync(configPath, before);
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+    expect(readFileSync(configPath, "utf8")).toBe(before);
+  });
+
+  it("round-trips a multiline scenario note and explainer without touching another scenario", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split(/\r?\n/);
+    const index = lines.findIndex((line) => line.includes("MX-KU5ID-GHTH8-C2WG3"));
+    // Replace only the two optional columns. The preceding text ends at Uploaded.
+    lines[index] = lines[index].replace(
+      /Uploaded,.*$/,
+      () => 'Uploaded,"First line, with a comma\nSecond line: $&",https://example.org/methodology#rice',
+    );
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+    const config = readFileSync(join(fixture, "src/config/layers/gar.js"), "utf8");
+    expect(config).toContain('note: "First line, with a comma\\nSecond line: $&"');
+    expect(config).toContain('explainerUrl: "https://example.org/methodology#rice"');
+    expect(config.match(/https:\/\/example.org\/methodology#rice/g)).toHaveLength(1);
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      { cwd: fixture, encoding: "utf8" },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("leaves the canonical inventory unchanged on apply", () => {
+    const fixture = makeFixture();
+    const configPath = join(fixture, "src/config/layers/gar.js");
+    const before = readFileSync(configPath, "utf8");
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      { cwd: fixture, encoding: "utf8" },
+    );
+    expect(report).toContain("nothing to change");
+    expect(readFileSync(configPath, "utf8")).toBe(before);
+  });
   it("applies spreadsheet layer names and descriptions", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");
@@ -75,7 +129,7 @@ describe("import-inventory --apply", () => {
     );
 
     expect(report).toContain(`Input:       ${alternate}`);
-    expect(report).toContain("Matched:     108");
+    expect(report).toContain("Matched:     138");
   });
 
   it("matches a simple layer with one newly labelled sub-source", () => {
@@ -94,7 +148,7 @@ describe("import-inventory --apply", () => {
       { cwd: fixture, encoding: "utf8" },
     );
 
-    expect(report).toContain("Matched:     108");
+    expect(report).toContain("Matched:     138");
     expect(report).not.toContain("In CSV but NOT in JS config");
   });
 
@@ -121,7 +175,7 @@ describe("import-inventory --apply", () => {
     const csvPath = join(fixture, "data/inventory.csv");
     const csv = readFileSync(csvPath, "utf8")
       .replace("MX-HHA9G-4VUF9-CREXQ", "MX-REDTEAM-SECOND-EARTHQUAKE")
-      .replace(/(^[^\n]*,drought,[^\n]*),In development$/m, "$1,Pending removal");
+      .replace(/(^[^\n]*,drought,[^\n]*),In development,/m, "$1,Pending removal,");
     writeFileSync(csvPath, csv);
 
     execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {

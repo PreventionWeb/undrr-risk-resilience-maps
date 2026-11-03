@@ -7,6 +7,7 @@ import { downloadLayerInventory } from "../utils/export-layers.js";
 import { escapeHtml } from "../utils/html.js";
 import { getLayerStatus } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
+import { layerLinksHtml } from "../utils/layer-links.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,11 @@ function mapxIds(layer) {
 
 function buildSourcesTable(layers) {
   const rows = layers
+    .flatMap((layer) =>
+      layer.sources?.some((source) => source.note || source.explainerUrl)
+        ? layer.sources.map((source) => ({ ...layer, ...source, sources: undefined }))
+        : [layer],
+    )
     .map((layer) => {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
@@ -56,7 +62,7 @@ function buildSourcesTable(layers) {
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escapeHtml(layer.note || layer.desc)}</td>
+        <td>${escapeHtml(layer.note || layer.desc)}${layerLinksHtml(layer) ? `<p>${layerLinksHtml(layer)}</p>` : ""}</td>
       </tr>`;
     })
     .join("");

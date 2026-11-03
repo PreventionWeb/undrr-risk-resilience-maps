@@ -26,7 +26,9 @@
  *
  * Compound layer fields (multiple switchable views under one accordion):
  *   id       - null (real IDs live in sources)
- *   sources  - [{id, label, desc?, legend?}] array of switchable views
+ *   sources  - [{id, label, desc?, note?, explainerUrl?, legend?}] switchable views
+ *   note / explainerUrl - optional explanatory text and metric-specific HTTP(S)
+ *              methodology URL, on the layer or individual source
  *   widget   - {type, label} specifies the source-switching UI widget
  *              type: "sub-tabs" (button bar) or "stepped-slider" (range input)
  *   (all other fields same as simple layers)
@@ -186,7 +188,7 @@ export const TABS = [
     card: {
       icon: "06",
       color: "#0077c8",
-      desc: "Global Assessment Report metrics on systemic risk, displacement, water scarcity, and seismic impacts.",
+      desc: "Global Assessment Report maps on crop losses, food production, systemic risk and resilience.",
     },
     ...withGarYearGroups(GAR_LAYERS),
   },

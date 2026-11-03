@@ -66,7 +66,7 @@ What that build requires of this repo:
 | [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                           |
 | [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns   |
 
-The inventory importer requires the repository's exact 14-column CSV header and fails fast when columns are missing or renamed. Colleague `.xlsx` files must currently be exported or converted to that CSV shape before import.
+The inventory importer requires the repository's 14 core CSV columns and fails fast when columns are missing or renamed. It also syncs optional `Note` and `Explainer link` columns; older files without these columns preserve configured metadata. Colleague `.xlsx` files must be converted to this CSV shape before import. The [GAR 2026 handoff notes](docs/gar2026-intake.md) explain the current batch's normalization and outstanding content.
 
 ## URL routing
 

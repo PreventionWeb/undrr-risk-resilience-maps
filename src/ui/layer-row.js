@@ -32,6 +32,7 @@ import { clampSourceIdx, isBusyStatus, settingsMatch } from "../services/layer-c
 import { offRecord } from "../state/layers-store.js";
 import { createLayerAnnouncer } from "./announcer.js";
 import { setLoadingText } from "./inline-loader.js";
+import { layerLinksHtml } from "../utils/layer-links.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -436,9 +437,21 @@ export function createLayerRow(
   if (layer.initiative || layer.desc) {
     desc = document.createElement("p");
     desc.className = "layer-desc mg-form-help";
-    desc.textContent = layerDescriptionText(layer, layer.desc);
+    desc.textContent = layerDescriptionText(layer, layer.sources?.[0]?.note || layer.desc);
     body.appendChild(desc);
   }
+
+  const contextLinks = buildSlot("layer-meta-links");
+  body.appendChild(contextLinks);
+  function renderContextLinks(view) {
+    const html = layerLinksHtml(view);
+    if (contextLinks.dataset.content !== html) {
+      contextLinks.innerHTML = html;
+      contextLinks.dataset.content = html;
+      contextLinks.hidden = !html;
+    }
+  }
+  renderContextLinks(layer.sources?.length ? { ...layer, ...layer.sources[0], sources: undefined } : layer);
 
   let widgetSlot = null;
   let statusEl = null;
@@ -727,7 +740,13 @@ export function createLayerRow(
     details = { arrival: record, viewId: record.viewId, legendLayer };
     status = null;
     // Show the shown source's description instead of the parent's.
-    if (desc && isCompound(layer)) setText(desc, layerDescriptionText(layer, legendLayer.desc || layer.desc));
+    if (desc && isCompound(layer))
+      setText(desc, layerDescriptionText(layer, legendLayer.note || legendLayer.desc || layer.desc));
+    renderContextLinks(
+      isCompound(layer)
+        ? { ...layer, ...layer.sources[clampSourceIdx(layer, record.appliedSourceIdx)], sources: undefined }
+        : layer,
+    );
   }
 
   /** The layer went off: clear its controls and return the row to its compact state. */
@@ -803,7 +822,14 @@ export function createLayerRow(
         setText(statusEl, "");
         setClass(statusEl, "is-error", false);
       } else if (isVisible()) {
-        if (desc) setText(desc, layerDescriptionText(layer, details?.legendLayer?.desc || layer.desc));
+        if (desc)
+          setText(
+            desc,
+            layerDescriptionText(
+              layer,
+              details?.legendLayer?.note || details?.legendLayer?.desc || layer.desc,
+            ),
+          );
         setHidden(statusEl, !status);
         renderStatusText(statusEl, status);
         setClass(statusEl, "is-error", Boolean(status?.isError));
