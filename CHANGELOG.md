@@ -14,6 +14,9 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Move local development, CI and GitHub Pages builds to Node 24 (minimum 24.15.0), with `.nvmrc` shared by both workflows. The downstream microsite maps builder must also use Node 24 before releasing this dependency set.
+- Update Proj4 to 2.22.0, Playwright to 1.64.1, ESLint to 10.14.0, globals to 17.14.0, jsdom to 30.1.3, Prettier to 3.9.10, Vite to 8.3.5 and Vitest to 5.1.0. Refresh security resolutions for brace-expansion, Undici and source-map-js; scope a temporary minimatch 11 override to ESLint's dependency tree. Mangrove remains on the current 2.3.0 release.
+
 - Temporarily disable map click info windows and site inspection by default, following programme-lead feedback while their visual design is revisited. Suppress MapX native popups too. Standalone and embed URLs can opt in with `inspect=1` or opt out with `inspect=0`; programmatic instances accept `inspectionEnabled`.
 
 ## [0.0.10] - 2026-10-29
