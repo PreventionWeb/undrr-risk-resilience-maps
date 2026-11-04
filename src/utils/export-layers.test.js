@@ -51,6 +51,18 @@ describe("generateLayerInventoryCSV", () => {
     expect(columns[1]).toBe("Category");
   });
 
+  it("ends with the hosted download columns, so an export re-imports its files", () => {
+    expect(header.endsWith(",Download URL,Download size (bytes)")).toBe(true);
+    const sdg = lines.find((line) => line.includes(",sdg-drought,"));
+    expect(sdg).toMatch(
+      /,https:\/\/gar-data\.unepgrid\.ch\/2026\/SDG15_3_1\.tif; https:\/\/gar-data\.unepgrid\.ch\/2026\/droughtfreq30\.tif,333771240; 44824306$/,
+    );
+    const pga475 = lines.find((line) => line.includes("MX-4XSGY-9URYF-WMICZ"));
+    expect(pga475).toMatch(/,https:\/\/gar-data\.unepgrid\.ch\/2026\/PGA_475y\.tif,1392370312$/);
+    const noFiles = lines.find((line) => line.includes(",fatalities-gem,"));
+    expect(noFiles.endsWith(",,")).toBe(true);
+  });
+
   // --- content ---
 
   it("includes known layer keys", () => {

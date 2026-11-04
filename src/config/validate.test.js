@@ -84,6 +84,43 @@ describe("validateLayers", () => {
     vi.restoreAllMocks();
   });
 
+  it("passes for hosted downloads on a simple layer and a compound source", () => {
+    const simple = makeSimpleLayer({ downloads: [["https://example.org/a.tif", 10]] });
+    const compound = makeCompoundLayer({
+      sources: [
+        { id: "MX-SRC-1", label: "Source A", downloads: [["https://example.org/b.tif", 20]] },
+        { id: "MX-SRC-2", label: "Source B" },
+      ],
+    });
+    expect(() => validateLayers([makeTab("hazard", [simple, compound])], PRIMARY)).not.toThrow();
+  });
+
+  it("throws for malformed downloads (not https, missing or non-integer size, object shape)", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const downloads of [
+      [["http://example.org/a.tif", 10]],
+      [["https://example.org/a.tif"]],
+      [["https://example.org/a.tif", 1.5]],
+      [["https://example.org/a.tif", 0]],
+      [{ url: "https://example.org/a.tif", bytes: 10 }],
+      "https://example.org/a.tif",
+    ]) {
+      const layer = makeSimpleLayer({ downloads });
+      expect(
+        () => validateLayers([makeTab("hazard", [layer])], PRIMARY),
+        JSON.stringify(downloads),
+      ).toThrow();
+      const compound = makeCompoundLayer({
+        sources: [
+          { id: "MX-SRC-1", label: "Source A", downloads },
+          { id: "MX-SRC-2", label: "Source B" },
+        ],
+      });
+      expect(() => validateLayers([makeTab("hazard", [compound])], PRIMARY)).toThrow();
+    }
+    vi.restoreAllMocks();
+  });
+
   // --- tab-level errors ---
 
   it("throws when a tab is missing id", () => {

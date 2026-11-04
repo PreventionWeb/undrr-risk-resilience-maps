@@ -28,7 +28,11 @@ describe("import-inventory --apply", () => {
   it("preserves configured metadata when an older CSV omits optional columns", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");
-    writeFileSync(csvPath, readFileSync(csvPath, "utf8").replace(",Note,Explainer link", ""));
+    // Optional columns are trailing, so dropping their headers leaves the rest aligned.
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace(",Note,Explainer link,Download URL,Download size (bytes)", ""),
+    );
     const configPath = join(fixture, "src/config/layers/gar.js");
     const before = readFileSync(configPath, "utf8").replace(
       'explainerUrl: ""',
@@ -193,5 +197,150 @@ describe("import-inventory --apply", () => {
     );
     expect(droughtBlock).toContain('status: "disabled-pending-removal"');
     expect(hazard.match(/status: "disabled-pending-removal"/g)).toHaveLength(1);
+  });
+
+  it("round-trips hosted download files, including a corrected URL and several files per view", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8")
+      .replace(
+        "https://gar-data.unepgrid.ch/2026/PGA_475y.tif,1392370312",
+        "https://gar-data.unepgrid.ch/2026/PGA_475y_v2.tif,1400000000",
+      )
+      .replace(
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif; https://gar-data.unepgrid.ch/2026/cs_extra.tif,10780516; 42",
+      );
+    writeFileSync(csvPath, csv);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(report).toContain("Download file updates (2)");
+
+    const hazard = readFileSync(join(fixture, "src/config/layers/hazard.js"), "utf8");
+    // The 475-year source is the second of five: only it changes.
+    const pga = hazard.slice(hazard.indexOf('key: "earthquake-pga"'), hazard.indexOf('key: "cyclone-surge"'));
+    expect(pga).toContain('downloads: [["https://gar-data.unepgrid.ch/2026/PGA_475y_v2.tif", 1400000000]]');
+    expect(pga.match(/downloads:/g)).toHaveLength(5);
+    expect(hazard).toContain(
+      'downloads: [["https://gar-data.unepgrid.ch/2026/cs_phex.tif", 10780516], ["https://gar-data.unepgrid.ch/2026/cs_extra.tif", 42]]',
+    );
+
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("adds downloads to a first compound source without touching the layer", () => {
+    const fixture = makeFixture();
+    const configPath = join(fixture, "src/config/layers/hazard.js");
+    const config = readFileSync(configPath, "utf8").replace(
+      /(id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n)\s+downloads: [^\n]+\n/,
+      "$1",
+    );
+    writeFileSync(configPath, config);
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+    const after = readFileSync(configPath, "utf8");
+    const flooding = after.slice(after.indexOf('key: "river-flooding"'), after.indexOf("sources: ["));
+    expect(flooding).not.toContain("downloads:");
+    expect(after).toMatch(
+      /id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n\s+downloads: \[\["https:\/\/gar-data\.unepgrid\.ch\/2026\/global_pc_h25glob\.tif", 3601777774\]\],/,
+    );
+  });
+
+  it("removes downloads for an empty pair and keeps them when the columns are omitted", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const original = readFileSync(csvPath, "utf8");
+    writeFileSync(
+      csvPath,
+      original.replace(",https://gar-data.unepgrid.ch/2026/mangrokm2a.tif,11480843", ",,"),
+    );
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+    const exposure = readFileSync(join(fixture, "src/config/layers/exposure.js"), "utf8");
+    expect(exposure).not.toContain("mangrokm2a");
+    expect(exposure).toContain("forestkm2a.tif");
+
+    const lines = original.split("\n").map((line) => line.replace(/,[^,]*,[^,]*$/, ""));
+    writeFileSync(csvPath, lines.join("\n"));
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(report).not.toContain("Download file updates");
+    expect(readFileSync(join(fixture, "src/config/layers/exposure.js"), "utf8")).toBe(exposure);
+  });
+
+  it("rejects malformed download cells", () => {
+    const cases = [
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,",
+        "1 download URL(s) but 0 size(s)",
+      ],
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "http://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "must use https",
+      ],
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10 MB",
+        "whole number of bytes",
+      ],
+    ];
+    for (const [from, to, message] of cases) {
+      const fixture = makeFixture();
+      const source = join(fixture, "data/inventory.csv");
+      const malformed = join(fixture, "malformed.csv");
+      writeFileSync(malformed, readFileSync(source, "utf8").replace(from, to));
+      const result = spawnSync(
+        process.execPath,
+        [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+        {
+          cwd: fixture,
+          encoding: "utf8",
+        },
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(message);
+    }
+  });
+
+  it("requires the two download columns together", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    writeFileSync(malformed, readFileSync(source, "utf8").replace(",Download size (bytes)", ",Size"));
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('must supply "Download URL" and "Download size (bytes)" together');
   });
 });

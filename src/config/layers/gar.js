@@ -67,6 +67,10 @@ export const GAR_LAYERS = [
     id: "MX-5FSR9-Y7LUW-BUCCB",
     key: "sdg-drought",
     label: "SDG15.3.1 and Drought frequency",
+    downloads: [
+      ["https://gar-data.unepgrid.ch/2026/SDG15_3_1.tif", 333771240],
+      ["https://gar-data.unepgrid.ch/2026/droughtfreq30.tif", 44824306],
+    ],
     type: "rt",
     desc: "Combines drought frequency with SDG indicator 15.3.1—the proportion of land that is degraded—to identify areas facing both recurrent drought and land degradation.",
     source: "UNDRR, GAR 2029",

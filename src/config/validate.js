@@ -11,6 +11,30 @@ import { parseBounds } from "../utils/camera.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
+/**
+ * A view's hosted files (src/config/downloads.js): `[[url, bytes], ...]`, each
+ * an https URL and a positive whole number of bytes.
+ */
+function validateDownloads(ctx, downloads, errors) {
+  if (downloads === undefined) return;
+  if (!Array.isArray(downloads)) {
+    errors.push(`${ctx} -- downloads must be an array of [url, bytes] pairs`);
+    return;
+  }
+  downloads.forEach((entry, i) => {
+    const [url, bytes] = Array.isArray(entry) ? entry : [];
+    let https;
+    try {
+      https = new URL(url).protocol === "https:";
+    } catch {
+      https = false;
+    }
+    if (!Array.isArray(entry) || entry.length !== 2 || !https || !Number.isSafeInteger(bytes) || bytes <= 0) {
+      errors.push(`${ctx} -- downloads[${i}] must be [https URL, size in bytes (a positive integer)]`);
+    }
+  });
+}
+
 /** What a tab's home-page card needs to render (see src/ui/home.js). */
 const CARD_FIELDS = ["icon", "color", "desc"];
 
@@ -104,6 +128,7 @@ export function validateLayers(tabs, primaryProject) {
         }
         for (let s = 0; s < layer.sources.length; s++) {
           const src = layer.sources[s];
+          validateDownloads(`${ctx} sources[${s}]`, src.downloads, errors);
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
           }
@@ -137,6 +162,8 @@ export function validateLayers(tabs, primaryProject) {
         );
       }
       if (layer.id) seenIds.add(layer.id);
+
+      validateDownloads(ctx, layer.downloads, errors);
 
       // Optional extent the embed's `fit-layer` uses instead of asking MapX
       // (docs/embedding.md §8). A malformed one would be silently skipped at

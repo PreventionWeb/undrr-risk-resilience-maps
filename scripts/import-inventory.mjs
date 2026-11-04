@@ -31,6 +31,14 @@
  *   - external provider definitions (external rows intentionally have no MapX ID)
  * Optional Note and Explainer link columns are synced when supplied; omitting
  * either column preserves its configured values.
+ *
+ * Optional "Download URL" and "Download size (bytes)" columns (supplied as a
+ * pair) carry the hosted files behind a view (GeoTIFFs from UNEP/GRID-Geneva).
+ * Several files are separated by ";" in both cells, in the same order. They
+ * are written to the view's config as `downloads: [[url, bytes], ...]` (an
+ * array of tuples, so the config stays free of nested braces this script's
+ * object matching relies on). Omitting both columns preserves configured files;
+ * an empty pair removes them.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -115,6 +123,46 @@ if (missingHeaders.length) {
 const H = {};
 headerRow.forEach((h, i) => (H[h.trim()] = i));
 
+const DOWNLOAD_URL_HEADER = "Download URL";
+const DOWNLOAD_SIZE_HEADER = "Download size (bytes)";
+if ((H[DOWNLOAD_URL_HEADER] === undefined) !== (H[DOWNLOAD_SIZE_HEADER] === undefined)) {
+  throw new Error(
+    `Inventory CSV must supply "${DOWNLOAD_URL_HEADER}" and "${DOWNLOAD_SIZE_HEADER}" together`,
+  );
+}
+const HAS_DOWNLOAD_COLUMNS = H[DOWNLOAD_URL_HEADER] !== undefined;
+
+/**
+ * The hosted files for one row: `[[url, bytes], ...]`, `[]` for none, or
+ * undefined when the CSV has no download columns (configured files are kept).
+ */
+function parseDownloads(row, context) {
+  if (!HAS_DOWNLOAD_COLUMNS) return undefined;
+  const split = (value) =>
+    (value || "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  const urls = split(row[H[DOWNLOAD_URL_HEADER]]);
+  const sizes = split(row[H[DOWNLOAD_SIZE_HEADER]]);
+  if (urls.length !== sizes.length) {
+    throw new Error(`${context}: ${urls.length} download URL(s) but ${sizes.length} size(s)`);
+  }
+  return urls.map((url, i) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error(`${context}: download URL "${url}" is not a URL`);
+    }
+    if (parsed.protocol !== "https:") throw new Error(`${context}: download URL "${url}" must use https`);
+    if (!/^[1-9]\d*$/.test(sizes[i])) {
+      throw new Error(`${context}: download size "${sizes[i]}" must be a whole number of bytes`);
+    }
+    return [parsed.href, Number(sizes[i])];
+  });
+}
+
 // Build inventory index: key → { subSource → [rows] }.
 // A sub-source label is not necessarily unique: recovery-speed, for example,
 // repeats each hazard for the poorest and richest household groups.
@@ -143,9 +191,10 @@ for (const r of dataRows) {
   const desc = (r[H["Description"]] || "").trim();
   const note = H["Note"] === undefined ? undefined : (r[H["Note"]] || "").trim();
   const explainerUrl = H["Explainer link"] === undefined ? undefined : (r[H["Explainer link"]] || "").trim();
+  const downloads = parseDownloads(r, `Inventory row "${key}"${subSource ? ` / "${subSource}"` : ""}`);
   subMap
     .get(subSource)
-    .push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep, note, explainerUrl });
+    .push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep, note, explainerUrl, downloads });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -202,6 +251,7 @@ function extractLayerEntries(src, file) {
           currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
           ...extractOptionalMetadata(forwardBlock.slice(0, sourcesMatch.index), src),
           ...extractOptionalMetadata(sm[0], src),
+          currentDownloads: readDownloads(sm[0]),
           file,
         });
       }
@@ -234,6 +284,7 @@ function extractLayerEntries(src, file) {
         currentLayerLabel,
         currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
         ...extractOptionalMetadata(forwardBlock, src),
+        currentDownloads: readDownloads(forwardBlock),
         file,
       });
     }
@@ -250,6 +301,33 @@ function extractOptionalMetadata(block, src) {
     result[field] = decodeJsString(match[1] ?? constant?.[1] ?? "");
   }
   return result;
+}
+
+/**
+ * Find a `downloads: [...]` array literal in a block of config source: its
+ * start and end offsets and parsed value. Brackets are matched (strings
+ * skipped), so a literal Prettier wrapped over several lines is read too.
+ */
+function findDownloadsLiteral(block) {
+  const match = /downloads:\s*\[/.exec(block);
+  if (!match) return null;
+  const open = match.index + match[0].length - 1;
+  let depth = 0;
+  for (let i = open; i < block.length; i++) {
+    const ch = block[i];
+    if (ch === '"') {
+      for (i++; i < block.length && block[i] !== '"'; i++) if (block[i] === "\\") i++;
+    } else if (ch === "[") depth++;
+    else if (ch === "]" && --depth === 0) {
+      const literal = block.slice(open, i + 1).replace(/,(\s*\])/g, "$1");
+      return { start: match.index, end: i + 1, value: JSON.parse(literal) };
+    }
+  }
+  throw new Error("Unterminated downloads array in layer config");
+}
+
+function readDownloads(block) {
+  return findDownloadsLiteral(block)?.value ?? [];
 }
 
 const jsEntries = [];
@@ -287,6 +365,7 @@ const statusChanges = [];
 const labelChanges = new Map();
 const descChanges = [];
 const metadataChanges = [];
+const downloadChanges = [];
 
 // Track which CSV entries were matched
 const csvMatched = new Map();
@@ -320,6 +399,10 @@ for (const entry of jsEntries) {
     if (csvEntry[field] !== undefined && csvEntry[field] !== (entry[field] ?? "")) {
       metadataChanges.push({ ...entry, field, value: csvEntry[field] });
     }
+  }
+
+  if (csvEntry.downloads !== undefined && !sameDownloads(csvEntry.downloads, entry.currentDownloads)) {
+    downloadChanges.push({ ...entry, downloads: csvEntry.downloads });
   }
 
   // Check for MapX ID change
@@ -446,6 +529,15 @@ if (metadataChanges.length) {
   }
 }
 
+if (downloadChanges.length) {
+  console.log(`\n── Download file updates (${downloadChanges.length}) ──`);
+  for (const change of downloadChanges) {
+    const sub = change.subSource ? ` [${change.subSource}]` : "";
+    const files = change.downloads.map(([url, bytes]) => `${url} (${bytes} bytes)`).join(", ") || "(none)";
+    console.log(`  ${change.key}${sub}: ${files}`);
+  }
+}
+
 if (!APPLY) {
   console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
   process.exit(0);
@@ -462,6 +554,7 @@ if (
   labelChanges.size === 0 &&
   descChanges.length === 0 &&
   metadataChanges.length === 0 &&
+  downloadChanges.length === 0 &&
   applyableStatusChanges.length === 0
 ) {
   console.log("\n--apply: nothing to change.\n");
@@ -482,6 +575,7 @@ for (const change of descChanges) {
   changesByFile[change.file] ??= [];
 }
 for (const change of metadataChanges) changesByFile[change.file] ??= [];
+for (const change of downloadChanges) changesByFile[change.file] ??= [];
 for (const change of applyableStatusChanges) {
   changesByFile[change.file] ??= [];
 }
@@ -565,7 +659,40 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         );
       };
       if (!change.subSource) return patch(block);
-      const source = new RegExp(`\\{[^}]*?label:\\s*"${escapeRe(change.subSource)}"[^}]*\\}`);
+      // [^{}]: a first source's label must not match from the layer's own brace.
+      const source = new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
+      return block.replace(source, patch);
+    });
+    src = result.src;
+    modified ||= result.modified;
+  }
+
+  for (const change of downloadChanges.filter((change) => change.file === relPath)) {
+    const result = replaceInLayerBlock(src, change.key, (block) => {
+      const patch = (object) => {
+        const existing = findDownloadsLiteral(object);
+        const literal = `downloads: ${formatDownloads(change.downloads)}`;
+        if (existing) {
+          if (change.downloads.length) {
+            return object.slice(0, existing.start) + literal + object.slice(existing.end);
+          }
+          // Remove the field with its trailing comma and line.
+          const after = object.slice(existing.end).replace(/^,?[ \t]*\n?[ \t]*/, "");
+          return object.slice(0, existing.start) + after;
+        }
+        if (!change.downloads.length) return object;
+        return object.replace(
+          /(label:\s*"(?:\\.|[^"\\])*",)/,
+          (_match, label) => `${label}\n        ${literal},`,
+        );
+      };
+      if (!change.subSource) return patch(block);
+      // Sub-source labels can repeat within a layer (recovery-speed), view ids
+      // cannot: find the source object by its id, by its label only without one.
+      // [^{}] keeps a first source from matching from the layer's own brace.
+      const source = change.currentId
+        ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.currentId)}"[^{}]*\\}`)
+        : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
       return block.replace(source, patch);
     });
     src = result.src;
@@ -591,6 +718,14 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
 }
 
 console.log("\nDone. Review the changes with: git diff src/config/layers/\n");
+
+function sameDownloads(a, b) {
+  return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+}
+
+function formatDownloads(downloads) {
+  return `[${downloads.map(([url, bytes]) => `[${JSON.stringify(url)}, ${bytes}]`).join(", ")}]`;
+}
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

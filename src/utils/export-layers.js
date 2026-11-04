@@ -49,6 +49,11 @@ function row(...values) {
   return values.map(cell).join(",");
 }
 
+/** A view's hosted files as the inventory's two ";"-separated cells. */
+function downloadCells(downloads = []) {
+  return [downloads.map(([url]) => url).join("; "), downloads.map(([, bytes]) => bytes).join("; ")];
+}
+
 function inventoryStatus(layer, src) {
   if (layer.external && isLayerPublished(layer)) return "External runtime";
   const raw = getLayerStatus(layer, src);
@@ -77,6 +82,8 @@ export function generateLayerInventoryCSV() {
       "Inventory status",
       "Note",
       "Explainer link",
+      "Download URL",
+      "Download size (bytes)",
     ),
   ];
 
@@ -117,6 +124,7 @@ export function generateLayerInventoryCSV() {
               inventoryStatus(layer, src),
               src.note ?? layer.note ?? "",
               src.explainerUrl ?? layer.explainerUrl ?? "",
+              ...downloadCells(src.downloads),
             ),
           );
         }
@@ -139,6 +147,7 @@ export function generateLayerInventoryCSV() {
             inventoryStatus(layer),
             layer.note || "",
             layer.explainerUrl || "",
+            ...downloadCells(layer.downloads),
           ),
         );
       }
