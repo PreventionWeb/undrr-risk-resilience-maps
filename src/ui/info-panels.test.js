@@ -134,6 +134,16 @@ describe("buildSourcesPanel", () => {
       expect(downloads.handleClick).toHaveBeenCalledTimes(1);
     });
 
+    it("gives every download control on the page its own accessible name", () => {
+      const panel = buildSourcesPanel({ downloads: { handleClick: vi.fn() } });
+      const names = [...panel.querySelectorAll("[data-action='download-csv'], a.layer-downloads__link")].map(
+        (el) => el.getAttribute("aria-label"),
+      );
+      expect(names.length).toBeGreaterThan(80);
+      expect(new Set(names).size).toBe(names.length);
+      expect(names).toContain("Download CSV: Rice AAL (%) – Warming level +2°C (values per region)");
+    });
+
     it("replaces each GAR2026 request link with that map's CSV", () => {
       // Every GAR2026 map is a region-level vector view today, so none falls
       // back to the email; layer-links.test.js covers the fallback itself.

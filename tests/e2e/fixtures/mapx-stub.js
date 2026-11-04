@@ -197,10 +197,10 @@
       var tables = window.__mapxStubTables || {};
       return (
         tables[params.idView] || [
-          { j0_value: 2.5, iso3cd: "BBB", maplab: "Region B", gid: 2 },
+          { j0_value: 2.5, iso3cd: "CCB", maplab: "Region B", gid: 2 },
           { j0_value: null, iso3cd: "CCC", maplab: "Region C", gid: 3 },
-          { j0_value: 1, iso3cd: "AAA", maplab: "Region A", gid: 1 },
-          { j0_value: 7, iso3cd: "xAA", maplab: "Placeholder area", gid: 4 },
+          { j0_value: 1, iso3cd: "CCA", maplab: "Region A", gid: 1 },
+          { j0_value: 7, iso3cd: "xQZ", maplab: "Placeholder area", gid: 4 },
         ]
       );
     },

@@ -1,27 +1,48 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { CSV_VIEWS } from "../config/downloads.js";
 import { createLayerRegistry } from "../config/registry.js";
 import { createDownloads } from "./downloads.js";
 
 const layer = { id: "MX-VEC", key: "vec", label: "Vector", type: "vt", geometry: "point" };
 const registry = createLayerRegistry([{ id: "t", label: "T", layers: [layer] }]);
 
+beforeAll(() => CSV_VIEWS.add("MX-VEC"));
+afterAll(() => CSV_VIEWS.delete("MX-VEC"));
+
 const REFERENCE = "MX-NAMES";
 const REFERENCE_ROWS = [
-  { j0_x: null, iso3cd: "AAA", maplab: "Region A", gid: 1 },
-  { j0_x: null, iso3cd: "BBB", maplab: "Region B", gid: 2 },
+  { j0_x: null, iso3cd: "CCA", maplab: "Region A", gid: 1 },
+  { j0_x: null, iso3cd: "CCB", maplab: "Region B", gid: 2 },
 ];
+
+/** A Storage stand-in. */
+function memoryStorage() {
+  const data = new Map();
+  return {
+    getItem: (key) => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => data.set(key, String(value)),
+    data,
+  };
+}
 
 function setup({
   ready = true,
-  rows = [{ j0_v: 1, iso3cd: "AAA", maplab: "Region A", gid: 1 }],
+  canLoad = true,
+  rows = [{ j0_v: 1, iso3cd: "CCA", maplab: "Region A", gid: 1 }],
   reference = async () => REFERENCE_ROWS,
+  storage = memoryStorage(),
+  read = null,
 } = {}) {
   let isReady = ready;
+  let canLoadMap = canLoad;
   const listeners = new Set();
   const save = vi.fn();
+  const openMap = vi.fn();
+  const temporary = [];
   const sdk = {
     ask: vi.fn(async (method, params) => {
       if (method !== "get_view_table_attribute") return true;
+      if (read) return read(params);
       return params.idView === REFERENCE ? reference() : rows;
     }),
   };
@@ -29,41 +50,52 @@ function setup({
     registry,
     isViewWanted: () => false,
     isViewLoaded: () => false,
+    onTemporaryView: (active) => temporary.push(active),
     isReady: () => isReady,
+    canLoadMap: () => canLoadMap,
+    openMap,
     onReadyChange: (fn) => {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
     getSdk: () => sdk,
+    viewerUrl: () => "https://viewer.example/",
     save,
+    storage,
     now: () => new Date("2026-11-04T00:00:00Z"),
     readyTimeoutMs: 1000,
     regionNameView: REFERENCE,
   });
   const becomeReady = () => {
     isReady = true;
+    canLoadMap = true;
     for (const fn of [...listeners]) fn(true);
   };
-  return { downloads, save, sdk, becomeReady, listeners };
+  return { downloads, save, sdk, becomeReady, listeners, openMap, temporary, storage };
 }
 
-const dialogState = () => document.querySelector("dialog.download-dialog")?.dataset.state;
-const statusText = () => document.querySelector('dialog [data-part="status"]').textContent;
+const dialogEl = () => document.querySelector("dialog.download-dialog");
+const dialogState = () => dialogEl()?.dataset.state;
+const statusText = () => dialogEl().querySelector('[data-part="status"]').textContent;
+const noticeEl = () => dialogEl().querySelector('[data-part="notice"]');
+const methods = (sdk) => sdk.ask.mock.calls.map(([method, params]) => `${method}:${params?.idView}`);
 
 describe("createDownloads", () => {
   let current;
   afterEach(() => {
     current?.downloads.destroy();
+    current = null;
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("ignores views it cannot make a CSV for", () => {
     current = setup();
     expect(current.downloads.requestCsv("MX-UNKNOWN")).toBe(false);
-    expect(document.querySelector("dialog")).toBeNull();
+    expect(dialogEl()).toBeNull();
   });
 
-  it("waits for the map to be ready, then downloads <layer-key>_<view-id>.csv", async () => {
+  it("waits for a map that is loading, then downloads <layer-key>_<view-id>.csv", async () => {
     vi.useFakeTimers();
     current = setup({ ready: false });
     expect(current.downloads.requestCsv("MX-VEC")).toBe(true);
@@ -75,20 +107,39 @@ describe("createDownloads", () => {
     expect(dialogState()).toBe("done");
     const [, csv, filename] = current.save.mock.calls[0];
     expect(filename).toBe("vec_MX-VEC.csv");
-    expect(csv).toContain("# Downloaded: 2026-11-04\r\n");
-    expect(csv).toContain("iso3,region_name,Vector\r\nAAA,Region A,1\r\n");
+    expect(csv).toContain("#,Downloaded (UTC): 2026-11-04\r\n");
+    expect(csv).toContain("#,Downloaded from: https://viewer.example/\r\n");
+    expect(csv).toContain("iso3,region_name,Vector\r\nCCA,Region A,1\r\n");
     expect(current.listeners.size).toBe(0);
+    // The temporary add of the target view was bracketed for the map mask.
+    expect(current.temporary).toEqual([true, false]);
   });
 
-  it("explains a map that never became ready, and retries", async () => {
+  it("fails at once, offering to open the map, where the map cannot start (narrow screens)", async () => {
+    vi.useFakeTimers();
+    current = setup({ ready: false, canLoad: false });
+    current.downloads.requestCsv("MX-VEC");
+    await vi.advanceTimersByTimeAsync(10);
+    expect(dialogState()).toBe("error");
+    expect(statusText()).toMatch(/map has not started yet/);
+    expect(current.sdk.ask).not.toHaveBeenCalled();
+    const open = dialogEl().querySelector('[data-action="extra"]');
+    expect(open.hidden).toBe(false);
+    expect(open.textContent).toBe("Open the map");
+    open.click();
+    expect(current.openMap).toHaveBeenCalledWith("t");
+    expect(dialogEl().hasAttribute("open")).toBe(false);
+  });
+
+  it("explains a map that never became ready while loading, and retries", async () => {
     vi.useFakeTimers();
     current = setup({ ready: false });
     current.downloads.requestCsv("MX-VEC");
     await vi.advanceTimersByTimeAsync(1000);
     expect(dialogState()).toBe("error");
-    expect(statusText()).toMatch(/map service has not finished loading/);
+    expect(statusText()).toMatch(/did not finish loading/);
     current.becomeReady();
-    document.querySelector('dialog [data-action="retry"]').click();
+    dialogEl().querySelector('[data-action="retry"]').click();
     await vi.advanceTimersByTimeAsync(10);
     expect(dialogState()).toBe("done");
   });
@@ -101,47 +152,74 @@ describe("createDownloads", () => {
       "This layer's data has no region codes, so it cannot be exported as a values-only CSV.",
     );
     expect(current.save).not.toHaveBeenCalled();
+    // No names are read for a table that has none to name.
+    expect(methods(current.sdk).some((call) => call.endsWith(REFERENCE))).toBe(false);
   });
 
-  it("takes region names from the reference view once, for tables without maplab", async () => {
-    current = setup({
-      rows: [
-        { j0_v: 3, iso3cd: "BBB", name_en: "Local#Name", gid: 2 },
-        { j0_v: 1, iso3cd: "AAA", name_en: "Local#Name", gid: 1 },
-        { j0_v: 2, iso3cd: "DDD", name_en: "Local#Name", gid: 3 },
-      ],
-    });
+  it("reads reference names once and keeps them in storage for later sessions", async () => {
+    const storage = memoryStorage();
+    const rows = [
+      { j0_v: 3, iso3cd: "CCB", name_en: "Local#Name", gid: 2 },
+      { j0_v: 1, iso3cd: "CCA", name_en: "Local#Name", gid: 1 },
+      { j0_v: 2, iso3cd: "CCD", name_en: "Local#Name", gid: 3 },
+    ];
+    current = setup({ rows, storage });
     current.downloads.requestCsv("MX-VEC");
     await vi.waitFor(() => expect(dialogState()).toBe("done"));
     expect(current.save.mock.calls[0][1]).toContain(
-      "iso3,region_name,Vector\r\nAAA,Region A,1\r\nBBB,Region B,3\r\nDDD,,2\r\n",
+      "iso3,region_name,Vector\r\nCCA,Region A,1\r\nCCB,Region B,3\r\nCCD,,2\r\n",
     );
-    current.downloads.dialog.close();
+    expect(noticeEl().hidden).toBe(true);
+    expect(methods(current.sdk).filter((call) => call.endsWith(REFERENCE))).toHaveLength(3); // add, read, remove
+
+    // A new instance (a later page load) uses the stored names: no reference add.
+    current.downloads.destroy();
+    current = setup({ rows, storage });
     current.downloads.requestCsv("MX-VEC");
-    await vi.waitFor(() => expect(current.save).toHaveBeenCalledTimes(2));
-    const referenceReads = current.sdk.ask.mock.calls.filter(
-      ([method, params]) => method === "get_view_table_attribute" && params.idView === REFERENCE,
-    );
-    expect(referenceReads).toHaveLength(1);
+    await vi.waitFor(() => expect(dialogState()).toBe("done"));
+    expect(methods(current.sdk).some((call) => call.endsWith(REFERENCE))).toBe(false);
+    expect(current.save.mock.calls[0][1]).toContain("CCA,Region A,1");
   });
 
-  it("still downloads, with blank names, when the reference view cannot be read", async () => {
+  it("downloads with blank names when the reference cannot be read, and says so", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     current = setup({
-      rows: [{ j0_v: 1, iso3cd: "AAA", name_en: "Local#Name", gid: 1 }],
+      rows: [{ j0_v: 1, iso3cd: "CCA", name_en: "Local#Name", gid: 1 }],
       reference: async () => Promise.reject(new Error("down")),
     });
     current.downloads.requestCsv("MX-VEC");
     await vi.waitFor(() => expect(dialogState()).toBe("done"));
-    expect(current.save.mock.calls[0][1]).toContain("iso3,region_name,Vector\r\nAAA,,1\r\n");
-    vi.restoreAllMocks();
+    const csv = current.save.mock.calls[0][1];
+    expect(csv).toContain("iso3,region_name,Vector\r\nCCA,,1\r\n");
+    expect(csv).toMatch(/#,Region names: Not available/);
+    expect(noticeEl().hidden).toBe(false);
+    expect(noticeEl().textContent).toMatch(/Region names could not be loaded/);
+    expect(dialogEl().querySelector('[data-action="retry"]').hidden).toBe(false);
   });
 
-  it("does not read names for a table that has none to name", async () => {
-    current = setup({ rows: [{ j0_v: 1, gid: 1 }] });
+  it("stops making MapX calls once the dialog is closed mid-fetch", async () => {
+    let releaseRead;
+    const rows = [{ j0_v: 1, iso3cd: "CCA", name_en: "Local#Name", gid: 1 }];
+    current = setup({
+      read: (params) =>
+        params.idView === "MX-VEC"
+          ? new Promise((resolve) => (releaseRead = () => resolve(rows)))
+          : REFERENCE_ROWS,
+    });
     current.downloads.requestCsv("MX-VEC");
-    await vi.waitFor(() => expect(dialogState()).toBe("error"));
-    expect(current.sdk.ask.mock.calls.some(([, params]) => params?.idView === REFERENCE)).toBe(false);
+    await vi.waitFor(() => expect(releaseRead).toBeTypeOf("function"));
+    expect(methods(current.sdk)).toEqual(["view_add:MX-VEC", "get_view_table_attribute:MX-VEC"]);
+    current.downloads.dialog.close();
+    releaseRead();
+    await vi.waitFor(() => expect(current.temporary).toEqual([true, false]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Only the removal of the view it had added; no reference names, no file.
+    expect(methods(current.sdk)).toEqual([
+      "view_add:MX-VEC",
+      "get_view_table_attribute:MX-VEC",
+      "view_remove:MX-VEC",
+    ]);
+    expect(current.save).not.toHaveBeenCalled();
   });
 
   it("starts from a delegated click on a Download CSV button", async () => {

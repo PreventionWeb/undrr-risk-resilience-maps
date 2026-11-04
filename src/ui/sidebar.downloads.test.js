@@ -4,10 +4,10 @@ import { waitFor } from "../../tests/support/async.js";
 const mocks = vi.hoisted(() => {
   const calls = [];
   const table = [
-    { j0_value: 2.5, iso3cd: "BBB", maplab: "Region B", gid: 2 },
+    { j0_value: 2.5, iso3cd: "CCB", maplab: "Region B", gid: 2 },
     { j0_value: null, iso3cd: "CCC", maplab: "Region C", gid: 3 },
-    { j0_value: 1, iso3cd: "AAA", maplab: "Region A", gid: 1 },
-    { j0_value: 9, iso3cd: "xAA", maplab: "Placeholder", gid: 4 },
+    { j0_value: 1, iso3cd: "CCA", maplab: "Region A", gid: 1 },
+    { j0_value: 9, iso3cd: "xQZ", maplab: "Placeholder", gid: 4 },
   ];
   const sdk = {
     ask: vi.fn(async (method, params) => {
@@ -80,7 +80,11 @@ vi.mock("./info-panels.js", () => ({
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 
+import { CSV_VIEWS } from "../config/downloads.js";
 import { createSidebar } from "./sidebar.js";
+
+// The test's vector layer is a reviewed CSV view.
+CSV_VIEWS.add("MX-VEC-1");
 
 describe("sidebar downloads (prototype, ?downloads=1)", () => {
   let sidebar;
@@ -90,6 +94,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     document.body.innerHTML = `
       <nav data-ui="nav"></nav>
       <div data-ui="info-page"></div>
+      <div data-ui="app-map"><div data-ui="mapx"></div></div>
       <div data-ui="layer-panel"><div class="layer-panel-header"></div><div data-ui="panel-body"></div></div>
       <button data-ui="clear-layers" hidden></button>`;
     sidebar = createSidebar(document.body, options);
@@ -166,6 +171,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect(dialog.getAttribute("aria-label")).toBe("Download CSV: Vector Layer");
     await waitFor(() => expect(dialog.dataset.state).toBe("done"));
 
+    expect(document.querySelector('[data-ui="mapx"]').classList.contains("is-reading-data")).toBe(false);
     expect(mocks.calls).toEqual([
       ["view_add", { idView: "MX-VEC-1", zoomToView: false }],
       ["get_view_table_attribute", { idView: "MX-VEC-1" }],
@@ -183,17 +189,17 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const text = await blobs[0].text(); // decoding drops the mark
     const lines = text.trimEnd().split("\r\n");
-    expect(lines.filter((line) => line.startsWith("# "))).toEqual(
+    expect(lines.filter((line) => line.startsWith("#,"))).toEqual(
       expect.arrayContaining([
-        "# Title: Vector Layer",
-        "# MapX view ID: MX-VEC-1",
-        "# Citation: Provider (2026).",
+        "#,Title: Vector Layer",
+        "#,MapX view ID: MX-VEC-1",
+        "#,Citation: Provider (2026).",
       ]),
     );
-    expect(lines.filter((line) => !line.startsWith("# "))).toEqual([
+    expect(lines.filter((line) => !line.startsWith("#,"))).toEqual([
       "iso3,region_name,Vector Layer",
-      "AAA,Region A,1",
-      "BBB,Region B,2.5",
+      "CCA,Region A,1",
+      "CCB,Region B,2.5",
     ]);
 
     // Closing returns focus to the button that opened it.

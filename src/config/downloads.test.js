@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CSV_EXCLUDED_VIEWS,
+  CSV_VIEWS,
   LARGE_DOWNLOAD_BYTES,
   REGION_NAME_REFERENCE_VIEW,
   formatBytes,
@@ -42,6 +43,11 @@ describe("formatBytes", () => {
 });
 
 describe("normaliseDownload", () => {
+  it("never throws on a malformed URL or escape", () => {
+    expect(normaliseDownload(["https://example.org/bad%E0%A4%A.tif", 1]).filename).toBe("bad%E0%A4%A.tif");
+    expect(normaliseDownload(["not a url/file.tif", 1]).filename).toBe("file.tif");
+  });
+
   it("derives the file name, format and large-file flag", () => {
     expect(normaliseDownload(["https://gar-data.unepgrid.ch/2026/PGA_475y.tif", 1_392_370_312])).toEqual({
       url: "https://gar-data.unepgrid.ch/2026/PGA_475y.tif",
@@ -55,8 +61,14 @@ describe("normaliseDownload", () => {
 });
 
 describe("isCsvEligible", () => {
-  it("offers a CSV for published vector views only", () => {
-    expect(isCsvEligible(vector(), "MX-AAAAA")).toBe(true);
+  it("offers a CSV only for allowlisted views, and only while they are published vector views", () => {
+    const listed = [...CSV_VIEWS][0];
+    expect(isCsvEligible(vector({ id: listed }), listed)).toBe(true);
+    // A vector view nobody has reviewed gets no CSV.
+    expect(isCsvEligible(vector(), "MX-AAAAA")).toBe(false);
+    expect(isCsvEligible(vector({ type: "rt" }), listed)).toBe(false);
+    expect(isCsvEligible(vector({ status: "disabled-pending-removal" }), listed)).toBe(false);
+    expect(isCsvEligible(vector({ external: { provider: "x" } }), listed)).toBe(false);
     expect(isCsvEligible(vector({ type: "rt" }), "MX-AAAAA")).toBe(false);
     expect(isCsvEligible(vector({ type: "cc" }), "MX-AAAAA")).toBe(false);
     expect(isCsvEligible(vector({ status: "disabled-pending-removal" }), "MX-AAAAA")).toBe(false);
@@ -94,6 +106,19 @@ describe("the configured downloads", () => {
     const urls = publishedViews().flatMap(([l, s]) => getViewDownloads(l, s).files.map((f) => f.url));
     expect(urls).toContain("https://gar-data.unepgrid.ch/2026/PGA_475y.tif");
     expect(urls.some((url) => url.includes("PGA_450y"))).toBe(false);
+  });
+
+  it("classify every published vector view: on the CSV allowlist or excluded with a reason", () => {
+    const vectorIds = publishedViews()
+      .filter(([layer]) => layer.type === "vt")
+      .map(([layer, source]) => (source ?? layer).id);
+    for (const id of vectorIds) {
+      expect(CSV_VIEWS.has(id) !== CSV_EXCLUDED_VIEWS.has(id), `${id} must be in exactly one list`).toBe(
+        true,
+      );
+    }
+    // No stale entries either.
+    for (const id of CSV_VIEWS) expect(vectorIds, id).toContain(id);
   });
 
   it("offer a CSV for 69 region-level vector views", () => {

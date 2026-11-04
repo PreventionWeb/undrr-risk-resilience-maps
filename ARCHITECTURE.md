@@ -92,6 +92,7 @@ undrr-risk-resilience-maps/
 │   │       └── stepped-slider.js # Range slider for return periods
 │   ├── utils/
 │   │   ├── camera.js           # Parse and clamp centres, zooms, bounds and area codes (URL, messages, config)
+│   │   ├── csv.js              # RFC 4180 cells, BOM/CRLF, blob download (inventory export + region CSV)
 │   │   └── region-csv.js       # Pure values-only CSV builder for region-level views
 │   └── styles/
 │       ├── shared.css          # CSS entry point (@imports)
@@ -648,7 +649,7 @@ unchanged. The embed reads the same parameter in `src/embed/params.js`.
 
 - **What a view offers** is decided from config alone (`getViewDownloads()` in
   `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
-  `data/inventory.csv`), and a CSV for published, non-external `vt` views not in `CSV_EXCLUDED_VIEWS`.
+  `data/inventory.csv`), and a CSV for the views on the `CSV_VIEWS` allowlist (published `vt` layers).
 - **Markup** (`src/ui/download-links.js`) is shared by the row's `.layer-downloads-slot` (rendered for
   the view shown, next to the context links) and the Sources Download column. The "Download CSV" button
   is handled by a delegated click listener on the row slot and on the Sources panel. A view with a
@@ -657,8 +658,12 @@ unchanged. The embed reads the same parameter in `src/embed/params.js`.
   added for the read and removed again without going through the layer controller: no store write,
   `zoomToView: false`, and the sidebar's `isViewWanted(viewId)` (a record shows that view, or wants it
   as its target) is checked before the removal so a layer the user turned on meanwhile stays. The
-  sidebar also remembers every view a record has shown, so those are read without another add. Views
-  whose table has no `maplab` take region names from `REGION_NAME_REFERENCE_VIEW`, read once.
+  sidebar also remembers every view a record has shown, so those are read without another add. While a
+  temporary view exists the sidebar hides the map frame (`.is-reading-data`, opacity 0): MapX paints a
+  view before it can be made transparent. Every MapX call of a run checks for cancellation first. Views
+  whose table has no `maplab` take region names from `REGION_NAME_REFERENCE_VIEW`, cached in
+  localStorage. CSV text, BOM/CRLF and the blob download are shared with the inventory export in
+  `src/utils/csv.js`.
 - **The dialog** is a native modal `<dialog>` with its own announcer region inside it (the sidebar's
   region is outside the modal and so inert while it is open).
 

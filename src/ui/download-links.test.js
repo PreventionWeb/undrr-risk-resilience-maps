@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { CSV_VIEWS } from "../config/downloads.js";
 import { downloadListHtml, sourcesRowDownloadsHtml } from "./download-links.js";
 
 function render(html) {
   const host = document.createElement("div");
   host.innerHTML = html;
   return host;
+}
+
+/** What the control shows: its text without the visually hidden part. */
+function visibleText(el) {
+  const copy = el.cloneNode(true);
+  copy.querySelectorAll(".mg-u-sr-only").forEach((hidden) => hidden.remove());
+  return copy.textContent.trim();
 }
 
 const group = {
@@ -14,19 +22,56 @@ const group = {
   type: "rt",
   downloads: [
     ["https://gar-data.unepgrid.ch/2026/first.tif", 333_771_240],
-    ["https://gar-data.unepgrid.ch/2026/second.tif", 44_824_306],
+    ["https://gar-data.unepgrid.ch/2026/second.tif", 1_444_824_306],
   ],
 };
+
+const compound = {
+  id: null,
+  key: "compound",
+  label: "Compound",
+  type: "vt",
+  sources: [
+    { id: "MX-S1", label: "First" },
+    { id: "MX-S2", label: "Second" },
+  ],
+};
+
+beforeAll(() => {
+  CSV_VIEWS.add("MX-S1");
+  CSV_VIEWS.add("MX-S2");
+});
+afterAll(() => {
+  CSV_VIEWS.delete("MX-S1");
+  CSV_VIEWS.delete("MX-S2");
+});
 
 describe("downloadListHtml", () => {
   it("lists every hosted file of a view with its own name, format and size", () => {
     const links = [...render(downloadListHtml(group)).querySelectorAll("a")];
-    expect(links.map((link) => [link.getAttribute("download"), link.textContent.trim()])).toEqual([
+    expect(links.map((link) => [link.getAttribute("download"), visibleText(link)])).toEqual([
       ["first.tif", "Download first.tif (GeoTIFF, 333.8 MB)"],
-      ["second.tif", "Download second.tif (GeoTIFF, 44.8 MB)"],
+      ["second.tif", "Download second.tif (GeoTIFF, 1.4 GB)"],
     ]);
-    // Under 1 GB: no warning.
-    expect(render(downloadListHtml(group)).querySelector(".layer-downloads__warning")).toBeNull();
+  });
+
+  it("names each control after its view, starting with the visible words", () => {
+    const host = render(downloadListHtml(compound, compound.sources[1]));
+    const button = host.querySelector("button");
+    expect(visibleText(button)).toBe("Download CSV (values per region)");
+    expect(button.getAttribute("aria-label")).toBe("Download CSV: Compound – Second (values per region)");
+    const link = render(downloadListHtml(group)).querySelector("a");
+    expect(link.getAttribute("aria-label")).toBe("Download first.tif: Group (GeoTIFF, 333.8 MB)");
+  });
+
+  it("ties the large-file warning to its link with aria-describedby, with unique ids", () => {
+    const first = render(downloadListHtml(group));
+    const second = render(downloadListHtml(group));
+    const [small, large] = first.querySelectorAll("a");
+    expect(small.hasAttribute("aria-describedby")).toBe(false);
+    const id = large.getAttribute("aria-describedby");
+    expect(first.querySelector(`#${id}`).textContent).toContain("Over 1 GB");
+    expect(second.querySelectorAll("a")[1].getAttribute("aria-describedby")).not.toBe(id);
   });
 
   it("draws nothing for a view without downloads or an unpublished layer", () => {
@@ -37,26 +82,18 @@ describe("downloadListHtml", () => {
   it("escapes what it writes", () => {
     const html = downloadListHtml({
       ...group,
+      label: "<b>Group</b>",
       downloads: [['https://example.org/a"b.tif', 10]],
     });
     expect(html).not.toContain('a"b');
+    expect(html).not.toContain("<b>");
     expect(render(html).querySelector("a").getAttribute("download")).toBe('a"b.tif');
   });
 });
 
 describe("sourcesRowDownloadsHtml", () => {
   it("names each compound source before its controls", () => {
-    const layer = {
-      id: null,
-      key: "compound",
-      label: "Compound",
-      type: "vt",
-      sources: [
-        { id: "MX-S1", label: "First" },
-        { id: "MX-S2", label: "Second" },
-      ],
-    };
-    const host = render(sourcesRowDownloadsHtml(layer));
+    const host = render(sourcesRowDownloadsHtml(compound));
     expect([...host.querySelectorAll(".layer-downloads__source")].map((el) => el.textContent)).toEqual([
       "First:",
       "Second:",

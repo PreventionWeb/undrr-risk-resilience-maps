@@ -14,40 +14,51 @@
  *
  * ## What the CSV holds
  *
- * - `iso3`, `region_name`, then one column per value attribute. A single value
- *   column is named from our layer config (the view's label); otherwise, or
- *   without a label, from the attribute name without its `jN_` prefix.
+ * - `iso3`, `region_name`, then one column per value attribute. Only joined
+ *   value attributes (`jN_…`) are exported: a whitelist, so a column MapX might
+ *   add later (geometry, coordinates, timestamps) can never become a value. A
+ *   single value column is named from our layer config (the view's label);
+ *   otherwise, or without a label, from the attribute name without its prefix.
  * - `region_name` is `maplab`. `name_en` is not used: it holds the romanised
  *   local names joined with `#` (several languages in one cell), which is not a
  *   display name. A view without `maplab` takes names from `regionNames` (the
  *   caller reads them from another view on the same boundary table; see
  *   REGION_NAME_REFERENCE_VIEW), and a code missing there is left blank. No
  *   lookup table of names is kept in this repo.
- * - Dropped: `gid`; rows with no value; rows whose code is not a standard
- *   ISO 3166-1 alpha-3 code (three uppercase letters). The boundary table also
- *   holds a few areas with placeholder codes, and some views carry values for
- *   them; they are left out until UNEP/GRID-Geneva advise how to publish them.
+ * - Dropped: `gid`; rows with no value (null, blank, NaN, Infinity); rows
+ *   whose code is not a standard ISO 3166-1 alpha-3 code (three uppercase
+ *   letters outside the ranges ISO reserves for user assignment); and a code
+ *   repeated after its first row. The boundary table also holds a few areas
+ *   with placeholder codes, and some views carry values for them; they are
+ *   left out until UNEP/GRID-Geneva advise how to publish them.
  *
  * ## Format
  *
  * UTF-8 with a byte-order mark (so Excel reads the names correctly), CRLF line
  * ends and RFC 4180 quoting. A short metadata block from our config comes
- * first, as `# `-prefixed lines (title, citation, license, source, MapX view ID,
- * download date). We chose a header block over a sidecar file: one download,
- * and the attribution travels with the data. Data tools skip it with a comment
- * option (`pandas.read_csv(path, comment="#")`, `read.csv(path, comment.char = "#")`);
- * spreadsheets show it as the first rows.
+ * first: one line per field, `#,"<Label>: <value>"` (title, citation, license,
+ * source, MapX view ID, download date). We chose a header block over a sidecar
+ * file: one download, and the attribution travels with the data. Data tools
+ * skip it with a comment option (`pandas.read_csv(path, comment="#")`,
+ * `read.csv(path, comment.char = "#")`), which needs the `#` outside quotes;
+ * the quoted text after it keeps a citation's commas in one spreadsheet cell.
  */
+
+import { csvCell, csvRow, csvText } from "./csv.js";
+import { HIDDEN_ATTRIBUTE_KEYS } from "./html.js";
 
 /** The region code column every region-level view carries. */
 export const REGION_CODE_ATTRIBUTE = "iso3cd";
 /** The UN map label column, when the view has one. */
 export const REGION_NAME_ATTRIBUTE = "maplab";
-/** Columns that are never values: the internal id and the unsuitable name column. */
-const NON_VALUE_ATTRIBUTES = new Set([REGION_CODE_ATTRIBUTE, REGION_NAME_ATTRIBUTE, "name_en", "gid"]);
-
-const BOM = "﻿";
-const CRLF = "\r\n";
+/** Joined value attributes, the only ones exported: `j0_…`, `j1_…`. */
+const VALUE_ATTRIBUTE = /^j\d+_./;
+/** Never values even if prefixed, and never a reason to keep a row. */
+const NEVER_VALUES = new Set(HIDDEN_ATTRIBUTE_KEYS);
+/** Our own column names; a value header that would repeat one keeps its full attribute name. */
+const FIXED_HEADERS = ["iso3", "region_name"];
+/** Defuse formulas in every cell of the region CSV (see csvCell). */
+const DEFUSE = { defuse: true };
 
 /** A CSV could not be made from the table, with a stable `code`. */
 export class RegionCsvError extends Error {
@@ -62,9 +73,15 @@ export class RegionCsvError extends Error {
   }
 }
 
-/** A standard ISO 3166-1 alpha-3 code: exactly three uppercase letters. */
+/**
+ * ISO 3166-1 alpha-3 ranges reserved for user assignment (AAA–AAZ, QMA–QZZ,
+ * XAA–XZZ, ZZA–ZZZ): never a standard code, whatever a source puts there.
+ */
+const USER_ASSIGNED = /^(AA[A-Z]|Q[M-Z][A-Z]|X[A-Z][A-Z]|ZZ[A-Z])$/;
+
+/** A standard ISO 3166-1 alpha-3 code: three uppercase letters, not user-assigned. */
 export function isStandardIso3(code) {
-  return typeof code === "string" && /^[A-Z]{3}$/.test(code);
+  return typeof code === "string" && /^[A-Z]{3}$/.test(code) && !USER_ASSIGNED.test(code);
 }
 
 /** `j0_crop_all_aal_wheat` → `crop_all_aal_wheat`. */
@@ -72,29 +89,10 @@ export function stripJoinPrefix(attribute) {
   return String(attribute).replace(/^j\d+_/, "");
 }
 
-/** MapX's empty values: null, missing, blank, and the vector-tile `$NULL`. */
+/** MapX's empty values: null, missing, blank, the vector-tile `$NULL`, and non-finite numbers. */
 function isEmptyValue(value) {
+  if (typeof value === "number") return !Number.isFinite(value);
   return value === null || value === undefined || value === "" || value === "$NULL";
-}
-
-const NUMERIC = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
-
-/**
- * One RFC 4180 cell. Quoted when it holds a comma, quote, CR or LF (quotes
- * doubled). A text cell that a spreadsheet would run as a formula (starting
- * with = + - @, tab or CR, and not a number) gets a leading apostrophe.
- */
-export function csvCell(value) {
-  if (isEmptyValue(value)) return "";
-  let text = typeof value === "object" ? JSON.stringify(value) : String(value);
-  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text) && !NUMERIC.test(text.trim())) {
-    text = `'${text}`;
-  }
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function csvRow(values) {
-  return values.map(csvCell).join(",");
 }
 
 /** `<layer-key>_<view-id>.csv`, limited to characters every file system accepts. */
@@ -112,10 +110,20 @@ export function viewLabel(layer, source = null) {
  * The metadata block for a view, from our config: `[label, value]` pairs.
  * Empty values are dropped when the block is written.
  *
- * @param {{ layer: object, source?: object|null, viewId: string, date?: Date, viewerUrl?: string }} options
+ * @param {{ layer: object, source?: object|null, viewId: string, date?: Date, viewerUrl?: string, namesMissing?: boolean }} options
+ *   `viewerUrl` is the viewer the file was downloaded from (the page's own
+ *   location, so a preview or local build says so); `namesMissing` notes that
+ *   region names could not be read.
  * @returns {Array<[string, string]>}
  */
-export function csvMetadata({ layer, source = null, viewId, date = new Date(), viewerUrl = "" }) {
+export function csvMetadata({
+  layer,
+  source = null,
+  viewId,
+  date = new Date(),
+  viewerUrl = "",
+  namesMissing = false,
+}) {
   const license = [layer.license, layer.licenseUrl].filter(Boolean).join(" ");
   return [
     ["Title", viewLabel(layer, source)],
@@ -126,9 +134,14 @@ export function csvMetadata({ layer, source = null, viewId, date = new Date(), v
     ["License", license],
     ["MapX view ID", viewId],
     ["Layer key", layer.key],
-    ["Downloaded", date.toISOString().slice(0, 10)],
+    ["Downloaded (UTC)", date.toISOString().slice(0, 10)],
     ["Downloaded from", viewerUrl],
-    ["Region names", "UN map labels as published in MapX; blank where none is available."],
+    [
+      "Region names",
+      namesMissing
+        ? "Not available for this download: the map service could not provide them."
+        : "UN map labels as published in MapX; blank where none is available.",
+    ],
     [
       "Note",
       "Values only; region boundaries are not included. Rows with no value, and areas without a standard ISO 3166-1 alpha-3 code, are left out.",
@@ -157,22 +170,41 @@ export function hasRegionNames(rows) {
   return Array.isArray(rows) && rows.some((row) => row && REGION_NAME_ATTRIBUTE in row);
 }
 
-/** Value columns: every attribute in the rows that is not a code, name or id, in first-seen order. */
+/** Value columns: the joined (`jN_…`) attributes in the rows, in first-seen order. */
 function valueAttributes(rows) {
   const seen = new Set();
   for (const row of rows) {
-    for (const key of Object.keys(row ?? {})) if (!NON_VALUE_ATTRIBUTES.has(key)) seen.add(key);
+    for (const key of Object.keys(row ?? {})) {
+      if (VALUE_ATTRIBUTE.test(key) && !NEVER_VALUES.has(stripJoinPrefix(key))) seen.add(key);
+    }
   }
   return [...seen];
 }
 
-/** Header names for the value columns; duplicates after prefix stripping keep the full name. */
+/**
+ * Header names for the value columns. Without prefixes, except where that
+ * would repeat another column's name (another value or iso3/region_name).
+ */
 function valueHeaders(attributes, valueLabel) {
-  if (attributes.length === 1 && valueLabel) return [valueLabel];
+  if (attributes.length === 1 && valueLabel && !FIXED_HEADERS.includes(valueLabel)) return [valueLabel];
   const stripped = attributes.map(stripJoinPrefix);
   return stripped.map((name, i) =>
-    stripped.indexOf(name) !== stripped.lastIndexOf(name) ? attributes[i] : name,
+    FIXED_HEADERS.includes(name) || stripped.indexOf(name) !== stripped.lastIndexOf(name)
+      ? attributes[i]
+      : name,
   );
+}
+
+/**
+ * The metadata lines: `#,"Label: value"`. The `#` is outside the quotes, so
+ * comment options skip the line; the rest is one defused, quoted cell.
+ */
+function metadataLines(metadata) {
+  return metadata
+    .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
+    .map(
+      ([label, value]) => `#,${csvCell(`${label}: ${String(value).replace(/\s*[\r\n]+\s*/g, " ")}`, DEFUSE)}`,
+    );
 }
 
 /**
@@ -183,7 +215,7 @@ function valueHeaders(attributes, valueLabel) {
  * @param {string} [options.valueLabel] - name for a single value column (our layer label)
  * @param {Array<[string, string]>} [options.metadata] - see csvMetadata(); none by default
  * @param {Map<string, string>} [options.regionNames] - names by code, for rows without `maplab`
- * @returns {{ csv: string, rowCount: number, droppedNoValue: number, droppedNonStandard: number, valueAttributes: string[] }}
+ * @returns {{ csv: string, rowCount: number, droppedNoValue: number, droppedNonStandard: number, droppedDuplicate: number, valueAttributes: string[] }}
  * @throws {RegionCsvError} when the table has no rows, no region code column or no value column
  */
 export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNames = new Map() } = {}) {
@@ -203,41 +235,51 @@ export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNam
 
   let droppedNoValue = 0;
   let droppedNonStandard = 0;
-  const kept = [];
+  let droppedDuplicate = 0;
+  const kept = new Map();
   for (const row of rows) {
     if (!row || attributes.every((attribute) => isEmptyValue(row[attribute]))) {
       droppedNoValue++;
       continue;
     }
-    if (!isStandardIso3(row[REGION_CODE_ATTRIBUTE])) {
+    const code = row[REGION_CODE_ATTRIBUTE];
+    if (!isStandardIso3(code)) {
       droppedNonStandard++;
       continue;
     }
-    kept.push(row);
+    if (kept.has(code)) {
+      droppedDuplicate++;
+      continue;
+    }
+    kept.set(code, row);
   }
-  const nameOf = (row) => row[REGION_NAME_ATTRIBUTE] ?? regionNames.get(row[REGION_CODE_ATTRIBUTE]) ?? "";
-  kept.sort(
-    (a, b) =>
-      a[REGION_CODE_ATTRIBUTE].localeCompare(b[REGION_CODE_ATTRIBUTE]) ||
-      String(nameOf(a)).localeCompare(String(nameOf(b))),
+  // `||`: a blank maplab falls back to the reference name too.
+  const nameOf = (row) => row[REGION_NAME_ATTRIBUTE] || regionNames.get(row[REGION_CODE_ATTRIBUTE]) || "";
+  const sorted = [...kept.values()].sort((a, b) =>
+    a[REGION_CODE_ATTRIBUTE].localeCompare(b[REGION_CODE_ATTRIBUTE]),
   );
 
   const lines = [
-    // One line per field; a value's own line breaks would end the comment early.
-    ...metadata
-      .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
-      .map(([label, value]) => `# ${label}: ${String(value).replace(/\s*[\r\n]+\s*/g, " ")}`),
-    csvRow(["iso3", "region_name", ...valueHeaders(attributes, valueLabel)]),
-    ...kept.map((row) =>
-      csvRow([row[REGION_CODE_ATTRIBUTE], nameOf(row), ...attributes.map((attribute) => row[attribute])]),
+    ...metadataLines(metadata),
+    csvRow([...FIXED_HEADERS, ...valueHeaders(attributes, valueLabel)], DEFUSE),
+    ...sorted.map((row) =>
+      csvRow(
+        [
+          row[REGION_CODE_ATTRIBUTE],
+          nameOf(row),
+          ...attributes.map((attribute) => (isEmptyValue(row[attribute]) ? "" : row[attribute])),
+        ],
+        DEFUSE,
+      ),
     ),
   ];
 
   return {
-    csv: BOM + lines.join(CRLF) + CRLF,
-    rowCount: kept.length,
+    csv: csvText(lines),
+    rowCount: sorted.length,
     droppedNoValue,
     droppedNonStandard,
+    droppedDuplicate,
     valueAttributes: attributes,
   };
 }

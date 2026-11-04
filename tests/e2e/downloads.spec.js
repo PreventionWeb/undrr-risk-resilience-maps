@@ -1,5 +1,14 @@
 import { readFile } from "node:fs/promises";
-import { expect, gotoApp, layerRow, openViews, settled, test, viewId } from "./fixtures/app.js";
+import {
+  expect,
+  gotoApp,
+  layerRow,
+  openViews,
+  setMapxLatency,
+  settled,
+  test,
+  viewId,
+} from "./fixtures/app.js";
 
 /**
  * Prototype data downloads (#64) are behind `?downloads=1`. Without it nothing
@@ -34,7 +43,7 @@ test("with ?downloads=1, a raster row links its GeoTIFF with format and size", a
   await expect(link).toBeVisible();
   await expect(link).toHaveAttribute("href", "https://gar-data.unepgrid.ch/2026/ls_phex.tif");
   await expect(link).toHaveAttribute("download", "ls_phex.tif");
-  await expect(link).toHaveText("Download ls_phex.tif (GeoTIFF, 75.7 MB)");
+  await expect(link).toHaveAccessibleName("Download ls_phex.tif: Landslides – Exposure (GeoTIFF, 75.7 MB)");
 });
 
 test("with ?downloads=1, the Sources page generates a values-only CSV", async ({ page }) => {
@@ -59,10 +68,10 @@ test("with ?downloads=1, the Sources page generates a values-only CSV", async ({
   const text = await readFile(await download.path(), "utf8");
   expect(text.charCodeAt(0)).toBe(0xfeff);
   const lines = text.slice(1).trimEnd().split("\r\n");
-  expect(lines).toContain(`# MapX view ID: ${id}`);
-  expect(lines.filter((line) => !line.startsWith("# ")).slice(1)).toEqual([
-    "AAA,Region A,1",
-    "BBB,Region B,2.5",
+  expect(lines).toContain(`#,MapX view ID: ${id}`);
+  expect(lines.filter((line) => !line.startsWith("#,")).slice(1)).toEqual([
+    "CCA,Region A,1",
+    "CCB,Region B,2.5",
   ]);
   await expect(dialog.locator('[role="status"]')).toHaveText(/Download started: .*\(2 regions\)\./);
 
@@ -83,6 +92,32 @@ test("with ?downloads=1, the Sources page generates a values-only CSV", async ({
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(button).toBeFocused();
+});
+
+test("closing the dialog mid-fetch stops further MapX calls and unmasks the map", async ({ page }) => {
+  await page.goto("/?downloads=1#sources");
+  await page.waitForFunction(() => window.__mapxStub?.ready === true);
+  // view_add answers slowly, so Escape lands while it is in flight.
+  await setMapxLatency(page, 600);
+  const button = sourcesPage(page).locator("[data-action='download-csv']:visible").first();
+  const id = await button.getAttribute("data-view-id");
+  await button.click();
+  const dialog = page.locator("dialog.download-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('[data-ui="mapx"]')).toHaveClass(/is-reading-data/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  // The add it had started is taken off again; nothing is read or downloaded.
+  await expect.poll(() => openViews(page)).not.toContain(id);
+  await expect(page.locator('[data-ui="mapx"]')).not.toHaveClass(/is-reading-data/);
+  const calls = await page.evaluate(
+    (viewIdToFind) =>
+      window.__mapxStub.calls
+        .filter((call) => call.params.idView === viewIdToFind)
+        .map((call) => call.method),
+    id,
+  );
+  expect(calls).toEqual(["view_add", "view_remove"]);
 });
 
 test("embed: downloads=1 shows the same controls", async ({ page }) => {

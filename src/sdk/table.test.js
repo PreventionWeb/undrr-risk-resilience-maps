@@ -134,4 +134,78 @@ describe("fetchViewTable", () => {
     expect(error.code).toBe("failed");
     expect(sdk.calls.map(([method]) => method)).toEqual(["view_add"]);
   });
+
+  it("brackets a temporary add with onTemporary(true/false), after the removal", async () => {
+    const events = [];
+    const sdk = fakeSdk({ get_view_table_attribute: async () => ROWS });
+    const ask = sdk.ask;
+    sdk.ask = (method, params) => {
+      events.push(method);
+      return ask(method, params);
+    };
+    await fetchViewTable(sdk, "MX-1", { onTemporary: (active) => events.push(active ? "mask" : "unmask") });
+    expect(events).toEqual(["mask", "view_add", "get_view_table_attribute", "view_remove", "unmask"]);
+  });
+
+  it("does not call onTemporary for a loaded view", async () => {
+    const onTemporary = vi.fn();
+    const sdk = fakeSdk({ get_view_table_attribute: async () => ROWS });
+    await fetchViewTable(sdk, "MX-1", { isLoaded: () => true, isWanted: () => true, onTemporary });
+    expect(onTemporary).not.toHaveBeenCalled();
+  });
+
+  it("makes no MapX call once cancelled before it starts", async () => {
+    const sdk = fakeSdk();
+    const error = await fetchViewTable(sdk, "MX-1", { isCancelled: () => true }).catch((e) => e);
+    expect(error.code).toBe("cancelled");
+    expect(sdk.calls).toEqual([]);
+  });
+
+  it("cancelled during the add: no read, only the removal of what it added", async () => {
+    let cancel = false;
+    const onTemporary = vi.fn();
+    const sdk = fakeSdk({
+      view_add: async () => {
+        cancel = true; // the user closed the dialog while MapX was adding
+        return true;
+      },
+    });
+    const error = await fetchViewTable(sdk, "MX-1", { isCancelled: () => cancel, onTemporary }).catch(
+      (e) => e,
+    );
+    expect(error.code).toBe("cancelled");
+    expect(sdk.calls.map(([method]) => method)).toEqual(["view_add", "view_remove"]);
+    expect(onTemporary.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("unmasks after the deadline when an add never answers", async () => {
+    vi.useFakeTimers();
+    const onTemporary = vi.fn();
+    const sdk = fakeSdk({ view_add: () => new Promise(() => {}) });
+    const pending = fetchViewTable(sdk, "MX-1", { onTemporary, timeouts: { add: 1000 } }).catch((e) => e);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect((await pending).code).toBe("timeout");
+    expect(onTemporary.mock.calls).toEqual([[true]]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(onTemporary.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("stops waiting for a read once cancelled, and removes the temporary view at once", async () => {
+    vi.useFakeTimers();
+    let cancel = false;
+    const onTemporary = vi.fn();
+    const sdk = fakeSdk({ get_view_table_attribute: () => new Promise(() => {}) });
+    const pending = fetchViewTable(sdk, "MX-1", { isCancelled: () => cancel, onTemporary }).catch((e) => e);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(sdk.calls.map(([method]) => method)).toEqual(["view_add", "get_view_table_attribute"]);
+    cancel = true;
+    await vi.advanceTimersByTimeAsync(150);
+    expect((await pending).code).toBe("cancelled");
+    expect(sdk.calls.map(([method]) => method)).toEqual([
+      "view_add",
+      "get_view_table_attribute",
+      "view_remove",
+    ]);
+    expect(onTemporary.mock.calls).toEqual([[true], [false]]);
+  });
 });

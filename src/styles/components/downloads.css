@@ -147,3 +147,10 @@
 .download-dialog__actions [hidden] {
   display: none;
 }
+
+/* A download's temporary MapX view is on the map: hide the map frame (opacity
+   only, so it keeps rendering) until the view is removed. MapX paints a view
+   before it can be made transparent. The dialog backdrop covers the map then. */
+[data-ui="mapx"].is-reading-data {
+  opacity: 0;
+}

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDownloadDialog } from "./download-dialog.js";
 
 /** A promise with its resolve/reject exposed. */
@@ -81,7 +81,11 @@ describe("createDownloadDialog", () => {
     ]);
     expect(status().textContent).toBe("Download started: layer_MX-1.csv (3 regions).");
     expect(dialog.element.querySelector(".download-dialog__progress").hidden).toBe(true);
-    expect(footerClose().textContent).toBe("Close");
+    expect(footerClose().textContent).toBe("Done");
+    // Distinct names: the header control says what it does.
+    expect(dialog.element.querySelector(".download-dialog__close").getAttribute("aria-label")).toBe(
+      "Close dialog",
+    );
     expect(document.activeElement).toBe(footerClose());
   });
 
@@ -178,5 +182,46 @@ describe("createDownloadDialog", () => {
     dialog.open({ title: "T", run: () => new Promise(() => {}) });
     dialog.destroy();
     expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  it("shows a notice under a finished download, with Try again, and announces both", async () => {
+    let attempts = 0;
+    dialog.open({
+      title: "T",
+      run: async () => {
+        attempts++;
+        return {
+          message: "Download started: f.csv (2 regions).",
+          notice: "Region names could not be loaded.",
+        };
+      },
+    });
+    await flush();
+    const notice = dialog.element.querySelector('[data-part="notice"]');
+    expect(dialog.state).toBe("done");
+    expect(notice.hidden).toBe(false);
+    expect(notice.textContent).toBe("Region names could not be loaded.");
+    expect(live().textContent).toBe("Download started: f.csv (2 regions). Region names could not be loaded.");
+    expect(retry().hidden).toBe(false);
+    expect(document.activeElement).toBe(retry());
+    retry().click();
+    await flush();
+    expect(attempts).toBe(2);
+  });
+
+  it("offers an error's action, which closes the dialog and runs it", async () => {
+    const run = vi.fn();
+    const error = Object.assign(new Error("The map has not started yet."), {
+      action: { label: "Open the map", run },
+    });
+    dialog.open({ title: "T", opener, run: async () => Promise.reject(error) });
+    await flush();
+    const extra = dialog.element.querySelector('[data-action="extra"]');
+    expect(extra.hidden).toBe(false);
+    expect(extra.textContent).toBe("Open the map");
+    expect(document.activeElement).toBe(extra);
+    extra.click();
+    expect(dialog.element.hasAttribute("open")).toBe(false);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

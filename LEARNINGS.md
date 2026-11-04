@@ -131,6 +131,10 @@ spike over all 98 inventory views and then through the app itself:
   (`REGION_NAME_REFERENCE_VIEW`) names the regions for views that only carry `name_en`.
 - The boundary table includes a few areas with placeholder codes (lowercase `x…`), and some views
   carry values for them. The CSV keeps only three-uppercase-letter codes until GRID advise.
+- **A view paints before `view_add` answers.** MapX renders the layers, then resolves after the legend
+  and UI work, so `set_view_layer_transparency` sent the moment `view_add` resolves still lets the
+  whole layer show for a frame (~250k changed pixels in a 1050×740 map capture; measured live). There
+  is no SDK option to add a view hidden. The app hides its own map frame while a temporary view exists.
 - `get_view_meta` works without `view_add` but includes editor emails; do not surface it raw. Labels,
   units and citations come from our config.
 

@@ -31,6 +31,7 @@ import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "..
 import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
 import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
 import { createDownloads } from "./downloads.js";
+import { canMapLoad } from "../sdk/availability.js";
 import { createRouter } from "../services/router.js";
 import { isLayerAvailable } from "../config/layers/status.js";
 import {
@@ -274,6 +275,17 @@ export function createSidebar(
   // the controller's way: a view a record wants is never removed, and a view
   // the session already loaded is read without adding it again.
   const loadedViews = new Set();
+  // MapX paints a view before it can be hidden, so while a download has a
+  // temporary view on the map the map frame itself is hidden (opacity only:
+  // the frame keeps rendering, as during the warm-up). The dialog's backdrop
+  // covers it meanwhile. Counted, so overlapping reads end together.
+  const mapFrame = appMap?.querySelector('[data-ui="mapx"]') ?? null;
+  let temporaryViews = 0;
+  const MASK_CLASS = "is-reading-data";
+  function maskMapForTemporaryView(active) {
+    temporaryViews = Math.max(0, temporaryViews + (active ? 1 : -1));
+    mapFrame?.classList.toggle(MASK_CLASS, temporaryViews > 0);
+  }
   const downloads = downloadsEnabled
     ? createDownloads({
         doc: rootDoc,
@@ -284,6 +296,15 @@ export function createSidebar(
         // the add, which then leaves it on the map for the controller.
         isViewLoaded: (viewId) => loadedViews.has(viewId),
         onViewLoaded: (viewId) => loadedViews.add(viewId),
+        onTemporaryView: maskMapForTemporaryView,
+        canLoadMap: () => canMapLoad(rootDoc),
+        // "Open the map": show the layer's tab, which starts MapX where it waits for a map tab.
+        openMap: (tabId) => {
+          if (dataTabs.includes(tabId)) navigateTo(tabId);
+        },
+        // The viewer this file came from: this page's own location (a preview
+        // or local build says so), at the standalone viewer's address for an embed.
+        viewerUrl: () => new URL(".", (rootDoc.defaultView ?? window).location.href).href,
         isReady: isSDKReady,
         onReadyChange: (fn) => onSDKReadyChange(fn, { signal }),
         getSdk: () => getSDK(),
@@ -297,6 +318,7 @@ export function createSidebar(
       }),
     );
     disposers.push(() => downloads.destroy());
+    disposers.push(() => mapFrame?.classList.remove(MASK_CLASS));
   }
 
   /**

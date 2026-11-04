@@ -49,7 +49,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   dialog.innerHTML = `
     <div class="download-dialog__header">
       <h2 class="download-dialog__title" tabindex="-1"></h2>
-      <button type="button" class="download-dialog__close" data-action="close" aria-label="Close">
+      <button type="button" class="download-dialog__close" data-action="close" aria-label="Close dialog">
         <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
       </button>
     </div>
@@ -61,7 +61,9 @@ export function createDownloadDialog({ doc = document } = {}) {
       </div>
     </div>
     <p class="download-dialog__status" data-part="status"></p>
+    <p class="download-dialog__notice mg-form-help" data-part="notice" hidden></p>
     <div class="download-dialog__actions mg-buttons">
+      <button type="button" class="mg-button mg-button-primary" data-action="extra" hidden></button>
       <button type="button" class="mg-button mg-button-primary" data-action="retry" hidden>Try again</button>
       <button type="button" class="mg-button mg-button-secondary" data-action="close">Cancel</button>
     </div>
@@ -75,7 +77,9 @@ export function createDownloadDialog({ doc = document } = {}) {
   const label = dialog.querySelector('[data-part="label"]');
   const value = dialog.querySelector('[data-part="value"]');
   const status = dialog.querySelector('[data-part="status"]');
+  const notice = dialog.querySelector('[data-part="notice"]');
   const retryBtn = dialog.querySelector('[data-action="retry"]');
+  const extraBtn = dialog.querySelector('[data-action="extra"]');
   const closeBtn = dialog.querySelector('.download-dialog__actions [data-action="close"]');
 
   const announcer = createLayerAnnouncer(doc);
@@ -85,6 +89,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   const { signal } = listeners;
   let state = null;
   let current = null; // { title, run, opener }
+  let extraAction = null;
   let generation = 0;
   let destroyed = false;
 
@@ -93,7 +98,14 @@ export function createDownloadDialog({ doc = document } = {}) {
     announcer.announce("download", message);
   }
 
-  function setState(next, message) {
+  /**
+   * @param {string} next
+   * @param {string} message
+   * @param {{ notice?: string, action?: { label: string, run: () => void }|null }} [extra] -
+   *   a notice under a finished download (with Try again), or an action button
+   *   for an error (e.g. "Open the map")
+   */
+  function setState(next, message, { notice: noticeText = "", action = null } = {}) {
     state = next;
     dialog.dataset.state = next;
     const index = STEPS.indexOf(next);
@@ -106,9 +118,14 @@ export function createDownloadDialog({ doc = document } = {}) {
     }
     status.textContent = index >= 0 ? "" : message;
     status.classList.toggle("mg-form-error", next === "error");
-    retryBtn.hidden = next !== "error";
-    closeBtn.textContent = index >= 0 ? "Cancel" : "Close";
-    say(message);
+    notice.textContent = noticeText;
+    notice.hidden = !noticeText;
+    retryBtn.hidden = !(next === "error" || (next === "done" && noticeText));
+    extraAction = action;
+    extraBtn.hidden = !action;
+    extraBtn.textContent = action?.label ?? "";
+    closeBtn.textContent = index >= 0 ? "Cancel" : next === "done" ? "Done" : "Close";
+    say(noticeText ? `${message} ${noticeText}` : message);
   }
 
   async function start() {
@@ -123,14 +140,17 @@ export function createDownloadDialog({ doc = document } = {}) {
     };
     stepper.step("fetching");
     try {
-      const doneMessage = await current.run(stepper);
+      const result = await current.run(stepper);
       if (isCancelled()) return;
-      setState("done", doneMessage || "Download started.");
-      closeBtn.focus();
+      const done = typeof result === "string" ? { message: result } : (result ?? {});
+      setState("done", done.message || "Download started.", { notice: done.notice });
+      (done.notice ? retryBtn : closeBtn).focus();
     } catch (error) {
       if (isCancelled()) return;
-      setState("error", error?.message || "Something went wrong while preparing the download.");
-      retryBtn.focus();
+      setState("error", error?.message || "Something went wrong while preparing the download.", {
+        action: error?.action ?? null,
+      });
+      (error?.action ? extraBtn : retryBtn).focus();
     }
   }
 
@@ -171,7 +191,11 @@ export function createDownloadDialog({ doc = document } = {}) {
     (event) => {
       const action = event.target.closest?.("[data-action]")?.dataset.action;
       if (action === "close") close();
-      else if (action === "retry" && current) {
+      else if (action === "extra" && extraAction) {
+        const { run } = extraAction;
+        close();
+        run();
+      } else if (action === "retry" && current) {
         title.focus();
         void start();
       }
