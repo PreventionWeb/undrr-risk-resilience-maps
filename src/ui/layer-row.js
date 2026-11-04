@@ -33,6 +33,7 @@ import { offRecord } from "../state/layers-store.js";
 import { createLayerAnnouncer } from "./announcer.js";
 import { setLoadingText } from "./inline-loader.js";
 import { layerLinksHtml } from "../utils/layer-links.js";
+import { downloadListHtml } from "./download-links.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -269,6 +270,10 @@ function legendLayerFor(layer, record) {
  *   something about this layer through a live region the caller owns (the
  *   sidebar's, shared by every row of the layer, so one event is announced
  *   once). Without it the row builds a region of its own.
+ * @param {{ handleClick: (event: MouseEvent) => void }|null} [options.downloads] -
+ *   prototype data downloads (`?downloads=1`, #64): when given, the row shows
+ *   the shown view's download links and "Download CSV" button, and hands the
+ *   button's clicks to `handleClick`. Without it the row is unchanged.
  * @returns {LayerRow}
  */
 export function createLayerRow(
@@ -282,6 +287,7 @@ export function createLayerRow(
     onNavigate = () => {},
     selectionPending = () => false,
     announce: announceTo,
+    downloads = null,
   },
 ) {
   const full = variant === "full";
@@ -443,15 +449,25 @@ export function createLayerRow(
 
   const contextLinks = buildSlot("layer-meta-links");
   body.appendChild(contextLinks);
-  function renderContextLinks(view) {
-    const html = layerLinksHtml(view);
-    if (contextLinks.dataset.content !== html) {
-      contextLinks.innerHTML = html;
-      contextLinks.dataset.content = html;
-      contextLinks.hidden = !html;
-    }
+  // Prototype downloads (#64): only built when the instance enables them.
+  const downloadSlot = downloads ? buildSlot("layer-downloads-slot") : null;
+  if (downloadSlot) {
+    body.appendChild(downloadSlot);
+    downloadSlot.addEventListener("click", downloads.handleClick, { signal });
   }
-  renderContextLinks(layer.sources?.length ? { ...layer, ...layer.sources[0], sources: undefined } : layer);
+  function setSlotHtml(slot, html) {
+    if (slot.dataset.content === html) return;
+    slot.innerHTML = html;
+    slot.dataset.content = html;
+    slot.hidden = !html;
+  }
+  /** The links for the view shown: the layer, or its compound `source`. */
+  function renderContextLinks(source = null) {
+    const view = source ? { ...layer, ...source, sources: undefined } : layer;
+    setSlotHtml(contextLinks, layerLinksHtml(view, { downloadsEnabled: Boolean(downloads) }));
+    if (downloadSlot) setSlotHtml(downloadSlot, downloadListHtml(layer, source));
+  }
+  renderContextLinks(layer.sources?.[0] ?? null);
 
   let widgetSlot = null;
   let statusEl = null;
@@ -743,9 +759,7 @@ export function createLayerRow(
     if (desc && isCompound(layer))
       setText(desc, layerDescriptionText(layer, legendLayer.note || legendLayer.desc || layer.desc));
     renderContextLinks(
-      isCompound(layer)
-        ? { ...layer, ...layer.sources[clampSourceIdx(layer, record.appliedSourceIdx)], sources: undefined }
-        : layer,
+      isCompound(layer) ? layer.sources[clampSourceIdx(layer, record.appliedSourceIdx)] : null,
     );
   }
 

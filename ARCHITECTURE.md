@@ -39,6 +39,8 @@ undrr-risk-resilience-maps/
 │   │   │   ├── risk.js
 │   │   │   └── resilience.js
 │   │   ├── registry.js         # createLayerRegistry(): byKey / byViewId / urlKeyOrder
+│   │   ├── features.js         # Runtime flags from the URL: ?inspect=, ?downloads=
+│   │   ├── downloads.js        # Prototype downloads: hosted files per view, CSV eligibility, byte formatting
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -48,6 +50,7 @@ undrr-risk-resilience-maps/
 │   │   ├── raster-legends.js   # Approved GeoServer raster legend adapter
 │   │   ├── filters.js          # layer transparency, filters
 │   │   ├── camera.js           # Camera calls (fly/jump, fit bounds/area, view extent), each with a deadline
+│   │   ├── table.js            # A vector view's attribute table for the CSV download (temporary add when not loaded)
 │   │   └── inspect.js          # single-click inspection result delivery
 │   ├── external/               # Runtime external-provider boundary
 │   │   ├── index.js            # Generic provider contract + temporary-view registry (adapters lazy-loaded)
@@ -77,6 +80,9 @@ undrr-risk-resilience-maps/
 │   │   ├── mangrove-copy-button.js # Loads Mangrove's js/copy-button.js from the CDN and applies it to a scope
 │   │   ├── home.js             # Home page cards from each tab's `card` field (navigate through an onNavigate callback)
 │   │   ├── info-panels.js      # Sources and About full-page views
+│   │   ├── download-links.js   # Prototype downloads: the GeoTIFF links and "Download CSV" markup
+│   │   ├── downloads.js        # Prototype downloads: the CSV flow (table read, CSV, browser download)
+│   │   ├── download-dialog.js  # The CSV progress dialog (native modal, focus trap, live status)
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
 │   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel (coordinates copied by Mangrove's CopyButton)
 │   │   └── widgets/            # Source-switching widgets (registry pattern)
@@ -85,7 +91,8 @@ undrr-risk-resilience-maps/
 │   │       ├── sub-tabs.js     # Button bar for metric switching
 │   │       └── stepped-slider.js # Range slider for return periods
 │   ├── utils/
-│   │   └── camera.js           # Parse and clamp centres, zooms, bounds and area codes (URL, messages, config)
+│   │   ├── camera.js           # Parse and clamp centres, zooms, bounds and area codes (URL, messages, config)
+│   │   └── region-csv.js       # Pure values-only CSV builder for region-level views
 │   └── styles/
 │       ├── shared.css          # CSS entry point (@imports)
 │       ├── tokens.css          # Design tokens (custom properties)
@@ -99,6 +106,7 @@ undrr-risk-resilience-maps/
 │           ├── home-panel.css  # Info page hero, sections, cards, Sources table
 │           ├── panels.css      # Drag + resize for layer panel and Site Details
 │           ├── site-inspector.css
+│           ├── downloads.css   # Prototype download lists and the CSV dialog
 │           ├── widgets.css     # Sub-tabs and stepped-slider
 │           └── infobox.css
 ├── tests/
@@ -629,6 +637,33 @@ The floating layer panel includes:
 - **Clear all button** — shown while any record is `desired` or `applied`, so it appears as soon as a layer starts loading and stays while a failed turn-off leaves a layer on; `controller.clearAll()` turns them all off, including layers still loading
 - **`onViewsChanged` option** — `main.js` passes it to `createSidebar()` and enables the inspect tool from it. It is called with the number of layers on the map (`applied` records) only when that number changes, from its own store subscriber. Intent never fires it, and a source switch does not either: the switching layer stays `applied` through the gap between its views (when `openViews` briefly lacks it), so inspect is not disabled mid-switch
 - **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK's setter takes "transparency" (0 = opaque, 100 = invisible). Its getter uses the same transparency scale; `normalizeLayerTransparency()` (`src/sdk/filters.js`) converts it with `100 - value`; the UI presents "opacity" 0-100, rounded to the slider's step so the thumb, the percentage beside it and `aria-valuetext` cannot disagree. Mangrove's Range pairs `mg-range` with an `mg-form-label` carrying `for`, which needs an id, and the same layer can show a slider in its home tab and in a cross-tab section at once; the visible "Opacity" text is therefore `aria-hidden` and the name comes from `aria-label` with the same word, with `aria-valuetext` spelling out the percentage the native value would read as a bare number. Legend priority is: a provider-owned structured legend; validated MapX vector rules from `get_views`; GeoServer raster classes, grouped layers and numeric ramps from approved providers; reviewed custom-code definitions pinned to the upstream methods SHA-256; then the MapX image fallback. Raster requests first contact the exact approved provider endpoint and retry its explicit HTTP 403 origin denial through the allowlisted MapX mirror within one bounded request budget. Network failures and redirects go directly to the image fallback. Continuous ramps, unapproved providers, sprites, custom code, malformed responses, and excessive rule sets deliberately retain a labelled image rather than risk a misleading approximation. The full security boundary, fallback reasons, operations, and regression procedure are in `docs/legends.md`. While the structured renderer is being validated, its MapX image is also available in a collapsed comparison disclosure, lazy-loaded on first expansion. The catalogue cache is scoped to the active SDK manager and refreshes once on a missing view because `view_add` can introduce public cross-project views after initialisation. Async renders use a DOM ownership marker so a closed layer or superseded compound source cannot append stale legend content.
+
+### Data downloads (prototype)
+
+Behind `?downloads=1` (`downloadsEnabledFromSearch()` in `src/config/features.js`, which fails closed
+like `?inspect=`). `createRiskMap({ downloadsEnabled })` passes it to `createSidebar()`, which then
+creates one `createDownloads()` instance and hands it to every layer row (`downloads` option) and to
+`buildSourcesPanel({ downloads })`. With the flag off neither receives anything and the markup is
+unchanged. The embed reads the same parameter in `src/embed/params.js`.
+
+- **What a view offers** is decided from config alone (`getViewDownloads()` in
+  `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
+  `data/inventory.csv`), and a CSV for published, non-external `vt` views not in `CSV_EXCLUDED_VIEWS`.
+- **Markup** (`src/ui/download-links.js`) is shared by the row's `.layer-downloads-slot` (rendered for
+  the view shown, next to the context links) and the Sources Download column. The "Download CSV" button
+  is handled by a delegated click listener on the row slot and on the Sources panel. A view with a
+  download hides "Request data" (`layerLinksHtml(view, { downloadsEnabled })`).
+- **The CSV flow** reads the table through `src/sdk/table.js`. A view the session has not loaded is
+  added for the read and removed again without going through the layer controller: no store write,
+  `zoomToView: false`, and the sidebar's `isViewWanted(viewId)` (a record shows that view, or wants it
+  as its target) is checked before the removal so a layer the user turned on meanwhile stays. The
+  sidebar also remembers every view a record has shown, so those are read without another add. Views
+  whose table has no `maplab` take region names from `REGION_NAME_REFERENCE_VIEW`, read once.
+- **The dialog** is a native modal `<dialog>` with its own announcer region inside it (the sidebar's
+  region is outside the modal and so inert while it is open).
+
+The CSV format, the header-block decision and the open questions are in
+[docs/downloads.md](docs/downloads.md).
 
 ### Feature popups and click handling
 

@@ -11,6 +11,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Add all 30 supplied GAR 2026 MapX maps under four GAR controls, preserving crop, climate scenario and unit distinctions. Show each variant's explanatory note in the map panel and its own Sources entry.
 - Support per-map methodology links and prefilled data requests. Requests use the programme-team recipient, CC addresses and email template, with the selected map's title and public viewer link filled in. Methodology links remain absent until supplied.
 - Preserve optional notes and explainer links in inventory import/export, including multiline CSV notes. Keep the original GAR 2026 handoff alongside the normalized inventory.
+- Prototype data downloads behind `?downloads=1` (standalone and embed; off otherwise, with no visible change). Raster layers link the GeoTIFF files hosted by UNEP/GRID-Geneva, with format, size and a warning over 1 GB. Region-level vector layers generate a values-only CSV (region code, UN map label and value, with a short attribution header) through an accessible progress dialog. Both appear in the layer panel and in a new Download column on the Sources page; layers without a download keep "Request data". See `docs/downloads.md` ([#64](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/64)).
+- Carry hosted download files per view through the inventory: optional `Download URL` and `Download size (bytes)` columns, imported to the layer config and written back by the inventory export. Correct the 475-year PGA file name in the supplied list.
 
 ### Changed
 

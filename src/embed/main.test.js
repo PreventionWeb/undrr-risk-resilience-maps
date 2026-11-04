@@ -294,6 +294,24 @@ describe("mountEmbed", () => {
     });
   });
 
+  describe("prototype downloads", () => {
+    it("are off by default, and the full-viewer link does not mention them", () => {
+      mount("?tab=hazard");
+      expect(createRiskMap.mock.calls.at(-1)[1].downloadsEnabled).toBe(false);
+      expect(
+        new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.has("downloads"),
+      ).toBe(false);
+    });
+
+    it("pass downloads=1 to the map and on to the full viewer", () => {
+      mount("?tab=hazard&downloads=1");
+      expect(createRiskMap.mock.calls.at(-1)[1].downloadsEnabled).toBe(true);
+      expect(
+        new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.get("downloads"),
+      ).toBe("1");
+    });
+  });
+
   describe("the command queue", () => {
     beforeEach(() => {
       document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);

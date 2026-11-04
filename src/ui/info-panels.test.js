@@ -91,4 +91,67 @@ describe("buildSourcesPanel", () => {
     expect(table.querySelector(".mg-table__th--sortable")).toBeNull();
     expect(table.querySelector("[aria-sort]")).toBeNull();
   });
+
+  describe("prototype downloads", () => {
+    it("adds nothing without the flag: no Download column, no download links, every request link kept", () => {
+      const panel = buildSourcesPanel();
+      expect(panel.querySelector(".data-table__downloads")).toBeNull();
+      expect(panel.querySelector(".layer-downloads")).toBeNull();
+      expect([...panel.querySelectorAll("thead th")].map((th) => th.textContent)).not.toContain("Download");
+      expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(30);
+    });
+
+    it("adds a Download column with the hosted files and CSV buttons", () => {
+      const downloads = { handleClick: vi.fn() };
+      const panel = buildSourcesPanel({ downloads });
+      const headers = [...panel.querySelector("table").querySelectorAll("thead th")];
+      expect(headers.at(-1).textContent).toBe("Download");
+
+      // A compound raster layer lists each source's file, named by the source.
+      const pga = [...panel.querySelectorAll("tbody tr")].find((row) =>
+        row.textContent.includes("Earthquake PGA"),
+      );
+      const links = [...pga.querySelectorAll("a.layer-downloads__link")];
+      expect(links.map((link) => link.getAttribute("download"))).toEqual([
+        "PGA_250y.tif",
+        "PGA_475y.tif",
+        "PGA_975y.tif",
+        "PGA_1500y.tif",
+        "PGA_2475y.tif",
+      ]);
+      expect(pga.querySelector(".layer-downloads__source").textContent).toBe("250 yr:");
+      expect(pga.querySelectorAll(".layer-downloads__warning")).toHaveLength(5);
+
+      // GAR2026 vector maps get a CSV instead of the request email.
+      const rice = [...panel.querySelectorAll("tbody tr")].find((row) =>
+        row.textContent.includes("Rice AAL (%) – Warming level +2°C"),
+      );
+      const csv = rice.querySelector("[data-action='download-csv']");
+      expect(csv.dataset.viewId).toBe("MX-KU5ID-GHTH8-C2WG3");
+      expect(rice.querySelector('a[href^="mailto:"]')).toBeNull();
+
+      csv.click();
+      expect(downloads.handleClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("replaces each GAR2026 request link with that map's CSV", () => {
+      // Every GAR2026 map is a region-level vector view today, so none falls
+      // back to the email; layer-links.test.js covers the fallback itself.
+      const idsOf = (rows) => rows.map((row) => row.querySelector(".data-table__mapx-id").textContent.trim());
+      const requested = idsOf(
+        [...buildSourcesPanel().querySelectorAll("tbody tr")].filter((row) =>
+          row.querySelector('a[href^="mailto:"]'),
+        ),
+      );
+      const panel = buildSourcesPanel({ downloads: { handleClick: vi.fn() } });
+      expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(0);
+      const withCsv = idsOf(
+        [...panel.querySelectorAll("tbody tr")].filter((row) =>
+          row.querySelector("[data-action='download-csv']"),
+        ),
+      );
+      expect(requested).toHaveLength(30);
+      for (const id of requested) expect(withCsv).toContain(id);
+    });
+  });
 });

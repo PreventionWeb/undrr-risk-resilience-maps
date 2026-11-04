@@ -17,7 +17,7 @@ import { TABS } from "../config/layers.js";
 import { getLayerRegistry, urlKeyOrder } from "../config/registry.js";
 import * as store from "../state/store.js";
 import { viewAdd, viewRemove } from "../sdk/views.js";
-import { isSDKReady, onSDKReadyChange } from "../sdk/client.js";
+import { getSDK, isSDKReady, onSDKReadyChange } from "../sdk/client.js";
 import { createMapWarming } from "./map-warming.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
@@ -29,7 +29,8 @@ import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } f
 import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
-import { createLayerController } from "../services/layer-controller.js";
+import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { createDownloads } from "./downloads.js";
 import { createRouter } from "../services/router.js";
 import { isLayerAvailable } from "../config/layers/status.js";
 import {
@@ -79,6 +80,9 @@ const ROOT_ATTR = "data-ui-root";
  * @param {(key: string, error: Error, action: string) => void} [options.onLayerError] -
  *   a layer's MapX call failed (default: a console warning). `createRiskMap`
  *   passes one that reports the failure to an embed host.
+ * @param {boolean} [options.downloadsEnabled] - prototype data downloads
+ *   (`?downloads=1`, #64): download links and "Download CSV" in the layer rows
+ *   and a Download column on the Sources page. Default false: no change at all.
  * @returns {{
  *   restoreFromUrl(): Promise<void>,
  *   showTab(tabId: string): void,
@@ -100,6 +104,7 @@ export function createSidebar(
     onViewsChanged,
     initialTab = "home",
     onLayerError = (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
+    downloadsEnabled = false,
   } = {},
 ) {
   // The root is marked `data-ui-root`, and a part belongs to the nearest marked
@@ -261,6 +266,53 @@ export function createSidebar(
   // and can still speak. See announcer.js; the visible message stays per row.
   const announcer = createLayerAnnouncer(rootDoc);
   disposers.push(() => announcer.destroy());
+
+  // Prototype downloads (#64), only when enabled. A CSV is read from MapX,
+  // which needs the view loaded in the session; a view that is not is added
+  // for the read and removed again outside the layer controller (see
+  // src/sdk/table.js). These two predicates keep that temporary view out of
+  // the controller's way: a view a record wants is never removed, and a view
+  // the session already loaded is read without adding it again.
+  const loadedViews = new Set();
+  const downloads = downloadsEnabled
+    ? createDownloads({
+        doc: rootDoc,
+        registry,
+        isViewWanted,
+        // A view a record shows, or has shown, or a read has added. A view a
+        // record only wants (still loading) is not loaded yet: it goes through
+        // the add, which then leaves it on the map for the controller.
+        isViewLoaded: (viewId) => loadedViews.has(viewId),
+        onViewLoaded: (viewId) => loadedViews.add(viewId),
+        isReady: isSDKReady,
+        onReadyChange: (fn) => onSDKReadyChange(fn, { signal }),
+        getSdk: () => getSDK(),
+      })
+    : null;
+  if (downloads) {
+    // After the four ordered subscribers above, so it changes nothing they rely on.
+    disposers.push(
+      layersStore.subscribe((_key, next) => {
+        if (next.viewId) loadedViews.add(next.viewId);
+      }),
+    );
+    disposers.push(() => downloads.destroy());
+  }
+
+  /**
+   * Does a layer record want this view on the map: it shows it, or it is
+   * asked to be on with this view as its (compound) target?
+   */
+  function isViewWanted(viewId) {
+    if (!layersStore) return false;
+    const entry = registry.byViewId(viewId);
+    if (!entry) return false;
+    const record = layersStore.get(entry.layer.key);
+    if (record.viewId === viewId) return true;
+    if (!record.desired) return false;
+    if (!entry.source) return true;
+    return entry.layer.sources[clampSourceIdx(entry.layer, record.sourceIdx)] === entry.source;
+  }
   let showDisabledLayers = false;
   // Active-state and click wiring for the nav links (created after the panels).
   let nav = null;
@@ -327,6 +379,7 @@ export function createSidebar(
       // Every row of a layer announces through the instance's one region, which
       // drops the repeats, so one event is heard once.
       announce: (message, record) => announcer.announce(layer.key, message, record),
+      downloads,
     });
     allRows.push(row);
     if (isLayerAvailable(layer) && layer.key) {
@@ -491,7 +544,7 @@ export function createSidebar(
   // Populate info page with all info panels
   if (infoPage) {
     infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
-    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
+    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal, downloads })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
 
     // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which

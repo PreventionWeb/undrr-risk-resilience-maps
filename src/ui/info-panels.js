@@ -8,6 +8,7 @@ import { escapeHtml } from "../utils/html.js";
 import { getLayerStatus } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
 import { layerLinksHtml } from "../utils/layer-links.js";
+import { sourcesRowDownloadsHtml } from "./download-links.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
 
@@ -36,7 +37,12 @@ function mapxIds(layer) {
   return layer.id || "–";
 }
 
-function buildSourcesTable(layers) {
+/**
+ * @param {object[]} layers
+ * @param {{ downloadsEnabled?: boolean }} [options] - adds the Download column
+ *   (prototype, `?downloads=1`; #64). Without it the table is unchanged.
+ */
+function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
   const rows = layers
     .flatMap((layer) =>
       layer.sources?.some((source) => source.note || source.explainerUrl)
@@ -49,6 +55,10 @@ function buildSourcesTable(layers) {
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
       const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
+      const links = layerLinksHtml(layer, { downloadsEnabled });
+      const downloadCell = downloadsEnabled
+        ? `<td class="data-table__downloads">${sourcesRowDownloadsHtml(layer)}</td>`
+        : "";
       // `mg-table__td--code` puts the cell in Mangrove's code face, so the ids
       // no longer need a `<code>` element each.
       const idCell = ids
@@ -62,7 +72,7 @@ function buildSourcesTable(layers) {
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escapeHtml(layer.note || layer.desc)}${layerLinksHtml(layer) ? `<p>${layerLinksHtml(layer)}</p>` : ""}</td>
+        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}</td>${downloadCell}
       </tr>`;
     })
     .join("");
@@ -77,7 +87,7 @@ function buildSourcesTable(layers) {
             <th scope="col" class="mg-table__th--sticky">Source</th>
             <th scope="col" class="mg-table__th--sticky">Citation</th>
             <th scope="col" class="mg-table__th--sticky">License</th>
-            <th scope="col" class="mg-table__th--sticky">Notes</th>
+            <th scope="col" class="mg-table__th--sticky">Notes</th>${downloadsEnabled ? '\n            <th scope="col" class="mg-table__th--sticky">Download</th>' : ""}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -87,9 +97,12 @@ function buildSourcesTable(layers) {
 
 /**
  * Build the Sources page.
- * @param {{ signal?: AbortSignal }} [options] - removes the page's listeners
+ * @param {{ signal?: AbortSignal, downloads?: { handleClick: (event: MouseEvent) => void }|null }} [options] -
+ *   `signal` removes the page's listeners; `downloads` (prototype, `?downloads=1`)
+ *   adds a Download column to the tables and handles its "Download CSV" buttons
  */
-export function buildSourcesPanel({ signal } = {}) {
+export function buildSourcesPanel({ signal, downloads = null } = {}) {
+  const tableOptions = { downloadsEnabled: Boolean(downloads) };
   // One tab per layer category. Mangrove's tabs script progressively enhances
   // this markup: it wires up ARIA, keyboard navigation and deep linking, and
   // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
@@ -113,7 +126,7 @@ export function buildSourcesPanel({ signal } = {}) {
           <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
             <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
-            ${buildSourcesTable(planned)}
+            ${buildSourcesTable(planned, tableOptions)}
           </details>`
         : "";
     return `
@@ -121,7 +134,7 @@ export function buildSourcesPanel({ signal } = {}) {
         <section class="mg-tabs__section" id="${sectionId}" role="tabpanel" aria-labelledby="${sectionId}--trigger" tabindex="-1">
           <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
-          ${available.length > 0 ? buildSourcesTable(available) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
+          ${available.length > 0 ? buildSourcesTable(available, tableOptions) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
         </section>
       </div>`;
@@ -183,6 +196,8 @@ export function buildSourcesPanel({ signal } = {}) {
   panel
     .querySelector("[data-action='download-inventory']")
     .addEventListener("click", downloadLayerInventory, { signal });
+
+  if (downloads) panel.addEventListener("click", downloads.handleClick, { signal });
 
   panel.querySelector("[data-action='toggle-mapx-ids']").addEventListener(
     "change",

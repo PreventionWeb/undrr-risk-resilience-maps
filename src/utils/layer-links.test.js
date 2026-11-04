@@ -60,4 +60,15 @@ describe("map metadata links", () => {
     expect(html).not.toContain("placeholder");
     expect(html).not.toContain("Learn more");
   });
+
+  it("keeps Request data with downloads off, and replaces it only for views that offer a download", () => {
+    const vector = { r2rCategory: "GAR2026", key: "crop", label: "Rice", id: "MX-RICE", type: "vt" };
+    const custom = { ...vector, id: "MX-LIVE", type: "cc" };
+    expect(layerLinksHtml(vector)).toContain(">Request data</a>");
+    expect(layerLinksHtml(vector, { downloadsEnabled: false })).toContain(">Request data</a>");
+    // A CSV is offered for a published vector view: the download replaces the request.
+    expect(layerLinksHtml(vector, { downloadsEnabled: true })).not.toContain("Request data");
+    // Nothing to download: the request link stays as the fallback.
+    expect(layerLinksHtml(custom, { downloadsEnabled: true })).toContain(">Request data</a>");
+  });
 });

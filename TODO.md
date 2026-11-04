@@ -12,6 +12,12 @@ Deferred technical items — implementation details, refactors, and infrastructu
 - Confirm licences for the 30 supplied GAR2026 maps (`TBD`) and reconcile subsequent map batches.
 - Coordinate the GAR landing-page embed replacement after viewer review/release.
 
+## Data downloads (prototype, #64)
+
+- Decide with the programme whether to make downloads public (`MAP_DOWNLOADS_ENABLED` in `src/config/features.js`); until then `?downloads=1` opts in and "Request data" stays the public route.
+- Follow up the open questions for UNEP/GRID-Geneva in [docs/downloads.md](docs/downloads.md#limitations-and-open-questions-for-grid): special areas, the view missing region columns, SDK table reads as a supported use, labels/units, and the four views that are not region-level.
+- Refresh the stored file sizes (`Download size (bytes)`) whenever GRID replaces a hosted file.
+
 ## State store upgrade
 
 The current store (`src/state/store.js`) is a Set of open view IDs plus an active tab string. This works for basic layer toggling, but will need to grow when we add:

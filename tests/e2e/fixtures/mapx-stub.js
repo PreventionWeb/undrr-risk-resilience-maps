@@ -186,6 +186,24 @@
       });
       return true;
     },
+    /**
+     * src/sdk/table.js (prototype downloads). Like MapX, it answers only for a
+     * view loaded in this session (added, even if removed since); otherwise
+     * the resolver throws. Rows come from `window.__mapxStubTables[idView]`,
+     * or a small synthetic region table.
+     */
+    get_view_table_attribute: function (params) {
+      if (!known.has(params.idView)) throw new Error("Cannot read properties of undefined (reading 'type')");
+      var tables = window.__mapxStubTables || {};
+      return (
+        tables[params.idView] || [
+          { j0_value: 2.5, iso3cd: "BBB", maplab: "Region B", gid: 2 },
+          { j0_value: null, iso3cd: "CCC", maplab: "Region C", gid: 3 },
+          { j0_value: 1, iso3cd: "AAA", maplab: "Region A", gid: 1 },
+          { j0_value: 7, iso3cd: "xAA", maplab: "Placeholder area", gid: 4 },
+        ]
+      );
+    },
     get_view_legend_image: function (params) {
       return legendImage(params.idView);
     },
