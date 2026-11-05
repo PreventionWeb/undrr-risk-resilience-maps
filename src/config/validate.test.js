@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { validateLayers } from "./validate.js";
+import { TABS, PRIMARY_PROJECT } from "./layers.js";
 
 const PRIMARY = "MX-PRIMARY";
 const OTHER = "MX-OTHER";
@@ -257,6 +258,28 @@ describe("validateLayers", () => {
       legend: [{ color: "#f00" }], // no label
     });
     expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).toThrow();
+  });
+
+  it("throws for a Creative Commons licence version that does not exist", () => {
+    const layer = makeSimpleLayer({ license: "CC BY 4.1" });
+    expect(() => validateLayers([makeTab("hazard", [layer])], PRIMARY)).toThrow();
+  });
+
+  it("accepts real Creative Commons licences and non-CC licence text", () => {
+    const licenses = [
+      "CC BY 4.0",
+      "CC BY-NC-SA 4.0",
+      "CC0 1.0 (STORM) / CC BY 4.0 (IRIS)",
+      "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "ODbL 1.0",
+      "TBD",
+    ];
+    const layers = licenses.map((license, i) => makeSimpleLayer({ id: `MX-${i}`, key: `l${i}`, license }));
+    expect(() => validateLayers([makeTab("hazard", layers)], PRIMARY)).not.toThrow();
+  });
+
+  it("passes for the shipped layer config", () => {
+    expect(() => validateLayers(TABS, PRIMARY_PROJECT)).not.toThrow();
   });
 
   it("includes the error count in the thrown message", () => {
