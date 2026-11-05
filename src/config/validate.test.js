@@ -145,23 +145,30 @@ describe("validateLayers", () => {
     expect(() => validateLayers([makeTab("risk", layers)], PRIMARY)).not.toThrow();
   });
 
-  it("throws for an unknown CSV download value or yes on a non-vector view", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("warns, without stopping the app, for an unknown CSV download value or yes on a non-vector view", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     for (const overrides of [
       { type: "vt", geometry: "point", csvDownload: "maybe" },
       { type: "vt", geometry: "point", csvDownload: "no:" },
       { type: "rt", csvDownload: "yes" },
     ]) {
+      warn.mockClear();
       const layer = makeSimpleLayer(overrides);
-      expect(() => validateLayers([makeTab("risk", [layer])], PRIMARY), JSON.stringify(overrides)).toThrow();
+      expect(
+        () => validateLayers([makeTab("risk", [layer])], PRIMARY),
+        JSON.stringify(overrides),
+      ).not.toThrow();
+      expect(warn.mock.calls.flat().join(" ")).toMatch(/csvDownload.*no CSV is offered/);
     }
+    warn.mockClear();
     const compound = makeCompoundLayer({
       sources: [
         { id: "MX-SRC-1", label: "Source A", csvDownload: "yes" },
         { id: "MX-SRC-2", label: "Source B" },
       ],
     });
-    expect(() => validateLayers([makeTab("risk", [compound])], PRIMARY)).toThrow();
+    expect(() => validateLayers([makeTab("risk", [compound])], PRIMARY)).not.toThrow();
+    expect(warn.mock.calls.flat().join(" ")).toMatch(/sources\[0\] -- csvDownload "yes" is only possible/);
     vi.restoreAllMocks();
   });
 

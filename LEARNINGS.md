@@ -129,7 +129,7 @@ spike over all 98 inventory views and then through the app itself:
   label) or `name_en`, which is the romanised local name with languages joined by `#` and is not a
   display name. All `maplab` views share one boundary table and agree on every label, so one of them
   (`REGION_NAME_REFERENCE_VIEW`) names the regions for views that only carry `name_en`.
-- The boundary table includes a few areas with the map service's own codes (lowercase `x…`), and some
+- The boundary table includes a few areas with the map service's own codes (codes starting with `x`), and some
   views carry values for them. The map shades them, so the CSV exports them too, as region codes, under
   the standard UN disclaimer.
 - Views on the same MapX source share `gid` (the source's row id), so a view whose attribute list
@@ -138,6 +138,11 @@ spike over all 98 inventory views and then through the app itself:
   and UI work, so `set_view_layer_transparency` sent the moment `view_add` resolves still lets the
   whole layer show for a frame (~250k changed pixels in a 1050×740 map capture; measured live). There
   is no SDK option to add a view hidden. The app hides its own map frame while a temporary view exists.
+- **Hosted GeoTIFFs open in a new tab.** `gar-data.unepgrid.ch` serves `content-type: image/tiff` with
+  no `Content-Disposition`, and browsers ignore `download` on another origin. Chromium and Firefox
+  download anyway; WebKit displays or navigates to the file. So the file links use
+  `target="_blank" rel="noopener"` and the viewer's tab is never replaced (we asked GRID for
+  `Content-Disposition: attachment`).
 - `get_view_meta` works without `view_add` but includes editor emails; do not surface it raw. Labels,
   units and citations come from our config.
 

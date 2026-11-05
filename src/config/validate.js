@@ -39,14 +39,18 @@ function validateDownloads(ctx, downloads, errors) {
 /**
  * A view's CSV decision (`csvDownload`, from the inventory's "CSV download"
  * column): "yes", "no: <reason>" or blank, and "yes" only on a vector layer.
+ * A bad value only disables that view's CSV (isCsvEligible offers one only for
+ * "yes" on a vector layer), so it is a warning here rather than an error that
+ * would stop the app starting, with downloads off or on. The config test
+ * (src/config/downloads.test.js) still fails on it in CI.
  */
-function validateCsvDownload(ctx, layer, view, errors) {
+function validateCsvDownload(ctx, layer, view, warnings) {
   if (!isValidCsvDownload(view.csvDownload)) {
-    errors.push(
-      `${ctx} -- csvDownload must be "yes", "no: <reason>" or blank (got ${JSON.stringify(view.csvDownload)})`,
+    warnings.push(
+      `${ctx} -- csvDownload must be "yes", "no: <reason>" or blank (got ${JSON.stringify(view.csvDownload)}); no CSV is offered`,
     );
   } else if (view.csvDownload === "yes" && layer.type !== "vt") {
-    errors.push(`${ctx} -- csvDownload "yes" is only possible on a vector (vt) layer`);
+    warnings.push(`${ctx} -- csvDownload "yes" is only possible on a vector (vt) layer; no CSV is offered`);
   }
 }
 
@@ -156,7 +160,7 @@ export function validateLayers(tabs, primaryProject) {
         for (let s = 0; s < layer.sources.length; s++) {
           const src = layer.sources[s];
           validateDownloads(`${ctx} sources[${s}]`, src.downloads, errors);
-          validateCsvDownload(`${ctx} sources[${s}]`, layer, src, errors);
+          validateCsvDownload(`${ctx} sources[${s}]`, layer, src, warnings);
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
           }
@@ -192,7 +196,7 @@ export function validateLayers(tabs, primaryProject) {
       if (layer.id) seenIds.add(layer.id);
 
       validateDownloads(ctx, layer.downloads, errors);
-      validateCsvDownload(ctx, layer, layer, errors);
+      validateCsvDownload(ctx, layer, layer, warnings);
 
       // Optional extent the embed's `fit-layer` uses instead of asking MapX
       // (docs/embedding.md §8). A malformed one would be silently skipped at

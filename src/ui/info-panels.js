@@ -197,7 +197,10 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
     .querySelector("[data-action='download-inventory']")
     .addEventListener("click", downloadLayerInventory, { signal });
 
-  if (downloads) panel.addEventListener("click", downloads.handleClick, { signal });
+  if (downloads) {
+    panel.addEventListener("click", downloads.handleClick, { signal });
+    panel.addEventListener("auxclick", downloads.handleClick, { signal });
+  }
 
   panel.querySelector("[data-action='toggle-mapx-ids']").addEventListener(
     "change",

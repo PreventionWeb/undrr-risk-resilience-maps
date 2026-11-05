@@ -454,6 +454,7 @@ export function createLayerRow(
   if (downloadSlot) {
     body.appendChild(downloadSlot);
     downloadSlot.addEventListener("click", downloads.handleClick, { signal });
+    downloadSlot.addEventListener("auxclick", downloads.handleClick, { signal });
   }
   function setSlotHtml(slot, html) {
     if (slot.dataset.content === html) return;

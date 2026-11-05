@@ -51,7 +51,8 @@ import { createDownloadDialog } from "./download-dialog.js";
 export const SDK_READY_WAIT_MS = 30_000;
 /** How long cached region names are used before they are read again. */
 export const REGION_NAMES_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-const REGION_NAMES_STORAGE_PREFIX = "undrr-risk-maps:region-names:v1:";
+// v2: names now include the map service's own codes (f8d03c0); v1 caches lack them.
+const REGION_NAMES_STORAGE_PREFIX = "undrr-risk-maps:region-names:v2:";
 
 /** A failure the dialog shows with a message and, optionally, an action button. */
 class DownloadError extends Error {
@@ -146,9 +147,11 @@ export function createDownloads({
   save = saveTextFile,
   startFileDownload = (url, filename) => {
     // A fresh link outside the panel, so the click is not caught again here.
+    // A new tab, like the file links: the viewer's own tab is never replaced.
     const link = doc.createElement("a");
     link.href = url;
     link.download = filename;
+    link.target = "_blank";
     link.rel = "noopener";
     link.hidden = true;
     doc.body.appendChild(link);
@@ -162,6 +165,8 @@ export function createDownloads({
   const dialog = createDownloadDialog({ doc });
   /** Region names read this session (see cachedNames). */
   let regionNames = null;
+  /** Sibling tables region codes are borrowed from (REGION_CODE_SOURCES), read this session. */
+  const codeTables = new Map();
 
   const storageKey = REGION_NAMES_STORAGE_PREFIX + regionNameView;
 
@@ -260,8 +265,12 @@ export function createDownloads({
         // A view without region codes borrows them from a sibling on the same source.
         const codeSource = REGION_CODE_SOURCES.get(viewId);
         if (codeSource && !rows.some((row) => row && REGION_CODE_ATTRIBUTE in row)) {
-          const codeRows = await fetchViewTable(getSdk(), codeSource, tableOptions(stepper));
+          // A sibling's codes do not change during a session: kept once they
+          // have matched, so a failed match is read again on Try again.
+          const codeRows =
+            codeTables.get(codeSource) ?? (await fetchViewTable(getSdk(), codeSource, tableOptions(stepper)));
           rows = attachRegionCodes(rows, codeRows);
+          codeTables.set(codeSource, codeRows);
         }
         const needsNames =
           !hasRegionNames(rows) &&
@@ -317,11 +326,15 @@ export function createDownloads({
   }
 
   /**
-   * A delegated click handler for a container of download lists: a "Download
-   * CSV" button starts its flow, and a link to a file over 1 GB asks first.
+   * A delegated handler for `click` and `auxclick` on a container of download
+   * lists: a "Download CSV" button starts its flow, and a link to a file over
+   * 1 GB asks first, whichever way it is opened (a middle click arrives as
+   * `auxclick`, not `click`).
    */
   function handleClick(event) {
+    if (event.type === "auxclick" && event.button !== 1) return;
     const large = event.target.closest?.("a.layer-downloads__link[data-large]");
+    if (event.type === "auxclick" && !large) return;
     if (large) {
       event.preventDefault();
       void confirmLargeFile(large);

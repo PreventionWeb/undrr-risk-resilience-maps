@@ -3,7 +3,7 @@
  *
  *   yarn test:downloads-contract                 # everything configured
  *   yarn test:downloads-contract --skip-files    # MapX checks only (no HEAD requests)
- *   yarn test:downloads-contract --view MX-…     # also vet a view not yet marked "yes"
+ *   yarn test:downloads-contract --view MX-…     # also vet a view not yet marked "yes" (or --view=MX-…)
  *
  * Like the EDRA and raster-legend contract checks, this does not run in
  * `yarn test` or CI: it depends on live services. Run it before marking a view
@@ -38,7 +38,22 @@ import {
 
 const args = process.argv.slice(2);
 const SKIP_FILES = args.includes("--skip-files");
-const EXTRA_VIEWS = args.flatMap((arg, i) => (args[i - 1] === "--view" ? [arg] : []));
+// `--view MX-…` or `--view=MX-…`, repeatable. Anything else is refused, so a
+// typo cannot silently check less than intended.
+const EXTRA_VIEWS = [];
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i];
+  if (arg === "--skip-files") continue;
+  if (arg === "--view" && args[i + 1] && !args[i + 1].startsWith("--")) EXTRA_VIEWS.push(args[++i]);
+  else if (arg.startsWith("--view=") && arg.length > "--view=".length)
+    EXTRA_VIEWS.push(arg.slice("--view=".length));
+  else {
+    console.error(
+      `Unknown or incomplete argument "${arg}". Use --skip-files and --view <MX-id> (or --view=<MX-id>).`,
+    );
+    process.exit(2);
+  }
+}
 const TIMEOUT_MS = 20_000;
 const CONCURRENCY = 6;
 
@@ -46,6 +61,18 @@ const failures = [];
 const warnings = [];
 const fail = (subject, message) => failures.push({ subject, message });
 const warn = (subject, message) => warnings.push({ subject, message });
+
+/**
+ * `fetch` with a deadline and one retry on a network error or timeout (not on
+ * an HTTP error status, which is an answer).
+ */
+async function fetchRetry(url, options = {}) {
+  try {
+    return await fetch(url, { ...options, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch {
+    return fetch(url, { ...options, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  }
+}
 
 /** Run `fn` over `items`, `CONCURRENCY` at a time. */
 async function mapLimited(items, fn) {
@@ -81,7 +108,7 @@ if (!SKIP_FILES) {
   await mapLimited(files, async (file) => {
     const subject = `${labelOf(file.entry)} ${file.url}`;
     try {
-      const response = await fetch(file.url, { method: "HEAD", signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const response = await fetchRetry(file.url, { method: "HEAD" });
       if (response.status !== 200) return fail(subject, `HEAD answered ${response.status}, expected 200`);
       const length = Number(response.headers.get("content-length"));
       if (length !== file.bytes) {
@@ -110,9 +137,7 @@ for (const [view, sibling] of REGION_CODE_SOURCES) if (toCheck.has(view)) needed
 const items = new Map();
 await mapLimited([...needed], async (id) => {
   try {
-    const response = await fetch(`https://api.mapx.org/get/view/item/${encodeURIComponent(id)}`, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+    const response = await fetchRetry(`https://api.mapx.org/get/view/item/${encodeURIComponent(id)}`);
     if (!response.ok) return items.set(id, { error: `MapX answered HTTP ${response.status}` });
     const item = await response.json();
     if (item?.id !== id) return items.set(id, { error: "MapX has no view with this id" });
@@ -151,7 +176,12 @@ for (const [id, label] of toCheck) {
   const sibling = items.get(siblingId);
   if (sibling.error) fail(subject, `region-code sibling ${siblingId}: ${sibling.error}`);
   else if (!sibling.names.includes("iso3cd")) fail(subject, `region-code sibling ${siblingId} has no iso3cd`);
-  else if (sibling.sourceId !== item.sourceId) {
+  else if (!item.sourceId || !sibling.sourceId) {
+    fail(
+      subject,
+      `cannot confirm region-code sibling ${siblingId} reads the same MapX source: a source id is missing`,
+    );
+  } else if (sibling.sourceId !== item.sourceId) {
     fail(
       subject,
       `region-code sibling ${siblingId} reads another MapX source (${sibling.sourceId} ≠ ${item.sourceId})`,

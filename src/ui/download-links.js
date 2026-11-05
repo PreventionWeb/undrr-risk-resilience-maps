@@ -9,6 +9,11 @@
  * the progress dialog, and a link to a file over 1 GB (`data-large`) asks for
  * confirmation first.
  *
+ * File links open in a new tab (`target="_blank"`): the hosted files come from
+ * another origin, where browsers ignore `download`, and without a
+ * Content-Disposition header some (Safari) would otherwise replace the viewer
+ * with the file, or with an error page if the server answers with one.
+ *
  * Pure markup: no listeners, no SDK.
  */
 import { formatBytes, getViewDownloads } from "../config/downloads.js";
@@ -40,7 +45,7 @@ export function downloadListHtml(layer, source = null, { prefix = "" } = {}) {
   const items = files.map((file) => {
     const size = formatBytes(file.bytes);
     const large = file.large ? ' data-large=""' : "";
-    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" data-bytes="${file.bytes}"${large} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a></li>`;
+    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" target="_blank" rel="noopener" data-bytes="${file.bytes}"${large} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a></li>`;
   });
   if (csv) {
     items.push(

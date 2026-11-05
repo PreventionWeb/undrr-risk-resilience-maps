@@ -373,15 +373,73 @@ describe("csvMetadata", () => {
   });
 
   it("keeps its own wording to regions (the UN disclaimer is quoted as published)", () => {
-    const text = csvMetadata({ layer, viewId: "MX-1" })
-      .filter(([label]) => label !== "Disclaimer")
-      .map(([, value]) => value)
-      .join(" ");
+    // The words actually written, including every variant of the region-name line.
+    const written = (options, stats) =>
+      csvMetadata({ layer, viewId: "MX-1", ...options })
+        .filter(([label]) => label !== "Disclaimer")
+        .map(([, value]) => (typeof value === "function" ? value(stats) : value));
+    const text = [
+      ...written({}, { rowCount: 3, unnamedCount: 0 }),
+      ...written({}, { rowCount: 3, unnamedCount: 2 }),
+      ...written({ namesMissing: true }, { rowCount: 3, unnamedCount: 3 }),
+    ].join(" ");
+    expect(text).toContain("2 of 3 regions have no name");
     expect(text).not.toMatch(/countr/i);
+    expect(text).not.toMatch(/=>|\bfunction\b/);
+  });
+});
+
+describe("buildRegionCsv: edge cases from review", () => {
+  it("refuses a table where no row has both a value and a code, rather than save an empty file", () => {
+    const rows = [
+      { j0_v: null, iso3cd: "CCA", gid: 1 },
+      { j0_v: 3, iso3cd: undefined, gid: 2 },
+    ];
+    expect(() => buildRegionCsv(rows)).toThrow(RegionCsvError);
+    try {
+      buildRegionCsv(rows);
+    } catch (error) {
+      expect(error.code).toBe("no-rows");
+    }
+  });
+
+  it("sorts codes the same way in every locale", () => {
+    const rows = ["TUR", "ZAF", "CHE", "xQZ", "AUT"].map((code, gid) => ({ j0_v: 1, iso3cd: code, gid }));
+    const codes = buildRegionCsv(rows)
+      .csv.slice(1)
+      .split("\r\n")
+      .slice(1, -1)
+      .map((line) => line.split(",")[0]);
+    expect(codes).toEqual(["AUT", "CHE", "TUR", "ZAF", "xQZ"]);
   });
 });
 
 describe("attachRegionCodes", () => {
+  it("refuses a sibling that has rows but no code column", () => {
+    const rows = [{ j0_q5: 1, gid: 1 }];
+    expect(() => attachRegionCodes(rows, [{ j0_q1: 1, gid: 1 }])).toThrow(RegionCsvError);
+    try {
+      attachRegionCodes(rows, [{ j0_q1: 1, gid: 1 }]);
+    } catch (error) {
+      expect(error.code).toBe("no-region-code");
+    }
+  });
+
+  it("refuses a view table that repeats a gid", () => {
+    expect(() =>
+      attachRegionCodes(
+        [
+          { j0_q5: 1, gid: 1 },
+          { j0_q5: 2, gid: 1 },
+        ],
+        [
+          { iso3cd: "CCA", gid: 1 },
+          { iso3cd: "CCB", gid: 2 },
+        ],
+      ),
+    ).toThrow(/could not be matched/);
+  });
+
   const codes = [
     { j0_q1: 5, iso3cd: "CCA", name_en: "A", gid: 1 },
     { j0_q1: 6, iso3cd: "xQZ", name_en: "Q", gid: 2 },

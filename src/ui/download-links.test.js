@@ -39,6 +39,11 @@ const compound = {
 describe("downloadListHtml", () => {
   it("lists every hosted file of a view with its own name, format and size", () => {
     const links = [...render(downloadListHtml(group)).querySelectorAll("a")];
+    // A new tab: the viewer's own tab is never replaced by the file (or an error page).
+    for (const link of links) {
+      expect(link.target).toBe("_blank");
+      expect(link.rel).toBe("noopener");
+    }
     expect(links.map((link) => [link.getAttribute("download"), visibleText(link)])).toEqual([
       ["first.tif", "Download first.tif (GeoTIFF, 333.8 MB)"],
       ["second.tif", "Download second.tif (GeoTIFF, 1.4 GB)"],

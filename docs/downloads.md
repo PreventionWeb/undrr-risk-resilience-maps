@@ -28,9 +28,11 @@ with a download no longer shows "Request data"; a view without one keeps it.
 
 Clicking a file over 1 GB first opens a confirmation dialog (the same dialog the CSV uses) that
 gives the size and recommends a fast, unmetered connection; the download starts only on "Download".
-Smaller files download straight away. The links have a `download` attribute, but browsers ignore it for
-another origin, so a GeoTIFF may open a save dialog or start downloading directly depending on the
-browser.
+Smaller files download straight away. Every file link (and the download a confirmation starts) opens in
+a **new tab** (`target="_blank" rel="noopener"`). The files come from another origin, where browsers
+ignore the `download` attribute, and the server sends `content-type: image/tiff` without
+`Content-Disposition: attachment`. Chromium and Firefox download the file anyway; Safari would display
+or navigate to it, and any browser would show an error page the server returned. In a new tab the viewer's own tab is never replaced (checked in Chromium and WebKit: the app tab keeps its URL; WebKit shows the file in the new tab).
 
 ## Where the data lives
 
@@ -96,9 +98,9 @@ Built by the pure `buildRegionCsv()` in `src/utils/region-csv.js`.
   it). If the lookup itself fails the file still downloads with an empty name column, its header says
   so, and the dialog shows a notice with **Try again**. No list of names is kept in this repository.
 - **Region codes:** the geographic area code from the map's boundary table: ISO 3166-1 alpha-3 where
-  one exists, and the map service's own code (lowercase `x…`) for the few other areas. Every area the
-  map shows a value for is exported, as on the map. The file calls them region codes, not country
-  codes, and its header carries the standard UN disclaimer on the designations used (`UN_DISCLAIMER`).
+  one exists, and the map service's own code (codes starting with `x`) for the few other areas. Every
+  area the map shows a value for is exported, as on the map, and the header carries the standard UN
+  disclaimer on the designations used (`UN_DISCLAIMER`).
 - **Rows dropped:** `gid` (an internal id) is never written; rows with no value (null, blank, NaN,
   Infinity); rows with no usable code (missing, blank, or not a short run of letters and digits); and a
   code repeated after its first row.
@@ -185,44 +187,58 @@ modal dialog, so it gets the same focus handling and announcement.
 
 ## Maintenance
 
-All three tasks below end the same way: run the contract check, then the importer, then the unit tests.
+All three tasks below follow the same order: update the inventory, **import it**, then run the
+contract check (it reads the imported config, not `data/inventory.csv`), then the unit tests.
 
 ```sh
-yarn test:downloads-contract        # live: hosted files, MapX views, region-name reference
-node scripts/import-inventory.mjs   # dry run: review the report
+node scripts/import-inventory.mjs           # dry run: review the report
 node scripts/import-inventory.mjs --apply
+yarn test:downloads-contract                # live: hosted files, MapX views, region-name reference
 yarn test
 ```
 
-`yarn test:downloads-contract` is the way to vet a new view or file. Like `test:edra-contract` and
+`yarn test:downloads-contract` is the way to vet a view or file. Like `test:edra-contract` and
 `test:mapx-raster-contract` it calls live services, so it does not run in `yarn test` or CI. It fails
-with one line per problem, naming the view or file. `--view <MX-id>` (repeatable) vets a view that is not
-marked `yes` yet; `--skip-files` skips the HEAD requests.
+with one line per problem, naming the view or file. `--view <MX-id>` (or `--view=<MX-id>`, repeatable)
+also vets a view that is not in the config or not marked `yes` yet; `--skip-files` skips the HEAD
+requests. Any other argument is refused.
+
+The importer's guards, each of which stops `--apply` before anything is written:
+
+- **Removals** (`--allow-removals` to proceed): a view left with fewer hosted files than configured, or a
+  `yes` CSV turned off. A spreadsheet that keeps the download columns but loses their values (a common
+  copy-paste accident) would otherwise clear every view's downloads. Leaving the columns out altogether
+  keeps the configured values; a replaced URL is an ordinary update.
+- **Re-vetting** (`--csv-vetted` to proceed): a view marked `yes` whose MapX view ID changes. The report
+  prints the exact contract command for the new IDs.
+- **CSV on a non-vector layer**: `yes` on a layer that is not `type: "vt"` in the config is an error
+  (dry run too).
+- **Lost updates**: if a planned change matches nothing in the config, nothing is written.
 
 ### GRID adds or replaces a hosted file
 
 1. In the inventory spreadsheet, on the view's row, set **Download URL** (several files: separate with
-   `;`) and **Download size (bytes)** (the same order). Get the size from the server:
-   `curl -sI <url> | grep -i content-length`.
+   `;`) and **Download size (bytes)** (the same order). Get the size from the server, for example
+   `curl -sI https://gar-data.unepgrid.ch/2026/PGA_475y.tif | grep -i content-length`.
 2. Export the sheet to `data/inventory.csv` (keep every column, including the download ones).
-3. Run `yarn test:downloads-contract`: every URL must answer 200 with exactly the configured size.
-4. Run the importer (dry run, then `--apply`), then `yarn test`, and commit the CSV and the config.
-
-A replaced URL is an ordinary update. **Removals are guarded:** an apply that would leave a view with
-fewer files than configured, or turn a `yes` CSV off, stops and lists them; pass `--allow-removals` if
-they are intended. This matters because a spreadsheet that keeps the download columns but loses their
-values (a common copy-paste accident) would otherwise clear every view's downloads. Leaving the columns
-out altogether keeps the configured values.
+3. `node scripts/import-inventory.mjs`, review the report, then `node scripts/import-inventory.mjs --apply`.
+4. `yarn test:downloads-contract`: every URL must answer 200 with exactly the configured size. If not,
+   fix the sheet and repeat from step 2.
+5. `yarn test`, and commit `data/inventory.csv` with the changed `src/config/layers/*.js`.
 
 ### A MapX view ID changes
 
-The importer moves the ID (`id:` on the layer or source) and the view's `downloads` and `csvDownload`
-stay on the same config object, so nothing else needs editing in the usual case. Then:
+The importer moves the ID (`id:` on the layer or source); the view's `downloads`, `csvDownload` and
+notes stay on the same config object, and field changes in the same import land on it.
 
-1. Run the importer with `--apply` and `yarn test`.
-2. Run `yarn test:downloads-contract`. For a CSV view it checks the new view in MapX (vector, joined
-   value, region codes). Fix the inventory if it fails (mark the view `no: <reason>` or blank until it
-   is sorted out).
+1. Update the row's MapX view ID in the sheet and export `data/inventory.csv`.
+2. `node scripts/import-inventory.mjs`. If the view is marked `yes`, the report lists it under
+   "re-vet before applying" with the command to run, for example
+   `yarn test:downloads-contract --skip-files --view MX-NEW-ID`.
+3. Run that command. If it passes, `node scripts/import-inventory.mjs --apply --csv-vetted`. If it fails,
+   set the row's **CSV download** to blank or `no: <reason>`, export again, and apply with
+   `--allow-removals` (turning a `yes` off is a removal).
+4. `yarn test:downloads-contract` and `yarn test`, then commit.
 
 What still needs a developer edit, because it names view IDs in JavaScript:
 
@@ -231,22 +247,25 @@ What still needs a developer edit, because it names view IDs in JavaScript:
   check fails, and at run time only the affected download degrades (names missing with a notice, or the
   one borrowing view fails with an error);
 - unit tests that use a real view ID as an example (the importer tests, and a few Sources and
-  data-request tests). These predate the downloads work and fail only if that particular view changes.
+  data-request tests). They fail only if that particular view changes.
 
 The unit tests about downloads assert invariants (hosted files are GeoTIFFs on raster views, `yes` only
 on vector views, every `no:` has a reason, the export matches the inventory), not counts, so adding or
-removing files and CSV views needs no test edit.
+removing files and CSV views needs no test edit. A bad `csvDownload` value in the config fails those
+tests in CI; in the running app it only logs a warning and offers no CSV for that view.
 
 ### A new map is added
 
-1. Add the row to the inventory as usual. Leave **CSV download** blank for now: the map gets no CSV.
-2. For a vector map that should have one, run `yarn test:downloads-contract --view <MX-id>`. It must
-   pass: a vector view, a joined value attribute (`jN_…`), and `iso3cd` in its attribute list (or a
-   developer adds a `REGION_CODE_SOURCES` sibling on the same source).
+1. Add the row to the sheet as usual, with **CSV download** blank: the map gets no CSV yet.
+2. For a vector map that should have one, run `yarn test:downloads-contract --skip-files --view <MX-id>`
+   (this works before the import). It must pass: a vector view, a joined value attribute (`jN_…`), and
+   `iso3cd` in its attribute list (or a developer adds a `REGION_CODE_SOURCES` sibling on the same
+   source).
 3. Mark the row `yes`, or `no: <reason>` if it is not region-level (describe the data, never a place).
 4. For a raster map with a hosted file, fill the download columns as above.
-5. Run the importer and `yarn test:downloads-contract` without `--view`: the new view is now checked
-   with the others.
+5. Export `data/inventory.csv`, run the importer (dry run, then `--apply`), then
+   `yarn test:downloads-contract` without `--view` (the new view is now checked with the others) and
+   `yarn test`.
 
 `data/gar2026-handoff.csv` is the original GAR 2026 handoff, kept for reference; the importer reads
 `data/inventory.csv` only, so neither column needs adding there.
@@ -257,6 +276,8 @@ removing files and CSV views needs no test edit.
   the UN disclaimer. GRID can tell us if they would prefer otherwise.
 - One view lacks region code and name columns; we borrow them from its sibling view. Can they be added
   to the view itself?
+- Could `gar-data.unepgrid.ch` send `Content-Disposition: attachment` with the GeoTIFFs? Browsers would
+  then download them in place everywhere, without a new tab.
 - Is reading MapX attribute tables through the SDK a supported, stable use for public downloads?
 - Can views carry readable attribute labels and units? Until then the value column is named from our
   config and units are not stated.

@@ -127,6 +127,44 @@ describe("createDownloads", () => {
     }
   });
 
+  it("fails, and saves nothing, when the sibling has rows but no region codes", async () => {
+    REGION_CODE_SOURCES.set("MX-VEC", "MX-SIB");
+    try {
+      current = setup({
+        read: ({ idView }) => (idView === "MX-VEC" ? [{ j0_q5: 4, gid: 1 }] : [{ j0_q1: 0, gid: 1 }]),
+      });
+      current.downloads.requestCsv("MX-VEC");
+      await vi.waitFor(() => expect(dialogState()).toBe("error"));
+      expect(statusText()).toMatch(/no region codes/);
+      expect(current.save).not.toHaveBeenCalled();
+    } finally {
+      REGION_CODE_SOURCES.delete("MX-VEC");
+    }
+  });
+
+  it("reads a sibling's codes once per session", async () => {
+    REGION_CODE_SOURCES.set("MX-VEC", "MX-SIB");
+    try {
+      current = setup({
+        read: ({ idView }) =>
+          idView === "MX-VEC"
+            ? [{ j0_q5: 4, gid: 1 }]
+            : idView === "MX-SIB"
+              ? [{ j0_q1: 0, iso3cd: "CCA", maplab: "Region A", gid: 1 }]
+              : REFERENCE_ROWS,
+      });
+      current.downloads.requestCsv("MX-VEC");
+      await vi.waitFor(() => expect(dialogState()).toBe("done"));
+      current.downloads.dialog.close();
+      current.downloads.requestCsv("MX-VEC");
+      await vi.waitFor(() => expect(current.save).toHaveBeenCalledTimes(2));
+      const siblingReads = methods(current.sdk).filter((call) => call === "get_view_table_attribute:MX-SIB");
+      expect(siblingReads).toHaveLength(1);
+    } finally {
+      REGION_CODE_SOURCES.delete("MX-VEC");
+    }
+  });
+
   it("fails rather than guess when the sibling's rows do not match", async () => {
     REGION_CODE_SOURCES.set("MX-VEC", "MX-SIB");
     try {
@@ -315,6 +353,7 @@ describe("large-file confirmation", () => {
         <a class="layer-downloads__link" id="small" href="https://files.example/small.tif" download="small.tif" data-bytes="1000">Download small.tif</a>
       </div>`;
     document.getElementById("panel").addEventListener("click", downloads.handleClick);
+    document.getElementById("panel").addEventListener("auxclick", downloads.handleClick);
     return { startFileDownload };
   }
 
@@ -343,6 +382,44 @@ describe("large-file confirmation", () => {
     dialogEl().querySelector('.download-dialog__actions [data-action="close"]').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(startFileDownload).not.toHaveBeenCalled();
+  });
+
+  it("asks on a middle click too (auxclick), and ignores other buttons", () => {
+    const { startFileDownload } = build();
+    const middle = new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 });
+    document.getElementById("big").dispatchEvent(middle);
+    expect(middle.defaultPrevented).toBe(true);
+    expect(dialogEl().dataset.state).toBe("confirm");
+    expect(startFileDownload).not.toHaveBeenCalled();
+    downloads.dialog.close();
+    const right = new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 2 });
+    document.getElementById("big").dispatchEvent(right);
+    expect(right.defaultPrevented).toBe(false);
+    const smallMiddle = new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 });
+    document.getElementById("small").dispatchEvent(smallMiddle);
+    expect(smallMiddle.defaultPrevented).toBe(false);
+  });
+
+  it("starts a confirmed download in a new tab, so the viewer's tab is never replaced", async () => {
+    downloads = createDownloads({
+      registry,
+      isViewWanted: () => false,
+      isViewLoaded: () => false,
+      isReady: () => true,
+      onReadyChange: () => () => {},
+      getSdk: () => ({ ask: vi.fn() }),
+    });
+    document.body.innerHTML = `<div id="panel"><a class="layer-downloads__link" id="big" href="https://files.example/big.tif" download="big.tif" data-bytes="3601777774" data-large="">Download big.tif</a></div>`;
+    document.getElementById("panel").addEventListener("click", downloads.handleClick);
+    const opened = [];
+    const spy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function () {
+      opened.push([this.href, this.target, this.rel, this.download]);
+    });
+    click(document.getElementById("big"));
+    dialogEl().querySelector('[data-action="extra"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    spy.mockRestore();
+    expect(opened).toEqual([["https://files.example/big.tif", "_blank", "noopener", "big.tif"]]);
   });
 
   it("leaves smaller files to the browser, with no dialog", () => {

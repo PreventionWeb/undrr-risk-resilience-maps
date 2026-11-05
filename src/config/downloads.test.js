@@ -127,6 +127,8 @@ describe("the configured downloads", () => {
     expect(views.some(([layer, source]) => getViewDownloads(layer, source).csv)).toBe(true);
     for (const [layer, source] of views) {
       const view = source ?? layer;
+      // The app only warns at startup about a bad value; CI fails here.
+      expect(isValidCsvDownload(view.csvDownload), view.id).toBe(true);
       if (view.csvDownload === "yes") expect(layer.type, view.id).toBe("vt");
       if (view.csvDownload?.startsWith("no")) expect(view.csvDownload, view.id).toMatch(/^no: \S/);
     }

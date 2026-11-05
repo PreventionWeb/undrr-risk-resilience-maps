@@ -29,7 +29,7 @@
  *   an ISO 3166-1 alpha-3 code where one exists, and the map service's own
  *   code for other areas. Every area the map shows a value for is exported,
  *   as on the map; the metadata block carries the standard UN disclaimer
- *   (UN_DISCLAIMER), and the file does not call the codes country codes.
+ *   (UN_DISCLAIMER).
  * - Dropped: `gid`; rows with no value (null, blank, NaN, Infinity); rows with
  *   no usable area code; and a code repeated after its first row.
  *
@@ -82,8 +82,8 @@ export const UN_DISCLAIMER =
   "The designations employed and the presentation of material in this dataset do not imply the expression of any opinion whatsoever on the part of the Secretariat of the United Nations concerning the legal status of any country, territory, city or area or of its authorities, or concerning the delimitation of its frontiers or boundaries.";
 
 /**
- * A usable area code: a short run of letters and digits (`CHE`, or a map
- * service code such as `xab`). Anything else (null, blank, punctuation, long
+ * A usable area code: a short run of letters and digits (`CHE`, or one of
+ * the map service's own codes, which start with `x`). Anything else (null, blank, punctuation, long
  * text) is not a code, and its row is left out.
  */
 export function isRegionCode(code) {
@@ -273,9 +273,22 @@ export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNam
   // `||`: a blank maplab falls back to the reference name too.
   const nameOf = (row) => row[REGION_NAME_ATTRIBUTE] || regionNames.get(row[REGION_CODE_ATTRIBUTE]) || "";
   const sorted = [...kept.values()].sort((a, b) =>
-    a[REGION_CODE_ATTRIBUTE].localeCompare(b[REGION_CODE_ATTRIBUTE]),
+    // Plain code-unit order, the same in every browser locale (localeCompare
+    // would put some codes elsewhere in some locales).
+    a[REGION_CODE_ATTRIBUTE] < b[REGION_CODE_ATTRIBUTE]
+      ? -1
+      : a[REGION_CODE_ATTRIBUTE] > b[REGION_CODE_ATTRIBUTE]
+        ? 1
+        : 0,
   );
 
+  if (sorted.length === 0) {
+    // Nothing with both a value and a code: an empty file would look like success.
+    throw new RegionCsvError(
+      "no-rows",
+      "The map service returned no values with a region code for this layer.",
+    );
+  }
   const unnamedCount = sorted.filter((row) => !nameOf(row)).length;
   const lines = [
     ...metadataLines(metadata, { rowCount: sorted.length, unnamedCount }),
@@ -320,13 +333,18 @@ export function attachRegionCodes(rows, codeRows) {
       "This layer's data has no region codes, and they could not be matched from a related layer.",
     );
   if (!Array.isArray(rows) || !Array.isArray(codeRows) || rows.length !== codeRows.length) throw mismatch();
+  // The sibling must actually carry codes; otherwise every row would get none.
+  if (!codeRows.some((row) => row && REGION_CODE_ATTRIBUTE in row)) throw mismatch();
   const codes = new Map();
   for (const row of codeRows) {
     if (row?.gid === undefined || row.gid === null || codes.has(row.gid)) throw mismatch();
     codes.set(row.gid, row[REGION_CODE_ATTRIBUTE]);
   }
+  // Each gid once on the view side too: a repeated row would take a code twice.
+  const seen = new Set();
   return rows.map((row) => {
-    if (!row || !codes.has(row.gid)) throw mismatch();
+    if (!row || !codes.has(row.gid) || seen.has(row.gid)) throw mismatch();
+    seen.add(row.gid);
     return { ...row, [REGION_CODE_ATTRIBUTE]: codes.get(row.gid) };
   });
 }
