@@ -25,6 +25,7 @@ yarn test:e2e   # Playwright smoke suite in Chromium, MapX stubbed
 yarn test:all   # Both suites
 yarn test:edra-contract         # Optional live check of all 15 EDRA variants
 yarn test:mapx-raster-contract  # Optional live MapX/GIRI/mirror legend check
+yarn test:downloads-contract    # Optional live check of hosted files and CSV views (docs/downloads.md)
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow conventions (PRs, conventional commits, changelog).
@@ -70,7 +71,7 @@ What that build requires of this repo:
 | [scripts/import-inventory.mjs](scripts/import-inventory.mjs) | CSV → JS config import tool (dry-run + `--apply`)                            |
 | [research/](research/)                                       | GRI UX analysis, layer inventory, MapX crosswalk, implementation patterns    |
 
-The inventory importer requires the repository's 14 core CSV columns and fails fast when columns are missing or renamed. It also syncs optional `Note` and `Explainer link` columns, and the optional `Download URL` / `Download size (bytes)` pair (hosted files per view, `;`-separated); older files without these columns preserve configured metadata. Colleague `.xlsx` files must be converted to this CSV shape before import.
+The inventory importer requires the repository's 14 core CSV columns and fails fast when columns are missing or renamed. It also syncs optional `Note` and `Explainer link` columns, the optional `Download URL` / `Download size (bytes)` pair (hosted files per view, `;`-separated) and `CSV download` (`yes`, `no: <reason>` or blank; see [docs/downloads.md](docs/downloads.md#maintenance)); older files without these columns preserve configured metadata. Colleague `.xlsx` files must be converted to this CSV shape before import.
 
 ## URL routing
 

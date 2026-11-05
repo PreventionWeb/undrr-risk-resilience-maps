@@ -649,7 +649,8 @@ unchanged. The embed reads the same parameter in `src/embed/params.js`.
 
 - **What a view offers** is decided from config alone (`getViewDownloads()` in
   `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
-  `data/inventory.csv`), and a CSV for the views on the `CSV_VIEWS` allowlist (published `vt` layers).
+  `data/inventory.csv`), and a CSV for views marked `csvDownload: "yes"` (the inventory's "CSV download"
+  column, per view; published `vt` layers only).
 - **Markup** (`src/ui/download-links.js`) is shared by the row's `.layer-downloads-slot` (rendered for
   the view shown, next to the context links) and the Sources Download column. The "Download CSV" button
   is handled by a delegated click listener on the row slot and on the Sources panel. A view with a

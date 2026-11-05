@@ -44,8 +44,8 @@ browser.
 `scripts/import-inventory.mjs --apply` writes them to the view's config as
 `downloads: [[url, bytes], ...]` (a simple layer, or one compound source). Tuples rather than objects
 because the importer matches source objects textually and must not meet nested braces. Sizes are
-stored, not fetched, so drawing a link costs no request; refresh them with a `HEAD` request when GRID
-replaces a file. `validateLayers()` rejects anything that is not `[https URL, positive integer]`, and
+stored, not fetched, so drawing a link costs no request; `yarn test:downloads-contract` checks them
+against the server. `validateLayers()` rejects anything that is not `[https URL, positive integer]`, and
 the inventory export writes the two columns back out.
 
 The list came from GRID (one row per raster view, 20 views, one layer group with two files). One URL
@@ -53,23 +53,30 @@ was wrong in the supplied list: the 475-year PGA file is `PGA_475y.tif`, not `PG
 
 ### CSV eligibility
 
-Explicit, per view: `CSV_VIEWS` in `src/config/downloads.js` lists the 70 views offered as a CSV, each
-checked against live MapX in the #64 spike (a region code column and joined values), and
-`isCsvEligible()` also requires the layer to be a published, non-external `vt` layer. A new vector view
-gets no CSV until someone checks its table and adds it; a unit test fails until every published vector
-view is either on that list or in `CSV_EXCLUDED_VIEWS` with a reason.
+Per view, in the inventory: the **CSV download** column of `data/inventory.csv` holds
 
-One listed view, `MX-MDFMH-34XOD-EU9HN` (recovery speed, flood Q5), has no region code column in its
-attribute list. Its sibling flood Q1 view reads the same MapX source (same source id, same 260 rows), so
-`REGION_CODE_SOURCES` borrows the codes from it, matched row by row on `gid`
-(`attachRegionCodes()`). If the two tables ever differ, the download fails with an error rather than
-guess. GRID could still add the column to the view.
+- `yes`: offered as a CSV;
+- `no: <reason>`: checked and refused, with the reason (for example, not region-level);
+- blank: not reviewed, so **no CSV**. A new vector map gets no CSV until someone vets it with
+  `yarn test:downloads-contract --view <id>` and marks it `yes`.
 
-The exclusions:
+`scripts/import-inventory.mjs --apply` writes it to the view's config as `csvDownload` (the layer for a
+simple layer, the compound source for a compound one), the inventory export writes it back, and
+`validateLayers()` rejects any other value, or `yes` on a layer that is not vector. `isCsvEligible()`
+also requires the layer to be published and not external. The `no:` reasons describe the data, never a
+place.
 
-- `MX-Z7JZA-I9BQC-KKVOT`, `MX-TQ2DK-9RHAJ-CRPAN`, `MX-1L2TA-6FXPV-N3QMX`, `MX-FX1HT-Z7KXL-8X22K`:
-  not region-level (grid cells, river basins, forest classes), so values without geometry identify
-  nothing.
+Two developer-level settings stay in `src/config/downloads.js`:
+
+- `REGION_CODE_SOURCES`: one view, `MX-MDFMH-34XOD-EU9HN` (recovery speed, flood Q5), has no region
+  code column in its attribute list. Its sibling flood Q1 view reads the same MapX source (same source
+  id, same 260 rows), so the codes are borrowed from it, matched row by row on `gid`
+  (`attachRegionCodes()`). If the two tables ever differ, the download fails with an error rather than
+  guess. GRID could still add the column to the view.
+- `REGION_NAME_REFERENCE_VIEW`: the `maplab` view region names are read from (see below).
+
+The views marked `no:` today are the four that are not region-level (grid cells, river basins, forest
+classes): values without geometry identify nothing.
 
 ## The CSV
 
@@ -84,8 +91,10 @@ Built by the pure `buildRegionCsv()` in `src/utils/region-csv.js`.
   names joined with `#`. About 40 views carry only `name_en`; for those, names are read at runtime from
   another view on the same boundary table that does carry `maplab` (`REGION_NAME_REFERENCE_VIEW`), and
   kept in the browser (memory and localStorage, 30 days), so the extra read is rare. A code with no label
-  there is left blank. If that read fails the file still downloads with an empty name column, its header
-  says so, and the dialog shows a notice with **Try again**. No list of names is kept in this repository.
+  there is left blank, and the file's header and the dialog say how many: "Region names: … N of M
+  regions have no name in the map service". That notice is quiet (no retry: retrying would not change
+  it). If the lookup itself fails the file still downloads with an empty name column, its header says
+  so, and the dialog shows a notice with **Try again**. No list of names is kept in this repository.
 - **Region codes:** the geographic area code from the map's boundary table: ISO 3166-1 alpha-3 where
   one exists, and the map service's own code (lowercase `x…`) for the few other areas. Every area the
   map shows a value for is exported, as on the map. The file calls them region codes, not country
@@ -173,6 +182,74 @@ Cancel, Done or Close by state.
 Each download control has its own accessible name, starting with its visible words
 ("Download CSV: Losses to housing – AAL Current (values per region)"). The large-file confirmation is the same
 modal dialog, so it gets the same focus handling and announcement.
+
+## Maintenance
+
+All three tasks below end the same way: run the contract check, then the importer, then the unit tests.
+
+```sh
+yarn test:downloads-contract        # live: hosted files, MapX views, region-name reference
+node scripts/import-inventory.mjs   # dry run: review the report
+node scripts/import-inventory.mjs --apply
+yarn test
+```
+
+`yarn test:downloads-contract` is the way to vet a new view or file. Like `test:edra-contract` and
+`test:mapx-raster-contract` it calls live services, so it does not run in `yarn test` or CI. It fails
+with one line per problem, naming the view or file. `--view <MX-id>` (repeatable) vets a view that is not
+marked `yes` yet; `--skip-files` skips the HEAD requests.
+
+### GRID adds or replaces a hosted file
+
+1. In the inventory spreadsheet, on the view's row, set **Download URL** (several files: separate with
+   `;`) and **Download size (bytes)** (the same order). Get the size from the server:
+   `curl -sI <url> | grep -i content-length`.
+2. Export the sheet to `data/inventory.csv` (keep every column, including the download ones).
+3. Run `yarn test:downloads-contract`: every URL must answer 200 with exactly the configured size.
+4. Run the importer (dry run, then `--apply`), then `yarn test`, and commit the CSV and the config.
+
+A replaced URL is an ordinary update. **Removals are guarded:** an apply that would leave a view with
+fewer files than configured, or turn a `yes` CSV off, stops and lists them; pass `--allow-removals` if
+they are intended. This matters because a spreadsheet that keeps the download columns but loses their
+values (a common copy-paste accident) would otherwise clear every view's downloads. Leaving the columns
+out altogether keeps the configured values.
+
+### A MapX view ID changes
+
+The importer moves the ID (`id:` on the layer or source) and the view's `downloads` and `csvDownload`
+stay on the same config object, so nothing else needs editing in the usual case. Then:
+
+1. Run the importer with `--apply` and `yarn test`.
+2. Run `yarn test:downloads-contract`. For a CSV view it checks the new view in MapX (vector, joined
+   value, region codes). Fix the inventory if it fails (mark the view `no: <reason>` or blank until it
+   is sorted out).
+
+What still needs a developer edit, because it names view IDs in JavaScript:
+
+- the view is `REGION_NAME_REFERENCE_VIEW` or appears in `REGION_CODE_SOURCES`
+  (`src/config/downloads.js`). Unit tests do not fail on this, so deploys are not blocked; the contract
+  check fails, and at run time only the affected download degrades (names missing with a notice, or the
+  one borrowing view fails with an error);
+- unit tests that use a real view ID as an example (the importer tests, and a few Sources and
+  data-request tests). These predate the downloads work and fail only if that particular view changes.
+
+The unit tests about downloads assert invariants (hosted files are GeoTIFFs on raster views, `yes` only
+on vector views, every `no:` has a reason, the export matches the inventory), not counts, so adding or
+removing files and CSV views needs no test edit.
+
+### A new map is added
+
+1. Add the row to the inventory as usual. Leave **CSV download** blank for now: the map gets no CSV.
+2. For a vector map that should have one, run `yarn test:downloads-contract --view <MX-id>`. It must
+   pass: a vector view, a joined value attribute (`jN_…`), and `iso3cd` in its attribute list (or a
+   developer adds a `REGION_CODE_SOURCES` sibling on the same source).
+3. Mark the row `yes`, or `no: <reason>` if it is not region-level (describe the data, never a place).
+4. For a raster map with a hosted file, fill the download columns as above.
+5. Run the importer and `yarn test:downloads-contract` without `--view`: the new view is now checked
+   with the others.
+
+`data/gar2026-handoff.csv` is the original GAR 2026 handoff, kept for reference; the importer reads
+`data/inventory.csv` only, so neither column needs adding there.
 
 ## Limitations and open questions for GRID
 
