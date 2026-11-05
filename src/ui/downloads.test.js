@@ -233,3 +233,67 @@ describe("createDownloads", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 });
+
+describe("large-file confirmation", () => {
+  let downloads;
+  afterEach(() => {
+    downloads?.destroy();
+    downloads = null;
+    document.body.innerHTML = "";
+  });
+
+  function build() {
+    const startFileDownload = vi.fn();
+    downloads = createDownloads({
+      registry,
+      isViewWanted: () => false,
+      isViewLoaded: () => false,
+      isReady: () => true,
+      onReadyChange: () => () => {},
+      getSdk: () => ({ ask: vi.fn() }),
+      startFileDownload,
+    });
+    document.body.innerHTML = `
+      <div id="panel">
+        <a class="layer-downloads__link" id="big" href="https://files.example/big.tif" download="big.tif" data-bytes="3601777774" data-large="">Download big.tif</a>
+        <a class="layer-downloads__link" id="small" href="https://files.example/small.tif" download="small.tif" data-bytes="1000">Download small.tif</a>
+      </div>`;
+    document.getElementById("panel").addEventListener("click", downloads.handleClick);
+    return { startFileDownload };
+  }
+
+  const click = (el) => {
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    el.dispatchEvent(event);
+    return event;
+  };
+  const dialogEl = () => document.querySelector("dialog.download-dialog");
+
+  it("asks before a file over 1 GB and downloads it only when confirmed", async () => {
+    const { startFileDownload } = build();
+    const event = click(document.getElementById("big"));
+    expect(event.defaultPrevented).toBe(true);
+    expect(dialogEl().dataset.state).toBe("confirm");
+    expect(dialogEl().querySelector('[data-part="status"]').textContent).toContain("big.tif is 3.6 GB");
+    expect(startFileDownload).not.toHaveBeenCalled();
+    dialogEl().querySelector('[data-action="extra"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(startFileDownload).toHaveBeenCalledWith("https://files.example/big.tif", "big.tif");
+  });
+
+  it("does not download when the confirmation is cancelled", async () => {
+    const { startFileDownload } = build();
+    click(document.getElementById("big"));
+    dialogEl().querySelector('.download-dialog__actions [data-action="close"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(startFileDownload).not.toHaveBeenCalled();
+  });
+
+  it("leaves smaller files to the browser, with no dialog", () => {
+    const { startFileDownload } = build();
+    const event = click(document.getElementById("small"));
+    expect(event.defaultPrevented).toBe(false);
+    expect(dialogEl()?.hasAttribute("open") ?? false).toBe(false);
+    expect(startFileDownload).not.toHaveBeenCalled();
+  });
+});

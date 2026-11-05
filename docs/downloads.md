@@ -26,7 +26,9 @@ Downloads appear in the layer panel (for the view shown: a compound layer's sele
 **Download** column on the Sources page (every source of a compound layer, named by its label). A view
 with a download no longer shows "Request data"; a view without one keeps it.
 
-Files over 1 GB carry a warning. The links have a `download` attribute, but browsers ignore it for
+Clicking a file over 1 GB first opens a confirmation dialog (the same dialog the CSV uses) that
+gives the size and recommends a fast, unmetered connection; the download starts only on "Download".
+Smaller files download straight away. The links have a `download` attribute, but browsers ignore it for
 another origin, so a GeoTIFF may open a save dialog or start downloading directly depending on the
 browser.
 
@@ -161,8 +163,8 @@ region while the dialog is open. The header's ✕ is named "Close dialog"; the a
 Cancel, Done or Close by state.
 
 Each download control has its own accessible name, starting with its visible words
-("Download CSV: Losses to housing – AAL Current (values per region)"), and a large file's warning is
-tied to its link with `aria-describedby`.
+("Download CSV: Losses to housing – AAL Current (values per region)"). The large-file confirmation is the same
+modal dialog, so it gets the same focus handling and announcement.
 
 ## Limitations and open questions for GRID
 

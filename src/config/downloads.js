@@ -36,7 +36,7 @@ function fileNameOf(url) {
   }
 }
 
-/** Files over this size get a warning next to their link (decimal gigabyte). */
+/** Files over this size ask for confirmation before downloading (decimal gigabyte). */
 export const LARGE_DOWNLOAD_BYTES = 1_000_000_000;
 
 /**

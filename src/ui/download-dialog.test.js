@@ -224,4 +224,64 @@ describe("createDownloadDialog", () => {
     expect(dialog.element.hasAttribute("open")).toBe(false);
     expect(run).toHaveBeenCalledTimes(1);
   });
+
+  describe("confirm", () => {
+    const extra = () => dialog.element.querySelector('[data-action="extra"]');
+    const ask = () =>
+      dialog.confirm({
+        title: "Download a large file?",
+        message: "big.tif is 3.6 GB.",
+        confirmLabel: "Download (3.6 GB)",
+        opener,
+      });
+
+    it("shows the message with a confirm button and Cancel, without the progress bar", () => {
+      void ask();
+      const el = dialog.element;
+      expect(el.hasAttribute("open")).toBe(true);
+      expect(el.getAttribute("aria-label")).toBe("Download a large file?");
+      expect(dialog.state).toBe("confirm");
+      expect(el.querySelector(".download-dialog__progress").hidden).toBe(true);
+      expect(status().textContent).toBe("big.tif is 3.6 GB.");
+      expect(live().textContent).toBe("big.tif is 3.6 GB.");
+      expect(extra().hidden).toBe(false);
+      expect(extra().textContent).toBe("Download (3.6 GB)");
+      expect(footerClose().textContent).toBe("Cancel");
+      expect(retry().hidden).toBe(true);
+    });
+
+    it("resolves true on the confirm button, closes and returns focus", async () => {
+      const answer = ask();
+      extra().click();
+      await expect(answer).resolves.toBe(true);
+      expect(dialog.element.hasAttribute("open")).toBe(false);
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it("resolves false on Cancel, the close button and Escape", async () => {
+      let answer = ask();
+      footerClose().click();
+      await expect(answer).resolves.toBe(false);
+
+      answer = ask();
+      dialog.element.querySelector('.download-dialog__header [data-action="close"]').click();
+      await expect(answer).resolves.toBe(false);
+
+      answer = ask();
+      key(dialog.element, "Escape");
+      await expect(answer).resolves.toBe(false);
+      expect(document.activeElement).toBe(opener);
+    });
+
+    it("resolves false when another dialog replaces it or it is destroyed", async () => {
+      let answer = ask();
+      dialog.open({ title: "Download CSV: Layer", run: () => new Promise(() => {}) });
+      await expect(answer).resolves.toBe(false);
+      expect(dialog.state).toBe("fetching");
+
+      answer = ask();
+      dialog.destroy();
+      await expect(answer).resolves.toBe(false);
+    });
+  });
 });

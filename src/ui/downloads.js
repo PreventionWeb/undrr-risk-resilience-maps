@@ -19,9 +19,12 @@
  *   warm up behind information pages on this device), the dialog says so at
  *   once and offers to open the map, rather than waiting.
  *
+ * - A link to a hosted file over 1 GB (`data-large`) asks for confirmation in
+ *   the same dialog before the browser starts the download.
+ *
  * With the flag off none of this is created, so the UI is unchanged.
  */
-import { REGION_NAME_REFERENCE_VIEW, getViewDownloads } from "../config/downloads.js";
+import { REGION_NAME_REFERENCE_VIEW, formatBytes, getViewDownloads } from "../config/downloads.js";
 import { getLayerRegistry } from "../config/registry.js";
 import {
   REGION_CODE_ATTRIBUTE,
@@ -133,6 +136,17 @@ export function createDownloads({
   viewerUrl = () => "",
   now = () => new Date(),
   save = saveTextFile,
+  startFileDownload = (url, filename) => {
+    // A fresh link outside the panel, so the click is not caught again here.
+    const link = doc.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.rel = "noopener";
+    link.hidden = true;
+    doc.body.appendChild(link);
+    link.click();
+    link.remove();
+  },
   storage = defaultStorage(doc),
   readyTimeoutMs = SDK_READY_WAIT_MS,
   regionNameView = REGION_NAME_REFERENCE_VIEW,
@@ -275,7 +289,28 @@ export function createDownloads({
    * A delegated click handler for a container of download lists: a click on a
    * "Download CSV" button starts its flow.
    */
+  /** Ask before a very large file; download it only when confirmed. */
+  async function confirmLargeFile(link) {
+    const url = link.href;
+    const filename = link.getAttribute("download") || url.split("/").pop();
+    const size = formatBytes(Number(link.dataset.bytes));
+    const ok = await dialog.confirm({
+      title: "Download a large file?",
+      message: `${filename} is ${size}. It may take a long time and use a lot of data; a fast, unmetered connection is recommended.`,
+      confirmLabel: `Download (${size})`,
+      opener: link,
+    });
+    if (ok) startFileDownload(url, filename);
+    return ok;
+  }
+
   function handleClick(event) {
+    const large = event.target.closest?.("a.layer-downloads__link[data-large]");
+    if (large) {
+      event.preventDefault();
+      void confirmLargeFile(large);
+      return;
+    }
     const button = event.target.closest?.('[data-action="download-csv"]');
     if (!button) return;
     event.preventDefault();
@@ -284,6 +319,7 @@ export function createDownloads({
 
   return {
     requestCsv,
+    confirmLargeFile,
     handleClick,
     dialog,
     destroy() {

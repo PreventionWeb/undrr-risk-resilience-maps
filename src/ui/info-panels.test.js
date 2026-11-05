@@ -120,7 +120,7 @@ describe("buildSourcesPanel", () => {
         "PGA_2475y.tif",
       ]);
       expect(pga.querySelector(".layer-downloads__source").textContent).toBe("250 yr:");
-      expect(pga.querySelectorAll(".layer-downloads__warning")).toHaveLength(5);
+      expect(pga.querySelectorAll("a[data-large]")).toHaveLength(5);
 
       // GAR2026 vector maps get a CSV instead of the request email.
       const rice = [...panel.querySelectorAll("tbody tr")].find((row) =>

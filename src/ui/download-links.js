@@ -2,10 +2,12 @@
  * Download controls markup (prototype, behind `?downloads=1`; #64).
  *
  * `downloadListHtml(layer, source)` draws a view's download controls: a link
- * per hosted file (format, size, a warning over 1 GB) and a "Download CSV"
+ * per hosted file (format and size) and a "Download CSV"
  * button for region-level vector views. The layer row and the Sources table
- * both use it; the button's click is handled by the caller's delegated
- * listener (`createDownloads().handleClick`, src/ui/downloads.js).
+ * both use it. Clicks go to the caller's delegated listener
+ * (`createDownloads().handleClick`, src/ui/downloads.js): the CSV button opens
+ * the progress dialog, and a link to a file over 1 GB (`data-large`) asks for
+ * confirmation first.
  *
  * Pure markup: no listeners, no SDK.
  */
@@ -15,13 +17,6 @@ import { escapeHtml } from "../utils/html.js";
 import { viewLabel } from "../utils/region-csv.js";
 
 const DOWNLOAD_ICON = '<span class="mg-icon mg-icon-download" aria-hidden="true"></span>';
-
-/**
- * Ids for the large-file warnings a link's aria-describedby points at. A
- * counter, not a view id: the same view can be drawn in its home row, a
- * cross-tab row and the Sources table at once, and ids must stay unique.
- */
-let warningIds = 0;
 
 /**
  * A view's download controls as an HTML list, or "" when it has none.
@@ -44,12 +39,8 @@ export function downloadListHtml(layer, source = null, { prefix = "" } = {}) {
   const name = viewLabel(layer, source);
   const items = files.map((file) => {
     const size = formatBytes(file.bytes);
-    const warningId = file.large ? `layer-download-warning-${++warningIds}` : "";
-    const warning = file.large
-      ? `<span class="layer-downloads__warning mg-form-help" id="${warningId}"><span class="mg-icon mg-icon-exclamation-triangle" aria-hidden="true"></span> Over 1 GB: a fast, unmetered connection is recommended.</span>`
-      : "";
-    const describedBy = warningId ? ` aria-describedby="${warningId}"` : "";
-    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" data-bytes="${file.bytes}"${describedBy} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a>${warning}</li>`;
+    const large = file.large ? ' data-large=""' : "";
+    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" data-bytes="${file.bytes}"${large} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a></li>`;
   });
   if (csv) {
     items.push(

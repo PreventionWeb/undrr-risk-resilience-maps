@@ -64,14 +64,13 @@ describe("downloadListHtml", () => {
     expect(link.getAttribute("aria-label")).toBe("Download first.tif: Group (GeoTIFF, 333.8 MB)");
   });
 
-  it("ties the large-file warning to its link with aria-describedby, with unique ids", () => {
-    const first = render(downloadListHtml(group));
-    const second = render(downloadListHtml(group));
-    const [small, large] = first.querySelectorAll("a");
-    expect(small.hasAttribute("aria-describedby")).toBe(false);
-    const id = large.getAttribute("aria-describedby");
-    expect(first.querySelector(`#${id}`).textContent).toContain("Over 1 GB");
-    expect(second.querySelectorAll("a")[1].getAttribute("aria-describedby")).not.toBe(id);
+  it("marks a file over 1 GB for confirmation, with no inline warning", () => {
+    const host = render(downloadListHtml(group));
+    const [small, large] = host.querySelectorAll("a");
+    expect(small.hasAttribute("data-large")).toBe(false);
+    expect(large.hasAttribute("data-large")).toBe(true);
+    expect(large.hasAttribute("aria-describedby")).toBe(false);
+    expect(host.textContent).not.toContain("Over 1 GB");
   });
 
   it("draws nothing for a view without downloads or an unpublished layer", () => {

@@ -132,16 +132,15 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
   });
 
-  it("shows a GeoTIFF link with format, size and a large-file warning", () => {
+  it("shows a GeoTIFF link with format and size, marked for confirmation when large", () => {
     build({ downloadsEnabled: true });
     const link = homeRow(layers.raster).querySelector("a.layer-downloads__link");
     expect(link.href).toBe("https://gar-data.unepgrid.ch/2026/big_grid.tif");
     expect(link.getAttribute("download")).toBe("big_grid.tif");
     expect(link.textContent).toContain("Download big_grid.tif");
     expect(link.textContent).toContain("(GeoTIFF, 1.5 GB)");
-    expect(homeRow(layers.raster).querySelector(".layer-downloads__warning").textContent).toContain(
-      "Over 1 GB: a fast, unmetered connection is recommended.",
-    );
+    expect(link.hasAttribute("data-large")).toBe(true);
+    expect(homeRow(layers.raster).textContent).not.toContain("Over 1 GB");
     expect(homeRow(layers.raster).querySelector("[data-action='download-csv']")).toBeNull();
   });
 

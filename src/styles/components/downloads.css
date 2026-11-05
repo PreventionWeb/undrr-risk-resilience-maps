@@ -59,13 +59,6 @@
   font-weight: 600;
 }
 
-.layer-downloads__warning {
-  display: block;
-  margin: 0.1rem 0 0;
-  font-size: inherit;
-  color: rgb(var(--mg-color-neutral-600));
-}
-
 /* ── CSV progress dialog (native <dialog>, top layer) ── */
 
 .download-dialog {

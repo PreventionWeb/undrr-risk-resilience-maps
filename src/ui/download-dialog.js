@@ -16,6 +16,10 @@
  * of the accessibility tree while the dialog is open, so it could not speak.
  * The visible status line is not live, so nothing is read twice.
  *
+ * `confirm(...)` reuses the same dialog to ask before something costly (a very
+ * large file): no progress bar, a message, and a confirm button beside Cancel.
+ * It resolves `true` only when the confirm button is pressed.
+ *
  * Closing while work is in flight abandons it: the run is not cancelled (a
  * MapX call cannot be), but its result is ignored and nothing is downloaded.
  */
@@ -37,6 +41,7 @@ const FOCUSABLE =
  * @param {{ doc?: Document }} [options]
  * @returns {{
  *   open(options: { title: string, run: (stepper: DialogStepper) => Promise<string>, opener?: Element|null }): void,
+ *   confirm(options: { title: string, message: string, confirmLabel: string, opener?: Element|null }): Promise<boolean>,
  *   close(): void,
  *   readonly element: HTMLDialogElement,
  *   readonly state: string|null,
@@ -91,6 +96,8 @@ export function createDownloadDialog({ doc = document } = {}) {
   let current = null; // { title, run, opener }
   let extraAction = null;
   let generation = 0;
+  let settleConfirm = null; // resolves a pending confirm(), once
+  let confirmAccepted = false;
   let destroyed = false;
 
   function say(message) {
@@ -124,7 +131,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     extraAction = action;
     extraBtn.hidden = !action;
     extraBtn.textContent = action?.label ?? "";
-    closeBtn.textContent = index >= 0 ? "Cancel" : next === "done" ? "Done" : "Close";
+    closeBtn.textContent = index >= 0 || next === "confirm" ? "Cancel" : next === "done" ? "Done" : "Close";
     say(noticeText ? `${message} ${noticeText}` : message);
   }
 
@@ -154,8 +161,9 @@ export function createDownloadDialog({ doc = document } = {}) {
     }
   }
 
-  function open({ title: text, run, opener = doc.activeElement }) {
-    if (destroyed) return;
+  /** Show the dialog (modal) with a title, remembering where focus returns. */
+  function show(text, run, opener) {
+    settle(false); // a confirm still open is answered "no"
     current = { run, opener };
     title.textContent = text;
     dialog.setAttribute("aria-label", text);
@@ -168,7 +176,35 @@ export function createDownloadDialog({ doc = document } = {}) {
       }
     }
     title.focus();
+  }
+
+  function open({ title: text, run, opener = doc.activeElement }) {
+    if (destroyed) return;
+    show(text, run, opener);
     void start();
+  }
+
+  /**
+   * Ask before going on. Resolves true when the confirm button is pressed,
+   * false on Cancel, Escape, ✕ or anything else that closes the dialog.
+   * @param {{ title: string, message: string, confirmLabel: string, opener?: Element|null }} options
+   * @returns {Promise<boolean>}
+   */
+  function confirm({ title: text, message, confirmLabel, opener = doc.activeElement }) {
+    if (destroyed) return Promise.resolve(false);
+    show(text, null, opener);
+    generation++; // any earlier run is abandoned
+    return new Promise((resolve) => {
+      confirmAccepted = false;
+      settleConfirm = resolve;
+      setState("confirm", message, { action: { label: confirmLabel, run: () => {}, confirm: true } });
+    });
+  }
+
+  function settle(value) {
+    const resolve = settleConfirm;
+    settleConfirm = null;
+    resolve?.(value);
   }
 
   function close() {
@@ -182,6 +218,8 @@ export function createDownloadDialog({ doc = document } = {}) {
     delete dialog.dataset.state;
     const opener = current?.opener;
     current = null;
+    settle(confirmAccepted);
+    confirmAccepted = false;
     // Back to the control that opened the dialog, if it is still on the page.
     if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus();
   }
@@ -193,9 +231,10 @@ export function createDownloadDialog({ doc = document } = {}) {
       if (action === "close") close();
       else if (action === "extra" && extraAction) {
         const { run } = extraAction;
+        if (extraAction.confirm) confirmAccepted = true;
         close();
         run();
-      } else if (action === "retry" && current) {
+      } else if (action === "retry" && current?.run) {
         title.focus();
         void start();
       }
@@ -241,6 +280,7 @@ export function createDownloadDialog({ doc = document } = {}) {
 
   return {
     open,
+    confirm,
     close,
     get element() {
       return dialog;
