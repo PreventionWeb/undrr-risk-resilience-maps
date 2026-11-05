@@ -37,6 +37,18 @@ function validateDownloads(ctx, downloads, errors) {
 
 /** What a tab's home-page card needs to render (see src/ui/home.js). */
 const CARD_FIELDS = ["icon", "color", "desc"];
+/**
+ * Creative Commons licence versions that actually exist. Catches values such
+ * as "CC BY 4.1" produced by spreadsheet drag-fill in the inventory.
+ */
+const CC_VERSIONS = new Set(["1.0", "2.0", "2.5", "3.0", "4.0"]);
+const CC_VERSION_RE = /\bCC(?:0|[ -]BY(?:-(?:NC|ND|SA))*)\s+(\d+(?:\.\d+)?)/gi;
+
+/** Return the Creative Commons version numbers in `license` that don't exist. */
+function invalidCcVersions(license) {
+  if (typeof license !== "string") return [];
+  return [...license.matchAll(CC_VERSION_RE)].map((m) => m[1]).filter((v) => !CC_VERSIONS.has(v));
+}
 
 export function validateLayers(tabs, primaryProject) {
   const errors = [];
@@ -171,6 +183,13 @@ export function validateLayers(tabs, primaryProject) {
       if (layer.bounds !== undefined && (!Array.isArray(layer.bounds) || !parseBounds(layer.bounds))) {
         errors.push(
           `${ctx} -- bounds must be [west, south, east, north] in degrees, with west < east and south < north`,
+        );
+      }
+
+      const badCc = invalidCcVersions(layer.license);
+      if (badCc.length > 0) {
+        errors.push(
+          `${ctx} -- license "${layer.license}" names a Creative Commons version that does not exist`,
         );
       }
 
