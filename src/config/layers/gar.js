@@ -23,6 +23,7 @@ export const GAR_LAYERS = [
     id: "MX-Z7JZA-I9BQC-KKVOT",
     key: "fatalities-gem",
     label: "Human Fatalities Global seismic risk",
+    csvDownload: "no: Not region-level (rows are grid cells with no region code).",
     type: "vt",
     geometry: "polygon",
     desc: "Shows the estimated risk of fatalities from earthquakes worldwide, identifying areas where seismic hazards and population exposure create the greatest potential human impacts.",
@@ -38,6 +39,7 @@ export const GAR_LAYERS = [
     id: "MX-TQ2DK-9RHAJ-CRPAN",
     key: "ecolosses-gem",
     label: "Economic Losses Global seismic risk",
+    csvDownload: "no: Not region-level (rows are grid cells with no region code).",
     type: "vt",
     geometry: "polygon",
     desc: "Presents the estimated economic losses associated with earthquakes, highlighting countries and areas with the greatest concentration of exposed assets and seismic risk.",
@@ -99,6 +101,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-UN9Z8-4M5QH-PMDNX",
         label: "Wheat AAL (%) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -106,6 +109,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-CIIIB-BJ7B4-G1YG6",
         label: "Wheat AAL (%) – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -113,6 +117,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-U104U-QMDX2-5UL94",
         label: "Wheat AAL (%) – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -120,6 +125,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-JOTIK-6CSTJ-OA8DB",
         label: "Maize AAL (%) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -127,6 +133,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-4MLSN-D6Y13-FAOJR",
         label: "Maize AAL (%) – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -134,6 +141,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-48ERS-5K1ZS-GMICQ",
         label: "Maize AAL (%) – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -141,6 +149,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-WYZ5O-SZGIE-T597Q",
         label: "Rice AAL (%) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -148,6 +157,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-KU5ID-GHTH8-C2WG3",
         label: "Rice AAL (%) – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -155,6 +165,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-FKKGD-7CMDG-ZV1PP",
         label: "Rice AAL (%) – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -162,6 +173,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-JPPQA-C71PA-J3C58",
         label: "Soybean AAL (%) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -169,6 +181,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-WR2BR-2GJ3U-3G8GZ",
         label: "Soybean AAL (%) – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -176,6 +189,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-6LQTF-XFQ99-B07H1",
         label: "Soybean AAL (%) – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
         explainerUrl: "",
@@ -201,6 +215,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-78U0U-BEVOJ-FLK1Z",
         label: "Wheat PML 50 Years – Current climate",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production",
         explainerUrl: "",
@@ -208,6 +223,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-JRK39-37KVL-IJJ94",
         label: "Wheat PML 50 Years – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -215,6 +231,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-0IBHG-7TSG0-WZQDP",
         label: "Wheat PML 50 Years – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -222,6 +239,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-FZYQQ-DENKB-BFA8X",
         label: "Maize PML 50 Years – Current climate",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production",
         explainerUrl: "",
@@ -229,6 +247,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-114YI-7PVSK-QYDA4",
         label: "Maize PML 50 Years – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -236,6 +255,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-K3JC8-BS9WN-VF5QL",
         label: "Maize PML 50 Years – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -243,6 +263,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-1U3CC-72NY1-1H41D",
         label: "Rice PML 50 Years – Current climate",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -250,6 +271,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-58VRP-DC61S-U5NT7",
         label: "Rice PML 50 Years – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production. This corresponds to about a 2% chance in any given year",
         explainerUrl: "",
@@ -257,6 +279,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-D1BQT-8E7R1-X6QXH",
         label: "Rice PML 50 Years – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -264,6 +287,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-Q0JWA-V69UI-YRDXZ",
         label: "Soybean PML 50 Years – Current climate",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -271,6 +295,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-KV1RC-IJ1LI-5UDUZ",
         label: "Soybean PML 50 Years – Warming level +2°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -278,6 +303,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-3SDJP-VGY08-QND0V",
         label: "Soybean PML 50 Years – Warming level +3°C",
+        csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
         explainerUrl: "",
@@ -303,6 +329,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-8DHMQ-LRK3K-53041",
         label: "Wheat production (%) – Top 25 producers",
+        csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global wheat production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map",
         explainerUrl: "",
@@ -310,6 +337,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-V9BNK-6JP5H-XCJ20",
         label: "Maize production (%) – Top 25 producers",
+        csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global maize production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map.",
         explainerUrl: "",
@@ -317,6 +345,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-P7CDI-BQGF4-KAGN6",
         label: "Rice production (%) – Top 25 producers",
+        csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global rice production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map.",
         explainerUrl: "",
@@ -324,6 +353,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-TYQLC-0R380-BNRPM",
         label: "Soybean production (%) – Top 25 producers",
+        csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global soybean production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map",
         explainerUrl: "",
@@ -349,6 +379,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-JCMXL-3WXSH-TK16M",
         label: "Global AAL (Billion USD) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the combined average annual economic loss from drought-related production losses across maize, wheat, rice and soybean in the 25 largest producing countries, expressed in USD.",
         explainerUrl: "",
@@ -356,6 +387,7 @@ export const GAR_LAYERS = [
       {
         id: "MX-H8H7M-X4L16-A01Q4",
         label: "Global AAL (% GDP) – Current climate",
+        csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows average annual drought-related crop losses from the four crops in relation to GDP, helping compare the economic burden across countries of different sizes.",
         explainerUrl: "",

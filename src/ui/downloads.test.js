@@ -1,13 +1,17 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { CSV_VIEWS, REGION_CODE_SOURCES } from "../config/downloads.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { REGION_CODE_SOURCES } from "../config/downloads.js";
 import { createLayerRegistry } from "../config/registry.js";
 import { createDownloads } from "./downloads.js";
 
-const layer = { id: "MX-VEC", key: "vec", label: "Vector", type: "vt", geometry: "point" };
+const layer = {
+  id: "MX-VEC",
+  key: "vec",
+  label: "Vector",
+  type: "vt",
+  geometry: "point",
+  csvDownload: "yes",
+};
 const registry = createLayerRegistry([{ id: "t", label: "T", layers: [layer] }]);
-
-beforeAll(() => CSV_VIEWS.add("MX-VEC"));
-afterAll(() => CSV_VIEWS.delete("MX-VEC"));
 
 const REFERENCE = "MX-NAMES";
 const REFERENCE_ROWS = [
@@ -213,7 +217,15 @@ describe("createDownloads", () => {
     expect(current.save.mock.calls[0][1]).toContain(
       "region_code,region_name,Vector\r\nCCA,Region A,1\r\nCCB,Region B,3\r\nCCD,,2\r\n",
     );
-    expect(noticeEl().hidden).toBe(true);
+    // CCD has no name in the map service: reported quietly, in the file and the dialog.
+    expect(current.save.mock.calls[0][1]).toContain(
+      "#,Region names: UN map labels as published in MapX. 1 of 3 regions have no name in the map service; their region_name is blank.\r\n",
+    );
+    expect(noticeEl().hidden).toBe(false);
+    expect(noticeEl().textContent).toBe(
+      "1 of 3 regions have no name in the map service, so their region_name is blank.",
+    );
+    expect(dialogEl().querySelector('[data-action="retry"]').hidden).toBe(true);
     expect(methods(current.sdk).filter((call) => call.endsWith(REFERENCE))).toHaveLength(3); // add, read, remove
 
     // A new instance (a later page load) uses the stored names: no reference add.

@@ -144,9 +144,13 @@ export function csvMetadata({
     ["Downloaded from", viewerUrl],
     [
       "Region names",
-      namesMissing
-        ? "Not available for this download: the map service could not provide them."
-        : "UN map labels as published in MapX; blank where none is available.",
+      // Filled in once the rows are known (buildRegionCsv passes the counts).
+      ({ rowCount = 0, unnamedCount = 0 } = {}) =>
+        namesMissing
+          ? "Not available for this download: the map service could not provide them."
+          : unnamedCount > 0
+            ? `UN map labels as published in MapX. ${unnamedCount} of ${rowCount} regions have no name in the map service; their region_name is blank.`
+            : "UN map labels as published in MapX.",
     ],
     [
       "Region codes",
@@ -207,12 +211,17 @@ function valueHeaders(attributes, valueLabel) {
  * The metadata lines: `#,"Label: value"`. The `#` is outside the quotes, so
  * comment options skip the line; the rest is one defused, quoted cell.
  */
-function metadataLines(metadata) {
-  return metadata
-    .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
-    .map(
-      ([label, value]) => `#,${csvCell(`${label}: ${String(value).replace(/\s*[\r\n]+\s*/g, " ")}`, DEFUSE)}`,
-    );
+function metadataLines(metadata, stats) {
+  return (
+    metadata
+      // A value may depend on the rows written (see csvMetadata's "Region names").
+      .map(([label, value]) => [label, typeof value === "function" ? value(stats) : value])
+      .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== "")
+      .map(
+        ([label, value]) =>
+          `#,${csvCell(`${label}: ${String(value).replace(/\s*[\r\n]+\s*/g, " ")}`, DEFUSE)}`,
+      )
+  );
 }
 
 /**
@@ -223,7 +232,7 @@ function metadataLines(metadata) {
  * @param {string} [options.valueLabel] - name for a single value column (our layer label)
  * @param {Array<[string, string]>} [options.metadata] - see csvMetadata(); none by default
  * @param {Map<string, string>} [options.regionNames] - names by code, for rows without `maplab`
- * @returns {{ csv: string, rowCount: number, droppedNoValue: number, droppedNoCode: number, droppedDuplicate: number, valueAttributes: string[] }}
+ * @returns {{ csv: string, rowCount: number, unnamedCount: number, droppedNoValue: number, droppedNoCode: number, droppedDuplicate: number, valueAttributes: string[] }}
  * @throws {RegionCsvError} when the table has no rows, no region code column or no value column
  */
 export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNames = new Map() } = {}) {
@@ -267,8 +276,9 @@ export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNam
     a[REGION_CODE_ATTRIBUTE].localeCompare(b[REGION_CODE_ATTRIBUTE]),
   );
 
+  const unnamedCount = sorted.filter((row) => !nameOf(row)).length;
   const lines = [
-    ...metadataLines(metadata),
+    ...metadataLines(metadata, { rowCount: sorted.length, unnamedCount }),
     csvRow([...FIXED_HEADERS, ...valueHeaders(attributes, valueLabel)], DEFUSE),
     ...sorted.map((row) =>
       csvRow(
@@ -285,6 +295,7 @@ export function buildRegionCsv(rows, { valueLabel = "", metadata = [], regionNam
   return {
     csv: csvText(lines),
     rowCount: sorted.length,
+    unnamedCount,
     droppedNoValue,
     droppedNoCode,
     droppedDuplicate,

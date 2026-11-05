@@ -28,6 +28,7 @@ const layers = vi.hoisted(() => ({
   vector: {
     id: "MX-VEC-1",
     key: "vector-layer",
+    csvDownload: "yes",
     label: "Vector Layer",
     type: "vt",
     geometry: "point",
@@ -80,11 +81,7 @@ vi.mock("./info-panels.js", () => ({
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 
-import { CSV_VIEWS } from "../config/downloads.js";
 import { createSidebar } from "./sidebar.js";
-
-// The test's vector layer is a reviewed CSV view.
-CSV_VIEWS.add("MX-VEC-1");
 
 describe("sidebar downloads (prototype, ?downloads=1)", () => {
   let sidebar;

@@ -38,7 +38,18 @@
  * are written to the view's config as `downloads: [[url, bytes], ...]` (an
  * array of tuples, so the config stays free of nested braces this script's
  * object matching relies on). Omitting both columns preserves configured files;
- * an empty pair removes them.
+ * an empty pair removes them (see "Removals" below).
+ *
+ * Optional "CSV download" column: whether a view is offered as a values-only
+ * CSV. `yes`, `no: <reason>`, or blank (not reviewed, so no CSV). It is
+ * written to the view's config as `csvDownload` (the layer for a simple
+ * layer, the source for a compound one). Mark a view `yes` only after
+ * `yarn test:downloads-contract` passes for it.
+ *
+ * Removals: an apply that would remove a view's hosted files or turn a `yes`
+ * CSV off stops and lists them, unless `--allow-removals` is passed. A
+ * spreadsheet that kept the columns but lost their values would otherwise
+ * silently clear every download.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -54,6 +65,7 @@ const CSV_PATH = inputPath ? resolve(process.cwd(), inputPath) : resolve(ROOT, "
 const REMOVED_KEYS_PATH = resolve(ROOT, "data/removed-layer-keys.txt");
 
 const APPLY = process.argv.includes("--apply");
+const ALLOW_REMOVALS = process.argv.includes("--allow-removals");
 
 const removedKeys = new Set(
   readFileSync(REMOVED_KEYS_PATH, "utf-8")
@@ -132,6 +144,20 @@ if ((H[DOWNLOAD_URL_HEADER] === undefined) !== (H[DOWNLOAD_SIZE_HEADER] === unde
 }
 const HAS_DOWNLOAD_COLUMNS = H[DOWNLOAD_URL_HEADER] !== undefined;
 
+const CSV_DOWNLOAD_HEADER = "CSV download";
+
+/** A row's CSV decision: "yes", "no: <reason>", "" (not reviewed), or undefined without the column. */
+function parseCsvDownload(row, context) {
+  if (H[CSV_DOWNLOAD_HEADER] === undefined) return undefined;
+  const value = (row[H[CSV_DOWNLOAD_HEADER]] || "").trim();
+  if (value === "" || value === "yes") return value;
+  const no = /^no\s*:\s*(\S.*)$/i.exec(value);
+  if (no) return `no: ${no[1].trim()}`;
+  throw new Error(
+    `${context}: "${CSV_DOWNLOAD_HEADER}" must be yes, "no: <reason>" or blank (got "${value}")`,
+  );
+}
+
 /**
  * The hosted files for one row: `[[url, bytes], ...]`, `[]` for none, or
  * undefined when the CSV has no download columns (configured files are kept).
@@ -191,10 +217,22 @@ for (const r of dataRows) {
   const desc = (r[H["Description"]] || "").trim();
   const note = H["Note"] === undefined ? undefined : (r[H["Note"]] || "").trim();
   const explainerUrl = H["Explainer link"] === undefined ? undefined : (r[H["Explainer link"]] || "").trim();
-  const downloads = parseDownloads(r, `Inventory row "${key}"${subSource ? ` / "${subSource}"` : ""}`);
-  subMap
-    .get(subSource)
-    .push({ mapxId, status, layerName, desc, initiative, r2rCat, rrStep, note, explainerUrl, downloads });
+  const rowContext = `Inventory row "${key}"${subSource ? ` / "${subSource}"` : ""}`;
+  const downloads = parseDownloads(r, rowContext);
+  const csvDownload = parseCsvDownload(r, rowContext);
+  subMap.get(subSource).push({
+    mapxId,
+    status,
+    layerName,
+    desc,
+    initiative,
+    r2rCat,
+    rrStep,
+    note,
+    explainerUrl,
+    csvDownload,
+    downloads,
+  });
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -251,6 +289,7 @@ function extractLayerEntries(src, file) {
           currentDesc: descMatch ? decodeJsString(descMatch[1]) : "",
           ...extractOptionalMetadata(forwardBlock.slice(0, sourcesMatch.index), src),
           ...extractOptionalMetadata(sm[0], src),
+          csvDownload: extractOptionalMetadata(sm[0], src, ["csvDownload"]).csvDownload,
           currentDownloads: readDownloads(sm[0]),
           file,
         });
@@ -292,9 +331,9 @@ function extractLayerEntries(src, file) {
   return entries;
 }
 
-function extractOptionalMetadata(block, src) {
+function extractOptionalMetadata(block, src, fields = ["note", "explainerUrl", "csvDownload"]) {
   const result = {};
-  for (const field of ["note", "explainerUrl"]) {
+  for (const field of fields) {
     const match = new RegExp(`${field}:\\s*(?:"((?:\\\\.|[^"\\\\])*)"|([A-Z_]+))`).exec(block);
     if (!match) continue;
     const constant = match[2] && new RegExp(`const ${match[2]}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`).exec(src);
@@ -395,7 +434,7 @@ for (const entry of jsEntries) {
   csvMatched.set(occurrenceKey, occurrence + 1);
   matched.push({ ...entry, csvEntry });
 
-  for (const field of ["note", "explainerUrl"]) {
+  for (const field of ["note", "explainerUrl", "csvDownload"]) {
     if (csvEntry[field] !== undefined && csvEntry[field] !== (entry[field] ?? "")) {
       metadataChanges.push({ ...entry, field, value: csvEntry[field] });
     }
@@ -522,7 +561,7 @@ if (onlyInCSV.length) {
 }
 
 if (metadataChanges.length) {
-  console.log(`\nNotes / explainer link changes: ${metadataChanges.length}`);
+  console.log(`\nNotes / explainer link / CSV download changes: ${metadataChanges.length}`);
   for (const change of metadataChanges) {
     console.log(`  ${change.key}${change.subSource ? ` / ${change.subSource}` : ""}: ${change.field}`);
     console.log(`    ${JSON.stringify(change[change.field] ?? "")} → ${JSON.stringify(change.value)}`);
@@ -536,6 +575,33 @@ if (downloadChanges.length) {
     const files = change.downloads.map(([url, bytes]) => `${url} (${bytes} bytes)`).join(", ") || "(none)";
     console.log(`  ${change.key}${sub}: ${files}`);
   }
+}
+
+// Removals: a view left with fewer hosted files, or a "yes" CSV turned off.
+const removals = [
+  ...downloadChanges
+    // Fewer files than configured. A replaced URL (GRID swapping a file) is not a removal.
+    .filter((change) => change.downloads.length < (change.currentDownloads ?? []).length)
+    .map((change) => ({
+      ...change,
+      what: `hosted files ${change.currentDownloads.length} → ${change.downloads.length}`,
+    })),
+  ...metadataChanges
+    .filter(
+      (change) => change.field === "csvDownload" && change.csvDownload === "yes" && change.value !== "yes",
+    )
+    .map((change) => ({ ...change, what: `CSV download "yes" → "${change.value || "(blank)"}"` })),
+];
+if (removals.length) {
+  console.log(`\n── ⚠  Removals (${removals.length}) ──`);
+  for (const change of removals) {
+    const sub = change.subSource ? ` [${change.subSource}]` : "";
+    console.log(`  ${change.key}${sub}: ${change.what}`);
+  }
+  console.log(
+    "  A spreadsheet that kept the download columns but lost their values clears every download.\n" +
+      "  If these removals are intended, apply with --allow-removals.",
+  );
 }
 
 if (!APPLY) {
@@ -559,6 +625,13 @@ if (
 ) {
   console.log("\n--apply: nothing to change.\n");
   process.exit(0);
+}
+
+if (removals.length && !ALLOW_REMOVALS) {
+  console.error(
+    `\n--apply refused: ${removals.length} removal(s) listed above. Re-run with --allow-removals if they are intended.\n`,
+  );
+  process.exit(1);
 }
 
 console.log("\n--apply: writing changes...");
@@ -659,8 +732,11 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         );
       };
       if (!change.subSource) return patch(block);
-      // [^{}]: a first source's label must not match from the layer's own brace.
-      const source = new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
+      // By view id when the source has one (labels can repeat within a
+      // layer); [^{}] keeps a first source from matching from the layer's brace.
+      const source = change.currentId
+        ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.currentId)}"[^{}]*\\}`)
+        : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
       return block.replace(source, patch);
     });
     src = result.src;

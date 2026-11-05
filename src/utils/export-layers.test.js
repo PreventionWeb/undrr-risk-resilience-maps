@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildLayerInventoryFilename, generateLayerInventoryCSV } from "./export-layers.js";
 
@@ -51,16 +53,49 @@ describe("generateLayerInventoryCSV", () => {
     expect(columns[1]).toBe("Category");
   });
 
-  it("ends with the hosted download columns, so an export re-imports its files", () => {
-    expect(header.endsWith(",Download URL,Download size (bytes)")).toBe(true);
-    const sdg = lines.find((line) => line.includes(",sdg-drought,"));
-    expect(sdg).toMatch(
-      /,https:\/\/gar-data\.unepgrid\.ch\/2026\/SDG15_3_1\.tif; https:\/\/gar-data\.unepgrid\.ch\/2026\/droughtfreq30\.tif,333771240; 44824306$/,
-    );
-    const pga475 = lines.find((line) => line.includes("MX-4XSGY-9URYF-WMICZ"));
-    expect(pga475).toMatch(/,https:\/\/gar-data\.unepgrid\.ch\/2026\/PGA_475y\.tif,1392370312$/);
-    const noFiles = lines.find((line) => line.includes(",fatalities-gem,"));
-    expect(noFiles.endsWith(",,")).toBe(true);
+  it("ends with the hosted download and CSV download columns, matching data/inventory.csv per view", () => {
+    expect(header.endsWith(",Download URL,Download size (bytes),CSV download")).toBe(true);
+    const parseLine = (line) => {
+      const cells = [];
+      let cur = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (quoted && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else quoted = !quoted;
+        } else if (ch === "," && !quoted) {
+          cells.push(cur);
+          cur = "";
+        } else cur += ch;
+      }
+      cells.push(cur);
+      return cells;
+    };
+    const byView = (text) => {
+      const [head, ...rows] = text
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map(parseLine);
+      const col = (name) => head.indexOf(name);
+      const out = new Map();
+      for (const row of rows) {
+        const id = row[col("MapX view ID")];
+        if (id)
+          out.set(
+            id,
+            ["Download URL", "Download size (bytes)", "CSV download"].map((name) => row[col(name)]),
+          );
+      }
+      return out;
+    };
+    const inventory = byView(readFileSync(join(import.meta.dirname, "../../data/inventory.csv"), "utf8"));
+    const exported = byView(csv);
+    expect(inventory.size).toBeGreaterThan(0);
+    for (const [id, cells] of inventory) expect(exported.get(id), id).toEqual(cells);
   });
 
   // --- content ---

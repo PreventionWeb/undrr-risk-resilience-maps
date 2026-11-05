@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  CSV_EXCLUDED_VIEWS,
-  CSV_VIEWS,
   LARGE_DOWNLOAD_BYTES,
-  REGION_NAME_REFERENCE_VIEW,
+  REGION_CODE_SOURCES,
+  isValidCsvDownload,
   formatBytes,
   getViewDownloads,
   isCsvEligible,
@@ -61,80 +60,90 @@ describe("normaliseDownload", () => {
 });
 
 describe("isCsvEligible", () => {
-  it("offers a CSV only for allowlisted views, and only while they are published vector views", () => {
-    const listed = [...CSV_VIEWS][0];
-    expect(isCsvEligible(vector({ id: listed }), listed)).toBe(true);
-    // A vector view nobody has reviewed gets no CSV.
-    expect(isCsvEligible(vector(), "MX-AAAAA")).toBe(false);
-    expect(isCsvEligible(vector({ type: "rt" }), listed)).toBe(false);
-    expect(isCsvEligible(vector({ status: "disabled-pending-removal" }), listed)).toBe(false);
-    expect(isCsvEligible(vector({ external: { provider: "x" } }), listed)).toBe(false);
-    expect(isCsvEligible(vector({ type: "rt" }), "MX-AAAAA")).toBe(false);
-    expect(isCsvEligible(vector({ type: "cc" }), "MX-AAAAA")).toBe(false);
-    expect(isCsvEligible(vector({ status: "disabled-pending-removal" }), "MX-AAAAA")).toBe(false);
-    expect(isCsvEligible(vector({ external: { provider: "x" } }), "MX-AAAAA")).toBe(false);
-    expect(isCsvEligible(vector(), null)).toBe(false);
+  it("offers a CSV only for a published vector view marked yes", () => {
+    expect(isCsvEligible(vector({ csvDownload: "yes" }))).toBe(true);
+    // Not reviewed (blank or missing) or refused: no CSV.
+    expect(isCsvEligible(vector())).toBe(false);
+    expect(isCsvEligible(vector({ csvDownload: "" }))).toBe(false);
+    expect(isCsvEligible(vector({ csvDownload: "no: Not region-level." }))).toBe(false);
+    // Marked yes, but not a published vector view.
+    for (const overrides of [
+      { type: "rt" },
+      { type: "cc" },
+      { status: "disabled-pending-removal" },
+      { external: { provider: "x" } },
+      { id: null },
+    ]) {
+      expect(isCsvEligible(vector({ csvDownload: "yes", ...overrides })), JSON.stringify(overrides)).toBe(
+        false,
+      );
+    }
   });
 
-  it("refuses the excluded views", () => {
-    for (const id of CSV_EXCLUDED_VIEWS.keys()) expect(isCsvEligible(vector({ id }), id)).toBe(false);
+  it("reads a compound layer's decision from the source, not the layer", () => {
+    const layer = vector({
+      id: null,
+      csvDownload: "yes",
+      sources: [{ id: "MX-S1" }, { id: "MX-S2", csvDownload: "yes" }],
+    });
+    expect(isCsvEligible(layer, layer.sources[0])).toBe(false);
+    expect(isCsvEligible(layer, layer.sources[1])).toBe(true);
+  });
+
+  it("accepts yes, no: <reason> and blank as decisions", () => {
+    for (const value of [undefined, "", "yes", "no: Not region-level."])
+      expect(isValidCsvDownload(value)).toBe(true);
+    for (const value of ["Yes", "no", "no:", "true", 1]) expect(isValidCsvDownload(value)).toBe(false);
   });
 });
 
+/**
+ * Invariants of the configured downloads, not counts: GRID adding a file or
+ * the inventory marking another view must not need a test edit.
+ */
 describe("the configured downloads", () => {
-  it("offer a GeoTIFF for the 20 raster views supplied by GRID, two files for the layer group", () => {
+  it("link only hosted GeoTIFFs, on raster views", () => {
     const withFiles = publishedViews().filter(
       ([layer, source]) => getViewDownloads(layer, source).files.length,
     );
-    expect(withFiles).toHaveLength(20);
+    expect(withFiles.length).toBeGreaterThan(0);
     for (const [layer, source] of withFiles) {
       expect(layer.type).toBe("rt");
       for (const file of getViewDownloads(layer, source).files) {
-        expect(file.url).toMatch(/^https:\/\/gar-data\.unepgrid\.ch\/2026\/[\w.-]+\.tif$/);
+        expect(file.url).toMatch(/^https:\/\/gar-data\.unepgrid\.ch\/[\w./-]+\.tif$/);
         expect(file.format).toBe("GeoTIFF");
-        expect(file.bytes).toBeGreaterThan(0);
+        expect(Number.isSafeInteger(file.bytes) && file.bytes > 0).toBe(true);
       }
     }
-    const group = TABS.flatMap((tab) => tab.layers).find((layer) => layer.key === "sdg-drought");
-    expect(getViewDownloads(group).files.map((file) => file.filename)).toEqual([
-      "SDG15_3_1.tif",
-      "droughtfreq30.tif",
-    ]);
   });
 
-  it("use the corrected 475-year PGA file", () => {
+  it("never link the misspelt 475-year PGA file from the supplied list", () => {
     const urls = publishedViews().flatMap(([l, s]) => getViewDownloads(l, s).files.map((f) => f.url));
-    expect(urls).toContain("https://gar-data.unepgrid.ch/2026/PGA_475y.tif");
     expect(urls.some((url) => url.includes("PGA_450y"))).toBe(false);
   });
 
-  it("classify every published vector view: on the CSV allowlist or excluded with a reason", () => {
-    const vectorIds = publishedViews()
-      .filter(([layer]) => layer.type === "vt")
-      .map(([layer, source]) => (source ?? layer).id);
-    for (const id of vectorIds) {
-      expect(CSV_VIEWS.has(id) !== CSV_EXCLUDED_VIEWS.has(id), `${id} must be in exactly one list`).toBe(
-        true,
-      );
+  it("offer CSVs only for vector views, and give every refusal a reason", () => {
+    const views = publishedViews();
+    expect(views.some(([layer, source]) => getViewDownloads(layer, source).csv)).toBe(true);
+    for (const [layer, source] of views) {
+      const view = source ?? layer;
+      if (view.csvDownload === "yes") expect(layer.type, view.id).toBe("vt");
+      if (view.csvDownload?.startsWith("no")) expect(view.csvDownload, view.id).toMatch(/^no: \S/);
     }
-    // No stale entries either.
-    for (const id of CSV_VIEWS) expect(vectorIds, id).toContain(id);
   });
 
-  it("offer a CSV for 70 region-level vector views", () => {
-    const csv = publishedViews().filter(([layer, source]) => getViewDownloads(layer, source).csv);
-    expect(csv).toHaveLength(70);
-    // Every exclusion names a view that exists, so a renamed id cannot slip back in.
-    const ids = new Set(publishedViews().map(([layer, source]) => (source ?? layer).id));
-    for (const id of CSV_EXCLUDED_VIEWS.keys()) expect(ids.has(id)).toBe(true);
-  });
-
-  it("take region names from a published, CSV-eligible view", () => {
-    const entry = publishedViews().find(
-      ([layer, source]) => (source ?? layer).id === REGION_NAME_REFERENCE_VIEW,
+  it("borrow region codes only for CSV views", () => {
+    const yes = new Set(
+      publishedViews()
+        .filter(([layer, source]) => getViewDownloads(layer, source).csv)
+        .map(([layer, source]) => (source ?? layer).id),
     );
-    expect(entry).toBeDefined();
-    expect(getViewDownloads(...entry).csv).toBe(true);
+    for (const [view, sibling] of REGION_CODE_SOURCES) {
+      expect(view).not.toBe(sibling);
+      // A view that is no longer in the config (or no longer yes) simply never
+      // asks for codes; only a configured CSV view needs its sibling.
+      if (yes.has(view)) expect(typeof sibling).toBe("string");
+    }
   });
 
   it("report whether any view of a layer has a download", () => {

@@ -342,12 +342,30 @@ describe("csvMetadata", () => {
       "Downloaded from": "https://viewer.example/",
     });
     expect(pairs.Note).toMatch(/boundaries are not included/);
-    expect(pairs["Region names"]).toMatch(/UN map labels/);
+    expect(pairs["Region names"]({ rowCount: 10, unnamedCount: 0 })).toBe(
+      "UN map labels as published in MapX.",
+    );
+    expect(pairs["Region names"]({ rowCount: 243, unnamedCount: 7 })).toBe(
+      "UN map labels as published in MapX. 7 of 243 regions have no name in the map service; their region_name is blank.",
+    );
+  });
+
+  it("writes the region-name count into the file, from the rows actually written", () => {
+    const rows = [
+      { j0_v: 1, iso3cd: "CCA", maplab: "Region A", gid: 1 },
+      { j0_v: 2, iso3cd: "CCB", maplab: "", gid: 2 },
+      { j0_v: null, iso3cd: "CCC", gid: 3 },
+    ];
+    const result = buildRegionCsv(rows, { metadata: csvMetadata({ layer, viewId: "MX-1" }) });
+    expect(result.unnamedCount).toBe(1);
+    expect(result.csv).toContain(
+      "#,Region names: UN map labels as published in MapX. 1 of 2 regions have no name in the map service; their region_name is blank.\r\n",
+    );
   });
 
   it("says when region names could not be read", () => {
     const pairs = Object.fromEntries(csvMetadata({ layer, viewId: "MX-1", namesMissing: true }));
-    expect(pairs["Region names"]).toMatch(/Not available/);
+    expect(pairs["Region names"]({ rowCount: 5, unnamedCount: 5 })).toMatch(/^Not available/);
   });
 
   it("uses the layer label alone for a simple layer", () => {

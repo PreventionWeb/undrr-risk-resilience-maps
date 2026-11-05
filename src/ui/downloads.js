@@ -288,12 +288,14 @@ export function createDownloads({
         stepper.step("downloading");
         save(doc, result.csv, filename);
         const regions = `${result.rowCount} region${result.rowCount === 1 ? "" : "s"}`;
-        return {
-          message: `Download started: ${filename} (${regions}).`,
-          notice: failed
-            ? "Region names could not be loaded, so the region_name column is empty. Try again to download the file with names."
-            : "",
-        };
+        // A failed lookup can be retried; names the map service simply does
+        // not have are reported quietly (no retry would change them).
+        const notice = failed
+          ? "Region names could not be loaded, so the region_name column is empty. Try again to download the file with names."
+          : result.unnamedCount > 0
+            ? `${result.unnamedCount} of ${result.rowCount} regions have no name in the map service, so their region_name is blank.`
+            : "";
+        return { message: `Download started: ${filename} (${regions}).`, notice, retry: failed };
       },
     });
     return true;

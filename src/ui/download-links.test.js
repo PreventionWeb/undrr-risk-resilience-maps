@@ -1,5 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CSV_VIEWS } from "../config/downloads.js";
+import { describe, expect, it } from "vitest";
 import { downloadListHtml, sourcesRowDownloadsHtml } from "./download-links.js";
 
 function render(html) {
@@ -32,19 +31,10 @@ const compound = {
   label: "Compound",
   type: "vt",
   sources: [
-    { id: "MX-S1", label: "First" },
-    { id: "MX-S2", label: "Second" },
+    { id: "MX-S1", label: "First", csvDownload: "yes" },
+    { id: "MX-S2", label: "Second", csvDownload: "yes" },
   ],
 };
-
-beforeAll(() => {
-  CSV_VIEWS.add("MX-S1");
-  CSV_VIEWS.add("MX-S2");
-});
-afterAll(() => {
-  CSV_VIEWS.delete("MX-S1");
-  CSV_VIEWS.delete("MX-S2");
-});
 
 describe("downloadListHtml", () => {
   it("lists every hosted file of a view with its own name, format and size", () => {

@@ -108,11 +108,11 @@ export function createDownloadDialog({ doc = document } = {}) {
   /**
    * @param {string} next
    * @param {string} message
-   * @param {{ notice?: string, action?: { label: string, run: () => void }|null }} [extra] -
-   *   a notice under a finished download (with Try again), or an action button
-   *   for an error (e.g. "Open the map")
+   * @param {{ notice?: string, retry?: boolean, action?: { label: string, run: () => void }|null }} [extra] -
+   *   a notice under a finished download (with Try again only when `retry`),
+   *   or an action button for an error (e.g. "Open the map")
    */
-  function setState(next, message, { notice: noticeText = "", action = null } = {}) {
+  function setState(next, message, { notice: noticeText = "", retry = false, action = null } = {}) {
     state = next;
     dialog.dataset.state = next;
     const index = STEPS.indexOf(next);
@@ -127,7 +127,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     status.classList.toggle("mg-form-error", next === "error");
     notice.textContent = noticeText;
     notice.hidden = !noticeText;
-    retryBtn.hidden = !(next === "error" || (next === "done" && noticeText));
+    retryBtn.hidden = !(next === "error" || (next === "done" && retry));
     extraAction = action;
     extraBtn.hidden = !action;
     extraBtn.textContent = action?.label ?? "";
@@ -150,8 +150,11 @@ export function createDownloadDialog({ doc = document } = {}) {
       const result = await current.run(stepper);
       if (isCancelled()) return;
       const done = typeof result === "string" ? { message: result } : (result ?? {});
-      setState("done", done.message || "Download started.", { notice: done.notice });
-      (done.notice ? retryBtn : closeBtn).focus();
+      setState("done", done.message || "Download started.", {
+        notice: done.notice,
+        retry: Boolean(done.retry),
+      });
+      (done.retry ? retryBtn : closeBtn).focus();
     } catch (error) {
       if (isCancelled()) return;
       setState("error", error?.message || "Something went wrong while preparing the download.", {

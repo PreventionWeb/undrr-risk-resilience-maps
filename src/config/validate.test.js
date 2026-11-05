@@ -122,6 +122,49 @@ describe("validateLayers", () => {
     vi.restoreAllMocks();
   });
 
+  it("accepts CSV download decisions: yes on a vector view, no: <reason>, or blank", () => {
+    const layers = [
+      makeSimpleLayer({ id: "MX-A", key: "a", type: "vt", geometry: "point", csvDownload: "yes" }),
+      makeSimpleLayer({
+        id: "MX-B",
+        key: "b",
+        type: "vt",
+        geometry: "point",
+        csvDownload: "no: Not region-level.",
+      }),
+      makeSimpleLayer({ id: "MX-C", key: "c", csvDownload: "" }),
+      makeCompoundLayer({
+        type: "vt",
+        geometry: "point",
+        sources: [
+          { id: "MX-SRC-1", label: "Source A", csvDownload: "yes" },
+          { id: "MX-SRC-2", label: "Source B" },
+        ],
+      }),
+    ];
+    expect(() => validateLayers([makeTab("risk", layers)], PRIMARY)).not.toThrow();
+  });
+
+  it("throws for an unknown CSV download value or yes on a non-vector view", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const overrides of [
+      { type: "vt", geometry: "point", csvDownload: "maybe" },
+      { type: "vt", geometry: "point", csvDownload: "no:" },
+      { type: "rt", csvDownload: "yes" },
+    ]) {
+      const layer = makeSimpleLayer(overrides);
+      expect(() => validateLayers([makeTab("risk", [layer])], PRIMARY), JSON.stringify(overrides)).toThrow();
+    }
+    const compound = makeCompoundLayer({
+      sources: [
+        { id: "MX-SRC-1", label: "Source A", csvDownload: "yes" },
+        { id: "MX-SRC-2", label: "Source B" },
+      ],
+    });
+    expect(() => validateLayers([makeTab("risk", [compound])], PRIMARY)).toThrow();
+    vi.restoreAllMocks();
+  });
+
   // --- tab-level errors ---
 
   it("throws when a tab is missing id", () => {

@@ -74,6 +74,7 @@ export function generateLayerInventoryCSV() {
       "Explainer link",
       "Download URL",
       "Download size (bytes)",
+      "CSV download",
     ),
   ];
 
@@ -115,6 +116,7 @@ export function generateLayerInventoryCSV() {
               src.note ?? layer.note ?? "",
               src.explainerUrl ?? layer.explainerUrl ?? "",
               ...downloadCells(src.downloads),
+              src.csvDownload ?? "",
             ),
           );
         }
@@ -138,6 +140,7 @@ export function generateLayerInventoryCSV() {
             layer.note || "",
             layer.explainerUrl || "",
             ...downloadCells(layer.downloads),
+            layer.csvDownload ?? "",
           ),
         );
       }

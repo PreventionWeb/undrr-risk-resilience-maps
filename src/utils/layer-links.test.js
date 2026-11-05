@@ -62,23 +62,26 @@ describe("map metadata links", () => {
   });
 
   it("keeps Request data with downloads off, and replaces it only for views that offer a download", () => {
-    // An allowlisted CSV view (see CSV_VIEWS in src/config/downloads.js).
+    // A view the inventory marks "CSV download: yes".
     const vector = {
       r2rCategory: "GAR2026",
       key: "crop",
       label: "Rice",
       id: "MX-KU5ID-GHTH8-C2WG3",
       type: "vt",
+      csvDownload: "yes",
     };
     const custom = { ...vector, id: "MX-LIVE", type: "cc" };
-    const unlisted = { ...vector, id: "MX-NOT-REVIEWED" };
+    const unlisted = { ...vector, id: "MX-NOT-REVIEWED", csvDownload: "" };
+    const refused = { ...vector, id: "MX-REFUSED", csvDownload: "no: Not region-level." };
     expect(layerLinksHtml(vector)).toContain(">Request data</a>");
     expect(layerLinksHtml(vector, { downloadsEnabled: false })).toContain(">Request data</a>");
     // A CSV is offered for a published vector view: the download replaces the request.
     expect(layerLinksHtml(vector, { downloadsEnabled: true })).not.toContain("Request data");
     // Nothing to download: the request link stays as the fallback.
     expect(layerLinksHtml(custom, { downloadsEnabled: true })).toContain(">Request data</a>");
-    // A vector view not on the CSV allowlist has no download either: the fallback applies.
+    // A vector view not reviewed, or refused, has no download either: the fallback applies.
     expect(layerLinksHtml(unlisted, { downloadsEnabled: true })).toContain(">Request data</a>");
+    expect(layerLinksHtml(refused, { downloadsEnabled: true })).toContain(">Request data</a>");
   });
 });

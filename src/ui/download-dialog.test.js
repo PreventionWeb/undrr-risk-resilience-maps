@@ -184,6 +184,27 @@ describe("createDownloadDialog", () => {
     expect(document.querySelector("dialog")).toBeNull();
   });
 
+  it("shows a quiet notice without Try again when nothing could be retried", async () => {
+    dialog.open({
+      title: "T",
+      run: async () => ({
+        message: "Download started: f.csv (243 regions).",
+        notice: "7 of 243 regions have no name in the map service, so their region_name is blank.",
+      }),
+    });
+    await flush();
+    const notice = dialog.element.querySelector('[data-part="notice"]');
+    expect(dialog.state).toBe("done");
+    expect(notice.hidden).toBe(false);
+    expect(notice.classList.contains("mg-form-error")).toBe(false);
+    expect(dialog.element.querySelector('[data-part="status"]').classList.contains("mg-form-error")).toBe(
+      false,
+    );
+    expect(retry().hidden).toBe(true);
+    expect(document.activeElement).toBe(footerClose());
+    expect(live().textContent).toContain("7 of 243 regions have no name");
+  });
+
   it("shows a notice under a finished download, with Try again, and announces both", async () => {
     let attempts = 0;
     dialog.open({
@@ -193,6 +214,7 @@ describe("createDownloadDialog", () => {
         return {
           message: "Download started: f.csv (2 regions).",
           notice: "Region names could not be loaded.",
+          retry: true,
         };
       },
     });

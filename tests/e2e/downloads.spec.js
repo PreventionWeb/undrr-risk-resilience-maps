@@ -1,14 +1,5 @@
 import { readFile } from "node:fs/promises";
-import {
-  expect,
-  gotoApp,
-  layerRow,
-  openViews,
-  setMapxLatency,
-  settled,
-  test,
-  viewId,
-} from "./fixtures/app.js";
+import { expect, gotoApp, layerRow, openViews, setMapxLatency, settled, test } from "./fixtures/app.js";
 
 /**
  * Prototype data downloads (#64) are behind `?downloads=1`. Without it nothing
@@ -131,5 +122,4 @@ test("embed: downloads=1 shows the same controls", async ({ page }) => {
     "href",
     "https://gar-data.unepgrid.ch/2026/ls_phex.tif",
   );
-  expect(viewId("landslides")).toBe("MX-04E66-2E550-81068");
 });

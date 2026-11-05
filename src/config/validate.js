@@ -8,6 +8,7 @@
 
 import { isLayerAvailable, isLayerPublished } from "./layers/status.js";
 import { parseBounds } from "../utils/camera.js";
+import { isValidCsvDownload } from "./downloads.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
@@ -33,6 +34,20 @@ function validateDownloads(ctx, downloads, errors) {
       errors.push(`${ctx} -- downloads[${i}] must be [https URL, size in bytes (a positive integer)]`);
     }
   });
+}
+
+/**
+ * A view's CSV decision (`csvDownload`, from the inventory's "CSV download"
+ * column): "yes", "no: <reason>" or blank, and "yes" only on a vector layer.
+ */
+function validateCsvDownload(ctx, layer, view, errors) {
+  if (!isValidCsvDownload(view.csvDownload)) {
+    errors.push(
+      `${ctx} -- csvDownload must be "yes", "no: <reason>" or blank (got ${JSON.stringify(view.csvDownload)})`,
+    );
+  } else if (view.csvDownload === "yes" && layer.type !== "vt") {
+    errors.push(`${ctx} -- csvDownload "yes" is only possible on a vector (vt) layer`);
+  }
 }
 
 /** What a tab's home-page card needs to render (see src/ui/home.js). */
@@ -141,6 +156,7 @@ export function validateLayers(tabs, primaryProject) {
         for (let s = 0; s < layer.sources.length; s++) {
           const src = layer.sources[s];
           validateDownloads(`${ctx} sources[${s}]`, src.downloads, errors);
+          validateCsvDownload(`${ctx} sources[${s}]`, layer, src, errors);
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
           }
@@ -176,6 +192,7 @@ export function validateLayers(tabs, primaryProject) {
       if (layer.id) seenIds.add(layer.id);
 
       validateDownloads(ctx, layer.downloads, errors);
+      validateCsvDownload(ctx, layer, layer, errors);
 
       // Optional extent the embed's `fit-layer` uses instead of asking MapX
       // (docs/embedding.md §8). A malformed one would be silently skipped at
