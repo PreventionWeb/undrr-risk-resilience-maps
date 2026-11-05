@@ -50,6 +50,15 @@
  * CSV off stops and lists them, unless `--allow-removals` is passed. A
  * spreadsheet that kept the columns but lost their values would otherwise
  * silently clear every download.
+ *
+ * Re-vetting: a view marked `yes` whose MapX view id changes stops the apply
+ * too, unless `--csv-vetted` is passed after running
+ * `yarn test:downloads-contract --view <new id>`: a CSV is offered only for a
+ * view someone has checked. `yes` on a layer that is not `type: "vt"` in the
+ * config is an error.
+ *
+ * Every planned change must land: if a patch matches nothing in the config
+ * (a lost update), nothing is written and the apply fails.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -66,6 +75,7 @@ const REMOVED_KEYS_PATH = resolve(ROOT, "data/removed-layer-keys.txt");
 
 const APPLY = process.argv.includes("--apply");
 const ALLOW_REMOVALS = process.argv.includes("--allow-removals");
+const CSV_VETTED = process.argv.includes("--csv-vetted");
 
 const removedKeys = new Set(
   readFileSync(REMOVED_KEYS_PATH, "utf-8")
@@ -283,6 +293,7 @@ function extractLayerEntries(src, file) {
         entries.push({
           key,
           subSource: sm[2],
+          layerType: /type:\s*"(\w+)"/.exec(forwardBlock.slice(0, sourcesMatch.index))?.[1] ?? "",
           currentId,
           currentStatus: "",
           currentLayerLabel,
@@ -318,6 +329,7 @@ function extractLayerEntries(src, file) {
       entries.push({
         key,
         subSource: "",
+        layerType: /type:\s*"(\w+)"/.exec(objSrc + forwardBlock)?.[1] ?? "",
         currentId,
         currentStatus,
         currentLayerLabel,
@@ -405,6 +417,8 @@ const labelChanges = new Map();
 const descChanges = [];
 const metadataChanges = [];
 const downloadChanges = [];
+const csvTypeErrors = [];
+const revets = [];
 
 // Track which CSV entries were matched
 const csvMatched = new Map();
@@ -434,20 +448,35 @@ for (const entry of jsEntries) {
   csvMatched.set(occurrenceKey, occurrence + 1);
   matched.push({ ...entry, csvEntry });
 
+  // The view id the config will carry after this import: field patches on a
+  // compound source find the source by it, because the id swap runs first.
+  const csvId = csvEntry.mapxId.startsWith("MX-") ? csvEntry.mapxId : "";
+  const idChanged = Boolean(csvId && csvId !== entry.currentId);
+  const matchId = idChanged ? csvId : entry.currentId;
+
   for (const field of ["note", "explainerUrl", "csvDownload"]) {
     if (csvEntry[field] !== undefined && csvEntry[field] !== (entry[field] ?? "")) {
-      metadataChanges.push({ ...entry, field, value: csvEntry[field] });
+      metadataChanges.push({ ...entry, matchId, field, value: csvEntry[field] });
     }
   }
 
+  const csvDecision = csvEntry.csvDownload ?? entry.csvDownload ?? "";
+  if (csvDecision === "yes" && entry.layerType !== "vt") {
+    const sub = entry.subSource ? ` / "${entry.subSource}"` : "";
+    csvTypeErrors.push(
+      `  ${entry.key}${sub}: CSV download is "yes" but the layer is type "${entry.layerType || "?"}" in ${entry.file}; only vector (vt) views can have a CSV`,
+    );
+  }
+
   if (csvEntry.downloads !== undefined && !sameDownloads(csvEntry.downloads, entry.currentDownloads)) {
-    downloadChanges.push({ ...entry, downloads: csvEntry.downloads });
+    downloadChanges.push({ ...entry, matchId, downloads: csvEntry.downloads });
   }
 
   // Check for MapX ID change
-  const csvId = csvEntry.mapxId.startsWith("MX-") ? csvEntry.mapxId : "";
-  if (csvId && csvId !== entry.currentId) {
+  if (idChanged) {
     idChanges.push({ ...entry, newId: csvId, oldId: entry.currentId });
+    // A CSV must be re-vetted against the new view before it is offered.
+    if (csvDecision === "yes") revets.push({ ...entry, newId: csvId });
   }
 
   if (csvEntry.layerName && csvEntry.layerName !== entry.currentLayerLabel) {
@@ -473,6 +502,10 @@ for (const entry of jsEntries) {
       statusChanges.push({ ...entry, oldStatus: entry.currentStatus, newStatus, csvStatus: csvEntry.status });
     }
   }
+}
+
+if (csvTypeErrors.length) {
+  throw new Error(`Inventory CSV marks a non-vector view for CSV download:\n${csvTypeErrors.join("\n")}`);
 }
 
 // Find CSV-only entries
@@ -604,6 +637,18 @@ if (removals.length) {
   );
 }
 
+if (revets.length) {
+  console.log(`\n── ⚠  CSV views with a new MapX view id: re-vet before applying (${revets.length}) ──`);
+  for (const change of revets) {
+    const sub = change.subSource ? ` [${change.subSource}]` : "";
+    console.log(`  ${change.key}${sub}: ${change.currentId || "(none)"} → ${change.newId}`);
+  }
+  console.log(
+    `  Run: yarn test:downloads-contract --skip-files ${revets.map((c) => `--view ${c.newId}`).join(" ")}\n` +
+      '  If it passes, apply with --csv-vetted. Otherwise set "CSV download" to blank or "no: <reason>" first.',
+  );
+}
+
 if (!APPLY) {
   console.log("\nDry-run complete. Pass --apply to sync supported inventory fields to JS files.\n");
   process.exit(0);
@@ -634,6 +679,13 @@ if (removals.length && !ALLOW_REMOVALS) {
   process.exit(1);
 }
 
+if (revets.length && !CSV_VETTED) {
+  console.error(
+    `\n--apply refused: ${revets.length} CSV view(s) changed MapX view id (listed above). Vet them, then re-run with --csv-vetted.\n`,
+  );
+  process.exit(1);
+}
+
 console.log("\n--apply: writing changes...");
 
 // Group changes by file
@@ -653,6 +705,16 @@ for (const change of applyableStatusChanges) {
   changesByFile[change.file] ??= [];
 }
 
+// A planned change whose patch matched nothing in the config is a lost update:
+// nothing is written then, and the apply fails.
+const unapplied = [];
+const outputs = new Map();
+const describe = (c, what) => `${c.key}${c.subSource ? ` [${c.subSource}]` : ""}: ${what}`;
+function landed(result, c, what) {
+  if (!result.modified) unapplied.push(describe(c, what));
+  return result;
+}
+
 for (const [relPath, changes] of Object.entries(changesByFile)) {
   let src = fileSources[relPath];
   let modified = false;
@@ -668,21 +730,27 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
       if (replaced !== src) {
         src = replaced;
         modified = true;
-      }
+      } else unapplied.push(describe(c, `view id ${c.currentId} → ${c.newId}`));
     } else if (c.subSource) {
       // New compound IDs are scoped to their layer block. Source labels match
       // the inventory Sub-source values and must be unique within a layer.
-      const result = replaceInLayerBlock(src, c.key, (block) =>
-        block.replace(
-          new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`),
-          `$1"${c.newId}"$2`,
+      const result = landed(
+        replaceInLayerBlock(src, c.key, (block) =>
+          block.replace(
+            new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`),
+            `$1"${c.newId}"$2`,
+          ),
         ),
+        c,
+        `view id → ${c.newId}`,
       );
       src = result.src;
       modified ||= result.modified;
     } else {
-      const result = replaceInLayerBlock(src, c.key, (block) =>
-        block.replace(/(id:\s*)null/, `$1"${c.newId}"`),
+      const result = landed(
+        replaceInLayerBlock(src, c.key, (block) => block.replace(/(id:\s*)null/, `$1"${c.newId}"`)),
+        c,
+        `view id → ${c.newId}`,
       );
       src = result.src;
       modified ||= result.modified;
@@ -691,8 +759,12 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
 
   for (const c of labelChanges.values()) {
     if (c.file !== relPath) continue;
-    const result = replaceInLayerBlock(src, c.key, (block) =>
-      block.replace(/(\n\s+label:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newLabel)}`),
+    const result = landed(
+      replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(/(\n\s+label:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newLabel)}`),
+      ),
+      c,
+      "layer name",
     );
     src = result.src;
     modified ||= result.modified;
@@ -700,77 +772,94 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
 
   for (const c of descChanges) {
     if (c.file !== relPath) continue;
-    const result = replaceInLayerBlock(src, c.key, (block) => {
-      if (!c.subSource) {
-        const replaced = block.replace(/(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newDesc)}`);
-        return replaced !== block
-          ? replaced
-          : block.replace(/(\n\s+type:\s*"[^"]+",)/, `$1\n    desc: ${JSON.stringify(c.newDesc)},`);
-      }
-      const sourcePattern = new RegExp(
-        `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?desc:\\s*)"(?:\\\\.|[^"\\\\])*"`,
-      );
-      const replaced = block.replace(sourcePattern, `$1${JSON.stringify(c.newDesc)}`);
-      if (replaced !== block) return replaced;
-      const sourceWithoutDesc = new RegExp(`(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`);
-      return block.replace(sourceWithoutDesc, `$1, desc: ${JSON.stringify(c.newDesc)}$2`);
-    });
+    const result = landed(
+      replaceInLayerBlock(src, c.key, (block) => {
+        if (!c.subSource) {
+          const replaced = block.replace(
+            /(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/,
+            `$1${JSON.stringify(c.newDesc)}`,
+          );
+          return replaced !== block
+            ? replaced
+            : block.replace(/(\n\s+type:\s*"[^"]+",)/, `$1\n    desc: ${JSON.stringify(c.newDesc)},`);
+        }
+        const sourcePattern = new RegExp(
+          `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?desc:\\s*)"(?:\\\\.|[^"\\\\])*"`,
+        );
+        const replaced = block.replace(sourcePattern, `$1${JSON.stringify(c.newDesc)}`);
+        if (replaced !== block) return replaced;
+        const sourceWithoutDesc = new RegExp(
+          `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`,
+        );
+        return block.replace(sourceWithoutDesc, `$1, desc: ${JSON.stringify(c.newDesc)}$2`);
+      }),
+      c,
+      "description",
+    );
     src = result.src;
     modified ||= result.modified;
   }
 
   // Apply status changes (disabled ↔ disabled transitions only)
   for (const change of metadataChanges.filter((change) => change.file === relPath)) {
-    const result = replaceInLayerBlock(src, change.key, (block) => {
-      const patch = (object) => {
-        const fieldPattern = new RegExp(`(${change.field}:\\s*)(?:"(?:\\\\.|[^"\\\\])*"|[A-Z_]+)`);
-        if (fieldPattern.test(object))
-          return object.replace(fieldPattern, (_match, prefix) => prefix + JSON.stringify(change.value));
-        return object.replace(
-          /(label:\s*"(?:\\.|[^"\\])*",)/,
-          (_match, label) => `${label}\n        ${change.field}: ${JSON.stringify(change.value)},`,
-        );
-      };
-      if (!change.subSource) return patch(block);
-      // By view id when the source has one (labels can repeat within a
-      // layer); [^{}] keeps a first source from matching from the layer's brace.
-      const source = change.currentId
-        ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.currentId)}"[^{}]*\\}`)
-        : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
-      return block.replace(source, patch);
-    });
+    const result = landed(
+      replaceInLayerBlock(src, change.key, (block) => {
+        const patch = (object) => {
+          const fieldPattern = new RegExp(`(${change.field}:\\s*)(?:"(?:\\\\.|[^"\\\\])*"|[A-Z_]+)`);
+          if (fieldPattern.test(object))
+            return object.replace(fieldPattern, (_match, prefix) => prefix + JSON.stringify(change.value));
+          return object.replace(
+            /(label:\s*"(?:\\.|[^"\\])*",)/,
+            (_match, label) => `${label}\n        ${change.field}: ${JSON.stringify(change.value)},`,
+          );
+        };
+        if (!change.subSource) return patch(block);
+        // By view id when the source has one (labels can repeat within a
+        // layer); [^{}] keeps a first source from matching from the layer's brace.
+        const source = change.matchId
+          ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.matchId)}"[^{}]*\\}`)
+          : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
+        return block.replace(source, patch);
+      }),
+      change,
+      change.field,
+    );
     src = result.src;
     modified ||= result.modified;
   }
 
   for (const change of downloadChanges.filter((change) => change.file === relPath)) {
-    const result = replaceInLayerBlock(src, change.key, (block) => {
-      const patch = (object) => {
-        const existing = findDownloadsLiteral(object);
-        const literal = `downloads: ${formatDownloads(change.downloads)}`;
-        if (existing) {
-          if (change.downloads.length) {
-            return object.slice(0, existing.start) + literal + object.slice(existing.end);
+    const result = landed(
+      replaceInLayerBlock(src, change.key, (block) => {
+        const patch = (object) => {
+          const existing = findDownloadsLiteral(object);
+          const literal = `downloads: ${formatDownloads(change.downloads)}`;
+          if (existing) {
+            if (change.downloads.length) {
+              return object.slice(0, existing.start) + literal + object.slice(existing.end);
+            }
+            // Remove the field with its trailing comma and line.
+            const after = object.slice(existing.end).replace(/^,?[ \t]*\n?[ \t]*/, "");
+            return object.slice(0, existing.start) + after;
           }
-          // Remove the field with its trailing comma and line.
-          const after = object.slice(existing.end).replace(/^,?[ \t]*\n?[ \t]*/, "");
-          return object.slice(0, existing.start) + after;
-        }
-        if (!change.downloads.length) return object;
-        return object.replace(
-          /(label:\s*"(?:\\.|[^"\\])*",)/,
-          (_match, label) => `${label}\n        ${literal},`,
-        );
-      };
-      if (!change.subSource) return patch(block);
-      // Sub-source labels can repeat within a layer (recovery-speed), view ids
-      // cannot: find the source object by its id, by its label only without one.
-      // [^{}] keeps a first source from matching from the layer's own brace.
-      const source = change.currentId
-        ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.currentId)}"[^{}]*\\}`)
-        : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
-      return block.replace(source, patch);
-    });
+          if (!change.downloads.length) return object;
+          return object.replace(
+            /(label:\s*"(?:\\.|[^"\\])*",)/,
+            (_match, label) => `${label}\n        ${literal},`,
+          );
+        };
+        if (!change.subSource) return patch(block);
+        // Sub-source labels can repeat within a layer (recovery-speed), view ids
+        // cannot: find the source object by its id, by its label only without one.
+        // [^{}] keeps a first source from matching from the layer's own brace.
+        const source = change.matchId
+          ? new RegExp(`\\{[^{}]*?id:\\s*"${escapeRe(change.matchId)}"[^{}]*\\}`)
+          : new RegExp(`\\{[^{}]*?label:\\s*"${escapeRe(change.subSource)}"[^{}]*\\}`);
+        return block.replace(source, patch);
+      }),
+      change,
+      "hosted files",
+    );
     src = result.src;
     modified ||= result.modified;
   }
@@ -779,18 +868,31 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
     (c) => c.file === relPath && c.oldStatus !== "published" && c.newStatus !== "published",
   );
   for (const c of fileStatusChanges) {
-    const result = replaceInLayerBlock(src, c.key, (block) =>
-      block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, `status: "${c.newStatus}"`),
+    const result = landed(
+      replaceInLayerBlock(src, c.key, (block) =>
+        block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, `status: "${c.newStatus}"`),
+      ),
+      c,
+      "status",
     );
     src = result.src;
     modified ||= result.modified;
   }
 
-  if (modified) {
-    const absPath = resolve(ROOT, relPath);
-    writeFileSync(absPath, src, "utf-8");
-    console.log(`  Updated: ${relPath}`);
-  }
+  if (modified) outputs.set(relPath, src);
+}
+
+if (unapplied.length) {
+  console.error(
+    `\n--apply failed: ${unapplied.length} planned change(s) matched nothing in the config, so nothing was written:\n` +
+      unapplied.map((line) => `  ${line}`).join("\n") +
+      "\n",
+  );
+  process.exit(1);
+}
+for (const [relPath, src] of outputs) {
+  writeFileSync(resolve(ROOT, relPath), src, "utf-8");
+  console.log(`  Updated: ${relPath}`);
 }
 
 console.log("\nDone. Review the changes with: git diff src/config/layers/\n");

@@ -186,9 +186,13 @@ describe("import-inventory --apply", () => {
       .replace(/(^[^\n]*,drought,[^\n]*),In development,/m, "$1,Pending removal,");
     writeFileSync(csvPath, csv);
 
-    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
-      cwd: fixture,
-    });
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--csv-vetted"],
+      {
+        cwd: fixture,
+      },
+    );
 
     const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
     expect(risk.match(/MX-REDTEAM-SECOND-EARTHQUAKE/g)).toHaveLength(1);
@@ -441,5 +445,115 @@ describe("import-inventory --apply", () => {
     );
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('must supply "Download URL" and "Download size (bytes)" together');
+  });
+
+  it("applies field changes to a compound source whose view id changes in the same import", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-YP5S0-VBMJK-R7IMX"));
+    lines[index] = lines[index]
+      .replace("MX-YP5S0-VBMJK-R7IMX", "MX-ZZZZZ-NEWID-00001")
+      .replace(/,yes$/, ",no: test reason");
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
+    expect(risk).not.toContain("MX-YP5S0-VBMJK-R7IMX");
+    const at = risk.indexOf('id: "MX-ZZZZZ-NEWID-00001"');
+    const source = risk.slice(at, risk.indexOf("}", at));
+    expect(source).toContain('csvDownload: "no: test reason"');
+    expect(source).not.toContain('csvDownload: "yes"');
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("applies a note change to a source whose view id changes in the same import", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-KU5ID-GHTH8-C2WG3"));
+    lines[index] = lines[index]
+      .replace("MX-KU5ID-GHTH8-C2WG3", "MX-ZZZZZ-NEWID-00002")
+      .replace(/Uploaded,.*$/, "Uploaded,A changed note,,,,");
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const gar = readFileSync(join(fixture, "src/config/layers/gar.js"), "utf8");
+    const at = gar.indexOf('id: "MX-ZZZZZ-NEWID-00002"');
+    const source = gar.slice(at, gar.indexOf("}", at));
+    expect(source).toContain('note: "A changed note"');
+    expect(source).not.toContain('csvDownload: "yes"');
+  });
+
+  it("refuses a new view id on a CSV view until it is re-vetted", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace("MX-YP5S0-VBMJK-R7IMX", "MX-ZZZZZ-NEWID-00003"),
+    );
+    const riskPath = join(fixture, "src/config/layers/risk.js");
+    const before = readFileSync(riskPath, "utf8");
+    const dry = execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(dry).toContain("re-vet before applying (1)");
+    expect(dry).toContain("yarn test:downloads-contract --skip-files --view MX-ZZZZZ-NEWID-00003");
+    const refused = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain("--csv-vetted");
+    expect(readFileSync(riskPath, "utf8")).toBe(before);
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--csv-vetted"],
+      {
+        cwd: fixture,
+      },
+    );
+    expect(readFileSync(riskPath, "utf8")).toContain('id: "MX-ZZZZZ-NEWID-00003"');
+  });
+
+  it("rejects CSV download yes on a layer that is not vector in the config", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    const lines = readFileSync(source, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-V07LO-829XA-4BIZ8")); // river flooding depth, raster
+    lines[index] = lines[index].replace(/,$/, ",yes");
+    writeFileSync(malformed, lines.join("\n"));
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      'river-flooding / "Depth": CSV download is "yes" but the layer is type "rt"',
+    );
   });
 });
