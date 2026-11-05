@@ -15,7 +15,7 @@ Deferred technical items — implementation details, refactors, and infrastructu
 ## Data downloads (prototype, #64)
 
 - Decide with the programme whether to make downloads public (`MAP_DOWNLOADS_ENABLED` in `src/config/features.js`); until then `?downloads=1` opts in and "Request data" stays the public route.
-- Follow up the open questions for UNEP/GRID-Geneva in [docs/downloads.md](docs/downloads.md#limitations-and-open-questions-for-grid): special areas, the view missing region columns, SDK table reads as a supported use, labels/units, and the four views that are not region-level.
+- Follow up the open questions for UNEP/GRID-Geneva in [docs/downloads.md](docs/downloads.md#limitations-and-open-questions-for-grid): whether GRID are happy with special areas being exported, the view missing region columns, SDK table reads as a supported use, labels/units, and the four views that are not region-level.
 - Refresh the stored file sizes (`Download size (bytes)`) whenever GRID replaces a hosted file.
 
 ## State store upgrade

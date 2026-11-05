@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { CSV_VIEWS } from "../config/downloads.js";
+import { CSV_VIEWS, REGION_CODE_SOURCES } from "../config/downloads.js";
 import { createLayerRegistry } from "../config/registry.js";
 import { createDownloads } from "./downloads.js";
 
@@ -95,6 +95,50 @@ describe("createDownloads", () => {
     expect(dialogEl()).toBeNull();
   });
 
+  it("borrows region codes from a sibling view on the same source, matched by gid", async () => {
+    REGION_CODE_SOURCES.set("MX-VEC", "MX-SIB");
+    try {
+      current = setup({
+        read: ({ idView }) => {
+          if (idView === "MX-VEC")
+            return [
+              { j0_q5: 4, gid: 2 },
+              { j0_q5: 3, gid: 1 },
+            ];
+          if (idView === "MX-SIB")
+            return [
+              { j0_q1: 0, iso3cd: "CCA", maplab: "Region A", gid: 1 },
+              { j0_q1: 0, iso3cd: "xQZ", maplab: "Area Q", gid: 2 },
+            ];
+          return REFERENCE_ROWS;
+        },
+      });
+      current.downloads.requestCsv("MX-VEC");
+      await vi.waitFor(() => expect(dialogState()).toBe("done"));
+      expect(methods(current.sdk)).toContain("get_view_table_attribute:MX-SIB");
+      const [, csv] = current.save.mock.calls[0];
+      expect(csv).toContain("region_code,region_name,Vector\r\nCCA,Region A,3\r\nxQZ,,4\r\n");
+    } finally {
+      REGION_CODE_SOURCES.delete("MX-VEC");
+    }
+  });
+
+  it("fails rather than guess when the sibling's rows do not match", async () => {
+    REGION_CODE_SOURCES.set("MX-VEC", "MX-SIB");
+    try {
+      current = setup({
+        read: ({ idView }) =>
+          idView === "MX-VEC" ? [{ j0_q5: 4, gid: 9 }] : [{ j0_q1: 0, iso3cd: "CCA", gid: 1 }],
+      });
+      current.downloads.requestCsv("MX-VEC");
+      await vi.waitFor(() => expect(dialogState()).toBe("error"));
+      expect(statusText()).toMatch(/could not be matched/);
+      expect(current.save).not.toHaveBeenCalled();
+    } finally {
+      REGION_CODE_SOURCES.delete("MX-VEC");
+    }
+  });
+
   it("waits for a map that is loading, then downloads <layer-key>_<view-id>.csv", async () => {
     vi.useFakeTimers();
     current = setup({ ready: false });
@@ -109,7 +153,7 @@ describe("createDownloads", () => {
     expect(filename).toBe("vec_MX-VEC.csv");
     expect(csv).toContain("#,Downloaded (UTC): 2026-11-04\r\n");
     expect(csv).toContain("#,Downloaded from: https://viewer.example/\r\n");
-    expect(csv).toContain("iso3,region_name,Vector\r\nCCA,Region A,1\r\n");
+    expect(csv).toContain("region_code,region_name,Vector\r\nCCA,Region A,1\r\n");
     expect(current.listeners.size).toBe(0);
     // The temporary add of the target view was bracketed for the map mask.
     expect(current.temporary).toEqual([true, false]);
@@ -167,7 +211,7 @@ describe("createDownloads", () => {
     current.downloads.requestCsv("MX-VEC");
     await vi.waitFor(() => expect(dialogState()).toBe("done"));
     expect(current.save.mock.calls[0][1]).toContain(
-      "iso3,region_name,Vector\r\nCCA,Region A,1\r\nCCB,Region B,3\r\nCCD,,2\r\n",
+      "region_code,region_name,Vector\r\nCCA,Region A,1\r\nCCB,Region B,3\r\nCCD,,2\r\n",
     );
     expect(noticeEl().hidden).toBe(true);
     expect(methods(current.sdk).filter((call) => call.endsWith(REFERENCE))).toHaveLength(3); // add, read, remove
@@ -190,7 +234,7 @@ describe("createDownloads", () => {
     current.downloads.requestCsv("MX-VEC");
     await vi.waitFor(() => expect(dialogState()).toBe("done"));
     const csv = current.save.mock.calls[0][1];
-    expect(csv).toContain("iso3,region_name,Vector\r\nCCA,,1\r\n");
+    expect(csv).toContain("region_code,region_name,Vector\r\nCCA,,1\r\n");
     expect(csv).toMatch(/#,Region names: Not available/);
     expect(noticeEl().hidden).toBe(false);
     expect(noticeEl().textContent).toMatch(/Region names could not be loaded/);

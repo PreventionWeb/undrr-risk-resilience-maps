@@ -121,9 +121,9 @@ describe("the configured downloads", () => {
     for (const id of CSV_VIEWS) expect(vectorIds, id).toContain(id);
   });
 
-  it("offer a CSV for 69 region-level vector views", () => {
+  it("offer a CSV for 70 region-level vector views", () => {
     const csv = publishedViews().filter(([layer, source]) => getViewDownloads(layer, source).csv);
-    expect(csv).toHaveLength(69);
+    expect(csv).toHaveLength(70);
     // Every exclusion names a view that exists, so a renamed id cannot slip back in.
     const ids = new Set(publishedViews().map(([layer, source]) => (source ?? layer).id));
     for (const id of CSV_EXCLUDED_VIEWS.keys()) expect(ids.has(id)).toBe(true);

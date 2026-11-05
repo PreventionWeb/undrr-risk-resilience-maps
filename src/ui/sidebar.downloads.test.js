@@ -181,7 +181,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect(mocks.viewAdd).not.toHaveBeenCalled();
 
     expect(dialog.querySelector('[data-part="status"]').textContent).toBe(
-      "Download started: vector-layer_MX-VEC-1.csv (2 regions).",
+      "Download started: vector-layer_MX-VEC-1.csv (3 regions).",
     );
     const bytes = new Uint8Array(await blobs[0].arrayBuffer());
     // UTF-8 byte-order mark, so Excel reads the names as UTF-8.
@@ -196,9 +196,10 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
       ]),
     );
     expect(lines.filter((line) => !line.startsWith("#,"))).toEqual([
-      "iso3,region_name,Vector Layer",
+      "region_code,region_name,Vector Layer",
       "CCA,Region A,1",
       "CCB,Region B,2.5",
+      "xQZ,Placeholder,9",
     ]);
 
     // Closing returns focus to the button that opened it.

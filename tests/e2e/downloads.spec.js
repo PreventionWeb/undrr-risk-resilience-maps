@@ -72,8 +72,10 @@ test("with ?downloads=1, the Sources page generates a values-only CSV", async ({
   expect(lines.filter((line) => !line.startsWith("#,")).slice(1)).toEqual([
     "CCA,Region A,1",
     "CCB,Region B,2.5",
+    "xQZ,Placeholder area,7",
   ]);
-  await expect(dialog.locator('[role="status"]')).toHaveText(/Download started: .*\(2 regions\)\./);
+  expect(lines.some((line) => line.startsWith('#,"Disclaimer: The designations employed'))).toBe(true);
+  await expect(dialog.locator('[role="status"]')).toHaveText(/Download started: .*\(3 regions\)\./);
 
   // The view was added only for the read, without moving the camera, and is gone again.
   const calls = await page.evaluate((viewIdToFind) => {

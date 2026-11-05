@@ -11,6 +11,8 @@
  * - A temporary view is bracketed by `onTemporaryView(true/false)`; the
  *   sidebar hides the map frame meanwhile, because MapX paints a view before
  *   it can be made transparent (see src/sdk/table.js).
+ * - A view without region codes takes them from a sibling view on the same
+ *   source (REGION_CODE_SOURCES), matched row by row.
  * - Region names for views without `maplab` are read from
  *   REGION_NAME_REFERENCE_VIEW and kept in memory and in localStorage (30
  *   days), so the extra read happens rarely. If it fails, the CSV still
@@ -24,10 +26,16 @@
  *
  * With the flag off none of this is created, so the UI is unchanged.
  */
-import { REGION_NAME_REFERENCE_VIEW, formatBytes, getViewDownloads } from "../config/downloads.js";
+import {
+  REGION_CODE_SOURCES,
+  REGION_NAME_REFERENCE_VIEW,
+  formatBytes,
+  getViewDownloads,
+} from "../config/downloads.js";
 import { getLayerRegistry } from "../config/registry.js";
 import {
   REGION_CODE_ATTRIBUTE,
+  attachRegionCodes,
   buildRegionCsv,
   csvFilename,
   csvMetadata,
@@ -248,7 +256,13 @@ export function createDownloads({
           notStarted,
           isCancelled: stepper.isCancelled,
         });
-        const rows = await fetchViewTable(getSdk(), viewId, tableOptions(stepper));
+        let rows = await fetchViewTable(getSdk(), viewId, tableOptions(stepper));
+        // A view without region codes borrows them from a sibling on the same source.
+        const codeSource = REGION_CODE_SOURCES.get(viewId);
+        if (codeSource && !rows.some((row) => row && REGION_CODE_ATTRIBUTE in row)) {
+          const codeRows = await fetchViewTable(getSdk(), codeSource, tableOptions(stepper));
+          rows = attachRegionCodes(rows, codeRows);
+        }
         const needsNames =
           !hasRegionNames(rows) &&
           viewId !== regionNameView &&
@@ -285,10 +299,6 @@ export function createDownloads({
     return true;
   }
 
-  /**
-   * A delegated click handler for a container of download lists: a click on a
-   * "Download CSV" button starts its flow.
-   */
   /** Ask before a very large file; download it only when confirmed. */
   async function confirmLargeFile(link) {
     const url = link.href;
@@ -304,6 +314,10 @@ export function createDownloads({
     return ok;
   }
 
+  /**
+   * A delegated click handler for a container of download lists: a "Download
+   * CSV" button starts its flow, and a link to a file over 1 GB asks first.
+   */
   function handleClick(event) {
     const large = event.target.closest?.("a.layer-downloads__link[data-large]");
     if (large) {

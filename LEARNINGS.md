@@ -129,8 +129,11 @@ spike over all 98 inventory views and then through the app itself:
   label) or `name_en`, which is the romanised local name with languages joined by `#` and is not a
   display name. All `maplab` views share one boundary table and agree on every label, so one of them
   (`REGION_NAME_REFERENCE_VIEW`) names the regions for views that only carry `name_en`.
-- The boundary table includes a few areas with placeholder codes (lowercase `x…`), and some views
-  carry values for them. The CSV keeps only three-uppercase-letter codes until GRID advise.
+- The boundary table includes a few areas with the map service's own codes (lowercase `x…`), and some
+  views carry values for them. The map shades them, so the CSV exports them too, as region codes, under
+  the standard UN disclaimer.
+- Views on the same MapX source share `gid` (the source's row id), so a view whose attribute list
+  leaves out `iso3cd` can borrow it from a sibling view by `gid`.
 - **A view paints before `view_add` answers.** MapX renders the layers, then resolves after the legend
   and UI work, so `set_view_layer_transparency` sent the moment `view_add` resolves still lets the
   whole layer show for a frame (~250k changed pixels in a 1050×740 map capture; measured live). There

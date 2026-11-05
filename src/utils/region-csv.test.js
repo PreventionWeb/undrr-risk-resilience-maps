@@ -3,11 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   RegionCsvError,
+  UN_DISCLAIMER,
+  attachRegionCodes,
   buildRegionCsv,
   csvFilename,
   csvMetadata,
   hasRegionNames,
-  isStandardIso3,
+  isRegionCode,
   regionNamesFrom,
   stripJoinPrefix,
   viewLabel,
@@ -45,23 +47,15 @@ const TABLE = [
   { j0_aal_wheat: "$NULL", iso3cd: "CCE", maplab: "Region E", gid: 7 },
 ];
 
-describe("isStandardIso3", () => {
-  it("accepts three uppercase letters outside the user-assigned ranges", () => {
-    for (const code of ["CCA", "QAT", "YXZ", "ZYZ"]) {
-      expect(isStandardIso3(code)).toBe(true);
-    }
+describe("isRegionCode", () => {
+  it("accepts ISO codes and the map service's own area codes", () => {
+    for (const code of ["CCA", "QAT", "XAB", "xQZ", "xxx", "x1"]) expect(isRegionCode(code), code).toBe(true);
   });
 
-  it("rejects placeholders, malformed values and ISO's user-assigned ranges", () => {
-    for (const code of ["xQZ", "xZZ", "AB", "ABCD", "abc", "A1C", "", null, undefined, 123]) {
-      expect(isStandardIso3(code)).toBe(false);
+  it("rejects missing, blank and malformed values", () => {
+    for (const code of ["", " ", "a b", "C,A", "=1+1", "ABCDEFGHI", null, undefined, 123]) {
+      expect(isRegionCode(code), String(code)).toBe(false);
     }
-    // Uppercase placeholder codes in AAA–AAZ, QMA–QZZ, XAA–XZZ and ZZA–ZZZ.
-    for (const code of ["AAA", "AAZ", "QMA", "QZZ", "XAA", "XAB", "XZZ", "ZZA", "ZZZ"]) {
-      expect(isStandardIso3(code), code).toBe(false);
-    }
-    // Just outside those ranges.
-    for (const code of ["ABA", "QLZ", "WZZ", "ZYZ"]) expect(isStandardIso3(code), code).toBe(true);
   });
 });
 
@@ -85,38 +79,40 @@ describe("csvFilename", () => {
 });
 
 describe("buildRegionCsv", () => {
-  it("writes iso3, region_name and the labelled value, sorted by code", () => {
+  it("writes region_code, region_name and the labelled value, sorted by code", () => {
     const result = buildRegionCsv(TABLE, { valueLabel: "Wheat AAL (%)" });
     expect(linesOf(result.csv)).toEqual([
-      "iso3,region_name,Wheat AAL (%)",
+      "region_code,region_name,Wheat AAL (%)",
       "CCA,Region A,1.25",
       "CCB,Region B,3.48",
       "CCD,Region D,0",
+      "xQZ,Placeholder area,7",
+      "xZZ,Placeholder area,2",
     ]);
-    expect(result.rowCount).toBe(3);
+    expect(result.rowCount).toBe(5);
     expect(result.droppedNoValue).toBe(2);
-    expect(result.droppedNonStandard).toBe(2);
+    expect(result.droppedNoCode).toBe(0);
     expect(result.valueAttributes).toEqual(["j0_aal_wheat"]);
   });
 
-  it("drops gid, keeps zero values, and drops rows without a standard code", () => {
+  it("drops gid, keeps zero values, and keeps areas with the map service's own codes", () => {
     const { csv } = buildRegionCsv(TABLE);
     expect(csv).not.toContain("gid");
-    expect(csv).not.toMatch(/xQZ|xZZ|Placeholder/);
+    expect(csv).toContain("xQZ,Placeholder area,7");
     expect(csv).toContain("CCD,Region D,0");
   });
 
-  it("drops uppercase codes in the user-assigned ranges", () => {
+  it("keeps any area code, and drops rows with no usable code", () => {
     const rows = [
       { j0_v: 1, iso3cd: "CCA", maplab: "Region A", gid: 1 },
-      { j0_v: 2, iso3cd: "XAB", maplab: "Placeholder", gid: 2 },
-      { j0_v: 3, iso3cd: "AAA", maplab: "Placeholder", gid: 3 },
-      { j0_v: 4, iso3cd: "QMZ", maplab: "Placeholder", gid: 4 },
-      { j0_v: 5, iso3cd: "ZZZ", maplab: "Placeholder", gid: 5 },
+      { j0_v: 2, iso3cd: "XAB", maplab: "Area", gid: 2 },
+      { j0_v: 3, iso3cd: null, maplab: "No code", gid: 3 },
+      { j0_v: 4, iso3cd: "", maplab: "Blank", gid: 4 },
+      { j0_v: 5, iso3cd: "=1+1", maplab: "Formula", gid: 5 },
     ];
     const result = buildRegionCsv(rows);
-    expect(dataOf(result.csv)).toEqual(["CCA,Region A,1"]);
-    expect(result.droppedNonStandard).toBe(4);
+    expect(dataOf(result.csv)).toEqual(["CCA,Region A,1", "XAB,Area,2"]);
+    expect(result.droppedNoCode).toBe(3);
   });
 
   it("exports only joined value attributes, never geometry-like or hidden columns", () => {
@@ -138,7 +134,7 @@ describe("buildRegionCsv", () => {
       },
     ];
     const lines = linesOf(buildRegionCsv(rows).csv);
-    expect(lines).toEqual(["iso3,region_name,v", "CCA,Region A,1"]);
+    expect(lines).toEqual(["region_code,region_name,v", "CCA,Region A,1"]);
   });
 
   it("refuses a table whose only columns are not joined values", () => {
@@ -148,12 +144,16 @@ describe("buildRegionCsv", () => {
   });
 
   it("names the value column from the attribute without its join prefix when no label is given", () => {
-    expect(linesOf(buildRegionCsv(TABLE).csv)[0]).toBe("iso3,region_name,aal_wheat");
+    expect(linesOf(buildRegionCsv(TABLE).csv)[0]).toBe("region_code,region_name,aal_wheat");
   });
 
   it("keeps the full attribute name where the short one would repeat a header", () => {
-    const rows = [{ j0_iso3: 1, j1_region_name: 2, j0_x: 3, j1_x: 4, iso3cd: "CCA", maplab: "A", gid: 1 }];
-    expect(linesOf(buildRegionCsv(rows).csv)[0]).toBe("iso3,region_name,j0_iso3,j1_region_name,j0_x,j1_x");
+    const rows = [
+      { j0_region_code: 1, j1_region_name: 2, j0_x: 3, j1_x: 4, iso3cd: "CCA", maplab: "A", gid: 1 },
+    ];
+    expect(linesOf(buildRegionCsv(rows).csv)[0]).toBe(
+      "region_code,region_name,j0_region_code,j1_region_name,j0_x,j1_x",
+    );
   });
 
   it("keeps several value columns, keeping a row while any has a value", () => {
@@ -165,7 +165,7 @@ describe("buildRegionCsv", () => {
     ];
     const result = buildRegionCsv(rows, { valueLabel: "ignored with several columns" });
     const lines = linesOf(result.csv);
-    expect(lines[0]).toBe("iso3,region_name,low,high");
+    expect(lines[0]).toBe("region_code,region_name,low,high");
     expect(lines.slice(1)).toEqual(["CCA,Region A,1,", "CCD,,5,"]);
     expect(result.droppedNoValue).toBe(2);
   });
@@ -182,7 +182,7 @@ describe("buildRegionCsv", () => {
 
   it("never uses name_en and leaves region_name blank without maplab", () => {
     const rows = [{ j0_speed: 12, iso3cd: "CCA", name_en: "Local#Name#Other", gid: 1 }];
-    expect(linesOf(buildRegionCsv(rows).csv)).toEqual(["iso3,region_name,speed", "CCA,,12"]);
+    expect(linesOf(buildRegionCsv(rows).csv)).toEqual(["region_code,region_name,speed", "CCA,,12"]);
   });
 
   it("fills names from regionNames for a table without maplab, or with a blank one", () => {
@@ -196,7 +196,7 @@ describe("buildRegionCsv", () => {
       ["CCC", "Region C"],
     ]);
     expect(linesOf(buildRegionCsv(rows, { regionNames }).csv)).toEqual([
-      "iso3,region_name,speed",
+      "region_code,region_name,speed",
       "CCA,Region A,12",
       "CCB,,7",
       "CCC,Region C,3",
@@ -216,7 +216,7 @@ describe("buildRegionCsv", () => {
     ];
     const lines = linesOf(buildRegionCsv(rows, { valueLabel: "Losses, housing" }).csv);
     expect(lines).toEqual([
-      'iso3,region_name,"Losses, housing"',
+      'region_code,region_name,"Losses, housing"',
       'CCA,"Region ""A"", North",1',
       "CCB,'=cmd,-2",
     ]);
@@ -236,7 +236,7 @@ describe("buildRegionCsv", () => {
       '#,"Citation: Author, A., Other, B. (2026). Title, Journal. Second line"',
       "#,MapX view ID: MX-1",
       "#,Note: =not a formula",
-      "iso3,region_name,aal_wheat",
+      "region_code,region_name,aal_wheat",
     ]);
   });
 
@@ -260,7 +260,7 @@ describe("buildRegionCsv with real MapX tables (sanitised spike fixtures)", () =
     const { rows } = fixture("MX-UN9Z8-4M5QH-PMDNX");
     const result = buildRegionCsv(rows, { valueLabel: "Wheat" });
     expect(result.rowCount).toBe(24);
-    expect(result.droppedNonStandard).toBe(0);
+    expect(result.droppedNoCode).toBe(0);
     const data = dataOf(result.csv);
     for (const line of data) expect(line).toMatch(/^([A-Z]{3}),Region \1,\d+(\.\d+)?(e-?\d+)?$/);
   });
@@ -277,17 +277,17 @@ describe("buildRegionCsv with real MapX tables (sanitised spike fixtures)", () =
     expect(named.filter((line) => line.split(",")[1] !== "").length).toBeGreaterThan(120);
   });
 
-  it("a view with values on placeholder-coded areas: they are left out", () => {
+  it("a view with values on areas with the map service's own codes: they are kept, as on the map", () => {
     const { rows } = fixture("MX-2V1JX-EV4WL-AQKZV");
     const result = buildRegionCsv(rows);
-    expect(result.droppedNonStandard).toBe(9);
-    expect(result.rowCount).toBe(224);
-    expect(result.csv).not.toMatch(/xQ/);
+    expect(result.droppedNoCode).toBe(0);
+    expect(result.rowCount).toBe(233);
+    expect(dataOf(result.csv).filter((line) => line.startsWith("xQ"))).toHaveLength(9);
   });
 });
 
 describe("regionNamesFrom / hasRegionNames", () => {
-  it("maps standard codes to their maplab, ignoring placeholders and blanks", () => {
+  it("maps every area code to its maplab, ignoring blanks", () => {
     const rows = [
       { iso3cd: "CCA", maplab: "Region A" },
       { iso3cd: "xQZ", maplab: "Placeholder" },
@@ -295,7 +295,11 @@ describe("regionNamesFrom / hasRegionNames", () => {
       { iso3cd: "CCB", maplab: "" },
       { iso3cd: "CCC", maplab: null },
     ];
-    expect([...regionNamesFrom(rows)]).toEqual([["CCA", "Region A"]]);
+    expect([...regionNamesFrom(rows)]).toEqual([
+      ["CCA", "Region A"],
+      ["xQZ", "Placeholder"],
+      ["XAB", "Placeholder"],
+    ]);
     expect(hasRegionNames(rows)).toBe(true);
     expect(hasRegionNames([{ iso3cd: "CCA", name_en: "x" }])).toBe(false);
     expect(regionNamesFrom(null).size).toBe(0);
@@ -350,10 +354,60 @@ describe("csvMetadata", () => {
     expect(viewLabel(layer)).toBe("AAL for crops");
   });
 
-  it("keeps its wording to regions", () => {
+  it("keeps its own wording to regions (the UN disclaimer is quoted as published)", () => {
     const text = csvMetadata({ layer, viewId: "MX-1" })
+      .filter(([label]) => label !== "Disclaimer")
       .map(([, value]) => value)
       .join(" ");
     expect(text).not.toMatch(/countr/i);
+  });
+});
+
+describe("attachRegionCodes", () => {
+  const codes = [
+    { j0_q1: 5, iso3cd: "CCA", name_en: "A", gid: 1 },
+    { j0_q1: 6, iso3cd: "xQZ", name_en: "Q", gid: 2 },
+  ];
+
+  it("gives each row its sibling's code by gid", () => {
+    const rows = [
+      { j0_q5: 9, gid: 2 },
+      { j0_q5: 8, gid: 1 },
+    ];
+    expect(attachRegionCodes(rows, codes)).toEqual([
+      { j0_q5: 9, gid: 2, iso3cd: "xQZ" },
+      { j0_q5: 8, gid: 1, iso3cd: "CCA" },
+    ]);
+    expect(rows[0]).not.toHaveProperty("iso3cd");
+  });
+
+  it("refuses to guess when the tables do not hold the same rows", () => {
+    expect(() => attachRegionCodes([{ j0_q5: 1, gid: 1 }], codes)).toThrow(RegionCsvError);
+    expect(() =>
+      attachRegionCodes(
+        [
+          { j0_q5: 1, gid: 1 },
+          { j0_q5: 2, gid: 3 },
+        ],
+        codes,
+      ),
+    ).toThrow(/could not be matched/);
+    expect(() =>
+      attachRegionCodes(
+        [{ gid: 1 }, { gid: 2 }],
+        [
+          { iso3cd: "CCA", gid: 1 },
+          { iso3cd: "CCB", gid: 1 },
+        ],
+      ),
+    ).toThrow(RegionCsvError);
+  });
+});
+
+describe("csvMetadata disclaimer", () => {
+  it("carries the UN disclaimer and describes the codes as area codes", () => {
+    const meta = new Map(csvMetadata({ layer: { key: "k", label: "L" }, viewId: "MX-1" }));
+    expect(meta.get("Disclaimer")).toBe(UN_DISCLAIMER);
+    expect(meta.get("Region codes")).toMatch(/ISO 3166-1 alpha-3 where one exists/);
   });
 });

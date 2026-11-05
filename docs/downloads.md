@@ -53,14 +53,20 @@ was wrong in the supplied list: the 475-year PGA file is `PGA_475y.tif`, not `PG
 
 ### CSV eligibility
 
-Explicit, per view: `CSV_VIEWS` in `src/config/downloads.js` lists the 69 views offered as a CSV, each
+Explicit, per view: `CSV_VIEWS` in `src/config/downloads.js` lists the 70 views offered as a CSV, each
 checked against live MapX in the #64 spike (a region code column and joined values), and
 `isCsvEligible()` also requires the layer to be a published, non-external `vt` layer. A new vector view
 gets no CSV until someone checks its table and adds it; a unit test fails until every published vector
-view is either on that list or in `CSV_EXCLUDED_VIEWS` with a reason. The exclusions:
+view is either on that list or in `CSV_EXCLUDED_VIEWS` with a reason.
 
-- `MX-MDFMH-34XOD-EU9HN`: the view's attribute list has no region code (its sibling views do; GRID
-  could add it).
+One listed view, `MX-MDFMH-34XOD-EU9HN` (recovery speed, flood Q5), has no region code column in its
+attribute list. Its sibling flood Q1 view reads the same MapX source (same source id, same 260 rows), so
+`REGION_CODE_SOURCES` borrows the codes from it, matched row by row on `gid`
+(`attachRegionCodes()`). If the two tables ever differ, the download fails with an error rather than
+guess. GRID could still add the column to the view.
+
+The exclusions:
+
 - `MX-Z7JZA-I9BQC-KKVOT`, `MX-TQ2DK-9RHAJ-CRPAN`, `MX-1L2TA-6FXPV-N3QMX`, `MX-FX1HT-Z7KXL-8X22K`:
   not region-level (grid cells, river basins, forest classes), so values without geometry identify
   nothing.
@@ -69,7 +75,7 @@ view is either on that list or in `CSV_EXCLUDED_VIEWS` with a reason. The exclus
 
 Built by the pure `buildRegionCsv()` in `src/utils/region-csv.js`.
 
-- **Columns:** `iso3`, `region_name`, then the value. Only joined value attributes (`jN_…`) are
+- **Columns:** `region_code`, `region_name`, then the value. Only joined value attributes (`jN_…`) are
   exported, as a whitelist: a column MapX might add later (geometry, coordinates, timestamps) cannot
   become a value. One value column is named after the view's label in our config (layer label, plus the
   compound source label); several are named by attribute with the `jN_` prefix removed, keeping the full
@@ -80,11 +86,13 @@ Built by the pure `buildRegionCsv()` in `src/utils/region-csv.js`.
   kept in the browser (memory and localStorage, 30 days), so the extra read is rare. A code with no label
   there is left blank. If that read fails the file still downloads with an empty name column, its header
   says so, and the dialog shows a notice with **Try again**. No list of names is kept in this repository.
+- **Region codes:** the geographic area code from the map's boundary table: ISO 3166-1 alpha-3 where
+  one exists, and the map service's own code (lowercase `x…`) for the few other areas. Every area the
+  map shows a value for is exported, as on the map. The file calls them region codes, not country
+  codes, and its header carries the standard UN disclaimer on the designations used (`UN_DISCLAIMER`).
 - **Rows dropped:** `gid` (an internal id) is never written; rows with no value (null, blank, NaN,
-  Infinity); rows whose code is not a standard ISO 3166-1 alpha-3 code (three uppercase letters, and
-  not in the ranges ISO reserves for user assignment: AAA–AAZ, QMA–QZZ, XAA–XZZ, ZZA–ZZZ); and a code
-  repeated after its first row. The boundary table holds a few areas with placeholder codes, and some
-  views carry values for them; they are left out until GRID advise how to publish them.
+  Infinity); rows with no usable code (missing, blank, or not a short run of letters and digits); and a
+  code repeated after its first row.
 - **Format:** UTF-8 with a byte-order mark (so Excel reads accented names), CRLF line ends, RFC 4180
   quoting. Text that a spreadsheet would run as a formula gets a leading apostrophe.
 - **Filename:** `<layer-key>_<view-id>.csv`, e.g. `gar26-aal-crops_MX-UN9Z8-4M5QH-PMDNX.csv`.
@@ -168,9 +176,10 @@ modal dialog, so it gets the same focus handling and announcement.
 
 ## Limitations and open questions for GRID
 
-- Values for non-standard or special areas are left out. How should they be handled in exports?
-- One view lacks region code and name columns. Can they be added to it (and `maplab` to the views that
-  only carry `name_en`)?
+- Areas with the map service's own codes are exported with their values, as the map shows them, under
+  the UN disclaimer. GRID can tell us if they would prefer otherwise.
+- One view lacks region code and name columns; we borrow them from its sibling view. Can they be added
+  to the view itself?
 - Is reading MapX attribute tables through the SDK a supported, stable use for public downloads?
 - Can views carry readable attribute labels and units? Until then the value column is named from our
   config and units are not stated.

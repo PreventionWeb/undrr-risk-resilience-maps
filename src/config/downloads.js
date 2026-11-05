@@ -44,14 +44,22 @@ export const LARGE_DOWNLOAD_BYTES = 1_000_000_000;
  * with the reason. Checked against live MapX (1.14.2) in the #64 spike.
  */
 export const CSV_EXCLUDED_VIEWS = new Map([
-  // The view's attribute list has no region code column; its sibling views do.
-  ["MX-MDFMH-34XOD-EU9HN", "The view returns no region code column."],
   // Not region-level: without geometry the rows identify nothing.
   ["MX-Z7JZA-I9BQC-KKVOT", "Not region-level (rows are grid cells with no region code)."],
   ["MX-TQ2DK-9RHAJ-CRPAN", "Not region-level (rows are grid cells with no region code)."],
   ["MX-1L2TA-6FXPV-N3QMX", "Not region-level (rows are river basins with no region code)."],
   ["MX-FX1HT-Z7KXL-8X22K", "Not region-level (rows are forest classes with no region code)."],
 ]);
+
+/**
+ * Views whose table has no region code column, mapped to a sibling view on the
+ * same MapX source that has one. The codes are matched row by row on `gid`
+ * (attachRegionCodes), and the CSV fails rather than guess if the two tables
+ * differ. The recovery-speed flood Q5 view's attribute list leaves out
+ * `iso3cd`; the flood Q1 view reads the same source (checked live: same
+ * source id, same 260 rows).
+ */
+export const REGION_CODE_SOURCES = new Map([["MX-MDFMH-34XOD-EU9HN", "MX-YBWIB-YLHIV-WKG2H"]]);
 
 /**
  * Where region names come from for a view whose table has no `maplab` column
@@ -69,6 +77,7 @@ export const REGION_NAME_REFERENCE_VIEW = "MX-0IBHG-7TSG0-WZQDP";
  * 1.14.2, in the #64 spike). Add a view here only after checking its table.
  */
 export const CSV_VIEWS = new Set([
+  "MX-MDFMH-34XOD-EU9HN", // recovery-speed (flood Q5); region codes from REGION_CODE_SOURCES
   "MX-VCP83-3E2TG-PJWFJ", // recovery-speed
   "MX-YBWIB-YLHIV-WKG2H", // recovery-speed
   "MX-RTJQZ-WHX2B-SI4HB", // recovery-speed
