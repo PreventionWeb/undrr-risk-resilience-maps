@@ -2,7 +2,9 @@
 .map-loading--floating {
   position: absolute;
   inset-block-start: 1rem;
-  inset-inline-end: 1rem;
+  /* The layer panel stays physically left in both reading directions. Keep
+     this card in the free map area while allowing its text to follow dir. */
+  right: 1rem;
   z-index: 4;
   max-width: min(22rem, calc(100% - 2rem));
   padding: var(--mg-spacing-150);

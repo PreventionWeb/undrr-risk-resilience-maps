@@ -39,6 +39,12 @@ for (const mode of [
     await expect(page.locator('[data-ui="mapx"]')).toHaveCSS("opacity", "1");
     if (!mode.viewport || mode.viewport.width > 720) {
       await expect(feedback).toHaveCSS("pointer-events", "none");
+      // The panel is physically left, including in RTL. Visibility alone
+      // does not catch a loading card painted underneath that panel, and a
+      // hit test cannot measure the card because it ignores pointer events.
+      const panel = await page.locator('[data-ui="layer-panel"]').boundingBox();
+      const card = await feedback.boundingBox();
+      expect(card.x).toBeGreaterThanOrEqual(panel.x + panel.width);
     } else {
       // A CSS-visible card could still be underneath the panel. Its message
       // must actually be what a user can see at the centre of its rectangle.

@@ -9,7 +9,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Changed
 
 - Reduce first-load EDRA coordinate reprojection work by reusing one projection converter for the boundary file, preserving every output coordinate and safety limit. Share MapX catalogue refreshes across concurrent legend requests while retaining later refreshes and retries. See [the performance measurements](docs/performance.md).
-- Show nonblocking initial map loading feedback in standalone and embedded viewers, with accessible status and Mangrove's reduced-motion Loader. Keep the map rendering and category navigation usable; remove the feedback on readiness or service failure.
+- Show nonblocking initial map loading feedback in standalone and embedded viewers, with accessible status and Mangrove's reduced-motion Loader. Keep the map rendering and category navigation usable; remove the feedback on readiness or service failure. Keep desktop feedback clear of the layer panel in both reading directions.
 - Use honest indeterminate progress while preparing CSV downloads, retain named stages, and explain long fetches with a cancellable wait hint instead of implying a measured percentage.
 
 ## [0.0.11] - 2026-11-06
