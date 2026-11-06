@@ -138,11 +138,12 @@ describe("buildEDRAGeoJSON", () => {
     expect(String(valueCalls[1][0])).toContain("bbox=-180%2C-90%2C180%2C90%2CEPSG%3A4326");
   });
 
-  it("preserves every projected coordinate, polygon hole and multipolygon without mutating source data", async () => {
+  it("preserves 2D/3D/4D coordinates, polygon holes and multipolygons without mutating source data", async () => {
     const geometry = structuredClone(GEOMETRY_RESPONSE);
-    const outer = geometry.features[0].geometry.coordinates[0];
-    const hole = outer.map(([x, y]) => [x + 200, y + 200]);
-    geometry.features[0].geometry = { type: "MultiPolygon", coordinates: [[outer, hole], [outer]] };
+    const ring = geometry.features[0].geometry.coordinates[0];
+    const outer = ring.map(([x, y]) => [x, y, 12]);
+    const hole = ring.map(([x, y]) => [x + 200, y + 200, 12, 34]);
+    geometry.features[0].geometry = { type: "MultiPolygon", coordinates: [[outer, hole], [ring]] };
     const original = structuredClone(geometry);
     fetch.mockImplementation((url) =>
       String(url).includes("wfsService")

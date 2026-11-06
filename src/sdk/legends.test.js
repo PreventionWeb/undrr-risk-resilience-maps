@@ -282,6 +282,33 @@ describe("getMapXLegend", () => {
     expect(mocks.ask).toHaveBeenCalledTimes(3);
   });
 
+  it("refreshes again for a view added while the previous refresh was pending", async () => {
+    const second = vectorView({ id: "MX-SECOND" });
+    const third = vectorView({ id: "MX-THIRD" });
+    let releaseRefresh;
+    const refresh = new Promise((resolve) => (releaseRefresh = resolve));
+    let started;
+    const refreshStarted = new Promise((resolve) => (started = resolve));
+    mocks.ask
+      .mockResolvedValueOnce([vectorView()])
+      .mockImplementationOnce(() => {
+        started();
+        return refresh;
+      })
+      .mockResolvedValueOnce([vectorView(), second, third]);
+    await getMapXLegend("MX-TEST");
+
+    const earlier = getMapXLegend("MX-SECOND");
+    await refreshStarted;
+    // This view_add completes after the service took the pending snapshot.
+    const later = getMapXLegend("MX-THIRD");
+    releaseRefresh([vectorView(), second]);
+
+    await expect(earlier).resolves.toMatchObject({ title: "Risk level" });
+    await expect(later).resolves.toMatchObject({ title: "Risk level" });
+    expect(mocks.ask).toHaveBeenCalledTimes(3);
+  });
+
   it("shares the refresh while preserving image fallback for absent views", async () => {
     mocks.ask.mockResolvedValue([vectorView()]);
 
@@ -317,6 +344,21 @@ describe("getMapXLegend", () => {
     await oldFailure;
     await expect(getMapXLegend("MX-NEXT")).resolves.toBeTruthy();
     expect(nextAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the replacement snapshot after reset when an old request succeeds late", async () => {
+    let releaseOld;
+    mocks.ask
+      .mockImplementationOnce(() => new Promise((resolve) => (releaseOld = resolve)))
+      .mockResolvedValueOnce([vectorView({ id: "MX-NEXT" })]);
+    const oldRequest = getMapXLegend("MX-TEST");
+    resetMapXLegendCache();
+
+    await expect(getMapXLegend("MX-NEXT")).resolves.toBeTruthy();
+    releaseOld([vectorView()]);
+    await expect(oldRequest).resolves.toBeTruthy();
+    await expect(getMapXLegend("MX-NEXT")).resolves.toBeTruthy();
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
   });
 
   it("scopes the catalogue cache to the active SDK manager", async () => {
