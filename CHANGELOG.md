@@ -6,6 +6,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-11-06
+
 ### Added
 
 - Add all 30 supplied GAR 2026 MapX maps under four GAR controls, preserving crop, climate scenario and unit distinctions. Show each variant's explanatory note in the map panel and its own Sources entry.
