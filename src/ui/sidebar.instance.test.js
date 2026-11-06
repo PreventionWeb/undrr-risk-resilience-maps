@@ -45,7 +45,7 @@ vi.mock("../sdk/client.js", () => ({
   },
 }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
-vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
+vi.mock("./mangrove-on-this-page-nav.js", () => ({ initMangroveOnThisPageNav: vi.fn() }));
 vi.mock("../utils/export-layers.js", () => ({ downloadLayerInventory: vi.fn() }));
 vi.mock("../external/index.js", () => ({
   isExternalLayer: () => false,
@@ -58,7 +58,6 @@ vi.mock("../external/index.js", () => ({
 
 import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
-import { initMangroveTabs } from "./mangrove-tabs.js";
 
 /**
  * jsdom does not implement `inert`, and the warm-up feature-detects it (without
@@ -257,24 +256,6 @@ describe("createSidebar", () => {
     expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(toggle.getAttribute("aria-label")).toBe("Collapse the layers panel");
-  });
-
-  it("hands the Mangrove tabs its signal, so destroy removes their listeners", () => {
-    initMangroveTabs.mockClear();
-    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
-    expect(initMangroveTabs).toHaveBeenCalledTimes(1);
-    const [scope, options] = initMangroveTabs.mock.calls[0];
-    expect(scope).toBe($("#info-page"));
-    expect(options?.signal?.aborted).toBe(false);
-    // Mangrove's destroy looks its containers up under the scope, so the signal
-    // must abort while the info pages are still in the page.
-    let panelsOnAbort = null;
-    options.signal.addEventListener("abort", () => {
-      panelsOnAbort = scope.querySelectorAll(".info-page-panel").length;
-    });
-    sidebar.destroy();
-    expect(options.signal.aborted).toBe(true);
-    expect(panelsOnAbort).toBe(3);
   });
 
   // The active tab is per instance, not module state. One case per rule: five
@@ -627,7 +608,7 @@ describe("createSidebar", () => {
     expect(other.querySelector("[data-ui='layer-panel']").classList.contains("is-collapsed")).toBe(false);
   });
 
-  it("documents what two live instances still share: Mangrove section ids and openViews", async () => {
+  it("documents what two live instances still share: sources section ids and openViews", async () => {
     // Not supported yet (see ARCHITECTURE.md); this pins the known collisions.
     const noIds = PAGE.replaceAll(/ id="[^"]*"/g, "");
     document.body.innerHTML = `<div id="a">${noIds}</div><div id="b">${noIds}</div>`;
@@ -640,11 +621,10 @@ describe("createSidebar", () => {
       // Creating B clears the module openViews Set that A mirrors into.
       expect(store.openViews.size).toBe(0);
       expect(sidebar.store.get("quake").applied).toBe(true);
-      // The only duplicate ids are the Sources page's Mangrove tab sections,
-      // which Mangrove's tab links point at by id.
+      // The only duplicate ids are the Sources page category section anchors.
       const dupes = duplicateIds();
       expect(dupes.length).toBeGreaterThan(0);
-      for (const id of dupes) expect(id).toMatch(/^mg-tabs__section-sources-\d+(--trigger)?$/);
+      for (const id of dupes) expect(id).toMatch(/^sources-[a-z0-9-]+$/);
     } finally {
       second.destroy();
     }

@@ -36,6 +36,7 @@ vi.mock("./info-panels.js", () => ({
   buildSourcesPanel: () => document.createElement("div"),
   buildAboutPanel: () => document.createElement("div"),
 }));
+vi.mock("./mangrove-on-this-page-nav.js", () => ({ initMangroveOnThisPageNav: vi.fn() }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("../sdk/client.js", () => ({ isSDKReady: () => true, onSDKReadyChange: () => () => {} }));
 vi.mock("./layer-controls.js", () => ({

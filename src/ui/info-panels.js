@@ -103,21 +103,16 @@ function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
  */
 export function buildSourcesPanel({ signal, downloads = null } = {}) {
   const tableOptions = { downloadsEnabled: Boolean(downloads) };
-  // One tab per layer category. Mangrove's tabs script progressively enhances
-  // this markup: it wires up ARIA, keyboard navigation and deep linking, and
-  // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
-  // disclosures below 480px. Without the script the panels simply render in
-  // sequence, which is the pre-tabs behaviour.
-  const tabItems = TABS.map((tab, i) => {
-    const sectionId = `mg-tabs__section-sources-${i + 1}`;
+  const categoryNavItems = TABS.map((tab) => {
+    const sectionId = `sources-${tab.id}`;
     return `
-      <li class="mg-tabs__item" role="presentation">
-        <a class="mg-tabs__link" href="#${sectionId}" id="${sectionId}--trigger" data-tabs__item="${sectionId}" aria-controls="${sectionId}" role="tab">${escapeHtml(tab.label)}</a>
+      <li class="mg-on-this-page-nav__item">
+        <a class="mg-on-this-page-nav__link" href="#${sectionId}">${escapeHtml(tab.label)}</a>
       </li>`;
   }).join("");
 
-  const tabPanels = TABS.map((tab, i) => {
-    const sectionId = `mg-tabs__section-sources-${i + 1}`;
+  const categorySections = TABS.map((tab) => {
+    const sectionId = `sources-${tab.id}`;
     const available = tab.layers.filter((layer) => getLayerStatus(layer) === "Active");
     const planned = tab.layers.filter((layer) => getLayerStatus(layer) !== "Active");
     const plannedSection =
@@ -130,35 +125,20 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
           </details>`
         : "";
     return `
-      <div class="mg-tabs-content" data-mg-js-tabs-content="true">
-        <section class="mg-tabs__section" id="${sectionId}" role="tabpanel" aria-labelledby="${sectionId}--trigger" tabindex="-1">
+      <section class="info-page-section info-page-section--wide sources-category-section" id="${sectionId}">
+        <div class="mg-container">
           <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
           ${available.length > 0 ? buildSourcesTable(available, tableOptions) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
-        </section>
-      </div>`;
+        </div>
+      </section>`;
   }).join("");
 
-  const categorySections = `
-    <div class="info-page-section info-page-section--wide">
-      <div class="mg-container">
-        <article
-          class="mg-tabs mg-tabs--horizontal"
-          data-mg-js-tabs="true"
-          data-mg-js-tabs-variant="horizontal"
-          data-mg-js-tabs-stack-on-mobile
-          data-mg-js-tabs-label="Data categories"
-        >
-          <div class="mg-tabs__rail">
-            <div class="mg-tabs__scroll">
-              <ul class="mg-tabs__list" role="tablist" aria-label="Data categories">${tabItems}</ul>
-            </div>
-          </div>
-          <div class="mg-tabs__panels">${tabPanels}</div>
-        </article>
-      </div>
-    </div>`;
+  const categoryNav = `
+    <nav class="mg-on-this-page-nav" data-mg-on-this-page-nav aria-label="Sources categories">
+      <ul class="mg-on-this-page-nav__list" role="list">${categoryNavItems}</ul>
+    </nav>`;
 
   const panel = buildPanel(
     "sources",
@@ -166,28 +146,42 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
-        <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
-        <label class="sources-mapx-toggle mg-switch">
-          <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-mapx-ids">
-          <span class="mg-switch__track" aria-hidden="true">
-            <span class="mg-switch__thumb"></span>
-          </span>
-          <span class="mg-switch__label">Show MapX view IDs</span>
-        </label>
+        <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets.</p>
       </div>
     </div>
 
+    ${categoryNav}
     ${categorySections}
 
-    <div class="info-page-section">
+    <div class="info-page-section info-page-section--grey sources-tools-section">
       <div class="mg-container">
-        <h2 class="info-page-section__title">Layer inventory</h2>
-        <p>Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license and status notes.</p>
-        <p>
-          <button class="mg-button mg-button-secondary" data-action="download-inventory">
-            Download layer inventory (CSV)
-          </button>
-        </p>
+        <p class="sources-tools-section__label">View options</p>
+        <div class="sources-tools-section__switches">
+          <label class="sources-mapx-toggle mg-switch">
+            <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-mapx-ids">
+            <span class="mg-switch__track" aria-hidden="true">
+              <span class="mg-switch__thumb"></span>
+            </span>
+            <span class="mg-switch__label">Show MapX view IDs</span>
+          </label>
+          <label class="sources-mapx-toggle mg-switch">
+            <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-planned">
+            <span class="mg-switch__track" aria-hidden="true">
+              <span class="mg-switch__thumb"></span>
+            </span>
+            <span class="mg-switch__label">Show metrics under development</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-page-section sources-inventory-section">
+      <div class="mg-container">
+        <h2 class="sources-inventory-section__title">Layer inventory</h2>
+        <p class="sources-inventory-section__desc">Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license and status notes.</p>
+        <button class="mg-button mg-button-secondary mg-button-outline mg-button--small" data-action="download-inventory">
+          Download layer inventory (CSV)
+        </button>
       </div>
     </div>
   `,
@@ -206,6 +200,14 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
     "change",
     (e) => {
       panel.classList.toggle("show-mapx-ids", e.target.checked);
+    },
+    { signal },
+  );
+
+  panel.querySelector("[data-action='toggle-planned']").addEventListener(
+    "change",
+    (e) => {
+      panel.classList.toggle("show-planned", e.target.checked);
     },
     { signal },
   );

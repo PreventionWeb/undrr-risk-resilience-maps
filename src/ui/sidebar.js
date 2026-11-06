@@ -22,7 +22,7 @@ import { createMapWarming } from "./map-warming.js";
 import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
-import { initMangroveTabs } from "./mangrove-tabs.js";
+import { initMangroveOnThisPageNav } from "./mangrove-on-this-page-nav.js";
 import { createLayerAnnouncer } from "./announcer.js";
 import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
@@ -569,12 +569,10 @@ export function createSidebar(
     infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal, downloads })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
 
-    // Mangrove's tabs script only auto-initialises on DOMContentLoaded, which
-    // has already fired by the time these panels exist. Enhancement is
-    // optional, so the promise is not awaited. Aborting the signal runs
-    // Mangrove's destroy, which removes its window and font listeners; destroy()
-    // aborts before removing the panels, so Mangrove still finds its containers.
-    void initMangroveTabs(infoPage, { signal });
+    // Wire the Sources page's sticky on-this-page-nav (scroll-spy, overflow
+    // buttons). Enhancement is optional; abort while the panels are still in
+    // the document so destroy can find the containers.
+    void initMangroveOnThisPageNav(infoPage, { signal });
   }
 
   // Populate sidebar with layer panels (data tabs only)

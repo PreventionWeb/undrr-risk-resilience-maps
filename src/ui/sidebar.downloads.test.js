@@ -78,6 +78,7 @@ vi.mock("./info-panels.js", () => ({
   },
   buildAboutPanel: () => document.createElement("div"),
 }));
+vi.mock("./mangrove-on-this-page-nav.js", () => ({ initMangroveOnThisPageNav: vi.fn() }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 

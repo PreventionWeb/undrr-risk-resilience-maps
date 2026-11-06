@@ -18,16 +18,35 @@ describe("buildSourcesPanel", () => {
     expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
     expect(request.searchParams.get("body")).toContain("#gar?layers=gar26-aal-crops:7");
   });
-  it("shows published data before collapsed metrics under development", () => {
+  it("hides metrics under development by default, shows them via the toggle", () => {
     const panel = buildSourcesPanel();
-    const firstCategory = panel.querySelector(".info-page-section--wide");
-    const availableHeading = firstCategory.querySelector(".info-source-subtitle");
+    const firstCategory = panel.querySelector(".sources-category-section");
     const planned = firstCategory.querySelector("details.sources-planned");
+    const toggle = panel.querySelector("[data-action='toggle-planned']");
 
-    expect(availableHeading.textContent).toBe("Available data");
     expect(planned).not.toBeNull();
-    expect(planned.open).toBe(false);
-    expect(firstCategory.compareDocumentPosition(planned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(toggle).not.toBeNull();
+    // Hidden by default (CSS class absent).
+    expect(panel.classList.contains("show-planned")).toBe(false);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    expect(panel.classList.contains("show-planned")).toBe(true);
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    expect(panel.classList.contains("show-planned")).toBe(false);
+  });
+
+  it("renders a Mangrove on-this-page-nav that links to each category section", () => {
+    const panel = buildSourcesPanel();
+    const ids = [...panel.querySelectorAll(".sources-category-section")].map((section) => section.id);
+    const hrefs = [...panel.querySelectorAll(".mg-on-this-page-nav__link")].map((link) =>
+      link.getAttribute("href").slice(1),
+    );
+    expect(hrefs).toEqual(ids);
+    // Uses the correct Mangrove container hook for the JS module to enhance.
+    expect(panel.querySelector("[data-mg-on-this-page-nav]")).not.toBeNull();
   });
 
   it("keeps source URLs clickable for published datasets", () => {
