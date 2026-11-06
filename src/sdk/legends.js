@@ -25,8 +25,7 @@ import { resetRasterLegendCache, resolveRasterMapXLegend } from "./raster-legend
 
 const SUPPORTED_GEOMETRIES = ["point", "line", "polygon"];
 
-let catalogPromise = null;
-let catalogSDK = null;
+let catalog = null;
 
 /** @typedef {import("./legend-model.js").LegendDefinition} LegendDefinition */
 
@@ -157,29 +156,46 @@ export function parseMapXLegend(view, language = "en") {
   return resolveParsedMapXLegend(view, language).legend;
 }
 
-async function getCatalog(refresh = false) {
-  const sdk = getSDK();
-  if (sdk !== catalogSDK) {
-    catalogSDK = sdk;
-    catalogPromise = null;
-    resetRasterLegendCache();
-  }
-  if (refresh) catalogPromise = null;
-
-  if (!catalogPromise) {
-    const request = sdk
+function loadCatalog(state) {
+  if (!state.promise) {
+    const request = state.sdk
       .ask("get_views")
       .then((views) => {
         if (!Array.isArray(views)) throw new Error("MapX get_views did not return an array");
         return views;
       })
       .catch((error) => {
-        if (catalogPromise === request) catalogPromise = null;
+        if (state.promise === request) state.promise = null;
         throw error;
       });
-    catalogPromise = request;
+    state.promise = request;
   }
-  return catalogPromise;
+  return state.promise;
+}
+
+/**
+ * Refresh only the snapshot the caller actually found stale. Several visible
+ * rows can miss the same catalogue (a restored cross-project layer, or its
+ * home and cross-tab rows); they share one refresh, even if it has settled by
+ * the time another miss arrives. A later miss against the new snapshot still
+ * refreshes, since another view_add may have introduced a new view meanwhile.
+ */
+function getCatalog(staleSnapshot = null) {
+  const sdk = getSDK();
+  if (sdk !== catalog?.sdk) {
+    catalog = { sdk, promise: null };
+    resetRasterLegendCache();
+  }
+  const state = catalog;
+  if (staleSnapshot && state.promise) {
+    const previous = state.promise;
+    return previous.then((views) => {
+      if (views !== staleSnapshot) return views;
+      if (state.promise === previous) state.promise = null;
+      return loadCatalog(state);
+    });
+  }
+  return loadCatalog(state);
 }
 
 /**
@@ -198,7 +214,7 @@ export async function resolveMapXLegend(idView, language = "en") {
   let views = await getCatalog();
   let view = views.find((candidate) => candidate?.id === idView);
   if (!view) {
-    views = await getCatalog(true);
+    views = await getCatalog(views);
     view = views.find((candidate) => candidate?.id === idView);
   }
   if (!view) return { legend: null, reason: "catalog-miss" };
@@ -213,7 +229,6 @@ export async function getMapXLegend(idView, language = "en") {
 
 /** Clear cached catalogue state after an SDK/project lifecycle change. */
 export function resetMapXLegendCache() {
-  catalogPromise = null;
-  catalogSDK = null;
+  catalog = null;
   resetRasterLegendCache();
 }

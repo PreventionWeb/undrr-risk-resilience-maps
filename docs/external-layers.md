@@ -124,6 +124,12 @@ adapter and one provider-registry entry while reusing the lifecycle and controls
 Measurements below were taken from the live EDRA responses on 24 July 2026 and a local development
 machine. They describe magnitude, not a service-level guarantee.
 
+The reprojection implementation was optimized on 6 November 2026 to reuse a
+single Proj4 converter. A repeatable local benchmark measured 1,403.49 ms before
+and 95.85 ms after on the same 194,716-vertex file, with identical output. The
+older timings below remain historical context; see [performance.md](performance.md)
+for the current measurement method, scope and reproduction command.
+
 | Cost area                 | Observed EDRA profile                                                                                                                           | Practical effect                                                                                                     |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Initial geometry response | 7,442,494 bytes decoded JSON (7.10 MiB); 242 features and about 194,716 vertices. The same file is about 3.02 MiB under local gzip compression. | Noticeably heavier than enabling a pre-built MapX view. Paid once per page session, subject to browser HTTP caching. |

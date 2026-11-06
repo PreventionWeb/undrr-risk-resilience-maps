@@ -42,6 +42,8 @@ raster adapter. `src/sdk/legend-model.js` owns the provider-neutral model and sh
 
 The MapX catalogue cache is scoped to the active SDK manager and refreshes once when a requested
 view is missing, because `view_add` can introduce a public cross-project view after initialization.
+Concurrent misses against the same snapshot share one refresh; a later missing view can refresh
+the replacement snapshot. A failed request is evicted only from its own manager's cache.
 A successful raster resolution is cached for the page session by view revision, legend URL, and
 language; failures are not cached, so a later retry can recover.
 A DOM ownership marker prevents a late asynchronous result from being appended to a closed layer
