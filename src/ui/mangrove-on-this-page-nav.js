@@ -30,12 +30,21 @@ let modulePromise = null;
 export async function initMangroveOnThisPageNav(scope = document, { importImpl, signal } = {}) {
   if (signal?.aborted) return false;
 
-  const root = scope instanceof Element ? scope : document;
-  const containers = [...root.querySelectorAll("[data-mg-on-this-page-nav]")];
+  const selector = "[data-mg-on-this-page-nav]";
+  const containers = [...(scope.matches?.(selector) ? [scope] : []), ...scope.querySelectorAll(selector)];
   if (containers.length === 0) return false;
 
+  let mod;
+  const destroy = () => {
+    for (const el of containers) {
+      try {
+        mod?.mgOnThisPageNavDestroy?.(el);
+      } catch (err) {
+        console.warn("Mangrove on-this-page-nav could not be destroyed:", err);
+      }
+    }
+  };
   try {
-    let mod;
     if (importImpl) {
       mod = await importImpl();
     } else {
@@ -49,18 +58,14 @@ export async function initMangroveOnThisPageNav(scope = document, { importImpl, 
     }
     if (signal?.aborted) return false;
     if (typeof mod?.mgOnThisPageNav !== "function") return false;
-    mod.mgOnThisPageNav(containers);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        try {
-          for (const el of containers) mod.mgOnThisPageNavDestroy?.(el);
-        } catch (err) {
-          console.warn("Mangrove on-this-page-nav could not be destroyed:", err);
-        }
-      },
-      { once: true },
-    );
+    try {
+      mod.mgOnThisPageNav(containers);
+    } catch {
+      // A partial enhancement can already own window listeners and observers.
+      destroy();
+      return false;
+    }
+    signal?.addEventListener("abort", destroy, { once: true });
     return true;
   } catch {
     return false;

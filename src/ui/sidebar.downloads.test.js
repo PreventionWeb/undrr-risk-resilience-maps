@@ -125,7 +125,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect(document.querySelector(".layer-downloads-slot")).toBeNull();
     expect(document.querySelector(".layer-downloads")).toBeNull();
     expect(document.querySelector("dialog")).toBeNull();
-    expect(mocks.sources.at(-1).downloads).toBeNull();
+    expect(mocks.sources.at(-1)).not.toHaveProperty("downloads");
     // The request link is still the route for the GAR2026 vector layer.
     expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
   });
@@ -150,9 +150,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     const liveRow = homeRow(layers.live);
     expect(liveRow.querySelector(".layer-downloads")).toBeNull();
     expect(liveRow.querySelector('a[href^="mailto:"]')).not.toBeNull();
-    expect(mocks.sources.at(-1).downloads).toEqual(
-      expect.objectContaining({ handleClick: expect.any(Function) }),
-    );
+    expect(mocks.sources.at(-1)).not.toHaveProperty("downloads");
   });
 
   it("generates the CSV through the dialog, adding the unloaded view only for the read", async () => {

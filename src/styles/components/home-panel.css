@@ -354,15 +354,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Prototype downloads (?downloads=1): a column after Notes. */
-.data-table .data-table__downloads {
-  min-width: 14rem;
-}
-
-.data-table__downloads .layer-downloads {
-  font-size: 0.8rem;
-}
-
 .data-table__row--planned td {
   color: rgb(var(--mg-color-neutral-500));
   background-color: rgb(var(--mg-color-neutral-25)) !important;

@@ -12,7 +12,7 @@ other value, a blank value or a repeated parameter leaves downloads off, so a mi
 closed. Programmatic instances take `createRiskMap(root, { downloadsEnabled: true })`; the central
 default is `MAP_DOWNLOADS_ENABLED` in `src/config/features.js`.
 
-With the flag off, nothing changes: no download controls, no Sources column, no dialog.
+With the flag off, nothing changes: no download controls or dialog.
 
 ## What is offered
 
@@ -22,9 +22,13 @@ With the flag off, nothing changes: no download controls, no Sources column, no 
 | Region-level vector views       | "Download CSV": values per region          | Generated in the browser from the view's MapX attribute table    |
 | Everything else                 | Nothing; keeps "Request data" where shown  | –                                                                |
 
-Downloads appear in the layer panel (for the view shown: a compound layer's selected source) and in a
-**Download** column on the Sources page (every source of a compound layer, named by its label). A view
-with a download no longer shows "Request data"; a view without one keeps it.
+Downloads appear in the layer panel for the view shown (a compound layer's selected source). In that
+panel, a view with a download no longer shows "Request data"; a view without one keeps it.
+
+Sources contains attribution rather than per-map download controls. Click a published dataset name
+to open it in the viewer, where downloads are available when enabled. Rows for individual variants
+open that exact source; grouped dataset rows open the default source. Unpublished entries have no
+viewer link. The layer-inventory CSV export remains at the bottom of Sources.
 
 Clicking a file over 1 GB first opens a confirmation dialog (the same dialog the CSV uses) that
 gives the size and recommends a fast, unmetered connection; the download starts only on "Download".

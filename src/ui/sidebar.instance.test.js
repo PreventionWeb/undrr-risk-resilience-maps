@@ -58,6 +58,7 @@ vi.mock("../external/index.js", () => ({
 
 import { createSidebar } from "./sidebar.js";
 import * as store from "../state/store.js";
+import { initMangroveOnThisPageNav } from "./mangrove-on-this-page-nav.js";
 
 /**
  * jsdom does not implement `inert`, and the warm-up feature-detects it (without
@@ -256,6 +257,25 @@ describe("createSidebar", () => {
     expect($("#sidebar").classList.contains("is-collapsed")).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(toggle.getAttribute("aria-label")).toBe("Collapse the layers panel");
+  });
+
+  it("enhances Sources once visible and aborts before removing its panels", () => {
+    initMangroveOnThisPageNav.mockClear();
+    sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });
+    expect(initMangroveOnThisPageNav).not.toHaveBeenCalled();
+    $(".nav-info-link[data-panel='sources']").click();
+    const [scope, options] = initMangroveOnThisPageNav.mock.calls[0];
+    expect(scope.style.display).toBe("block");
+    let connectedOnAbort = false;
+    options.signal.addEventListener("abort", () => {
+      connectedOnAbort = scope.isConnected;
+    });
+    $(".nav-info-link[data-panel='about']").click();
+    $(".nav-info-link[data-panel='sources']").click();
+    expect(initMangroveOnThisPageNav).toHaveBeenCalledTimes(1);
+    sidebar.destroy();
+    expect(options.signal.aborted).toBe(true);
+    expect(connectedOnAbort).toBe(true);
   });
 
   // The active tab is per instance, not module state. One case per rule: five

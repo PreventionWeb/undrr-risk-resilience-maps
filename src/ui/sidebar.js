@@ -258,6 +258,7 @@ export function createSidebar(
   // Panels this instance built, by tab id, and every element it appended.
   const tabPanels = new Map();
   const infoPanels = new Map();
+  let sourcesNavStarted = false;
   const createdElements = [];
   // One live region for the whole instance: a layer has a row in its own tab and
   // a compact row in every other tab, and each of them renders the same record,
@@ -453,6 +454,12 @@ export function createSidebar(
     if (isInfoTab) {
       // Show the right info panel, hide the others
       for (const [id, el] of infoPanels) el.style.display = id === tabId ? "block" : "none";
+      // The scroll-spy's observation band depends on the rendered bar height.
+      // Initialising under display:none measures zero and misses that offset.
+      if (tabId === "sources" && infoPanels.has("sources") && !sourcesNavStarted) {
+        sourcesNavStarted = true;
+        void initMangroveOnThisPageNav(infoPanels.get("sources"), { signal });
+      }
     } else {
       // Show the right layer panel in the sidebar, hide the others
       for (const [id, el] of tabPanels) el.style.display = id === tabId ? "block" : "none";
@@ -566,13 +573,8 @@ export function createSidebar(
   // Populate info page with all info panels
   if (infoPage) {
     infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
-    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal, downloads })));
+    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
-
-    // Wire the Sources page's sticky on-this-page-nav (scroll-spy, overflow
-    // buttons). Enhancement is optional; abort while the panels are still in
-    // the document so destroy can find the containers.
-    void initMangroveOnThisPageNav(infoPage, { signal });
   }
 
   // Populate sidebar with layer panels (data tabs only)

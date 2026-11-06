@@ -5,10 +5,10 @@
 
 import { downloadLayerInventory } from "../utils/export-layers.js";
 import { escapeHtml } from "../utils/html.js";
-import { getLayerStatus } from "../config/layers/status.js";
+import { getLayerStatus, isLayerAvailable } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
 import { layerLinksHtml } from "../utils/layer-links.js";
-import { sourcesRowDownloadsHtml } from "./download-links.js";
+import { formatHash } from "../state/hash.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
 
@@ -37,28 +37,29 @@ function mapxIds(layer) {
   return layer.id || "–";
 }
 
-/**
- * @param {object[]} layers
- * @param {{ downloadsEnabled?: boolean }} [options] - adds the Download column
- *   (prototype, `?downloads=1`; #64). Without it the table is unchanged.
- */
-function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
+/** Build attribution rows with viewer links for available maps. */
+function buildSourcesTable(layers, tabId) {
   const rows = layers
     .flatMap((layer) =>
       layer.sources?.some((source) => source.note || source.explainerUrl)
-        ? layer.sources.map((source) => ({ ...layer, ...source, sources: undefined }))
-        : [layer],
+        ? layer.sources.map((source, sourceIdx) => ({
+            layer: { ...layer, ...source, sources: undefined },
+            sourceIdx,
+            available: isLayerAvailable(layer) && Boolean(source.id),
+          }))
+        : [{ layer, sourceIdx: 0, available: isLayerAvailable(layer) }],
     )
-    .map((layer) => {
+    .map(({ layer, sourceIdx, available }) => {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
       const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
-      const links = layerLinksHtml(layer, { downloadsEnabled });
-      const downloadCell = downloadsEnabled
-        ? `<td class="data-table__downloads">${sourcesRowDownloadsHtml(layer)}</td>`
-        : "";
+      const links = layerLinksHtml(layer);
+      const name =
+        !isTrackedOnly && available && layer.key
+          ? `<a class="sources-map-link" href="${escapeHtml(formatHash(tabId, [{ key: layer.key, sourceIdx }]))}">${escapeHtml(layer.label)}</a>`
+          : escapeHtml(layer.label);
       // `mg-table__td--code` puts the cell in Mangrove's code face, so the ids
       // no longer need a `<code>` element each.
       const idCell = ids
@@ -67,12 +68,12 @@ function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
         .join("<br>");
       return `
       <tr${rowClass}>
-        <td>${statusBadge}${escapeHtml(layer.label)}</td>
+        <td>${statusBadge}${name}</td>
         <td class="data-table__mapx-id mg-table__td--code">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}</td>${downloadCell}
+        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}</td>
       </tr>`;
     })
     .join("");
@@ -87,7 +88,7 @@ function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
             <th scope="col" class="mg-table__th--sticky">Source</th>
             <th scope="col" class="mg-table__th--sticky">Citation</th>
             <th scope="col" class="mg-table__th--sticky">License</th>
-            <th scope="col" class="mg-table__th--sticky">Notes</th>${downloadsEnabled ? '\n            <th scope="col" class="mg-table__th--sticky">Download</th>' : ""}
+            <th scope="col" class="mg-table__th--sticky">Notes</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -95,14 +96,8 @@ function buildSourcesTable(layers, { downloadsEnabled = false } = {}) {
     </div>`;
 }
 
-/**
- * Build the Sources page.
- * @param {{ signal?: AbortSignal, downloads?: { handleClick: (event: MouseEvent) => void }|null }} [options] -
- *   `signal` removes the page's listeners; `downloads` (prototype, `?downloads=1`)
- *   adds a Download column to the tables and handles its "Download CSV" buttons
- */
-export function buildSourcesPanel({ signal, downloads = null } = {}) {
-  const tableOptions = { downloadsEnabled: Boolean(downloads) };
+/** Build the Sources page. `signal` removes the page's listeners. */
+export function buildSourcesPanel({ signal } = {}) {
   const categoryNavItems = TABS.map((tab) => {
     const sectionId = `sources-${tab.id}`;
     return `
@@ -121,7 +116,7 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
           <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
             <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
-            ${buildSourcesTable(planned, tableOptions)}
+            ${buildSourcesTable(planned, tab.id)}
           </details>`
         : "";
     return `
@@ -129,14 +124,16 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
         <div class="mg-container">
           <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
-          ${available.length > 0 ? buildSourcesTable(available, tableOptions) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
+          ${available.length > 0 ? buildSourcesTable(available, tab.id) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
         </div>
       </section>`;
   }).join("");
 
+  // Explicit initialization keeps a late CDN import from auto-enhancing
+  // containers after their owning sidebar has already been destroyed.
   const categoryNav = `
-    <nav class="mg-on-this-page-nav" data-mg-on-this-page-nav aria-label="Sources categories">
+    <nav class="mg-on-this-page-nav" data-mg-on-this-page-nav data-mg-on-this-page-nav-skip-auto-init aria-label="Sources categories">
       <ul class="mg-on-this-page-nav__list" role="list">${categoryNavItems}</ul>
     </nav>`;
 
@@ -191,10 +188,36 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
     .querySelector("[data-action='download-inventory']")
     .addEventListener("click", downloadLayerInventory, { signal });
 
-  if (downloads) {
-    panel.addEventListener("click", downloads.handleClick, { signal });
-    panel.addEventListener("auxclick", downloads.handleClick, { signal });
-  }
+  // The app owns the hash (page + layers). Mangrove's default click handler
+  // replaces it with a section id, breaking reloads and history restoration.
+  // Capture before its handler, including while the optional CDN is unavailable.
+  const nav = panel.querySelector("[data-mg-on-this-page-nav]");
+  nav.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest(".mg-on-this-page-nav__link");
+      if (!link) return;
+      const target = [...panel.querySelectorAll(".sources-category-section")].find(
+        (section) => `#${section.id}` === link.getAttribute("href"),
+      );
+      if (!target) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const style = getComputedStyle(nav);
+      const offset = parseFloat(style.getPropertyValue("--mg-on-this-page-nav-offset")) || 0;
+      const stickyHeight = style.position === "sticky" ? nav.offsetHeight + offset : 0;
+      window.scrollTo({
+        top: target.getBoundingClientRect().top + window.scrollY - stickyHeight,
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      });
+      if (!target.hasAttribute("tabindex")) {
+        target.setAttribute("tabindex", "-1");
+        target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true, signal });
+      }
+      target.focus({ preventScroll: true });
+    },
+    { capture: true, signal },
+  );
 
   panel.querySelector("[data-action='toggle-mapx-ids']").addEventListener(
     "change",

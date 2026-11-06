@@ -193,6 +193,7 @@
      * or a small synthetic region table.
      */
     get_view_table_attribute: function (params) {
+      stub.tableReadsCompleted = (stub.tableReadsCompleted || 0) + 1;
       if (!known.has(params.idView)) throw new Error("Cannot read properties of undefined (reading 'type')");
       var tables = window.__mapxStubTables || {};
       return (
@@ -355,7 +356,11 @@
     if (!handler) {
       return Promise.reject(new Error('mapx stub: unhandled command "' + method + '"'));
     }
-    var delay = SLOW_METHODS[method] ? stub.delayMs : 0;
+    var delay = SLOW_METHODS[method]
+      ? stub.delayMs
+      : method === "get_view_table_attribute"
+        ? stub.tableDelayMs || 0
+        : 0;
     return new Promise(function (resolve, reject) {
       setTimeout(function () {
         try {
