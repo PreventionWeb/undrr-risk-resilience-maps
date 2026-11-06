@@ -14,13 +14,31 @@ default is `MAP_DOWNLOADS_ENABLED` in `src/config/features.js`.
 
 With the flag off, nothing changes: no download controls or dialog.
 
+### Try a download
+
+Start the viewer with the [README development setup](../README.md#developing) and enter the
+stakeholder preview PIN when prompted (access details are shared separately).
+
+1. Open `http://localhost:3001/?downloads=1#risk-resilience?layers=recovery-speed` and wait for the
+   layer to load. In its expanded row, choose **Download CSV**. The file contains values for the
+   selected source; use the row's source selector to download another variant.
+2. Wait for **Download started**, then choose **Done**. Closing the dialog or pressing Escape during
+   the fetch cancels the download. If the map briefly blanks behind the dialog, it is reading a
+   temporary reference view for region names.
+3. For a hosted raster, open `http://localhost:3001/?downloads=1#hazard?layers=landslides` and choose
+   the GeoTIFF link in the expanded row. The link shows the file's size; files over 1 GB ask for
+   confirmation first.
+
+You can also start from Sources: choose a published dataset name to open its map, then download
+from the layer row. The query flag stays in the address as you navigate.
+
 ## What is offered
 
-| Layer kind                      | Download                                   | Where it comes from                                              |
-| ------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
-| Raster views with a hosted file | A link to each GeoTIFF, with format & size | Files hosted by UNEP/GRID-Geneva at `gar-data.unepgrid.ch/2026/` |
-| Region-level vector views       | "Download CSV": values per region          | Generated in the browser from the view's MapX attribute table    |
-| Everything else                 | Nothing; keeps "Request data" where shown  | –                                                                |
+| Layer kind                         | Download                                   | Where it comes from                                              |
+| ---------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| Raster views with a hosted file    | A link to each GeoTIFF, with format & size | Files hosted by UNEP/GRID-Geneva at `gar-data.unepgrid.ch/2026/` |
+| Reviewed region-level vector views | "Download CSV": values per region          | Generated in the browser from the view's MapX attribute table    |
+| Everything else                    | Nothing; keeps "Request data" where shown  | –                                                                |
 
 Downloads appear in the layer panel for the view shown (a compound layer's selected source). In that
 panel, a view with a download no longer shows "Request data"; a view without one keeps it.
@@ -35,8 +53,8 @@ gives the size and recommends a fast, unmetered connection; the download starts 
 Smaller files download straight away. Every file link (and the download a confirmation starts) opens in
 a **new tab** (`target="_blank" rel="noopener"`). The files come from another origin, where browsers
 ignore the `download` attribute, and the server sends `content-type: image/tiff` without
-`Content-Disposition: attachment`. Chromium and Firefox download the file anyway; Safari would display
-or navigate to it, and any browser would show an error page the server returned. In a new tab the viewer's own tab is never replaced (checked in Chromium and WebKit: the app tab keeps its URL; WebKit shows the file in the new tab).
+`Content-Disposition: attachment`. Depending on the browser, the file may download or display in
+the new tab. The viewer stays open in its original tab.
 
 ## Where the data lives
 
@@ -105,25 +123,28 @@ Built by the pure `buildRegionCsv()` in `src/utils/region-csv.js`.
   one exists, and the map service's own code (codes starting with `x`) for the few other areas. Every
   area the map shows a value for is exported, as on the map, and the header carries the standard UN
   disclaimer on the designations used (`UN_DISCLAIMER`).
-- **Rows dropped:** `gid` (an internal id) is never written; rows with no value (null, blank, NaN,
-  Infinity); rows with no usable code (missing, blank, or not a short run of letters and digits); and a
-  code repeated after its first row.
+- **Rows dropped:** rows with no value in any joined value column (null, blank, MapX's `$NULL`, NaN
+  or Infinity); rows with no usable code (missing, blank, or not 2–8 letters and digits); and a code
+  repeated after its first retained row. `gid` (an internal id) is never written.
 - **Format:** UTF-8 with a byte-order mark (so Excel reads accented names), CRLF line ends, RFC 4180
   quoting. Text that a spreadsheet would run as a formula gets a leading apostrophe.
 - **Filename:** `<layer-key>_<view-id>.csv`, e.g. `gar26-aal-crops_MX-UN9Z8-4M5QH-PMDNX.csv`.
 
 ### Metadata: a header block, not a sidecar
 
-The file starts with one line per field, `#,"<Label>: <value>"`, taken from our layer config: title,
-description, source, source URL, citation, license, MapX view ID, layer key, download date (UTC), the
-viewer the file came from (the page's own address, so a preview or local build says so), how region
-names were sourced, and a note that boundaries are not included. The `#` stays outside the quotes so
-comment options skip the line; the rest is one quoted, formula-defused cell, so a citation's commas stay
-in one spreadsheet cell. One download carries its own attribution, and browsers do not prompt about a
+The file starts with one line per field, `#,Label: value` (the second cell is quoted when needed),
+taken from our layer config: title, description, source, source URL, citation, license, MapX view ID,
+layer key, download date (UTC), the
+viewer the file came from (the viewer's base URL, without the query or hash, including for an embed),
+how region names were sourced, and a note that boundaries are not included. The `#` stays outside
+the quotes so comment options skip the line; the rest is one formula-defused CSV cell, so a citation's
+commas stay in one spreadsheet cell. One download carries its own attribution, and browsers do not prompt about a
 second file. Data tools skip the block with a comment option:
 
 ```python
-pandas.read_csv("file.csv", comment="#")
+import pandas as pd
+
+data = pd.read_csv("file.csv", comment="#")
 ```
 
 ```r
@@ -166,15 +187,10 @@ added for the read and removed again, outside the layer controller:
 - views the session has loaded (on the map now or earlier, or added for a previous read) are read
   without another add.
 
-This was chosen over the alternatives:
-
-- **Turning the layer on through the controller** would write the URL and history, open the row and
-  move the map — a download would change what the user is looking at.
-- **Offering CSV only for layers on the map** would leave the Sources page with almost nothing.
-
 In the layer panel a row's downloads are only visible while the layer is on (expanding a row turns it
-on), so the target view is normally read without an add there; the add mostly serves the Sources page
-(where the map is invisible anyway) and the region-name reference read.
+on), so the target view is normally read without an add. Temporary adds serve the region-name and
+region-code reference reads, and programmatic `requestCsv(viewId)` calls for unloaded views. The
+download flow leaves layer selection, URL state and camera position unchanged.
 
 ### Accessibility
 
@@ -191,8 +207,7 @@ modal dialog, so it gets the same focus handling and announcement.
 
 ## Maintenance
 
-All three tasks below follow the same order: update the inventory, **import it**, then run the
-contract check (it reads the imported config, not `data/inventory.csv`), then the unit tests.
+After changing the inventory, **import it** before checking the resulting configuration:
 
 ```sh
 node scripts/import-inventory.mjs           # dry run: review the report
@@ -206,6 +221,11 @@ yarn test
 with one line per problem, naming the view or file. `--view <MX-id>` (or `--view=<MX-id>`, repeatable)
 also vets a view that is not in the config or not marked `yes` yet; `--skip-files` skips the HEAD
 requests. Any other argument is refused.
+
+The check reads live view definitions and file headers, not attribute-table rows. Before marking a
+view `yes`, confirm that its values describe geographic regions and try its CSV in the viewer after
+importing. A passing check alone does not establish region-level meaning, names or units. New and
+renamed CSV views can be checked with `--view` **before** import; run the full check again afterwards.
 
 The importer's guards, each of which stops `--apply` before anything is written:
 
@@ -239,7 +259,8 @@ notes stay on the same config object, and field changes in the same import land 
 2. `node scripts/import-inventory.mjs`. If the view is marked `yes`, the report lists it under
    "re-vet before applying" with the command to run, for example
    `yarn test:downloads-contract --skip-files --view MX-NEW-ID`.
-3. Run that command. If it passes, `node scripts/import-inventory.mjs --apply --csv-vetted`. If it fails,
+3. Run that command. If it passes, `node scripts/import-inventory.mjs --apply --csv-vetted`. For a view
+   without `yes`, apply normally with `node scripts/import-inventory.mjs --apply`. If vetting fails,
    set the row's **CSV download** to blank or `no: <reason>`, export again, and apply with
    `--allow-removals` (turning a `yes` off is a removal).
 4. `yarn test:downloads-contract` and `yarn test`, then commit.
@@ -260,6 +281,11 @@ tests in CI; in the running app it only logs a warning and offers no CSV for tha
 
 ### A new map is added
 
+The importer updates existing layer/source objects; it does not create them. A developer must first
+add the map or compound source in `src/config/layers/*.js`, with the matching layer key, sub-source
+label and MapX view ID. Review the import report for unmatched rows and publication-status changes
+that need manual edits before treating the map as available.
+
 1. Add the row to the sheet as usual, with **CSV download** blank: the map gets no CSV yet.
 2. For a vector map that should have one, run `yarn test:downloads-contract --skip-files --view <MX-id>`
    (this works before the import). It must pass: a vector view, a joined value attribute (`jN_…`), and
@@ -269,10 +295,11 @@ tests in CI; in the running app it only logs a warning and offers no CSV for tha
 4. For a raster map with a hosted file, fill the download columns as above.
 5. Export `data/inventory.csv`, run the importer (dry run, then `--apply`), then
    `yarn test:downloads-contract` without `--view` (the new view is now checked with the others) and
-   `yarn test`.
+   `yarn test`. Try each offered download with `?downloads=1` and commit the inventory and configuration
+   together.
 
 `data/gar2026-handoff.csv` is the original GAR 2026 handoff, kept for reference; the importer reads
-`data/inventory.csv` only, so neither column needs adding there.
+`data/inventory.csv` only, so the download columns do not need adding there.
 
 ## Limitations and open questions for GRID
 
@@ -286,8 +313,9 @@ tests in CI; in the running app it only logs a warning and offers no CSV for tha
 - Can views carry readable attribute labels and units? Until then the value column is named from our
   config and units are not stated.
 - Is there an area ID for the GEM, water stress and intact forest views, or should they have no CSV?
-- The Sources page needs MapX to have started. Where the map does not warm up behind information pages
-  (see `src/ui/map-warming.js`), the dialog says so at once and offers **Open the map**.
+- CSV generation needs MapX to have started. A request while the map cannot load (for example, a
+  programmatic request from an information page on a narrow screen) offers **Open the map**. Open it,
+  wait for the layer to load, then try the download again.
 - With the flag on, "Request data" shows only for views without a download. Every GAR2026 map (the
   only layers with that link today) has a CSV, so in practice the link does not appear; the fallback is
   covered by unit tests.

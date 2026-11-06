@@ -642,19 +642,19 @@ The floating layer panel includes:
 ### Data downloads (prototype)
 
 Behind `?downloads=1` (`downloadsEnabledFromSearch()` in `src/config/features.js`, which fails closed
-like `?inspect=`). `createRiskMap({ downloadsEnabled })` passes it to `createSidebar()`, which then
-creates one `createDownloads()` instance and hands it to every layer row (`downloads` option) and to
-`buildSourcesPanel({ downloads })`. With the flag off neither receives anything and the markup is
-unchanged. The embed reads the same parameter in `src/embed/params.js`.
+like `?inspect=`). `createRiskMap(root, { downloadsEnabled })` passes it to `createSidebar()`, which
+creates one `createDownloads()` instance and hands it to every layer row (`downloads` option).
+With the flag off no download instance or controls are created. The embed reads the same parameter
+in `src/embed/params.js`. Sources links dataset names to their maps; it has no per-map download controls.
 
 - **What a view offers** is decided from config alone (`getViewDownloads()` in
   `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
   `data/inventory.csv`), and a CSV for views marked `csvDownload: "yes"` (the inventory's "CSV download"
   column, per view; published `vt` layers only).
-- **Markup** (`src/ui/download-links.js`) is shared by the row's `.layer-downloads-slot` (rendered for
-  the view shown, next to the context links) and the Sources Download column. The "Download CSV" button
-  is handled by a delegated click listener on the row slot and on the Sources panel. A view with a
-  download hides "Request data" (`layerLinksHtml(view, { downloadsEnabled })`).
+- **Markup** (`src/ui/download-links.js`) fills the row's `.layer-downloads-slot` for the view shown,
+  next to the context links. Delegated `click` and `auxclick` listeners on the slot handle CSV requests
+  and large-file confirmation. A view with a download hides "Request data" in the layer panel
+  (`layerLinksHtml(view, { downloadsEnabled })`).
 - **The CSV flow** reads the table through `src/sdk/table.js`. A view the session has not loaded is
   added for the read and removed again without going through the layer controller: no store write,
   `zoomToView: false`, and the sidebar's `isViewWanted(viewId)` (a record shows that view, or wants it
