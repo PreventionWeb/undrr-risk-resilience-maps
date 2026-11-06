@@ -1,5 +1,5 @@
 /**
- * Download controls markup (prototype, behind `?downloads=1`; #64).
+ * Download controls markup (#64); visibility is governed by features.js.
  *
  * `downloadListHtml(layer, source)` draws a view's download controls: a link
  * per hosted file (format and size) and a "Download CSV"

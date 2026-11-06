@@ -59,7 +59,7 @@ What that build requires of this repo:
 | [docs/external-layers.md](docs/external-layers.md)           | Runtime-source governance, tracker guidance, performance, and trade-offs     |
 | [docs/legends.md](docs/legends.md)                           | Legend architecture, upstream contracts, operations, and extension guide     |
 | [docs/embedding.md](docs/embedding.md)                       | Embedding in other sites: how to embed, the message API, hosting, roadmap    |
-| [docs/downloads.md](docs/downloads.md)                       | Prototype data downloads (`?downloads=1`): GeoTIFF links and values-only CSV |
+| [docs/downloads.md](docs/downloads.md)                       | Map downloads: GeoTIFF links, values-only CSV, and repository kill switch |
 | [docs/adr/](docs/adr/)                                       | Durable architecture decisions and their review triggers                     |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                           | System design and technical decisions                                        |
 | [LEARNINGS.md](LEARNINGS.md)                                 | MapX SDK quirks, design decisions, hard-won knowledge                        |
@@ -77,7 +77,7 @@ The inventory importer requires the repository's 14 core CSV columns and fails f
 
 Map click info windows and site inspection are temporarily off by default following programme-lead feedback while the info-window design is revisited. Enable them per page load with `?inspect=1` before the hash (for example, `?inspect=1#gar`), or explicitly disable them with `?inspect=0`. The same query parameter works on `embed.html`. The central default is `MAP_INSPECTION_ENABLED` in `src/config/features.js`; programmatic instances use the boolean `inspectionEnabled` option. Panning, zooming, layer controls and legends remain available.
 
-Data downloads are a prototype behind `?downloads=1` (also on `embed.html`), pending programme sign-off for public use. The layer panel offers configured hosted GeoTIFFs and values-only CSVs for reviewed region-level vector views. On Sources, published dataset names open their maps in the viewer; the inventory export stays on Sources. Without the flag, "Request data" stays the route. See the [download walkthrough](docs/downloads.md#try-a-download) and [inventory maintenance guide](docs/downloads.md#maintenance).
+Data downloads are enabled by default in standalone and embedded viewers. The layer panel offers configured hosted GeoTIFFs and values-only CSVs for reviewed region-level vector views. Set `MAP_DOWNLOADS_ENABLED = false` in `src/config/features.js` and rebuild/redeploy to hide map download controls globally; URLs and programmatic options cannot override that kill switch. Individual viewers can opt out with `?downloads=0` or `{ downloadsEnabled: false }`. Sources dataset names open their maps in the viewer; its inventory export is separate. See the [download walkthrough](docs/downloads.md#try-a-download) and [inventory maintenance guide](docs/downloads.md#maintenance).
 
 Hash-based routing (`#risk-resilience`, `#hazard`, `#sources`, etc.) makes links shareable and browser back/forward functional. Active tab and active layers are both encoded in the hash, so a URL captures the full map state. All tabs share a single page and MapX iframe — navigation is instant since the SDK stays connected.
 

@@ -344,9 +344,8 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     const url = new URL(".", windowRef.location.href);
     // Preserve this runtime policy when leaving the embed for the full viewer.
     url.searchParams.set("inspect", params.inspectionEnabled ? "1" : "0");
-    // Prototype downloads follow the embed into the full viewer only when on,
-    // so a link from an embed without the flag is unchanged.
-    if (params.downloadsEnabled) url.searchParams.set("downloads", "1");
+    // Preserve an explicit opt-out now that the full viewer defaults to on.
+    url.searchParams.set("downloads", params.downloadsEnabled ? "1" : "0");
     url.hash = formatHash(state.tab, state.layers);
     fullViewerLink.href = url.href;
   };

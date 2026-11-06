@@ -108,6 +108,96 @@ describe("import-inventory --apply", () => {
     expect(risk).toContain('desc: "PML to public infrastructure - Earthquake"');
   });
 
+  it.each([false, true])(
+    "preserves dollar sequences, quotes and newlines in labels and descriptions (insert description: %s)",
+    (insertDescription) => {
+      const fixture = makeFixture();
+      const csvPath = join(fixture, "data/inventory.csv");
+      const label = "Population $100 $& $1 $$ $' $`";
+      const description = 'Value $100 $& $1 $$ $\' $` "quoted"\nNext line';
+      const sourceDescription = "Poorest households - 1:100 earthquake event.";
+      const populationDescription = "Population distribution (HRSL/GHSL 2022).";
+      const csvCell = (value) => `"${value.replaceAll('"', '""')}"`;
+      const csv = readFileSync(csvPath, "utf8")
+        .replace(",population,Population,", () => `,population,${csvCell(label)},`)
+        .replace(populationDescription, () => csvCell(description))
+        .replace(sourceDescription, () => csvCell(description));
+      writeFileSync(csvPath, csv);
+
+      if (insertDescription) {
+        for (const [file, oldDescription] of [
+          ["exposure.js", populationDescription],
+          ["risk.js", sourceDescription],
+        ]) {
+          const path = join(fixture, "src/config/layers", file);
+          writeFileSync(
+            path,
+            readFileSync(path, "utf8").replace(`desc: ${JSON.stringify(oldDescription)},`, ""),
+          );
+        }
+      }
+
+      execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+        cwd: fixture,
+      });
+      for (const file of ["exposure.js", "risk.js"]) {
+        const src = readFileSync(join(fixture, "src/config/layers", file), "utf8");
+        expect(src).toContain(`desc: ${JSON.stringify(description)}`);
+        if (file === "exposure.js") expect(src).toContain(`label: ${JSON.stringify(label)}`);
+        const syntax = spawnSync(process.execPath, ["--input-type=module", "--check"], {
+          input: src,
+          encoding: "utf8",
+        });
+        expect(syntax.status, syntax.stderr).toBe(0);
+      }
+      const second = execFileSync(
+        process.execPath,
+        [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+        { cwd: fixture, encoding: "utf8" },
+      );
+      expect(second).toContain("nothing to change");
+    },
+  );
+
+  it.each(['MX-BAD"ID', "MX-BAD\nID", "MX-$1"])("rejects malformed MapX IDs before writing: %s", (id) => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const configPath = join(fixture, "src/config/layers/exposure.js");
+    const before = readFileSync(configPath, "utf8");
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace("MX-6YLMU-U4WXC-2JJD7", () => `"${id.replaceAll('"', '""')}"`),
+    );
+    const result = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MapX view ID must contain only");
+    expect(readFileSync(configPath, "utf8")).toBe(before);
+  });
+
+  it.each(["9007199254740992", "9".repeat(400)])(
+    "rejects unsafe download byte counts before writing",
+    (size) => {
+      const fixture = makeFixture();
+      const csvPath = join(fixture, "data/inventory.csv");
+      const configPath = join(fixture, "src/config/layers/hazard.js");
+      const before = readFileSync(configPath, "utf8");
+      writeFileSync(
+        csvPath,
+        readFileSync(csvPath, "utf8").replace("cs_phex.tif,10780516", `cs_phex.tif,${size}`),
+      );
+      const result = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+        cwd: fixture,
+        encoding: "utf8",
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("safe integer range");
+      expect(readFileSync(configPath, "utf8")).toBe(before);
+    },
+  );
+
   it("fails fast when required CSV headers are missing", () => {
     const fixture = makeFixture();
     const source = join(fixture, "data/inventory.csv");

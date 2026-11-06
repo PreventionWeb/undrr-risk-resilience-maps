@@ -294,13 +294,21 @@ describe("mountEmbed", () => {
     });
   });
 
-  describe("prototype downloads", () => {
-    it("are off by default, and the full-viewer link does not mention them", () => {
+  describe("map downloads", () => {
+    it("are on by default and follow the embed into the full viewer", () => {
       mount("?tab=hazard");
+      expect(createRiskMap.mock.calls.at(-1)[1].downloadsEnabled).toBe(true);
+      expect(
+        new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.get("downloads"),
+      ).toBe("1");
+    });
+
+    it("preserves a downloads opt-out in the full-viewer link", () => {
+      mount("?tab=hazard&downloads=0");
       expect(createRiskMap.mock.calls.at(-1)[1].downloadsEnabled).toBe(false);
       expect(
-        new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.has("downloads"),
-      ).toBe(false);
+        new URL(document.querySelector("[data-ui-full-viewer]").href).searchParams.get("downloads"),
+      ).toBe("0");
     });
 
     it("pass downloads=1 to the map and on to the full viewer", () => {

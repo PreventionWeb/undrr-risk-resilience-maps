@@ -1,36 +1,39 @@
 # Data downloads (prototype)
 
-> Status: prototype behind a URL flag ([#64](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/64)).
-> Making downloads public needs programme sign-off. Until then the "Request data" email link stays
-> the public route.
+Map data downloads are enabled by default in standalone and embedded viewers.
 
-## Turning it on
+## Repository kill switch and per-viewer opt-out
 
-Add `?downloads=1` (or `?downloads=true`) before the hash: `/?downloads=1#hazard`. It works the same
-on `embed.html` (`embed.html?downloads=1&tab=hazard`), and the embed's full-viewer link keeps it. Any
-other value, a blank value or a repeated parameter leaves downloads off, so a mistyped flag fails
-closed. Programmatic instances take `createRiskMap(root, { downloadsEnabled: true })`; the central
-default is `MAP_DOWNLOADS_ENABLED` in `src/config/features.js`.
+Set `MAP_DOWNLOADS_ENABLED = false` in `src/config/features.js`, then rebuild and redeploy, to
+hide user-facing map download controls everywhere. This disables GeoTIFF links, generated CSV
+buttons and their dialogs. Neither `?downloads=1` nor `{ downloadsEnabled: true }` can override
+this repository switch. Set it back to `true` and redeploy to restore downloads.
 
-With the flag off, nothing changes: no download controls or dialog.
+For one viewer, use `?downloads=0` (or `false`) before the hash, or
+`createRiskMap(root, { downloadsEnabled: false })`. Embeds accept `&downloads=0` and preserve the
+resolved setting in their full-viewer links. Explicit `1`/`true` remains supported while the
+repository switch is on; blank, unknown or repeated values disable that instance.
+
+This is a UI switch, not an access restriction on publicly hosted files. The layer-inventory
+CSV export on Sources is separate and remains available.
 
 ### Try a download
 
 Start the viewer with the [README development setup](../README.md#developing) and enter the
 stakeholder preview PIN when prompted (access details are shared separately).
 
-1. Open `http://localhost:3001/?downloads=1#risk-resilience?layers=recovery-speed` and wait for the
+1. Open `http://localhost:3001/#risk-resilience?layers=recovery-speed` and wait for the
    layer to load. In its expanded row, choose **Download CSV**. The file contains values for the
    selected source; use the row's source selector to download another variant.
 2. Wait for **Download started**, then choose **Done**. Closing the dialog or pressing Escape during
    the fetch cancels the download. If the map briefly blanks behind the dialog, it is reading a
    temporary reference view for region names.
-3. For a hosted raster, open `http://localhost:3001/?downloads=1#hazard?layers=landslides` and choose
+3. For a hosted raster, open `http://localhost:3001/#hazard?layers=landslides` and choose
    the GeoTIFF link in the expanded row. The link shows the file's size; files over 1 GB ask for
    confirmation first.
 
 You can also start from Sources: choose a published dataset name to open its map, then download
-from the layer row. The query flag stays in the address as you navigate.
+from the layer row.
 
 ## What is offered
 
@@ -295,7 +298,7 @@ that need manual edits before treating the map as available.
 4. For a raster map with a hosted file, fill the download columns as above.
 5. Export `data/inventory.csv`, run the importer (dry run, then `--apply`), then
    `yarn test:downloads-contract` without `--view` (the new view is now checked with the others) and
-   `yarn test`. Try each offered download with `?downloads=1` and commit the inventory and configuration
+   `yarn test`. Try each offered download and commit the inventory and configuration
    together.
 
 `data/gar2026-handoff.csv` is the original GAR 2026 handoff, kept for reference; the importer reads

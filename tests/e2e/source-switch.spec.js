@@ -13,7 +13,8 @@ import {
 
 test.describe("source switch", () => {
   test("GAR crop scenarios keep the map, explanation, request and shared link together", async ({ page }) => {
-    await gotoApp(page, "#gar?layers=gar26-aal-crops");
+    await page.goto("/?downloads=0#gar?layers=gar26-aal-crops");
+    await page.waitForFunction(() => window.__mapxStub?.ready === true);
     const crops = layerRow(page, "Crop average annual loss (%)");
     await settled(crops);
     const select = crops.getByRole("combobox", { name: "Crop and climate scenario" });
@@ -35,7 +36,7 @@ test.describe("source switch", () => {
       "https://www.undrr.org/m/risk-and-resilience-maps/#gar?layers=gar26-aal-crops:7",
     );
     await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
-    await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+    await page.goto("/?downloads=0#gar?layers=gar26-aal-crops:7");
     await expect(layerRow(page, "Crop average annual loss (%)").getByRole("combobox")).toHaveValue("7");
     await expect(layerRow(page, "Crop average annual loss (%)").locator(".layer-desc")).toContainText(
       "rice production loss under a +2°C warming level",

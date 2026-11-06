@@ -481,8 +481,11 @@ describe("createSidebar", () => {
         signal: options?.signal,
       })),
     ];
-    // The hash adapter's hashchange listener, and nothing on the document.
-    expect(globalCalls.map(({ target, type }) => `${target}:${type}`)).toEqual(["window:hashchange"]);
+    // The hash adapter and Sources permalink scroller, both owned by a signal.
+    expect(globalCalls.map(({ target, type }) => `${target}:${type}`)).toEqual([
+      "window:hashchange",
+      "window:hashchange",
+    ]);
     for (const { type, signal } of globalCalls) expect(signal?.aborted, type).toBe(true);
     expect(windowRemove).not.toHaveBeenCalled();
     expect(documentRemove).not.toHaveBeenCalled();

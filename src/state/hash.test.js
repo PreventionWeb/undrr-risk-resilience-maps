@@ -19,6 +19,15 @@ describe("parseHash", () => {
     expect(parseHash()).toEqual({ tab: "hazard", layers: [] });
   });
 
+  it("opens known Sources category permalinks on Sources and preserves any layers", () => {
+    expect(parseHash({ location: { hash: "#sources-hazard?layers=landslides" } })).toEqual({
+      tab: "sources",
+      layers: [{ key: "landslides", sourceIdx: 0 }],
+    });
+    expect(parseHash({ location: { hash: "#sources-gar" } })).toEqual({ tab: "sources", layers: [] });
+    expect(parseHash({ location: { hash: "#sources-unknown" } }).tab).toBe("sources-unknown");
+  });
+
   it("parses a hash with a single simple layer (no source index)", () => {
     window.location.hash = "#exposure?layers=population";
     expect(parseHash()).toEqual({
@@ -87,6 +96,14 @@ describe("parseHash", () => {
 // ---------------------------------------------------------------------------
 
 describe("writeHash", () => {
+  it("preserves Sources category permalinks while writing their layer state", () => {
+    history.replaceState(null, "", "#sources-hazard");
+    writeHash("sources", [{ key: "landslides", sourceIdx: 0 }], { replace: true });
+    expect(window.location.hash).toBe("#sources-hazard?layers=landslides");
+    writeHash("hazard", [], { replace: true });
+    expect(window.location.hash).toBe("#hazard");
+  });
+
   it("writes a tab-only hash when no layers are active", () => {
     writeHash("hazard", []);
     expect(window.location.hash).toBe("#hazard");

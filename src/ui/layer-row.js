@@ -271,7 +271,7 @@ function legendLayerFor(layer, record) {
  *   sidebar's, shared by every row of the layer, so one event is announced
  *   once). Without it the row builds a region of its own.
  * @param {{ handleClick: (event: MouseEvent) => void }|null} [options.downloads] -
- *   prototype data downloads (`?downloads=1`, #64): when given, the row shows
+ *   map data downloads (#64): when given, the row shows
  *   the shown view's download links and "Download CSV" button, and hands the
  *   button's clicks to `handleClick`. Without it the row is unchanged.
  * @returns {LayerRow}

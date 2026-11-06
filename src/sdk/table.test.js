@@ -208,4 +208,82 @@ describe("fetchViewTable", () => {
     ]);
     expect(onTemporary.mock.calls).toEqual([[true], [false]]);
   });
+  it("waits for a cancelled read's removal before starting another read of the same view", async () => {
+    vi.useFakeTimers();
+    let cancel = false;
+    let finishRemoval;
+    let reads = 0;
+    const sdk = fakeSdk({
+      get_view_table_attribute: () => (++reads === 1 ? new Promise(() => {}) : Promise.resolve(ROWS)),
+      view_remove: () =>
+        new Promise((resolve) => {
+          finishRemoval = resolve;
+        }),
+    });
+    const first = fetchViewTable(sdk, "MX-1", { isCancelled: () => cancel }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(0);
+    cancel = true;
+    const second = fetchViewTable(sdk, "MX-1", { isLoaded: () => true });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(sdk.calls.map(([method]) => method)).toEqual([
+      "view_add",
+      "get_view_table_attribute",
+      "view_remove",
+    ]);
+    expect(reads).toBe(1);
+    finishRemoval(true);
+    expect((await first).code).toBe("cancelled");
+    expect(await second).toBe(ROWS);
+    expect(reads).toBe(2);
+  });
+
+  it("queues late cleanup from a timed-out add behind a retry's read", async () => {
+    vi.useFakeTimers();
+    let finishAdd;
+    let finishRead;
+    const sdk = fakeSdk({
+      view_add: () =>
+        new Promise((resolve) => {
+          finishAdd = resolve;
+        }),
+      get_view_table_attribute: () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        }),
+    });
+    const first = fetchViewTable(sdk, "MX-1", { timeouts: { add: 100 } }).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(100);
+    expect((await first).code).toBe("timeout");
+    const second = fetchViewTable(sdk, "MX-1", { isLoaded: () => true });
+    await vi.advanceTimersByTimeAsync(0);
+    finishAdd(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sdk.calls.map(([method]) => method)).toEqual(["view_add", "get_view_table_attribute"]);
+    finishRead(ROWS);
+    expect(await second).toBe(ROWS);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sdk.calls.at(-1)[0]).toBe("view_remove");
+  });
+
+  it("checks cancellation again after waiting for another read", async () => {
+    vi.useFakeTimers();
+    let finishRead;
+    let cancel = false;
+    const sdk = fakeSdk({
+      get_view_table_attribute: () =>
+        new Promise((resolve) => {
+          finishRead = resolve;
+        }),
+    });
+    const first = fetchViewTable(sdk, "MX-1", { isLoaded: () => true });
+    const second = fetchViewTable(sdk, "MX-1", { isLoaded: () => true, isCancelled: () => cancel }).catch(
+      (error) => error,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    cancel = true;
+    finishRead(ROWS);
+    await first;
+    expect((await second).code).toBe("cancelled");
+    expect(sdk.calls).toHaveLength(1);
+  });
 });

@@ -34,8 +34,8 @@ describe("parseEmbedParams", () => {
     expect(parse("?inspect=false").inspectionEnabled).toBe(false);
   });
 
-  it("shares the standalone prototype downloads flag, failing closed", () => {
-    expect(parse("").downloadsEnabled).toBe(false);
+  it("defaults downloads on and accepts explicit instance opt-outs", () => {
+    expect(parse("").downloadsEnabled).toBe(true);
     expect(parse("?downloads=1").downloadsEnabled).toBe(true);
     expect(parse("?downloads=true").downloadsEnabled).toBe(true);
     for (const value of ["0", "yes", "", "TRUE"])

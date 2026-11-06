@@ -401,9 +401,13 @@ runtime options read at page load: change the iframe URL and reload it to change
 no new build is needed. The embed's full-viewer link preserves the resolved setting. The existing
 postMessage API is unchanged.
 
-**Prototype downloads.** `&downloads=1` (or `true`) turns on the data downloads described in
-[docs/downloads.md](downloads.md): GeoTIFF links and "Download CSV" in the layer panel. Any other
-value leaves them off. The full-viewer link carries `downloads=1` only when they are on.
+**Map downloads.** The GeoTIFF links and "Download CSV" controls described in
+[docs/downloads.md](downloads.md) default on. Use `&downloads=0` (or `false`) to disable them for
+one embed, or `{ downloadsEnabled: false }` for a programmatic instance. Blank, invalid or repeated
+values also disable them. The full-viewer link preserves the resolved setting as `downloads=1` or
+`downloads=0`. The repository kill switch, `MAP_DOWNLOADS_ENABLED` in `src/config/features.js`,
+disables map downloads everywhere when set to `false` and redeployed, regardless of URL or
+programmatic opt-ins. The separate Sources inventory export is unaffected.
 
 Programmatic callers can pass `createRiskMap(root, { inspectionEnabled: true })`. The central default
 is `MAP_INSPECTION_ENABLED` in `src/config/features.js`. Revisit that default after the info-window

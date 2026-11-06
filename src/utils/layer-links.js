@@ -43,7 +43,7 @@ export function dataRequestUrl(layer, config = DATA_REQUESTS) {
 /**
  * Shared by the layer accordion and Sources; spreadsheet notes remain plain text.
  *
- * With downloads enabled (`?downloads=1`), a view that offers a download no
+ * With downloads enabled, a view that offers a download no
  * longer shows "Request data": the download replaces the request. Views without
  * one keep the email link, which stays the only route while the flag is off.
  */

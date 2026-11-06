@@ -192,29 +192,49 @@ export function buildSourcesPanel({ signal } = {}) {
   // replaces it with a section id, breaking reloads and history restoration.
   // Capture before its handler, including while the optional CDN is unavailable.
   const nav = panel.querySelector("[data-mg-on-this-page-nav]");
+  function scrollToCategory(target, smooth = true) {
+    const style = getComputedStyle(nav);
+    const offset = parseFloat(style.getPropertyValue("--mg-on-this-page-nav-offset")) || 0;
+    const stickyHeight = style.position === "sticky" ? nav.offsetHeight + offset : 0;
+    window.scrollTo({
+      top: target.getBoundingClientRect().top + window.scrollY - stickyHeight,
+      behavior:
+        smooth && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "smooth" : "auto",
+    });
+    if (!target.hasAttribute("tabindex")) {
+      target.setAttribute("tabindex", "-1");
+      target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true, signal });
+    }
+    target.focus({ preventScroll: true });
+  }
+  const categories = [...panel.querySelectorAll(".sources-category-section")];
+  function followCategoryUrl() {
+    const hash = window.location.hash.split("?")[0];
+    const target = categories.find((section) => `#${section.id}` === hash);
+    if (!target) return;
+    // The router reveals Sources synchronously; measure on the next frame,
+    // after its display state and the sticky bar's height have been applied.
+    window.requestAnimationFrame(() => {
+      if (signal?.aborted || !panel.isConnected || getComputedStyle(panel).display === "none") return;
+      scrollToCategory(target, false);
+    });
+  }
+  // The sidebar supplies a lifetime; release this window listener on destroy.
+  if (signal) window.addEventListener("hashchange", followCategoryUrl, { signal });
+  followCategoryUrl();
   nav.addEventListener(
     "click",
     (event) => {
       const link = event.target.closest(".mg-on-this-page-nav__link");
       if (!link) return;
-      const target = [...panel.querySelectorAll(".sources-category-section")].find(
-        (section) => `#${section.id}` === link.getAttribute("href"),
-      );
+      // Mangrove handles every click as a local scroll. Let modified clicks
+      // use the anchor's native new-tab/window behavior instead.
+      event.stopImmediatePropagation();
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      const target = categories.find((section) => `#${section.id}` === link.getAttribute("href"));
       if (!target) return;
       event.preventDefault();
-      event.stopImmediatePropagation();
-      const style = getComputedStyle(nav);
-      const offset = parseFloat(style.getPropertyValue("--mg-on-this-page-nav-offset")) || 0;
-      const stickyHeight = style.position === "sticky" ? nav.offsetHeight + offset : 0;
-      window.scrollTo({
-        top: target.getBoundingClientRect().top + window.scrollY - stickyHeight,
-        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      });
-      if (!target.hasAttribute("tabindex")) {
-        target.setAttribute("tabindex", "-1");
-        target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true, signal });
-      }
-      target.focus({ preventScroll: true });
+      scrollToCategory(target);
     },
     { capture: true, signal },
   );

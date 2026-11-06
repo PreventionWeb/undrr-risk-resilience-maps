@@ -35,7 +35,7 @@
  * | `allow`        | layer-key allowlist, comma separated         | every layer         |
  * | `panel`        | `collapsed` or `expanded`                    | `expanded`          |
  * | `inspect`      | `1`/`true` to opt in, `0`/`false` to disable | disabled            |
- * | `downloads`    | `1`/`true` to opt in to prototype downloads  | disabled            |
+ * | `downloads`    | `0`/`false` to disable map downloads        | enabled (repo switch permitting)            |
  * | `parentOrigin` | the host origin messages are exchanged with  | `document.referrer` |
  * | `instance`     | opaque id echoed in every message            | none                |
  * | `bbox`         | `west,south,east,north` to fit the map to    | the default view    |

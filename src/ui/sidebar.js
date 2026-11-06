@@ -23,6 +23,7 @@ import { buildHomePanel } from "./home.js";
 import { buildSourcesPanel, buildAboutPanel } from "./info-panels.js";
 import { setGlobalFooterVisible } from "./global-footer.js";
 import { initMangroveOnThisPageNav } from "./mangrove-on-this-page-nav.js";
+import { resolveDownloadsEnabled } from "../config/features.js";
 import { createLayerAnnouncer } from "./announcer.js";
 import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
@@ -81,9 +82,8 @@ const ROOT_ATTR = "data-ui-root";
  * @param {(key: string, error: Error, action: string) => void} [options.onLayerError] -
  *   a layer's MapX call failed (default: a console warning). `createRiskMap`
  *   passes one that reports the failure to an embed host.
- * @param {boolean} [options.downloadsEnabled] - prototype data downloads
- *   (`?downloads=1`, #64): download links and "Download CSV" in the layer rows
- *   and a Download column on the Sources page. Default false: no change at all.
+ * @param {boolean} [options.downloadsEnabled] - download links and "Download CSV"
+ *   in the layer rows. Default true, subject to the repository kill switch.
  * @returns {{
  *   restoreFromUrl(): Promise<void>,
  *   showTab(tabId: string): void,
@@ -105,7 +105,7 @@ export function createSidebar(
     onViewsChanged,
     initialTab = "home",
     onLayerError = (key, error, action) => console.warn(`Layer "${key}": ${action} failed:`, error),
-    downloadsEnabled = false,
+    downloadsEnabled = true,
   } = {},
 ) {
   // The root is marked `data-ui-root`, and a part belongs to the nearest marked
@@ -287,7 +287,7 @@ export function createSidebar(
     temporaryViews = Math.max(0, temporaryViews + (active ? 1 : -1));
     mapFrame?.classList.toggle(MASK_CLASS, temporaryViews > 0);
   }
-  const downloads = downloadsEnabled
+  const downloads = resolveDownloadsEnabled(downloadsEnabled)
     ? createDownloads({
         doc: rootDoc,
         registry,

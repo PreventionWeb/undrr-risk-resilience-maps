@@ -192,10 +192,13 @@ function parseDownloads(row, context) {
       throw new Error(`${context}: download URL "${url}" is not a URL`);
     }
     if (parsed.protocol !== "https:") throw new Error(`${context}: download URL "${url}" must use https`);
-    if (!/^[1-9]\d*$/.test(sizes[i])) {
-      throw new Error(`${context}: download size "${sizes[i]}" must be a whole number of bytes`);
+    const bytes = Number(sizes[i]);
+    if (!/^[1-9]\d*$/.test(sizes[i]) || !Number.isSafeInteger(bytes)) {
+      throw new Error(
+        `${context}: download size "${sizes[i]}" must be a whole number of bytes within the safe integer range`,
+      );
     }
-    return [parsed.href, Number(sizes[i])];
+    return [parsed.href, bytes];
   });
 }
 
@@ -228,6 +231,9 @@ for (const r of dataRows) {
   const note = H["Note"] === undefined ? undefined : (r[H["Note"]] || "").trim();
   const explainerUrl = H["Explainer link"] === undefined ? undefined : (r[H["Explainer link"]] || "").trim();
   const rowContext = `Inventory row "${key}"${subSource ? ` / "${subSource}"` : ""}`;
+  if (mapxId.startsWith("MX-") && !/^MX-[A-Za-z0-9_-]+$/.test(mapxId)) {
+    throw new Error(`${rowContext}: MapX view ID must contain only letters, digits, hyphens or underscores`);
+  }
   const downloads = parseDownloads(r, rowContext);
   const csvDownload = parseCsvDownload(r, rowContext);
   subMap.get(subSource).push({
@@ -726,7 +732,7 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
       // Existing IDs are globally unique by config contract, making the old
       // ID the safest target when spreadsheet labels are repeated.
       const re = new RegExp(`(id:\\s*)"${escapeRe(c.currentId)}"`);
-      const replaced = src.replace(re, `$1"${c.newId}"`);
+      const replaced = src.replace(re, (_match, prefix) => prefix + JSON.stringify(c.newId));
       if (replaced !== src) {
         src = replaced;
         modified = true;
@@ -738,7 +744,7 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         replaceInLayerBlock(src, c.key, (block) =>
           block.replace(
             new RegExp(`(id:\\s*)null((?:[^}](?!label))*?label:\\s*"${escapeRe(c.subSource)}")`),
-            `$1"${c.newId}"$2`,
+            (_match, prefix, suffix) => prefix + JSON.stringify(c.newId) + suffix,
           ),
         ),
         c,
@@ -748,7 +754,9 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
       modified ||= result.modified;
     } else {
       const result = landed(
-        replaceInLayerBlock(src, c.key, (block) => block.replace(/(id:\s*)null/, `$1"${c.newId}"`)),
+        replaceInLayerBlock(src, c.key, (block) =>
+          block.replace(/(id:\s*)null/, (_match, prefix) => prefix + JSON.stringify(c.newId)),
+        ),
         c,
         `view id → ${c.newId}`,
       );
@@ -761,7 +769,10 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
     if (c.file !== relPath) continue;
     const result = landed(
       replaceInLayerBlock(src, c.key, (block) =>
-        block.replace(/(\n\s+label:\s*)"(?:\\.|[^"\\])*"/, `$1${JSON.stringify(c.newLabel)}`),
+        block.replace(
+          /(\n\s+label:\s*)"(?:\\.|[^"\\])*"/,
+          (_match, prefix) => prefix + JSON.stringify(c.newLabel),
+        ),
       ),
       c,
       "layer name",
@@ -777,21 +788,28 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
         if (!c.subSource) {
           const replaced = block.replace(
             /(\n\s+desc:\s*)"(?:\\.|[^"\\])*"/,
-            `$1${JSON.stringify(c.newDesc)}`,
+            (_match, prefix) => prefix + JSON.stringify(c.newDesc),
           );
           return replaced !== block
             ? replaced
-            : block.replace(/(\n\s+type:\s*"[^"]+",)/, `$1\n    desc: ${JSON.stringify(c.newDesc)},`);
+            : block.replace(
+                /(\n\s+type:\s*"[^"]+",)/,
+                (_match, prefix) => `${prefix}\n    desc: ${JSON.stringify(c.newDesc)},`,
+              );
         }
         const sourcePattern = new RegExp(
           `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?desc:\\s*)"(?:\\\\.|[^"\\\\])*"`,
         );
-        const replaced = block.replace(sourcePattern, `$1${JSON.stringify(c.newDesc)}`);
+        const replaced = block.replace(sourcePattern, (_match, prefix) => prefix + JSON.stringify(c.newDesc));
         if (replaced !== block) return replaced;
         const sourceWithoutDesc = new RegExp(
           `(\\{[^}]*?label:\\s*"${escapeRe(c.subSource)}"[^}]*?)(\\s*\\})`,
         );
-        return block.replace(sourceWithoutDesc, `$1, desc: ${JSON.stringify(c.newDesc)}$2`);
+        return block.replace(
+          sourceWithoutDesc,
+          (_match, prefix, suffix) =>
+            `${prefix.trimEnd().replace(/,$/, "")}, desc: ${JSON.stringify(c.newDesc)}${suffix}`,
+        );
       }),
       c,
       "description",
@@ -870,7 +888,7 @@ for (const [relPath, changes] of Object.entries(changesByFile)) {
   for (const c of fileStatusChanges) {
     const result = landed(
       replaceInLayerBlock(src, c.key, (block) =>
-        block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, `status: "${c.newStatus}"`),
+        block.replace(/status:\s*(?:["'][^"']+["']|[A-Z_]+)/, () => `status: ${JSON.stringify(c.newStatus)}`),
       ),
       c,
       "status",

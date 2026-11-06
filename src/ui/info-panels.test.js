@@ -50,6 +50,19 @@ describe("buildSourcesPanel", () => {
     expect(panel.querySelector("[data-mg-on-this-page-nav-skip-auto-init]")).not.toBeNull();
   });
 
+  it("preserves native modified-click behavior for category links", () => {
+    const panel = buildSourcesPanel();
+    const link = panel.querySelector(".mg-on-this-page-nav__link");
+    const enhancedHandler = vi.fn();
+    panel.querySelector("[data-mg-on-this-page-nav]").addEventListener("click", enhancedHandler);
+    for (const modifier of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true, [modifier]: true });
+      link.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(enhancedHandler).not.toHaveBeenCalled();
+  });
+
   it("keeps source URLs clickable for published datasets", () => {
     const panel = buildSourcesPanel();
     const sourceLink = panel.querySelector(

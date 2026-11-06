@@ -641,11 +641,13 @@ The floating layer panel includes:
 
 ### Data downloads (prototype)
 
-Behind `?downloads=1` (`downloadsEnabledFromSearch()` in `src/config/features.js`, which fails closed
-like `?inspect=`). `createRiskMap(root, { downloadsEnabled })` passes it to `createSidebar()`, which
-creates one `createDownloads()` instance and hands it to every layer row (`downloads` option).
-With the flag off no download instance or controls are created. The embed reads the same parameter
-in `src/embed/params.js`. Sources links dataset names to their maps; it has no per-map download controls.
+Enabled by default, with `MAP_DOWNLOADS_ENABLED` in `src/config/features.js` as the repository kill
+switch. `resolveDownloadsEnabled()` enforces that switch at the app and sidebar boundaries; URL or
+programmatic opt-ins cannot override it. `?downloads=0` or `{ downloadsEnabled: false }` opts out for
+one viewer. When enabled, `createSidebar()` creates one `createDownloads()` instance and hands it to
+every layer row (`downloads` option). Otherwise no download instance or controls are created. The embed
+reads the same policy and preserves opt-outs in its full-viewer link. Sources links dataset names to
+their maps; it has no per-map download controls.
 
 - **What a view offers** is decided from config alone (`getViewDownloads()` in
   `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
@@ -661,7 +663,9 @@ in `src/embed/params.js`. Sources links dataset names to their maps; it has no p
   as its target) is checked before the removal so a layer the user turned on meanwhile stays. The
   sidebar also remembers every view a record has shown, so those are read without another add. While a
   temporary view exists the sidebar hides the map frame (`.is-reading-data`, opacity 0): MapX paints a
-  view before it can be made transparent. Every MapX call of a run checks for cancellation first. Views
+  view before it can be made transparent. Every MapX call of a run checks for cancellation first.
+  Reads and temporary cleanup are serialized per SDK/view, including cleanup from an add that lands
+  after its deadline, so cancelling and retrying cannot remove a view another run is reading. Views
   whose table has no `maplab` take region names from `REGION_NAME_REFERENCE_VIEW`, cached in
   localStorage. CSV text, BOM/CRLF and the blob download are shared with the inventory export in
   `src/utils/csv.js`.
@@ -682,6 +686,8 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
 - Simple layers: just the key (e.g. `population`)
 - Compound layers: key + source index (e.g. `earthquake-pga:2`); index 0 is omitted for brevity
 - On initial load, `sidebar.restoreFromUrl()` (the router's) clamps source indices and asks the controller for each layer in hash order (`controller.intend(key, { desired: true, sourceIdx, settings })`). Source index is always set (including 0) to ensure any prior state is cleared.
+- Sources category fragments (`#sources-hazard`, for example) resolve to the Sources page and scroll
+  to that section. Rewriting layer state preserves a category permalink.
 - Not every `hashchange` is app state. `hashChangeAction()` in `src/services/router.js` (pure, so a future non-URL state adapter can reuse it) classifies the parsed state:
   - **ignore**: empty hash, unknown id or in-page anchor (e.g. a Mangrove tab section `#mg-tabs__section-...`). Tab and layers are left alone.
   - **keep-layers**: an info tab (`home`, `sources`, `about`) with no `layers`, such as a plain `href="#sources"` link. Info tabs don't show the map, so the view switches, the open layers stay on, and the hash is rewritten in place (`replaceState`) to the canonical `#sources?layers=...`. The same applies on Back to a bare info-tab entry.

@@ -11,17 +11,19 @@ export function inspectionEnabledFromSearch(search, fallback = MAP_INSPECTION_EN
   return values.length === 1 && ["1", "true"].includes(values[0]);
 }
 
-// Prototype data downloads (#64): GeoTIFF links for raster layers and a
-// values-only CSV for region-level vector layers. Off until the programme signs
-// off on public downloads; the "Request data" email link stays the public route.
-// Runtime opt-in: ?downloads=1 (or true), or createRiskMap's boolean
-// downloadsEnabled option. Applies to standalone and embedded viewers alike.
-export const MAP_DOWNLOADS_ENABLED = false;
+// Repository kill switch for user-facing map downloads (GeoTIFF + values CSV).
+// Set false and rebuild/redeploy to hide the controls in every viewer, including
+// embeds. URL parameters and programmatic options cannot override this switch.
+export const MAP_DOWNLOADS_ENABLED = true;
 
-export function downloadsEnabledFromSearch(search, fallback = MAP_DOWNLOADS_ENABLED) {
+export function resolveDownloadsEnabled(requested = true, enabled = MAP_DOWNLOADS_ENABLED) {
+  return enabled === true && requested === true;
+}
+
+export function downloadsEnabledFromSearch(search, enabled = MAP_DOWNLOADS_ENABLED) {
   const values = new URLSearchParams(search).getAll("downloads");
-  if (values.length === 0) return fallback;
-  // Same rule as inspection: only one unambiguous opt-in enables downloads.
-  // Blank, unknown or repeated values fail closed.
-  return values.length === 1 && ["1", "true"].includes(values[0]);
+  // On by default. Explicit opt-outs, blank, unknown or repeated values disable
+  // this instance; even an explicit opt-in must respect the repository switch.
+  const requested = values.length === 0 || (values.length === 1 && ["1", "true"].includes(values[0]));
+  return resolveDownloadsEnabled(requested, enabled);
 }

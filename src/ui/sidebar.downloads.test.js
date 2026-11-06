@@ -82,6 +82,8 @@ vi.mock("./mangrove-on-this-page-nav.js", () => ({ initMangroveOnThisPageNav: vi
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
 
+import * as features from "../config/features.js";
+
 import { createSidebar } from "./sidebar.js";
 
 describe("sidebar downloads (prototype, ?downloads=1)", () => {
@@ -118,15 +120,32 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
   afterEach(() => {
     sidebar?.destroy();
     sidebar = null;
+    vi.restoreAllMocks();
   });
 
-  it("changes nothing without the flag", () => {
-    build();
+  it("hides all map download controls when the instance opts out", () => {
+    build({ downloadsEnabled: false });
     expect(document.querySelector(".layer-downloads-slot")).toBeNull();
     expect(document.querySelector(".layer-downloads")).toBeNull();
     expect(document.querySelector("dialog")).toBeNull();
     expect(mocks.sources.at(-1)).not.toHaveProperty("downloads");
     // The request link is still the route for the GAR2026 vector layer.
+    expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
+  });
+
+  it("defaults downloads on", () => {
+    build();
+    expect(homeRow(layers.raster).querySelector("a.layer-downloads__link")).not.toBeNull();
+    expect(homeRow(layers.vector).querySelector("[data-action='download-csv']")).not.toBeNull();
+  });
+
+  it("respects the repository kill switch even for an explicit programmatic opt-in", () => {
+    const resolve = features.resolveDownloadsEnabled;
+    vi.spyOn(features, "resolveDownloadsEnabled").mockImplementation((requested) =>
+      resolve(requested, false),
+    );
+    build({ downloadsEnabled: true });
+    expect(document.querySelector(".layer-downloads, .layer-downloads-slot, dialog")).toBeNull();
     expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
   });
 

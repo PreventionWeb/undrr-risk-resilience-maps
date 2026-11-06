@@ -89,12 +89,13 @@ The following is implemented and tested as of July 2026:
 
 ### Data downloads (November 2026 prototype update)
 
-- Opt in with `?downloads=1` before the hash, on the standalone viewer or `embed.html`.
+- Downloads default on in the standalone viewer and `embed.html`; `?downloads=0` opts out for one viewer.
 - The layer panel offers configured hosted GeoTIFFs and values-only CSVs for reviewed region-level
   vector views. Sources dataset names open their maps in the viewer; the inventory export remains
   a separate download on Sources.
-- Downloads remain off by default pending programme sign-off on public availability. See
-  [Data downloads](downloads.md) for use, eligibility, maintenance and limitations.
+- Set `MAP_DOWNLOADS_ENABLED = false` in `src/config/features.js` and rebuild/redeploy to hide
+  map download controls globally. URL parameters and programmatic options cannot override it.
+  See [Data downloads](downloads.md) for use, eligibility, maintenance and limitations.
 
 ### Content pipeline
 

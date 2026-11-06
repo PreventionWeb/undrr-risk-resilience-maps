@@ -65,6 +65,27 @@ function toTableError(error) {
 
 const cancelled = () => new TableError("cancelled", "The download was cancelled.");
 
+// A dialog can be closed and reopened before its previous read has cleaned up.
+// Serialize each view's reads and cleanup, including reads of cached views, so
+// an earlier temporary removal cannot run through a later read of the same view.
+// Different views (and different SDK instances) remain independent.
+const viewQueues = new WeakMap();
+
+function withViewLock(sdk, idView, task) {
+  let queues = viewQueues.get(sdk);
+  if (!queues) viewQueues.set(sdk, (queues = new Map()));
+  const pending = (queues.get(idView) ?? Promise.resolve()).then(task);
+  const settled = pending.then(
+    () => {},
+    () => {},
+  );
+  queues.set(idView, settled);
+  void settled.then(() => {
+    if (queues.get(idView) === settled) queues.delete(idView);
+  });
+  return pending;
+}
+
 /**
  * Read a view's attribute table.
  *
@@ -83,7 +104,11 @@ const cancelled = () => new TableError("cancelled", "The download was cancelled.
  * @param {{ table?: number, add?: number, remove?: number }} [options.timeouts]
  * @returns {Promise<Array<Record<string, unknown>>>}
  */
-export async function fetchViewTable(
+export function fetchViewTable(sdk, idView, options = {}) {
+  return withViewLock(sdk, idView, () => fetchViewTableUnlocked(sdk, idView, options));
+}
+
+async function fetchViewTableUnlocked(
   sdk,
   idView,
   {
@@ -161,7 +186,9 @@ export async function fetchViewTable(
   add.then(
     () => {
       settled = true;
-      if (abandoned) void removeIfUnwanted();
+      // A timed-out add may land while a retry is already reading this view.
+      // Its late cleanup must wait for that read too.
+      if (abandoned) void withViewLock(sdk, idView, removeIfUnwanted);
     },
     () => {
       settled = true;

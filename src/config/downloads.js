@@ -1,5 +1,5 @@
 /**
- * What can be downloaded for a map view (prototype, behind `?downloads=1`; #64).
+ * What can be downloaded for a map view (#64). UI policy lives in features.js.
  *
  * Two kinds of download, decided from the layer config alone:
  *

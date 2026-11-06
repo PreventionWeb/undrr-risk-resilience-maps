@@ -18,6 +18,11 @@
 
 import { getLayerRegistry } from "../config/registry.js";
 
+function isSourcesSection(tab) {
+  const category = tab.startsWith("sources-") ? tab.slice("sources-".length) : null;
+  return Boolean(category && getLayerRegistry().collectionOfTab?.(category));
+}
+
 /**
  * Decode the `layers` and `variants` parameters into a layers array.
  *
@@ -93,7 +98,10 @@ export function parseHash({ location: loc = location } = {}) {
   const [tab, query] = raw.split("?");
   const layers = query ? parseLayerParams(new URLSearchParams(query)) : [];
 
-  return { tab: tab || null, layers };
+  // Sources category anchors are valid entry URLs too (copied links, a middle
+  // click, or "open in new tab"). They belong to the Sources page, while the
+  // fragment still identifies the section for the browser/page to scroll to.
+  return { tab: isSourcesSection(tab) ? "sources" : tab || null, layers };
 }
 
 /**
@@ -139,7 +147,10 @@ export function writeHash(
   layers,
   { replace = false, location: loc = location, history: hist = history } = {},
 ) {
-  const hash = formatHash(tab, layers);
+  const currentRoute = loc.hash.replace(/^#/, "").split("?")[0];
+  // Reconcile layers without erasing the category in an incoming permalink.
+  const route = tab === "sources" && isSourcesSection(currentRoute) ? currentRoute : tab;
+  const hash = formatHash(route, layers);
 
   if (loc.hash === hash) return;
   if (replace) {

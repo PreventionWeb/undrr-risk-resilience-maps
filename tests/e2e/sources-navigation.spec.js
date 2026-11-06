@@ -43,7 +43,7 @@ test("mobile Sources stays within the viewport and toggles planned metrics", asy
 
 for (const downloads of [false, true]) {
   test(`dataset names open the exact map variant (downloads ${downloads})`, async ({ page }) => {
-    await page.goto(`/${downloads ? "?downloads=1" : ""}#sources`);
+    await page.goto(`/${downloads ? "?downloads=1" : "?downloads=0"}#sources`);
     await page.waitForFunction(() => window.__mapxStub?.ready === true);
     const sources = page.locator('[data-tab-panel="sources"]');
     await expect(sources.locator(".layer-downloads, [data-action='download-csv']")).toHaveCount(0);
@@ -58,3 +58,17 @@ for (const downloads of [false, true]) {
     await expect(sources).toBeVisible();
   });
 }
+
+test("a copied category link opens Sources at that section", async ({ page }) => {
+  await gotoApp(page, "#sources");
+  const nav = page.getByRole("navigation", { name: "Sources categories" });
+  const href = await nav.getByRole("link", { name: "Hazard", exact: true }).getAttribute("href");
+  await gotoApp(page, href);
+  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
+  const section = page.locator("#sources-hazard");
+  await expect(section).toBeFocused();
+  await expect.poll(() => section.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(100);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
+  await expect(section).toBeFocused();
+});

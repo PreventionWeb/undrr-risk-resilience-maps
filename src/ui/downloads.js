@@ -1,5 +1,5 @@
 /**
- * The CSV download flow (prototype, behind `?downloads=1`; #64).
+ * The CSV download flow (#64); visibility is governed by features.js.
  *
  * `createDownloads(...)` runs behind the "Download CSV" buttons that
  * src/ui/download-links.js draws: one progress dialog per instance, the MapX
