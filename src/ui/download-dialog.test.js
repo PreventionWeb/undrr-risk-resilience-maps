@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDownloadDialog } from "./download-dialog.js";
+import { createDownloadDialog, DOWNLOAD_WAIT_HINT_MS } from "./download-dialog.js";
 
 /** A promise with its resolve/reject exposed. */
 function deferred() {
@@ -31,7 +31,10 @@ describe("createDownloadDialog", () => {
     dialog = createDownloadDialog();
   });
 
-  afterEach(() => dialog.destroy());
+  afterEach(() => {
+    dialog.destroy();
+    vi.useRealTimers();
+  });
 
   const live = () => dialog.element.querySelector('[role="status"]');
   const status = () => dialog.element.querySelector('[data-part="status"]');
@@ -47,8 +50,46 @@ describe("createDownloadDialog", () => {
     expect(document.activeElement).toBe(el.querySelector(".download-dialog__title"));
     expect(dialog.state).toBe("fetching");
     expect(live().textContent).toBe("Fetching data from the map service…");
-    expect(el.querySelector("progress").value).toBe(1);
+    expect(el.querySelector("progress").hasAttribute("value")).toBe(false);
     expect(el.querySelector('[data-part="value"]').textContent).toBe("Step 1 of 3");
+  });
+
+  it("explains a slow fetch once and clears the hint when the stage changes", async () => {
+    vi.useFakeTimers();
+    let stepper;
+    dialog.open({
+      title: "Download CSV",
+      run: (next) => {
+        stepper = next;
+        return new Promise(() => {});
+      },
+    });
+    const notice = dialog.element.querySelector('[data-part="notice"]');
+    await vi.advanceTimersByTimeAsync(DOWNLOAD_WAIT_HINT_MS - 1);
+    expect(notice.hidden).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(notice.hidden).toBe(false);
+    expect(notice.textContent).toContain("choose Cancel");
+    expect(live().textContent).toBe(notice.textContent);
+    stepper.step("processing");
+    expect(notice.hidden).toBe(true);
+    expect(dialog.element.querySelector("progress").hasAttribute("value")).toBe(false);
+    await vi.advanceTimersByTimeAsync(DOWNLOAD_WAIT_HINT_MS);
+    expect(notice.hidden).toBe(true);
+  });
+
+  it("cancels the delayed hint on close and starts a fresh wait on reopen", async () => {
+    vi.useFakeTimers();
+    const run = () => new Promise(() => {});
+    dialog.open({ title: "Download CSV", run });
+    await vi.advanceTimersByTimeAsync(DOWNLOAD_WAIT_HINT_MS - 1);
+    dialog.close();
+    await vi.advanceTimersByTimeAsync(DOWNLOAD_WAIT_HINT_MS);
+    expect(live().textContent).toBe("");
+    dialog.open({ title: "Download CSV", run });
+    expect(dialog.element.querySelector('[data-part="notice"]').hidden).toBe(true);
+    await vi.advanceTimersByTimeAsync(DOWNLOAD_WAIT_HINT_MS);
+    expect(dialog.element.querySelector('[data-part="notice"]').hidden).toBe(false);
   });
 
   it("walks through processing and downloading to done, and announces each", async () => {

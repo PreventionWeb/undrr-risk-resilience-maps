@@ -26,6 +26,10 @@
 import { createLayerAnnouncer } from "./announcer.js";
 
 const STEPS = ["fetching", "processing", "downloading"];
+// A one-off hint for a slow fetch, not a duration estimate or a stall detector.
+export const DOWNLOAD_WAIT_HINT_MS = 10_000;
+const WAIT_HINT =
+  "Large datasets can take a while. Keep this dialog open, or choose Cancel to stop this download.";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -60,10 +64,10 @@ export function createDownloadDialog({ doc = document } = {}) {
     </div>
     <div class="download-dialog__progress mg-progress-bar">
       <span class="mg-progress-bar__label" data-part="label" aria-hidden="true"></span>
-      <span class="mg-progress-bar__value" data-part="value" aria-hidden="true"></span>
       <div class="mg-progress-bar__track">
-        <progress class="mg-progress-bar__native" max="${STEPS.length}" value="0"></progress>
+        <progress class="mg-progress-bar__native"></progress>
       </div>
+      <span class="mg-progress-bar__value" data-part="value" aria-hidden="true"></span>
     </div>
     <p class="download-dialog__status" data-part="status"></p>
     <p class="download-dialog__notice mg-form-help" data-part="notice" hidden></p>
@@ -99,6 +103,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   let settleConfirm = null; // resolves a pending confirm(), once
   let confirmAccepted = false;
   let destroyed = false;
+  let waitHintTimer = null;
 
   function say(message) {
     // No record: every state change is a new event for the region.
@@ -113,12 +118,15 @@ export function createDownloadDialog({ doc = document } = {}) {
    *   or an action button for an error (e.g. "Open the map")
    */
   function setState(next, message, { notice: noticeText = "", retry = false, action = null } = {}) {
+    clearTimeout(waitHintTimer);
+    waitHintTimer = null;
     state = next;
     dialog.dataset.state = next;
     const index = STEPS.indexOf(next);
     progressBox.hidden = index < 0;
     if (index >= 0) {
-      progress.value = index + 1;
+      // These are stages, not equal portions of time or bytes. A MapX call
+      // reports no incremental progress, so never imply 33%/67% completion.
       progress.setAttribute("aria-label", `Step ${index + 1} of ${STEPS.length}: ${message}`);
       label.textContent = message;
       value.textContent = `Step ${index + 1} of ${STEPS.length}`;
@@ -133,6 +141,14 @@ export function createDownloadDialog({ doc = document } = {}) {
     extraBtn.textContent = action?.label ?? "";
     closeBtn.textContent = index >= 0 || next === "confirm" ? "Cancel" : next === "done" ? "Done" : "Close";
     say(noticeText ? `${message} ${noticeText}` : message);
+    if (next === "fetching") {
+      waitHintTimer = setTimeout(() => {
+        waitHintTimer = null;
+        notice.textContent = WAIT_HINT;
+        notice.hidden = false;
+        say(WAIT_HINT);
+      }, DOWNLOAD_WAIT_HINT_MS);
+    }
   }
 
   async function start() {
@@ -213,6 +229,8 @@ export function createDownloadDialog({ doc = document } = {}) {
   function close() {
     if (!dialog.open && !dialog.hasAttribute("open")) return;
     generation++;
+    clearTimeout(waitHintTimer);
+    waitHintTimer = null;
     if (typeof dialog.close === "function") dialog.close();
     dialog.removeAttribute("open");
     dialog.removeAttribute("aria-modal");

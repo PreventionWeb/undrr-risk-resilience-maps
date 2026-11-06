@@ -28,6 +28,7 @@ import { createHashAdapter } from "../state/hash-adapter.js";
 import { changesUrlState, toUrlLayers } from "../state/layers-store.js";
 import { createSidebar } from "../ui/sidebar.js";
 import { initBuildInfo } from "../ui/build-info.js";
+import { createMapLoading } from "../ui/map-loading.js";
 import { closeInfobox, showInfobox } from "../ui/infobox.js";
 import { buildSiteInspectorPanel, hideSiteInspector, showSiteInspector } from "../ui/site-inspector.js";
 import { initSDK, setSDKReady } from "../sdk/client.js";
@@ -207,6 +208,7 @@ export function createRiskMap(root, options = {}) {
   let cancelReadyTimeout = () => {};
 
   const appMap = part("appMap");
+  const mapLoading = createMapLoading(appMap, part("mapx"));
   const inspectToggle = part("inspectToggle");
   const allowInspection = inspectionEnabled === true;
   const originalInspectHidden = inspectToggle?.hidden;
@@ -314,6 +316,7 @@ export function createRiskMap(root, options = {}) {
   // --- MapX ----------------------------------------------------------------
 
   const showMapFailure = () => {
+    mapLoading.finish({ failed: true });
     showMapServiceNotice(doc);
     stopAutoRetry();
     stopAutoRetry = startMapServiceRetryCountdown({ documentRef: doc, reload: retryReload });
@@ -357,6 +360,7 @@ export function createRiskMap(root, options = {}) {
       cancelReadyTimeout();
       stopAutoRetry();
       hideMapServiceNotice(doc);
+      mapLoading.finish();
       setSDKReady(true);
 
       if (!allowInspection) {
@@ -586,6 +590,7 @@ export function createRiskMap(root, options = {}) {
       cancelReadyTimeout();
       stopAutoRetry();
       for (const dispose of disposers.splice(0).reverse()) dispose();
+      mapLoading.destroy();
       lifetime.abort();
       if (inspectToggle) inspectToggle.hidden = originalInspectHidden;
       appMap?.classList.remove("inspection-active");

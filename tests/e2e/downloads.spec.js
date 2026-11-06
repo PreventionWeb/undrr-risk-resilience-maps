@@ -105,6 +105,8 @@ test("closing the dialog mid-fetch keeps the displayed map intact", async ({ pag
   await button.click();
   const dialog = page.locator("dialog.download-dialog");
   await expect(dialog).toBeVisible();
+  await expect(dialog.locator("progress")).not.toHaveAttribute("value");
+  await expect(dialog.locator("progress")).toHaveAccessibleName(/Step 1 of 3:/);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(button).toBeFocused();
@@ -119,6 +121,30 @@ test("closing the dialog mid-fetch keeps the displayed map intact", async ({ pag
     id,
   );
   expect(calls).toEqual(["get_view_table_attribute"]);
+});
+
+test("a slow CSV read shows honest progress and a cancellable wait hint without motion", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  await gotoApp(page, "#risk-resilience?layers=recovery-speed");
+  const row = layerRow(page, "Recovery Speed");
+  await settled(row);
+  await page.clock.install();
+  await page.evaluate(() => {
+    window.__mapxStub.tableDelayMs = 20_000;
+  });
+  const button = row.locator("[data-action='download-csv']");
+  await button.click();
+  const dialog = page.locator("dialog.download-dialog");
+  await expect(dialog.locator("progress")).not.toHaveAttribute("value");
+  await page.clock.fastForward(10_000);
+  await expect(dialog.locator('[data-part="notice"]')).toHaveText(/choose Cancel/);
+  expect(await dialog.locator("progress").evaluate((el) => el.matches(":indeterminate"))).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("slow-download.png") });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(button).toBeFocused();
 });
 
 test("embed: downloads default on", async ({ page }) => {

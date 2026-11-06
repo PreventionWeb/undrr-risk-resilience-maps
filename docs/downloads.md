@@ -32,6 +32,14 @@ stakeholder preview PIN when prompted (access details are shared separately).
    the GeoTIFF link in the expanded row. The link shows the file's size; files over 1 GB ask for
    confirmation first.
 
+The CSV dialog names the current stage (fetching, preparing, starting) and uses an
+indeterminate Mangrove progress bar: the map service does not report bytes or time
+remaining, and the stages are not equal portions of the wait. A fetch still pending
+after 10 seconds shows a one-off reminder to keep the dialog open or cancel. This
+is guidance, not an estimate or an indication that the service has stalled. The
+hint clears on the next stage, error, cancellation or retry. Mangrove supplies the
+static reduced-motion and forced-colour rendering of the indicator.
+
 You can also start from Sources: choose a published dataset name to open its map, then download
 from the layer row.
 

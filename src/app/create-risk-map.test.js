@@ -157,6 +157,45 @@ describe("createRiskMap", () => {
     return instance;
   }
 
+  describe("initial loading feedback", () => {
+    it("ends busy state on ready and removes feedback on destroy", async () => {
+      await start();
+      const frame = document.querySelector('[data-ui="mapx"]');
+      expect(frame.getAttribute("aria-busy")).toBe("true");
+      expect(document.querySelector(".map-loading")).not.toBeNull();
+      await manager.ready();
+      expect(frame.hasAttribute("aria-busy")).toBe(false);
+      expect(document.querySelector(".map-loading")).toBeNull();
+      instance.destroy();
+      expect(document.querySelector(".map-loading")).toBeNull();
+    });
+
+    it("clears pending feedback if SDK loading fails", async () => {
+      const failure = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        instance = createRiskMap(document.body, {
+          stateAdapter: createMemoryAdapter(),
+          buildInfo: false,
+          loadSdk: vi.fn().mockRejectedValue(new Error("Offline")),
+          reload: vi.fn(),
+        });
+        await waitFor(() => expect(document.querySelector(".map-loading")).toBeNull());
+        expect(document.querySelector('[data-ui="mapx"]').hasAttribute("aria-busy")).toBe(false);
+      } finally {
+        failure.mockRestore();
+      }
+    });
+
+    it("clears a startup still pending when the instance is destroyed", async () => {
+      await start();
+      instance.destroy();
+      expect(document.querySelector(".map-loading")).toBeNull();
+      expect(document.querySelector('[data-ui="mapx"]').hasAttribute("aria-busy")).toBe(false);
+      await manager.ready();
+      expect(document.querySelector(".map-loading")).toBeNull();
+    });
+  });
+
   describe("map clicks", () => {
     function addInfobox() {
       document.body.insertAdjacentHTML(

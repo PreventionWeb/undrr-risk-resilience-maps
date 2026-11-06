@@ -18,4 +18,5 @@
 @import "./components/site-inspector.css";
 @import "./components/panels.css";
 @import "./components/map-service-notice.css";
+@import "./components/map-loading.css";
 @import "./components/downloads.css";

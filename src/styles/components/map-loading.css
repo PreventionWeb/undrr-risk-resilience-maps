@@ -1,0 +1,57 @@
+/* Feedback only: never hide, block or stop MapX's cross-origin rendering. */
+.map-loading--floating {
+  position: absolute;
+  inset-block-start: 1rem;
+  /* The layer panel stays physically left in both reading directions. Keep
+     this card in the free map area while allowing its text to follow dir. */
+  right: 1rem;
+  z-index: 4;
+  max-width: min(22rem, calc(100% - 2rem));
+  padding: var(--mg-spacing-150);
+  background: rgb(var(--mg-color-neutral-0));
+  color: var(--color-text);
+  border: 1px solid rgb(var(--mg-color-neutral-100));
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.map-loading[hidden] {
+  display: none;
+}
+
+.map-loading--panel {
+  display: none;
+}
+
+.map-loading__message {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.map-loading__help {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .map-loading--floating.map-loading--with-panel {
+    display: none;
+  }
+
+  .map-loading--panel {
+    display: block;
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: 0.85rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .map-loading {
+    border-color: CanvasText;
+  }
+}
