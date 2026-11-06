@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import proj4 from "proj4";
 import {
   buildEDRAGeoJSON,
   createEDRAView,
@@ -135,6 +136,40 @@ describe("buildEDRAGeoJSON", () => {
     expect(valueCalls).toHaveLength(2);
     expect(String(valueCalls[1][0])).toContain("subsystem=MAIZE");
     expect(String(valueCalls[1][0])).toContain("bbox=-180%2C-90%2C180%2C90%2CEPSG%3A4326");
+  });
+
+  it("preserves every projected coordinate, polygon hole and multipolygon without mutating source data", async () => {
+    const geometry = structuredClone(GEOMETRY_RESPONSE);
+    const outer = geometry.features[0].geometry.coordinates[0];
+    const hole = outer.map(([x, y]) => [x + 200, y + 200]);
+    geometry.features[0].geometry = { type: "MultiPolygon", coordinates: [[outer, hole], [outer]] };
+    const original = structuredClone(geometry);
+    fetch.mockImplementation((url) =>
+      String(url).includes("wfsService")
+        ? Promise.resolve({ ok: true, json: async () => geometry })
+        : jsonResponse(VALUES_RESPONSE),
+    );
+
+    const data = await buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" });
+    const from =
+      "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 " +
+      "+ellps=GRS80 +units=m +no_defs +type=crs";
+    const expected = original.features[0].geometry.coordinates.map((polygon) =>
+      polygon.map((ring) => ring.map((point) => proj4(from, "EPSG:4326", point))),
+    );
+    expect(data.features[0].geometry).toEqual({ type: "MultiPolygon", coordinates: expected });
+    expect(geometry).toEqual(original);
+  });
+
+  it("still rejects non-finite coordinates before projection", async () => {
+    const geometry = structuredClone(GEOMETRY_RESPONSE);
+    geometry.features[0].geometry.coordinates[0][0][1] = NaN;
+    fetch.mockImplementation((url) =>
+      String(url).includes("wfsService") ? jsonResponse(geometry) : jsonResponse(VALUES_RESPONSE),
+    );
+    await expect(buildEDRAGeoJSON({ crop: "WHEAT", scenario: "CURRENT" })).rejects.toThrow(
+      "non-finite coordinates",
+    );
   });
 
   it("omits the styled value property when EDRA has no data for a region", async () => {

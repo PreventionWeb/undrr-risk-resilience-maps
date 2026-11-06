@@ -261,6 +261,64 @@ describe("getMapXLegend", () => {
     expect(mocks.ask).toHaveBeenCalledTimes(2);
   });
 
+  it("shares a catalogue refresh across simultaneous cross-project legend misses", async () => {
+    const second = vectorView({ id: "MX-SECOND" });
+    const third = vectorView({ id: "MX-THIRD" });
+    mocks.ask.mockResolvedValueOnce([vectorView()]).mockResolvedValueOnce([vectorView(), second, third]);
+    await getMapXLegend("MX-TEST");
+
+    const legends = await Promise.all([
+      getMapXLegend("MX-SECOND"),
+      getMapXLegend("MX-THIRD"),
+      getMapXLegend("MX-SECOND"),
+    ]);
+
+    expect(legends.every((legend) => legend?.title === "Risk level")).toBe(true);
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
+
+    // A later view_add still requires a fresh catalogue; misses are not cached.
+    mocks.ask.mockResolvedValueOnce([vectorView({ id: "MX-LATER" })]);
+    await expect(getMapXLegend("MX-LATER")).resolves.toBeTruthy();
+    expect(mocks.ask).toHaveBeenCalledTimes(3);
+  });
+
+  it("shares the refresh while preserving image fallback for absent views", async () => {
+    mocks.ask.mockResolvedValue([vectorView()]);
+
+    await expect(Promise.all([getMapXLegend("MX-MISSING"), getMapXLegend("MX-OTHER")])).resolves.toEqual([
+      null,
+      null,
+    ]);
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows a new request after a shared refresh fails", async () => {
+    mocks.ask.mockResolvedValueOnce([vectorView()]).mockRejectedValueOnce(new Error("refresh failed"));
+    await getMapXLegend("MX-TEST");
+    const results = await Promise.allSettled([getMapXLegend("MX-SECOND"), getMapXLegend("MX-THIRD")]);
+    expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
+    expect(mocks.ask).toHaveBeenCalledTimes(2);
+
+    mocks.ask.mockResolvedValueOnce([vectorView({ id: "MX-SECOND" })]);
+    await expect(getMapXLegend("MX-SECOND")).resolves.toBeTruthy();
+    expect(mocks.ask).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not evict a new manager's catalogue when the old manager rejects late", async () => {
+    let rejectOld;
+    mocks.ask.mockImplementationOnce(() => new Promise((_resolve, reject) => (rejectOld = reject)));
+    const oldRequest = getMapXLegend("MX-TEST");
+    const oldFailure = expect(oldRequest).rejects.toThrow("old manager retired");
+
+    const nextAsk = vi.fn().mockResolvedValue([vectorView({ id: "MX-NEXT" })]);
+    mocks.sdk = { ask: nextAsk };
+    await getMapXLegend("MX-NEXT");
+    rejectOld(new Error("old manager retired"));
+    await oldFailure;
+    await expect(getMapXLegend("MX-NEXT")).resolves.toBeTruthy();
+    expect(nextAsk).toHaveBeenCalledTimes(1);
+  });
+
   it("scopes the catalogue cache to the active SDK manager", async () => {
     mocks.ask.mockResolvedValue([vectorView()]);
     await expect(getMapXLegend("MX-TEST")).resolves.toBeTruthy();

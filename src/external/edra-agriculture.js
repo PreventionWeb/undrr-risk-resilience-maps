@@ -41,7 +41,7 @@ function optionFor(options, value, name) {
   return option;
 }
 
-function reprojectCoordinates(coordinates, count) {
+function reprojectCoordinates(coordinates, count, projection) {
   if (
     Array.isArray(coordinates) &&
     typeof coordinates[0] === "number" &&
@@ -54,16 +54,19 @@ function reprojectCoordinates(coordinates, count) {
     if (count.vertices > MAX_GEOMETRY_VERTICES) {
       throw new Error(`EDRA geometry exceeds the ${MAX_GEOMETRY_VERTICES} vertex safety limit`);
     }
-    return proj4(EPSG_3035, "EPSG:4326", coordinates);
+    return projection.forward(coordinates);
   }
   if (!Array.isArray(coordinates)) {
     throw new Error("EDRA geometry contains invalid coordinates");
   }
-  return coordinates.map((child) => reprojectCoordinates(child, count));
+  return coordinates.map((child) => reprojectCoordinates(child, count, projection));
 }
 
 function reprojectFeatureCollection(data) {
   const count = { vertices: 0 };
+  // The same two projections apply to every vertex. Constructing them per
+  // coordinate dominates the cold load of the ~195,000-vertex boundary file.
+  const projection = proj4(EPSG_3035, "EPSG:4326");
   return {
     type: "FeatureCollection",
     features: data.features.map((feature) => ({
@@ -71,7 +74,7 @@ function reprojectFeatureCollection(data) {
       properties: { ...feature.properties },
       geometry: {
         type: feature.geometry.type,
-        coordinates: reprojectCoordinates(feature.geometry.coordinates, count),
+        coordinates: reprojectCoordinates(feature.geometry.coordinates, count, projection),
       },
     })),
   };
