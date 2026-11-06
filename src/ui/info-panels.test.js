@@ -18,16 +18,49 @@ describe("buildSourcesPanel", () => {
     expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
     expect(request.searchParams.get("body")).toContain("#gar?layers=gar26-aal-crops:7");
   });
-  it("shows published data before collapsed metrics under development", () => {
+  it("hides metrics under development by default, shows them via the toggle", () => {
     const panel = buildSourcesPanel();
-    const firstCategory = panel.querySelector(".info-page-section--wide");
-    const availableHeading = firstCategory.querySelector(".info-source-subtitle");
+    const firstCategory = panel.querySelector(".sources-category-section");
     const planned = firstCategory.querySelector("details.sources-planned");
+    const toggle = panel.querySelector("[data-action='toggle-planned']");
 
-    expect(availableHeading.textContent).toBe("Available data");
     expect(planned).not.toBeNull();
-    expect(planned.open).toBe(false);
-    expect(firstCategory.compareDocumentPosition(planned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(toggle).not.toBeNull();
+    // Hidden by default (CSS class absent).
+    expect(panel.classList.contains("show-planned")).toBe(false);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    expect(panel.classList.contains("show-planned")).toBe(true);
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    expect(panel.classList.contains("show-planned")).toBe(false);
+  });
+
+  it("renders a Mangrove on-this-page-nav that links to each category section", () => {
+    const panel = buildSourcesPanel();
+    const ids = [...panel.querySelectorAll(".sources-category-section")].map((section) => section.id);
+    const hrefs = [...panel.querySelectorAll(".mg-on-this-page-nav__link")].map((link) =>
+      link.getAttribute("href").slice(1),
+    );
+    expect(hrefs).toEqual(ids);
+    // Uses the correct Mangrove container hook for the JS module to enhance.
+    expect(panel.querySelector("[data-mg-on-this-page-nav]")).not.toBeNull();
+    expect(panel.querySelector("[data-mg-on-this-page-nav-skip-auto-init]")).not.toBeNull();
+  });
+
+  it("preserves native modified-click behavior for category links", () => {
+    const panel = buildSourcesPanel();
+    const link = panel.querySelector(".mg-on-this-page-nav__link");
+    const enhancedHandler = vi.fn();
+    panel.querySelector("[data-mg-on-this-page-nav]").addEventListener("click", enhancedHandler);
+    for (const modifier of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true, [modifier]: true });
+      link.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(enhancedHandler).not.toHaveBeenCalled();
   });
 
   it("keeps source URLs clickable for published datasets", () => {
@@ -90,5 +123,31 @@ describe("buildSourcesPanel", () => {
     }
     expect(table.querySelector(".mg-table__th--sortable")).toBeNull();
     expect(table.querySelector("[aria-sort]")).toBeNull();
+  });
+
+  it("keeps download controls out of Sources even when supplied a download handler", () => {
+    const panel = buildSourcesPanel({ downloads: { handleClick: vi.fn() } });
+    expect(
+      panel.querySelector(".data-table__downloads, .layer-downloads, [data-action='download-csv']"),
+    ).toBeNull();
+    expect([...panel.querySelectorAll("thead th")].map((th) => th.textContent)).not.toContain("Download");
+    expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(30);
+    expect(panel.querySelector('[data-action="download-inventory"]')).not.toBeNull();
+  });
+
+  it("links published dataset names to the correct viewer tab and source", () => {
+    const panel = buildSourcesPanel();
+    const links = [...panel.querySelectorAll("a.sources-map-link")];
+    expect(links.length).toBeGreaterThan(30);
+    expect(links.find((link) => link.textContent === "Landslides").getAttribute("href")).toBe(
+      "#hazard?layers=landslides",
+    );
+    expect(links.find((link) => link.textContent === "Recovery Speed").getAttribute("href")).toBe(
+      "#risk-resilience?layers=recovery-speed",
+    );
+    expect(
+      links.find((link) => link.textContent === "Rice AAL (%) – Warming level +2°C").getAttribute("href"),
+    ).toBe("#gar?layers=gar26-aal-crops:7");
+    expect(panel.querySelector(".sources-planned .sources-map-link")).toBeNull();
   });
 });

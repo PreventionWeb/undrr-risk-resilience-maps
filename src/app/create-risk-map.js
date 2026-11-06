@@ -31,7 +31,11 @@ import { initBuildInfo } from "../ui/build-info.js";
 import { closeInfobox, showInfobox } from "../ui/infobox.js";
 import { buildSiteInspectorPanel, hideSiteInspector, showSiteInspector } from "../ui/site-inspector.js";
 import { initSDK, setSDKReady } from "../sdk/client.js";
-import { MAP_INSPECTION_ENABLED } from "../config/features.js";
+import {
+  MAP_DOWNLOADS_ENABLED,
+  MAP_INSPECTION_ENABLED,
+  resolveDownloadsEnabled,
+} from "../config/features.js";
 import {
   disableInspection,
   enableInspection,
@@ -128,6 +132,8 @@ export function selectTabs(allTabs, { tabs: tabIds = null, layers: layerKeys = n
  * @param {boolean} [options.validate] - run `validateLayers()` first (default true)
  * @param {boolean} [options.inspectionEnabled] - allow click info windows and
  *   site inspection (temporary global default: false)
+ * @param {boolean} [options.downloadsEnabled] - GeoTIFF links and generated CSVs
+ *   in the layer panel (default true). The repository kill switch takes priority.
  * @param {boolean} [options.buildInfo] - wire the build-info footer if the page
  *   has one (default true)
  * @param {() => void} [options.reload] - how the map-service notice retries
@@ -160,6 +166,7 @@ export function createRiskMap(root, options = {}) {
     mapxProject = PRIMARY_PROJECT,
     validate = true,
     inspectionEnabled = MAP_INSPECTION_ENABLED,
+    downloadsEnabled = MAP_DOWNLOADS_ENABLED,
     buildInfo = true,
     reload,
     loadSdk = loadMapXSdk,
@@ -276,6 +283,7 @@ export function createRiskMap(root, options = {}) {
     registry,
     tabs,
     initialTab,
+    downloadsEnabled: resolveDownloadsEnabled(downloadsEnabled),
     // Keep the inspect button enabled/disabled in sync with the layers on the map.
     onViewsChanged(count) {
       if (!inspectToggle) return;

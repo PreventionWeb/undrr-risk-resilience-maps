@@ -142,7 +142,6 @@ nav.mg-container {
   display: none;
   width: 100%;
   min-height: calc(100vh - var(--header-height) - var(--nav-height) - var(--build-info-height));
-  overflow-y: auto;
   background: rgb(var(--mg-color-neutral-0));
   box-sizing: border-box;
 }

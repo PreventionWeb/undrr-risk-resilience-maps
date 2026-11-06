@@ -33,6 +33,15 @@ describe("parseEmbedParams", () => {
     expect(parse("?inspect=1").inspectionEnabled).toBe(true);
     expect(parse("?inspect=false").inspectionEnabled).toBe(false);
   });
+
+  it("defaults downloads on and accepts explicit instance opt-outs", () => {
+    expect(parse("").downloadsEnabled).toBe(true);
+    expect(parse("?downloads=1").downloadsEnabled).toBe(true);
+    expect(parse("?downloads=true").downloadsEnabled).toBe(true);
+    for (const value of ["0", "yes", "", "TRUE"])
+      expect(parse(`?downloads=${value}`).downloadsEnabled).toBe(false);
+    expect(parse("?downloads=1&downloads=1").downloadsEnabled).toBe(false);
+  });
   // The warnings below are deliberate output for a host's console; silence them
   // here so a passing suite does not read like a failing one.
   let warn;
@@ -204,6 +213,7 @@ describe("parseEmbedParams", () => {
     expect(params.tab).toBe("hazard");
     expect(Object.keys(params).sort()).toEqual([
       "cameras",
+      "downloadsEnabled",
       "empty",
       "inspectionEnabled",
       "instance",

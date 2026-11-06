@@ -2,6 +2,7 @@ import { DATA_REQUESTS } from "../config/data-requests.js";
 import { escapeHtml } from "./html.js";
 import { getLayerRegistry } from "../config/registry.js";
 import { formatHash } from "../state/hash.js";
+import { layerHasDownloads } from "../config/downloads.js";
 
 export function explainerUrl(layer) {
   try {
@@ -39,15 +40,21 @@ export function dataRequestUrl(layer, config = DATA_REQUESTS) {
   return `mailto:${encodeURIComponent(config.recipient).replace(/%40/g, "@")}?${cc}subject=${encodeURIComponent(config.subject)}&body=${encodeURIComponent(body)}`;
 }
 
-/** Shared by the layer accordion and Sources; spreadsheet notes remain plain text. */
-export function layerLinksHtml(layer) {
+/**
+ * Shared by the layer accordion and Sources; spreadsheet notes remain plain text.
+ *
+ * With downloads enabled, a view that offers a download no
+ * longer shows "Request data": the download replaces the request. Views without
+ * one keep the email link, which stays the only route while the flag is off.
+ */
+export function layerLinksHtml(layer, { downloadsEnabled = false } = {}) {
   const links = [];
   const explainer = explainerUrl(layer);
   if (explainer)
     links.push(
       `<a href="${escapeHtml(explainer)}" target="_blank" rel="noopener">Learn more about this metric</a>`,
     );
-  if (layer.r2rCategory === "GAR2026") {
+  if (layer.r2rCategory === "GAR2026" && !(downloadsEnabled && layerHasDownloads(layer))) {
     const request = dataRequestUrl(layer);
     if (request) links.push(`<a href="${escapeHtml(request)}">Request data</a>`);
   }

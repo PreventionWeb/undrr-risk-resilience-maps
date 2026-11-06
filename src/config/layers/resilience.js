@@ -29,11 +29,13 @@ export const RESILIENCE_LAYERS = [
       {
         id: "MX-WOHMT-WYKWK-X25K9",
         label: "With support",
+        csvDownload: "yes",
         desc: "Change in fiscal gap with financial support.",
       },
       {
         id: "MX-5GL7W-40NYZ-T1IX1",
         label: "Without support",
+        csvDownload: "yes",
         desc: "Change in fiscal gap without financial support.",
       },
     ],
@@ -78,6 +80,7 @@ export const RESILIENCE_LAYERS = [
     id: "MX-SL3SM-AR11B-4LQ8T",
     key: "early-warning-coverage",
     label: "Early Warning Coverage",
+    csvDownload: "yes",
     type: "vt",
     desc: "Number of hazards covered by an early warning system and number of Admin 2 risk models.",
     source: "UNDRR",

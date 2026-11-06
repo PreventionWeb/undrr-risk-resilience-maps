@@ -117,6 +117,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     tabs: params.tabIds,
     layerAllowlist: params.layerKeys,
     inspectionEnabled: params.inspectionEnabled,
+    downloadsEnabled: params.downloadsEnabled,
     stateAdapter: createMemoryAdapter({ initial: { tab: params.tab, layers: params.layers } }),
     // No build-info footer in an embed, and the retry reloads the frame's own
     // document — never the host page.
@@ -343,6 +344,8 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     const url = new URL(".", windowRef.location.href);
     // Preserve this runtime policy when leaving the embed for the full viewer.
     url.searchParams.set("inspect", params.inspectionEnabled ? "1" : "0");
+    // Preserve an explicit opt-out now that the full viewer defaults to on.
+    url.searchParams.set("downloads", params.downloadsEnabled ? "1" : "0");
     url.hash = formatHash(state.tab, state.layers);
     fullViewerLink.href = url.href;
   };

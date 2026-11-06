@@ -5,9 +5,10 @@
 
 import { downloadLayerInventory } from "../utils/export-layers.js";
 import { escapeHtml } from "../utils/html.js";
-import { getLayerStatus } from "../config/layers/status.js";
+import { getLayerStatus, isLayerAvailable } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
 import { layerLinksHtml } from "../utils/layer-links.js";
+import { formatHash } from "../state/hash.js";
 
 // ── Sources ───────────────────────────────────────────────────────────────────
 
@@ -36,19 +37,29 @@ function mapxIds(layer) {
   return layer.id || "–";
 }
 
-function buildSourcesTable(layers) {
+/** Build attribution rows with viewer links for available maps. */
+function buildSourcesTable(layers, tabId) {
   const rows = layers
     .flatMap((layer) =>
       layer.sources?.some((source) => source.note || source.explainerUrl)
-        ? layer.sources.map((source) => ({ ...layer, ...source, sources: undefined }))
-        : [layer],
+        ? layer.sources.map((source, sourceIdx) => ({
+            layer: { ...layer, ...source, sources: undefined },
+            sourceIdx,
+            available: isLayerAvailable(layer) && Boolean(source.id),
+          }))
+        : [{ layer, sourceIdx: 0, available: isLayerAvailable(layer) }],
     )
-    .map((layer) => {
+    .map(({ layer, sourceIdx, available }) => {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
       const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
+      const links = layerLinksHtml(layer);
+      const name =
+        !isTrackedOnly && available && layer.key
+          ? `<a class="sources-map-link" href="${escapeHtml(formatHash(tabId, [{ key: layer.key, sourceIdx }]))}">${escapeHtml(layer.label)}</a>`
+          : escapeHtml(layer.label);
       // `mg-table__td--code` puts the cell in Mangrove's code face, so the ids
       // no longer need a `<code>` element each.
       const idCell = ids
@@ -57,12 +68,12 @@ function buildSourcesTable(layers) {
         .join("<br>");
       return `
       <tr${rowClass}>
-        <td>${statusBadge}${escapeHtml(layer.label)}</td>
+        <td>${statusBadge}${name}</td>
         <td class="data-table__mapx-id mg-table__td--code">${idCell}</td>
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escapeHtml(layer.note || layer.desc)}${layerLinksHtml(layer) ? `<p>${layerLinksHtml(layer)}</p>` : ""}</td>
+        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}</td>
       </tr>`;
     })
     .join("");
@@ -85,26 +96,18 @@ function buildSourcesTable(layers) {
     </div>`;
 }
 
-/**
- * Build the Sources page.
- * @param {{ signal?: AbortSignal }} [options] - removes the page's listeners
- */
+/** Build the Sources page. `signal` removes the page's listeners. */
 export function buildSourcesPanel({ signal } = {}) {
-  // One tab per layer category. Mangrove's tabs script progressively enhances
-  // this markup: it wires up ARIA, keyboard navigation and deep linking, and
-  // with `data-mg-js-tabs-stack-on-mobile` it collapses the rail into stacked
-  // disclosures below 480px. Without the script the panels simply render in
-  // sequence, which is the pre-tabs behaviour.
-  const tabItems = TABS.map((tab, i) => {
-    const sectionId = `mg-tabs__section-sources-${i + 1}`;
+  const categoryNavItems = TABS.map((tab) => {
+    const sectionId = `sources-${tab.id}`;
     return `
-      <li class="mg-tabs__item" role="presentation">
-        <a class="mg-tabs__link" href="#${sectionId}" id="${sectionId}--trigger" data-tabs__item="${sectionId}" aria-controls="${sectionId}" role="tab">${escapeHtml(tab.label)}</a>
+      <li class="mg-on-this-page-nav__item">
+        <a class="mg-on-this-page-nav__link" href="#${sectionId}">${escapeHtml(tab.label)}</a>
       </li>`;
   }).join("");
 
-  const tabPanels = TABS.map((tab, i) => {
-    const sectionId = `mg-tabs__section-sources-${i + 1}`;
+  const categorySections = TABS.map((tab) => {
+    const sectionId = `sources-${tab.id}`;
     const available = tab.layers.filter((layer) => getLayerStatus(layer) === "Active");
     const planned = tab.layers.filter((layer) => getLayerStatus(layer) !== "Active");
     const plannedSection =
@@ -113,39 +116,26 @@ export function buildSourcesPanel({ signal } = {}) {
           <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
             <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
-            ${buildSourcesTable(planned)}
+            ${buildSourcesTable(planned, tab.id)}
           </details>`
         : "";
     return `
-      <div class="mg-tabs-content" data-mg-js-tabs-content="true">
-        <section class="mg-tabs__section" id="${sectionId}" role="tabpanel" aria-labelledby="${sectionId}--trigger" tabindex="-1">
+      <section class="info-page-section info-page-section--wide sources-category-section" id="${sectionId}">
+        <div class="mg-container">
           <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
-          ${available.length > 0 ? buildSourcesTable(available) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
+          ${available.length > 0 ? buildSourcesTable(available, tab.id) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
-        </section>
-      </div>`;
+        </div>
+      </section>`;
   }).join("");
 
-  const categorySections = `
-    <div class="info-page-section info-page-section--wide">
-      <div class="mg-container">
-        <article
-          class="mg-tabs mg-tabs--horizontal"
-          data-mg-js-tabs="true"
-          data-mg-js-tabs-variant="horizontal"
-          data-mg-js-tabs-stack-on-mobile
-          data-mg-js-tabs-label="Data categories"
-        >
-          <div class="mg-tabs__rail">
-            <div class="mg-tabs__scroll">
-              <ul class="mg-tabs__list" role="tablist" aria-label="Data categories">${tabItems}</ul>
-            </div>
-          </div>
-          <div class="mg-tabs__panels">${tabPanels}</div>
-        </article>
-      </div>
-    </div>`;
+  // Explicit initialization keeps a late CDN import from auto-enhancing
+  // containers after their owning sidebar has already been destroyed.
+  const categoryNav = `
+    <nav class="mg-on-this-page-nav" data-mg-on-this-page-nav data-mg-on-this-page-nav-skip-auto-init aria-label="Sources categories">
+      <ul class="mg-on-this-page-nav__list" role="list">${categoryNavItems}</ul>
+    </nav>`;
 
   const panel = buildPanel(
     "sources",
@@ -153,28 +143,42 @@ export function buildSourcesPanel({ signal } = {}) {
     <div class="info-page-hero info-page-hero--secondary">
       <div class="mg-container">
         <h1 class="info-page-hero__title">Sources</h1>
-        <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets. Metrics still under development are separated into collapsed planning sections.</p>
-        <label class="sources-mapx-toggle mg-switch">
-          <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-mapx-ids">
-          <span class="mg-switch__track" aria-hidden="true">
-            <span class="mg-switch__thumb"></span>
-          </span>
-          <span class="mg-switch__label">Show MapX view IDs</span>
-        </label>
+        <p class="info-page-hero__intro">Attribution, citation, licensing and methodology information for published datasets.</p>
       </div>
     </div>
 
+    ${categoryNav}
     ${categorySections}
 
-    <div class="info-page-section">
+    <div class="info-page-section info-page-section--grey sources-tools-section">
       <div class="mg-container">
-        <h2 class="info-page-section__title">Layer inventory</h2>
-        <p>Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license and status notes.</p>
-        <p>
-          <button class="mg-button mg-button-secondary" data-action="download-inventory">
-            Download layer inventory (CSV)
-          </button>
-        </p>
+        <p class="sources-tools-section__label">View options</p>
+        <div class="sources-tools-section__switches">
+          <label class="sources-mapx-toggle mg-switch">
+            <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-mapx-ids">
+            <span class="mg-switch__track" aria-hidden="true">
+              <span class="mg-switch__thumb"></span>
+            </span>
+            <span class="mg-switch__label">Show MapX view IDs</span>
+          </label>
+          <label class="sources-mapx-toggle mg-switch">
+            <input type="checkbox" role="switch" class="mg-switch__input" data-action="toggle-planned">
+            <span class="mg-switch__track" aria-hidden="true">
+              <span class="mg-switch__thumb"></span>
+            </span>
+            <span class="mg-switch__label">Show metrics under development</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-page-section sources-inventory-section">
+      <div class="mg-container">
+        <h2 class="sources-inventory-section__title">Layer inventory</h2>
+        <p class="sources-inventory-section__desc">Download a full inventory of all data layers configured in this tool, including MapX view IDs, data types, source attribution, citation, license and status notes.</p>
+        <button class="mg-button mg-button-secondary mg-button-outline mg-button--small" data-action="download-inventory">
+          Download layer inventory (CSV)
+        </button>
       </div>
     </div>
   `,
@@ -184,10 +188,69 @@ export function buildSourcesPanel({ signal } = {}) {
     .querySelector("[data-action='download-inventory']")
     .addEventListener("click", downloadLayerInventory, { signal });
 
+  // The app owns the hash (page + layers). Mangrove's default click handler
+  // replaces it with a section id, breaking reloads and history restoration.
+  // Capture before its handler, including while the optional CDN is unavailable.
+  const nav = panel.querySelector("[data-mg-on-this-page-nav]");
+  function scrollToCategory(target, smooth = true) {
+    const style = getComputedStyle(nav);
+    const offset = parseFloat(style.getPropertyValue("--mg-on-this-page-nav-offset")) || 0;
+    const stickyHeight = style.position === "sticky" ? nav.offsetHeight + offset : 0;
+    window.scrollTo({
+      top: target.getBoundingClientRect().top + window.scrollY - stickyHeight,
+      behavior:
+        smooth && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "smooth" : "auto",
+    });
+    if (!target.hasAttribute("tabindex")) {
+      target.setAttribute("tabindex", "-1");
+      target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true, signal });
+    }
+    target.focus({ preventScroll: true });
+  }
+  const categories = [...panel.querySelectorAll(".sources-category-section")];
+  function followCategoryUrl() {
+    const hash = window.location.hash.split("?")[0];
+    const target = categories.find((section) => `#${section.id}` === hash);
+    if (!target) return;
+    // The router reveals Sources synchronously; measure on the next frame,
+    // after its display state and the sticky bar's height have been applied.
+    window.requestAnimationFrame(() => {
+      if (signal?.aborted || !panel.isConnected || getComputedStyle(panel).display === "none") return;
+      scrollToCategory(target, false);
+    });
+  }
+  // The sidebar supplies a lifetime; release this window listener on destroy.
+  if (signal) window.addEventListener("hashchange", followCategoryUrl, { signal });
+  followCategoryUrl();
+  nav.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest(".mg-on-this-page-nav__link");
+      if (!link) return;
+      // Mangrove handles every click as a local scroll. Let modified clicks
+      // use the anchor's native new-tab/window behavior instead.
+      event.stopImmediatePropagation();
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      const target = categories.find((section) => `#${section.id}` === link.getAttribute("href"));
+      if (!target) return;
+      event.preventDefault();
+      scrollToCategory(target);
+    },
+    { capture: true, signal },
+  );
+
   panel.querySelector("[data-action='toggle-mapx-ids']").addEventListener(
     "change",
     (e) => {
       panel.classList.toggle("show-mapx-ids", e.target.checked);
+    },
+    { signal },
+  );
+
+  panel.querySelector("[data-action='toggle-planned']").addEventListener(
+    "change",
+    (e) => {
+      panel.classList.toggle("show-planned", e.target.checked);
     },
     { signal },
   );

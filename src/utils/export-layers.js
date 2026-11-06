@@ -21,6 +21,7 @@
 
 import { TABS } from "../config/layers/index.js";
 import { isLayerPublished, getLayerStatus } from "../config/layers/status.js";
+import { csvRow, csvText, saveTextFile } from "./csv.js";
 
 const TYPE_LABELS = {
   rt: "Raster",
@@ -37,16 +38,13 @@ const INVENTORY_STATUS = {
   Disabled: "In development",
 };
 
-function cell(value) {
-  const s = value == null ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
+function row(...values) {
+  return csvRow(values);
 }
 
-function row(...values) {
-  return values.map(cell).join(",");
+/** A view's hosted files as the inventory's two ";"-separated cells. */
+function downloadCells(downloads = []) {
+  return [downloads.map(([url]) => url).join("; "), downloads.map(([, bytes]) => bytes).join("; ")];
 }
 
 function inventoryStatus(layer, src) {
@@ -56,9 +54,6 @@ function inventoryStatus(layer, src) {
 }
 
 export function generateLayerInventoryCSV() {
-  const CRLF = "\r\n";
-  const BOM = "﻿";
-
   const lines = [
     row(
       "Variable R-R Initiative",
@@ -77,6 +72,9 @@ export function generateLayerInventoryCSV() {
       "Inventory status",
       "Note",
       "Explainer link",
+      "Download URL",
+      "Download size (bytes)",
+      "CSV download",
     ),
   ];
 
@@ -117,6 +115,8 @@ export function generateLayerInventoryCSV() {
               inventoryStatus(layer, src),
               src.note ?? layer.note ?? "",
               src.explainerUrl ?? layer.explainerUrl ?? "",
+              ...downloadCells(src.downloads),
+              src.csvDownload ?? "",
             ),
           );
         }
@@ -139,13 +139,15 @@ export function generateLayerInventoryCSV() {
             inventoryStatus(layer),
             layer.note || "",
             layer.explainerUrl || "",
+            ...downloadCells(layer.downloads),
+            layer.csvDownload ?? "",
           ),
         );
       }
     }
   }
 
-  return BOM + lines.join(CRLF);
+  return csvText(lines, { trailing: false });
 }
 
 export function buildLayerInventoryFilename(date = new Date()) {
@@ -163,15 +165,5 @@ export function buildLayerInventoryFilename(date = new Date()) {
 }
 
 export function downloadLayerInventory() {
-  const csv = generateLayerInventoryCSV();
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = buildLayerInventoryFilename();
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  saveTextFile(document, generateLayerInventoryCSV(), buildLayerInventoryFilename());
 }

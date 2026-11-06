@@ -28,7 +28,14 @@ describe("import-inventory --apply", () => {
   it("preserves configured metadata when an older CSV omits optional columns", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");
-    writeFileSync(csvPath, readFileSync(csvPath, "utf8").replace(",Note,Explainer link", ""));
+    // Optional columns are trailing, so dropping their headers leaves the rest aligned.
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace(
+        ",Note,Explainer link,Download URL,Download size (bytes),CSV download",
+        "",
+      ),
+    );
     const configPath = join(fixture, "src/config/layers/gar.js");
     const before = readFileSync(configPath, "utf8").replace(
       'explainerUrl: ""',
@@ -49,7 +56,8 @@ describe("import-inventory --apply", () => {
     // Replace only the two optional columns. The preceding text ends at Uploaded.
     lines[index] = lines[index].replace(
       /Uploaded,.*$/,
-      () => 'Uploaded,"First line, with a comma\nSecond line: $&",https://example.org/methodology#rice',
+      // The row's trailing cells (no hosted files, CSV download yes) are kept.
+      () => 'Uploaded,"First line, with a comma\nSecond line: $&",https://example.org/methodology#rice,,,yes',
     );
     writeFileSync(csvPath, lines.join("\n"));
     execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
@@ -99,6 +107,96 @@ describe("import-inventory --apply", () => {
     const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
     expect(risk).toContain('desc: "PML to public infrastructure - Earthquake"');
   });
+
+  it.each([false, true])(
+    "preserves dollar sequences, quotes and newlines in labels and descriptions (insert description: %s)",
+    (insertDescription) => {
+      const fixture = makeFixture();
+      const csvPath = join(fixture, "data/inventory.csv");
+      const label = "Population $100 $& $1 $$ $' $`";
+      const description = 'Value $100 $& $1 $$ $\' $` "quoted"\nNext line';
+      const sourceDescription = "Poorest households - 1:100 earthquake event.";
+      const populationDescription = "Population distribution (HRSL/GHSL 2022).";
+      const csvCell = (value) => `"${value.replaceAll('"', '""')}"`;
+      const csv = readFileSync(csvPath, "utf8")
+        .replace(",population,Population,", () => `,population,${csvCell(label)},`)
+        .replace(populationDescription, () => csvCell(description))
+        .replace(sourceDescription, () => csvCell(description));
+      writeFileSync(csvPath, csv);
+
+      if (insertDescription) {
+        for (const [file, oldDescription] of [
+          ["exposure.js", populationDescription],
+          ["risk.js", sourceDescription],
+        ]) {
+          const path = join(fixture, "src/config/layers", file);
+          writeFileSync(
+            path,
+            readFileSync(path, "utf8").replace(`desc: ${JSON.stringify(oldDescription)},`, ""),
+          );
+        }
+      }
+
+      execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+        cwd: fixture,
+      });
+      for (const file of ["exposure.js", "risk.js"]) {
+        const src = readFileSync(join(fixture, "src/config/layers", file), "utf8");
+        expect(src).toContain(`desc: ${JSON.stringify(description)}`);
+        if (file === "exposure.js") expect(src).toContain(`label: ${JSON.stringify(label)}`);
+        const syntax = spawnSync(process.execPath, ["--input-type=module", "--check"], {
+          input: src,
+          encoding: "utf8",
+        });
+        expect(syntax.status, syntax.stderr).toBe(0);
+      }
+      const second = execFileSync(
+        process.execPath,
+        [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+        { cwd: fixture, encoding: "utf8" },
+      );
+      expect(second).toContain("nothing to change");
+    },
+  );
+
+  it.each(['MX-BAD"ID', "MX-BAD\nID", "MX-$1"])("rejects malformed MapX IDs before writing: %s", (id) => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const configPath = join(fixture, "src/config/layers/exposure.js");
+    const before = readFileSync(configPath, "utf8");
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace("MX-6YLMU-U4WXC-2JJD7", () => `"${id.replaceAll('"', '""')}"`),
+    );
+    const result = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("MapX view ID must contain only");
+    expect(readFileSync(configPath, "utf8")).toBe(before);
+  });
+
+  it.each(["9007199254740992", "9".repeat(400)])(
+    "rejects unsafe download byte counts before writing",
+    (size) => {
+      const fixture = makeFixture();
+      const csvPath = join(fixture, "data/inventory.csv");
+      const configPath = join(fixture, "src/config/layers/hazard.js");
+      const before = readFileSync(configPath, "utf8");
+      writeFileSync(
+        csvPath,
+        readFileSync(csvPath, "utf8").replace("cs_phex.tif,10780516", `cs_phex.tif,${size}`),
+      );
+      const result = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+        cwd: fixture,
+        encoding: "utf8",
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("safe integer range");
+      expect(readFileSync(configPath, "utf8")).toBe(before);
+    },
+  );
 
   it("fails fast when required CSV headers are missing", () => {
     const fixture = makeFixture();
@@ -178,9 +276,13 @@ describe("import-inventory --apply", () => {
       .replace(/(^[^\n]*,drought,[^\n]*),In development,/m, "$1,Pending removal,");
     writeFileSync(csvPath, csv);
 
-    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
-      cwd: fixture,
-    });
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--csv-vetted"],
+      {
+        cwd: fixture,
+      },
+    );
 
     const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
     expect(risk.match(/MX-REDTEAM-SECOND-EARTHQUAKE/g)).toHaveLength(1);
@@ -193,5 +295,355 @@ describe("import-inventory --apply", () => {
     );
     expect(droughtBlock).toContain('status: "disabled-pending-removal"');
     expect(hazard.match(/status: "disabled-pending-removal"/g)).toHaveLength(1);
+  });
+
+  it("round-trips hosted download files, including a corrected URL and several files per view", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const csv = readFileSync(csvPath, "utf8")
+      .replace(
+        "https://gar-data.unepgrid.ch/2026/PGA_475y.tif,1392370312",
+        "https://gar-data.unepgrid.ch/2026/PGA_475y_v2.tif,1400000000",
+      )
+      .replace(
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif; https://gar-data.unepgrid.ch/2026/cs_extra.tif,10780516; 42",
+      );
+    writeFileSync(csvPath, csv);
+
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(report).toContain("Download file updates (2)");
+
+    const hazard = readFileSync(join(fixture, "src/config/layers/hazard.js"), "utf8");
+    // The 475-year source is the second of five: only it changes.
+    const pga = hazard.slice(hazard.indexOf('key: "earthquake-pga"'), hazard.indexOf('key: "cyclone-surge"'));
+    expect(pga).toContain('downloads: [["https://gar-data.unepgrid.ch/2026/PGA_475y_v2.tif", 1400000000]]');
+    expect(pga.match(/downloads:/g)).toHaveLength(5);
+    expect(hazard).toContain(
+      'downloads: [["https://gar-data.unepgrid.ch/2026/cs_phex.tif", 10780516], ["https://gar-data.unepgrid.ch/2026/cs_extra.tif", 42]]',
+    );
+
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("adds downloads to a first compound source without touching the layer", () => {
+    const fixture = makeFixture();
+    const configPath = join(fixture, "src/config/layers/hazard.js");
+    const config = readFileSync(configPath, "utf8").replace(
+      /(id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n)\s+downloads: [^\n]+\n/,
+      "$1",
+    );
+    writeFileSync(configPath, config);
+    execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+    });
+    const after = readFileSync(configPath, "utf8");
+    const flooding = after.slice(after.indexOf('key: "river-flooding"'), after.indexOf("sources: ["));
+    expect(flooding).not.toContain("downloads:");
+    expect(after).toMatch(
+      /id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n\s+downloads: \[\["https:\/\/gar-data\.unepgrid\.ch\/2026\/global_pc_h25glob\.tif", 3601777774\]\],/,
+    );
+  });
+
+  it("refuses to remove downloads without --allow-removals, and removes them with it", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const original = readFileSync(csvPath, "utf8");
+    writeFileSync(
+      csvPath,
+      original.replace(",https://gar-data.unepgrid.ch/2026/mangrokm2a.tif,11480843,", ",,,"),
+    );
+    const exposurePath = join(fixture, "src/config/layers/exposure.js");
+    const before = readFileSync(exposurePath, "utf8");
+
+    const refused = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(refused.status).not.toBe(0);
+    expect(refused.stdout).toContain("Removals (1)");
+    expect(refused.stdout).toContain("mangroves: hosted files 1 → 0");
+    expect(refused.stderr).toContain("--apply refused");
+    expect(readFileSync(exposurePath, "utf8")).toBe(before);
+
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const exposure = readFileSync(exposurePath, "utf8");
+    expect(exposure).not.toContain("mangrokm2a");
+    expect(exposure).toContain("forestkm2a.tif");
+  });
+
+  it("refuses a spreadsheet whose download and CSV columns are present but blank", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    // Every row keeps the three trailing columns but loses their values.
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const blanked = lines.map((line, i) =>
+      i === 0 || !line ? line : line.replace(/,[^,]*,[^,]*,[^,]*$/, ",,,"),
+    );
+    writeFileSync(csvPath, blanked.join("\n"));
+    const result = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("--apply refused");
+    const removals = /Removals \((\d+)\)/.exec(result.stdout);
+    expect(Number(removals[1])).toBeGreaterThan(50);
+  });
+
+  it("keeps downloads and CSV decisions when their columns are omitted", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8")
+      .split("\n")
+      .map((line) => line.replace(/,[^,]*,[^,]*,[^,]*$/, ""));
+    writeFileSync(csvPath, lines.join("\n"));
+    const report = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(report).toContain("nothing to change");
+  });
+
+  it("imports a CSV download decision per compound source and round-trips it", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-YBWIB-YLHIV-WKG2H"));
+    lines[index] = lines[index].replace(/,yes$/, ",no: Reviewed and refused for this test.");
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
+    const block = risk.slice(
+      risk.indexOf('id: "MX-YBWIB-YLHIV-WKG2H"'),
+      risk.indexOf("}", risk.indexOf('id: "MX-YBWIB-YLHIV-WKG2H"')),
+    );
+    expect(block).toContain('csvDownload: "no: Reviewed and refused for this test."');
+    // Its neighbours keep yes.
+    const first = risk.slice(
+      risk.indexOf('id: "MX-VCP83-3E2TG-PJWFJ"'),
+      risk.indexOf("}", risk.indexOf('id: "MX-VCP83-3E2TG-PJWFJ"')),
+    );
+    expect(first).toContain('csvDownload: "yes"');
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("rejects a CSV download value that is not yes, no: <reason> or blank", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    writeFileSync(malformed, readFileSync(source, "utf8").replace(/,yes\n/, ",maybe\n"));
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('"CSV download" must be yes, "no: <reason>" or blank (got "maybe")');
+  });
+
+  it("rejects malformed download cells", () => {
+    const cases = [
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,",
+        "1 download URL(s) but 0 size(s)",
+      ],
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "http://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "must use https",
+      ],
+      [
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10780516",
+        "https://gar-data.unepgrid.ch/2026/cs_phex.tif,10 MB",
+        "whole number of bytes",
+      ],
+    ];
+    for (const [from, to, message] of cases) {
+      const fixture = makeFixture();
+      const source = join(fixture, "data/inventory.csv");
+      const malformed = join(fixture, "malformed.csv");
+      writeFileSync(malformed, readFileSync(source, "utf8").replace(from, to));
+      const result = spawnSync(
+        process.execPath,
+        [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+        {
+          cwd: fixture,
+          encoding: "utf8",
+        },
+      );
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(message);
+    }
+  });
+
+  it("requires the two download columns together", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    writeFileSync(malformed, readFileSync(source, "utf8").replace(",Download size (bytes)", ",Size"));
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('must supply "Download URL" and "Download size (bytes)" together');
+  });
+
+  it("applies field changes to a compound source whose view id changes in the same import", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-YP5S0-VBMJK-R7IMX"));
+    lines[index] = lines[index]
+      .replace("MX-YP5S0-VBMJK-R7IMX", "MX-ZZZZZ-NEWID-00001")
+      .replace(/,yes$/, ",no: test reason");
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const risk = readFileSync(join(fixture, "src/config/layers/risk.js"), "utf8");
+    expect(risk).not.toContain("MX-YP5S0-VBMJK-R7IMX");
+    const at = risk.indexOf('id: "MX-ZZZZZ-NEWID-00001"');
+    const source = risk.slice(at, risk.indexOf("}", at));
+    expect(source).toContain('csvDownload: "no: test reason"');
+    expect(source).not.toContain('csvDownload: "yes"');
+    const second = execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply"],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(second).toContain("nothing to change");
+  });
+
+  it("applies a note change to a source whose view id changes in the same import", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    const lines = readFileSync(csvPath, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-KU5ID-GHTH8-C2WG3"));
+    lines[index] = lines[index]
+      .replace("MX-KU5ID-GHTH8-C2WG3", "MX-ZZZZZ-NEWID-00002")
+      .replace(/Uploaded,.*$/, "Uploaded,A changed note,,,,");
+    writeFileSync(csvPath, lines.join("\n"));
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--allow-removals"],
+      {
+        cwd: fixture,
+      },
+    );
+    const gar = readFileSync(join(fixture, "src/config/layers/gar.js"), "utf8");
+    const at = gar.indexOf('id: "MX-ZZZZZ-NEWID-00002"');
+    const source = gar.slice(at, gar.indexOf("}", at));
+    expect(source).toContain('note: "A changed note"');
+    expect(source).not.toContain('csvDownload: "yes"');
+  });
+
+  it("refuses a new view id on a CSV view until it is re-vetted", () => {
+    const fixture = makeFixture();
+    const csvPath = join(fixture, "data/inventory.csv");
+    writeFileSync(
+      csvPath,
+      readFileSync(csvPath, "utf8").replace("MX-YP5S0-VBMJK-R7IMX", "MX-ZZZZZ-NEWID-00003"),
+    );
+    const riskPath = join(fixture, "src/config/layers/risk.js");
+    const before = readFileSync(riskPath, "utf8");
+    const dry = execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs")], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(dry).toContain("re-vet before applying (1)");
+    expect(dry).toContain("yarn test:downloads-contract --skip-files --view MX-ZZZZZ-NEWID-00003");
+    const refused = spawnSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain("--csv-vetted");
+    expect(readFileSync(riskPath, "utf8")).toBe(before);
+    execFileSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--apply", "--csv-vetted"],
+      {
+        cwd: fixture,
+      },
+    );
+    expect(readFileSync(riskPath, "utf8")).toContain('id: "MX-ZZZZZ-NEWID-00003"');
+  });
+
+  it("rejects CSV download yes on a layer that is not vector in the config", () => {
+    const fixture = makeFixture();
+    const source = join(fixture, "data/inventory.csv");
+    const malformed = join(fixture, "malformed.csv");
+    const lines = readFileSync(source, "utf8").split("\n");
+    const index = lines.findIndex((line) => line.includes("MX-V07LO-829XA-4BIZ8")); // river flooding depth, raster
+    lines[index] = lines[index].replace(/,$/, ",yes");
+    writeFileSync(malformed, lines.join("\n"));
+    const result = spawnSync(
+      process.execPath,
+      [join(fixture, "scripts/import-inventory.mjs"), "--input", malformed],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      'river-flooding / "Depth": CSV download is "yes" but the layer is type "rt"',
+    );
   });
 });

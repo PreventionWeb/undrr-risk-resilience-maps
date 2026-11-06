@@ -87,6 +87,16 @@ The following is implemented and tested as of July 2026:
 - **Sources**: per-category attribution tables (source, citation, license, notes); MapX view ID toggle for technical review; layer inventory CSV download
 - **About**: tool description, acknowledgements, further reading
 
+### Data downloads (November 2026 prototype update)
+
+- Downloads default on in the standalone viewer and `embed.html`; `?downloads=0` opts out for one viewer.
+- The layer panel offers configured hosted GeoTIFFs and values-only CSVs for reviewed region-level
+  vector views. Sources dataset names open their maps in the viewer; the inventory export remains
+  a separate download on Sources.
+- Set `MAP_DOWNLOADS_ENABLED = false` in `src/config/features.js` and rebuild/redeploy to hide
+  map download controls globally. URL parameters and programmatic options cannot override it.
+  See [Data downloads](downloads.md) for use, eligibility, maintenance and limitations.
+
 ### Content pipeline
 
 - `data/inventory.csv`: master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata. Runtime external layers have a blank MapX ID and `External runtime` status.
@@ -159,6 +169,11 @@ These are things the prototype has as placeholders that must be resolved before 
 | **Raster layer inspection**  | Correctly flagged as non-queryable                                                                                                                                     | No change needed — but UX message could be clearer                                                                                                     |
 | **Mobile experience**        | Not designed or tested for mobile                                                                                                                                      | Decision: is mobile in scope? If yes, significant layout work required                                                                                 |
 
+**November 2026 prototype clarification:** The download requirement above records the July proposal.
+The opt-in [prototype](downloads.md) now uses hosted URLs from the inventory and browser-generated
+CSVs from MapX attribute tables. Programme review is needed to decide whether this approach
+supersedes the proposed MapX URL configuration and can be made public.
+
 ---
 
 ## 6. Open questions (affect scope and effort)
@@ -169,6 +184,9 @@ These must be answered before the resourcing plan can be finalised:
 2. **MapX legend contract stability** — can UNEP/GRID-Geneva confirm the consumed `get_views` fields and `/get/mirror` behavior, limits, and change communication? Until then, retain and monitor the MapX image fallback.
 3. **Country profile URL pattern** — what is the URL structure for UNDRR country profile pages? Needed to implement click-through (a known gap from original PRD scope).
 4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, should Sources link to provider sites?
+   **November 2026 follow-up:** Does the [opt-in prototype](downloads.md), with inventory-hosted
+   file URLs and values-only CSVs, meet the programme requirement? Public availability and GRID's
+   table-contract, region-code and units questions remain open.
 5. **Final tool name** — needed before any branding/copy work proceeds.
 6. **Access control model** — who is this tool for, and how is access managed in production?
 7. **Mobile scope** — required at launch, or desktop-first?

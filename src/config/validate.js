@@ -8,9 +8,52 @@
 
 import { isLayerAvailable, isLayerPublished } from "./layers/status.js";
 import { parseBounds } from "../utils/camera.js";
+import { isValidCsvDownload } from "./downloads.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
+/**
+ * A view's hosted files (src/config/downloads.js): `[[url, bytes], ...]`, each
+ * an https URL and a positive whole number of bytes.
+ */
+function validateDownloads(ctx, downloads, errors) {
+  if (downloads === undefined) return;
+  if (!Array.isArray(downloads)) {
+    errors.push(`${ctx} -- downloads must be an array of [url, bytes] pairs`);
+    return;
+  }
+  downloads.forEach((entry, i) => {
+    const [url, bytes] = Array.isArray(entry) ? entry : [];
+    let https;
+    try {
+      https = new URL(url).protocol === "https:";
+    } catch {
+      https = false;
+    }
+    if (!Array.isArray(entry) || entry.length !== 2 || !https || !Number.isSafeInteger(bytes) || bytes <= 0) {
+      errors.push(`${ctx} -- downloads[${i}] must be [https URL, size in bytes (a positive integer)]`);
+    }
+  });
+}
+
+/**
+ * A view's CSV decision (`csvDownload`, from the inventory's "CSV download"
+ * column): "yes", "no: <reason>" or blank, and "yes" only on a vector layer.
+ * A bad value only disables that view's CSV (isCsvEligible offers one only for
+ * "yes" on a vector layer), so it is a warning here rather than an error that
+ * would stop the app starting, with downloads off or on. The config test
+ * (src/config/downloads.test.js) still fails on it in CI.
+ */
+function validateCsvDownload(ctx, layer, view, warnings) {
+  if (!isValidCsvDownload(view.csvDownload)) {
+    warnings.push(
+      `${ctx} -- csvDownload must be "yes", "no: <reason>" or blank (got ${JSON.stringify(view.csvDownload)}); no CSV is offered`,
+    );
+  } else if (view.csvDownload === "yes" && layer.type !== "vt") {
+    warnings.push(`${ctx} -- csvDownload "yes" is only possible on a vector (vt) layer; no CSV is offered`);
+  }
+}
+
 /** What a tab's home-page card needs to render (see src/ui/home.js). */
 const CARD_FIELDS = ["icon", "color", "desc"];
 /**
@@ -116,6 +159,8 @@ export function validateLayers(tabs, primaryProject) {
         }
         for (let s = 0; s < layer.sources.length; s++) {
           const src = layer.sources[s];
+          validateDownloads(`${ctx} sources[${s}]`, src.downloads, errors);
+          validateCsvDownload(`${ctx} sources[${s}]`, layer, src, warnings);
           if (!src.label) {
             errors.push(`${ctx} -- sources[${s}] missing label`);
           }
@@ -149,6 +194,9 @@ export function validateLayers(tabs, primaryProject) {
         );
       }
       if (layer.id) seenIds.add(layer.id);
+
+      validateDownloads(ctx, layer.downloads, errors);
+      validateCsvDownload(ctx, layer, layer, warnings);
 
       // Optional extent the embed's `fit-layer` uses instead of asking MapX
       // (docs/embedding.md §8). A malformed one would be silently skipped at

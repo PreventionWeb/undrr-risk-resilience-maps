@@ -4,3 +4,6 @@ dist
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Local research spikes (e.g. #64): raw MapX tables with region names. Never commit.
+spike/

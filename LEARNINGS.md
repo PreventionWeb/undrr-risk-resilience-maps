@@ -111,6 +111,43 @@ most configured UNDRR views. A beta tag alone does not satisfy the cleanup gate.
 
 ---
 
+## MapX SDK: attribute tables for downloads (4 November 2026)
+
+Checked live against MapX 1.14.2 (production) for the values-only CSV prototype (#64), first in a
+spike over all 98 inventory views and then through the app itself:
+
+- `get_view_table_attribute({ idView })` returns an array of row objects with the view's configured
+  attributes only (the styled attribute, the view's extra attribute list, and `gid`), never geometry.
+  It works only for `vt` views; raster and custom-code views reject within about 1 s.
+- **The view must have been added in the session** (`view_add`). Otherwise the resolver throws
+  ("Cannot read properties of undefined (reading 'type')") even for views in the loaded project. After
+  `view_add` + `view_remove` the table stays readable. The app adds an unloaded view with
+  `zoomToView: false`, reads, and removes it unless a layer record now wants it (`src/sdk/table.js`).
+- Region-level tables are 130–260 rows (~22 KB); in the spike the read took ~0.55 s at the median
+  and ~1 s at p95. Through the app, a whole CSV (temporary add, read, remove) took ~0.35 s.
+- Value columns carry a join prefix (`j0_…`). The region code is `iso3cd`; names are `maplab` (UN map
+  label) or `name_en`, which is the romanised local name with languages joined by `#` and is not a
+  display name. All `maplab` views share one boundary table and agree on every label, so one of them
+  (`REGION_NAME_REFERENCE_VIEW`) names the regions for views that only carry `name_en`.
+- The boundary table includes a few areas with the map service's own codes (codes starting with `x`), and some
+  views carry values for them. The map shades them, so the CSV exports them too, as region codes, under
+  the standard UN disclaimer.
+- Views on the same MapX source share `gid` (the source's row id), so a view whose attribute list
+  leaves out `iso3cd` can borrow it from a sibling view by `gid`.
+- **A view paints before `view_add` answers.** MapX renders the layers, then resolves after the legend
+  and UI work, so `set_view_layer_transparency` sent the moment `view_add` resolves still lets the
+  whole layer show for a frame (~250k changed pixels in a 1050×740 map capture; measured live). There
+  is no SDK option to add a view hidden. The app hides its own map frame while a temporary view exists.
+- **Hosted GeoTIFFs open in a new tab.** `gar-data.unepgrid.ch` serves `content-type: image/tiff` with
+  no `Content-Disposition`, and browsers ignore `download` on another origin. Chromium and Firefox
+  download anyway; WebKit displays or navigates to the file. So the file links use
+  `target="_blank" rel="noopener"` and the viewer's tab is never replaced (we asked GRID for
+  `Content-Disposition: attachment`).
+- `get_view_meta` works without `view_add` but includes editor emails; do not surface it raw. Labels,
+  units and citations come from our config.
+
+---
+
 ## MapX SDK: `click_attributes` event
 
 From MapX 1.14.2 the app listens to `click_features` instead (one event per click, see

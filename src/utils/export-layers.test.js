@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildLayerInventoryFilename, generateLayerInventoryCSV } from "./export-layers.js";
 
@@ -49,6 +51,51 @@ describe("generateLayerInventoryCSV", () => {
     const columns = header.split(",");
     expect(columns[0].replace(/^\uFEFF/, "")).toBe("Variable R-R Initiative");
     expect(columns[1]).toBe("Category");
+  });
+
+  it("ends with the hosted download and CSV download columns, matching data/inventory.csv per view", () => {
+    expect(header.endsWith(",Download URL,Download size (bytes),CSV download")).toBe(true);
+    const parseLine = (line) => {
+      const cells = [];
+      let cur = "";
+      let quoted = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (quoted && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else quoted = !quoted;
+        } else if (ch === "," && !quoted) {
+          cells.push(cur);
+          cur = "";
+        } else cur += ch;
+      }
+      cells.push(cur);
+      return cells;
+    };
+    const byView = (text) => {
+      const [head, ...rows] = text
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map(parseLine);
+      const col = (name) => head.indexOf(name);
+      const out = new Map();
+      for (const row of rows) {
+        const id = row[col("MapX view ID")];
+        if (id)
+          out.set(
+            id,
+            ["Download URL", "Download size (bytes)", "CSV download"].map((name) => row[col(name)]),
+          );
+      }
+      return out;
+    };
+    const inventory = byView(readFileSync(join(import.meta.dirname, "../../data/inventory.csv"), "utf8"));
+    const exported = byView(csv);
+    expect(inventory.size).toBeGreaterThan(0);
+    for (const [id, cells] of inventory) expect(exported.get(id), id).toEqual(cells);
   });
 
   // --- content ---

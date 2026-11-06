@@ -11,6 +11,17 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Add all 30 supplied GAR 2026 MapX maps under four GAR controls, preserving crop, climate scenario and unit distinctions. Show each variant's explanatory note in the map panel and its own Sources entry.
 - Support per-map methodology links and prefilled data requests. Requests use the programme-team recipient, CC addresses and email template, with the selected map's title and public viewer link filled in. Methodology links remain absent until supplied.
 - Preserve optional notes and explainer links in inventory import/export, including multiline CSV notes. Keep the original GAR 2026 handoff alongside the normalized inventory.
+- Map data downloads are enabled by default in standalone and embedded viewers. Raster layers link hosted GeoTIFFs with format and size; files over 1 GB ask for confirmation. Reviewed vector views offer a values-only CSV through an accessible progress dialog. Downloads live in the layer panel; Sources dataset names open their maps in the viewer. Set `MAP_DOWNLOADS_ENABLED = false` in `src/config/features.js` and redeploy to hide map download controls globally; URL and programmatic options cannot bypass it. Individual viewers can opt out with `downloads=0`. See `docs/downloads.md` ([#64](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/64)).
+- Decide CSV downloads per view in the inventory's `CSV download` column (`yes`, `no: <reason>` or blank = not reviewed, no CSV), imported to the layer config and exported back. Add `yarn test:downloads-contract`, a live check of every hosted file (status and size) and CSV view (vector, joined value, region codes, region-name reference), and a maintenance runbook. The importer refuses an apply that would remove hosted files or turn a CSV off unless `--allow-removals` is passed.
+- Open hosted files in a new tab, so the viewer's tab is never replaced (Safari would otherwise navigate to the GeoTIFF), and ask before a large file on a middle click too.
+- Report regions without a name in the map service, in the CSV header and as a quiet notice in the download dialog.
+- Carry hosted download files per view through the inventory: optional `Download URL` and `Download size (bytes)` columns, imported to the layer config and written back by the inventory export. Correct the 475-year PGA file name in the supplied list.
+
+### Fixed
+
+- Preserve literal dollar sequences and escaped copy in inventory imports; reject malformed MapX IDs and unsafe download byte counts before writing configuration.
+- Serialize CSV reads and temporary-view cleanup so a cancelled download cannot remove a view used by its retry.
+- Keep Sources category permalinks on Sources when copied or opened in a new tab, and preserve native modified-click behavior.
 
 ### Changed
 

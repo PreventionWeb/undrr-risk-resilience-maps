@@ -1,0 +1,149 @@
+/**
+ * Map data downloads (#64): the download list in
+ * layer rows and the Sources table, and the CSV progress dialog. Nothing here
+ * matches any element while the flag is off.
+ */
+
+/* ── Download list (layer rows and the Sources Download column) ── */
+
+.layer-downloads {
+  list-style: none;
+  margin: 0 0 0.45rem;
+  padding: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.layer-downloads__item + .layer-downloads__item {
+  margin-top: 0.2rem;
+}
+
+/* The CSV control is a button (it starts work) drawn like its neighbouring
+   links, so the panel's metadata line keeps one visual weight. */
+/* Inline, so the text and its size wrap as one sentence in a narrow cell. */
+.layer-downloads__link,
+.layer-downloads__csv {
+  display: inline;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: break-word;
+}
+
+.layer-downloads__csv {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.layer-downloads__link:focus-visible,
+.layer-downloads__csv:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
+  outline-offset: 2px;
+}
+
+.layer-downloads .mg-icon {
+  display: inline-block;
+  margin-inline-end: 0.3em;
+  text-decoration: none;
+}
+
+.layer-downloads__meta {
+  color: var(--color-text-muted);
+}
+
+.layer-downloads__source {
+  font-weight: 600;
+}
+
+/* ── CSV progress dialog (native <dialog>, top layer) ── */
+
+.download-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 0.5rem 2rem rgb(var(--mg-color-neutral-900) / 0.25);
+  color: var(--color-text);
+}
+
+.download-dialog::backdrop {
+  background: rgb(var(--mg-color-neutral-900) / 0.4);
+}
+
+.download-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.download-dialog__title {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.download-dialog__title:focus {
+  outline: none;
+}
+
+.download-dialog__title:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
+  outline-offset: 2px;
+}
+
+.download-dialog__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: rgb(var(--mg-color-neutral-500));
+  padding: 0.25rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.download-dialog__close:hover {
+  color: var(--color-primary);
+  background: rgb(var(--mg-color-neutral-25));
+}
+
+.download-dialog__close:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
+  outline-offset: 2px;
+}
+
+.download-dialog__progress[hidden] {
+  display: none;
+}
+
+.download-dialog__status {
+  margin: 0.75rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.download-dialog__status:empty {
+  display: none;
+}
+
+.download-dialog__actions {
+  margin-top: 1.25rem;
+  justify-content: flex-end;
+}
+
+/* Mangrove's buttons set their own display, which beats the hidden attribute. */
+.download-dialog__actions [hidden] {
+  display: none;
+}
+
+/* A download's temporary MapX view is on the map: hide the map frame (opacity
+   only, so it keeps rendering) until the view is removed. MapX paints a view
+   before it can be made transparent. The dialog backdrop covers the map then. */
+[data-ui="mapx"].is-reading-data {
+  opacity: 0;
+}
