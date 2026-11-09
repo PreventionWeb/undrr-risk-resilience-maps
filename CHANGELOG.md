@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Show a selectable hosted file URL beneath each GeoTIFF download so users can copy it into an alternate download manager.
+
 ### Changed
 
 - Resolve vector and GeoServer raster HTML legends through MapX's official structured legend API, preserving continuous ramps, grouped/custom legends and image fallback while removing parent-page GeoServer/mirror requests. Bound SDK waits and retain retryable failures.

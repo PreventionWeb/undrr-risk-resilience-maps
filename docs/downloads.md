@@ -30,7 +30,12 @@ stakeholder preview PIN when prompted (access details are shared separately).
    temporary reference view for region names.
 3. For a hosted raster, open `http://localhost:3001/#hazard?layers=landslides` and choose
    the GeoTIFF link in the expanded row. The link shows the file's size; files over 1 GB ask for
-   confirmation first.
+   confirmation first. Beneath each GeoTIFF link, **File URL** shows the hosted file’s full
+   address in a read-only field. Select and copy it to use an alternate download manager;
+   copying the URL does not start a download. CSVs are generated in the browser and have no
+   hosted file URL.
+
+![GeoTIFF file URL selected for copying into a download manager](images/geotiff-file-url.png)
 
 The CSV dialog names the current stage (fetching, preparing, starting) and uses an
 indeterminate Mangrove progress bar: the map service does not report bytes or time
