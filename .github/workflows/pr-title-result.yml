@@ -1,0 +1,29 @@
+name: Validate PR title
+
+on:
+  workflow_run:
+    workflows: [PR title request]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+concurrency:
+  group: pr-title-result-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  validate-title:
+    name: Publish title validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check current PR metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/publish-pr-title-status.mjs

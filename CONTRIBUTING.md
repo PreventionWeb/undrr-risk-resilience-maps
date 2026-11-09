@@ -4,8 +4,8 @@
 
 ## Workflow
 
-- Feature and fix changes go through **pull requests** — branch, PR, review, merge.
-- Dependency bumps, doc-only changes, and chore commits may go directly to `main` when no code review is needed.
+- Changes go through **pull requests** — branch, PR, review, squash merge.
+- `main` requires the Conventional PR title check; the repository uses squash merges with the PR title as the default commit subject.
 - PRs should be reviewed before merging.
 
 ## Tests
@@ -43,6 +43,17 @@ test may reach MapX, GeoServer or EDRA. See
 ## Commits
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/).
+
+Pull requests are squash-merged. Their titles are the default squash commit subjects, so
+use the same Conventional Commit format for PR titles. The required **Conventional
+PR title** check runs when a PR opens, its title changes, or new commits arrive.
+An optional scope and breaking-change `!` are supported, for example
+`feat(mapx): add structured legends` or `feat(embed)!: change the host API`.
+Allowed types are `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+`build`, `ci`, `chore`, and `revert`. Keep review-history commits on a branch as
+needed; keep the checked PR title as the squash subject. Do not override it with a nonconventional subject.
+The title check runs trusted default-branch code in a `workflow_run` workflow. It reads current PR metadata
+and publishes only the **Conventional PR title** status; it never executes PR head code.
 
 ```
 <type>[optional scope]: <description>
