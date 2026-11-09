@@ -157,6 +157,47 @@ describe("createRiskMap", () => {
     return instance;
   }
 
+  describe("map interaction policy", () => {
+    it("disables box zoom and mouse rotation without changing other handlers", async () => {
+      await start();
+      await manager.ready();
+      expect(manager.ask).toHaveBeenCalledWith("set_map_interactions", {
+        boxZoom: false,
+        dragRotate: false,
+      });
+    });
+
+    it("restores layers and emits ready even if interaction setup rejects", async () => {
+      manager.ask.mockImplementation((method) =>
+        method === "set_map_interactions" ? Promise.reject(new Error("unavailable")) : Promise.resolve(true),
+      );
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await start({ initialTab: "one", layers: [{ key: "alpha" }] });
+        const ready = vi.fn();
+        instance.on("ready", ready);
+        await manager.ready();
+        expect(viewAdd).toHaveBeenCalled();
+        expect(ready).toHaveBeenCalled();
+        expect(warning).toHaveBeenCalledWith("Could not configure MapX map interactions:", expect.any(Error));
+      } finally {
+        warning.mockRestore();
+      }
+    });
+
+    it("does not wait for interaction setup before restoring layers and emitting ready", async () => {
+      manager.ask.mockImplementation((method) =>
+        method === "set_map_interactions" ? new Promise(() => {}) : Promise.resolve(true),
+      );
+      await start({ initialTab: "one", layers: [{ key: "alpha" }] });
+      const ready = vi.fn();
+      instance.on("ready", ready);
+      await manager.ready();
+      expect(viewAdd).toHaveBeenCalled();
+      expect(ready).toHaveBeenCalled();
+    });
+  });
+
   describe("initial loading feedback", () => {
     it("ends busy state on ready and removes feedback on destroy", async () => {
       await start();

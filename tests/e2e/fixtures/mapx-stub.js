@@ -166,6 +166,9 @@
   }
 
   var HANDLERS = {
+    set_map_interactions: function () {
+      return true;
+    },
     // main.js, on ready
     set_immersive_mode: function () {
       return true;

@@ -363,6 +363,12 @@ export function createRiskMap(root, options = {}) {
       mapLoading.finish();
       setSDKReady(true);
 
+      // Keep ordinary navigation while preventing accidental box zoom and
+      // mouse rotation. This preference must not delay layer restoration.
+      mapx.ask("set_map_interactions", { boxZoom: false, dragRotate: false }).catch((error) => {
+        console.warn("Could not configure MapX map interactions:", error);
+      });
+
       if (!allowInspection) {
         // Blocking our click handler alone leaves MapX's own popup visible.
         // Suppress it before restoring layers, in dev and production alike,
