@@ -9,6 +9,8 @@ export const GAR_LAYERS = [
     id: "MX-9R5H9-I0WZ5-CHUV8",
     key: "water-scarcity-child-nutrition",
     label: "Water scarcity and child nutrition",
+    explainerUrl: "https://data.unicef.org/resources/childrens-climate-risk-index-report/",
+    note: "Maps the geographic overlap between water scarcity and poor child nutrition, showing where children may face both pressures.",
     type: "cc",
     desc: "Explores where water scarcity overlaps with poor child nutrition outcomes, highlighting areas where water-related pressures may compound children’s vulnerability.",
     source: "UNDRR, GAR 2025",
@@ -23,6 +25,8 @@ export const GAR_LAYERS = [
     id: "MX-Z7JZA-I9BQC-KKVOT",
     key: "fatalities-gem",
     label: "Human Fatalities Global seismic risk",
+    explainerUrl: "https://www.globalquakemodel.org/product/openquake-engine",
+    note: "Maps estimated fatalities due to earthquakes worldwide, based on the Global Earthquake Model’s seismic risk assessment.",
     csvDownload: "no: Not region-level (rows are grid cells with no region code).",
     type: "vt",
     geometry: "polygon",
@@ -39,6 +43,8 @@ export const GAR_LAYERS = [
     id: "MX-TQ2DK-9RHAJ-CRPAN",
     key: "ecolosses-gem",
     label: "Economic Losses Global seismic risk",
+    explainerUrl: "https://www.globalquakemodel.org/product/openquake-engine",
+    note: "Maps estimated direct economic losses from earthquakes worldwide, based on the Global Earthquake Model’s seismic risk assessment.",
     csvDownload: "no: Not region-level (rows are grid cells with no region code).",
     type: "vt",
     geometry: "polygon",
@@ -55,6 +61,8 @@ export const GAR_LAYERS = [
     id: "MX-DN3SY-ZR1E5-5PAB2",
     key: "disasters-idp",
     label: "Disasters and IDP",
+    explainerUrl: "https://www.internal-displacement.org/database/displacement-data/",
+    note: "Maps disaster occurrence alongside the distribution of internally displaced people, showing where disaster risk and displacement may overlap.",
     type: "cc",
     desc: "Compares disaster occurrence with the distribution of internally displaced people (IDPs), illustrating where displacement and disaster risk may overlap.",
     source: "UNDRR, GAR 2025",
@@ -69,6 +77,8 @@ export const GAR_LAYERS = [
     id: "MX-5FSR9-Y7LUW-BUCCB",
     key: "sdg-drought",
     label: "SDG15.3.1 and Drought frequency",
+    explainerUrl: "https://unstats.un.org/sdgs/dataportal",
+    note: "Maps drought frequency alongside the share of land that is degraded under SDG indicator 15.3.1, showing where the two pressures coincide.",
     downloads: [
       ["https://gar-data.unepgrid.ch/2026/SDG15_3_1.tif", 333771240],
       ["https://gar-data.unepgrid.ch/2026/droughtfreq30.tif", 44824306],
@@ -104,7 +114,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-CIIIB-BJ7B4-G1YG6",
@@ -112,7 +123,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-U104U-QMDX2-5UL94",
@@ -120,7 +132,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related wheat production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-JOTIK-6CSTJ-OA8DB",
@@ -128,7 +141,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-4MLSN-D6Y13-FAOJR",
@@ -136,7 +150,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-48ERS-5K1ZS-GMICQ",
@@ -144,7 +159,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related maize production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-WYZ5O-SZGIE-T597Q",
@@ -152,7 +168,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-KU5ID-GHTH8-C2WG3",
@@ -160,7 +177,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-FKKGD-7CMDG-ZV1PP",
@@ -168,7 +186,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related rice production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-JPPQA-C71PA-J3C58",
@@ -176,7 +195,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under current climate, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-WR2BR-2GJ3U-3G8GZ",
@@ -184,7 +204,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under a +2°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-6LQTF-XFQ99-B07H1",
@@ -192,7 +213,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the long-term expected annual drought-related soybean production loss under a +3°C warming level, expressed as a percentage of current national average production. AAL combines frequent and rare events according to their likelihood, so it describes average annual risk",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
     ],
     widget: { type: "sub-tabs", label: "Crop and climate scenario" },
@@ -218,7 +240,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-JRK39-37KVL-IJJ94",
@@ -226,7 +249,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-0IBHG-7TSG0-WZQDP",
@@ -234,7 +258,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated wheat production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-FZYQQ-DENKB-BFA8X",
@@ -242,7 +267,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-114YI-7PVSK-QYDA4",
@@ -250,7 +276,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-K3JC8-BS9WN-VF5QL",
@@ -258,7 +285,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated maize production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-1U3CC-72NY1-1H41D",
@@ -266,7 +294,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-58VRP-DC61S-U5NT7",
@@ -274,7 +303,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production. This corresponds to about a 2% chance in any given year",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-D1BQT-8E7R1-X6QXH",
@@ -282,7 +312,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated rice production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-Q0JWA-V69UI-YRDXZ",
@@ -290,7 +321,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under current climate, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-KV1RC-IJ1LI-5UDUZ",
@@ -298,7 +330,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under a +2°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-3SDJP-VGY08-QND0V",
@@ -306,7 +339,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Probable maximum loss for crops.",
         note: "Shows the estimated soybean production loss from a severe drought with a 1-in-50-year return period under a +3°C warming level, expressed as a percentage of current national average production.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
       },
     ],
     widget: { type: "sub-tabs", label: "Crop and climate scenario" },
@@ -332,7 +366,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global wheat production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-V9BNK-6JP5H-XCJ20",
@@ -340,7 +375,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global maize production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-P7CDI-BQGF4-KAGN6",
@@ -348,7 +384,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global rice production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-TYQLC-0R380-BNRPM",
@@ -356,7 +393,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Top 25 production",
         note: "Shows the share of global soybean production contributed by the 25 largest producing countries. It illustrates how geographically concentrated supply is; it is a production distribution map",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
     ],
     widget: { type: "sub-tabs", label: "Crop" },
@@ -382,7 +420,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows the combined average annual economic loss from drought-related production losses across maize, wheat, rice and soybean in the 25 largest producing countries, expressed in USD.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
       {
         id: "MX-H8H7M-X4L16-A01Q4",
@@ -390,7 +429,8 @@ export const GAR_LAYERS = [
         csvDownload: "yes",
         desc: "Average annual loss for crops.",
         note: "Shows average annual drought-related crop losses from the four crops in relation to GDP, helping compare the economic burden across countries of different sizes.",
-        explainerUrl: "",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
       },
     ],
     widget: { type: "sub-tabs", label: "Unit" },

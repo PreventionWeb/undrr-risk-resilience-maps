@@ -4,7 +4,6 @@ const AWAITING = "disabled-awaiting-data";
 const SOURCE_TBC = "Source to be confirmed.";
 const CITATION_TBC = "Source to be confirmed.";
 const LICENSE_TBC = "TBD";
-const NOTE_PENDING = "Awaiting data — MapX view not yet available.";
 
 const STEP_UNDERSTAND = "UNDERSTAND YOUR HAZARD PROFILE";
 const STEP_LINK = "LINK TO YOUR ECONOMIC AND SOCIAL EXPOSURE";
@@ -29,12 +28,18 @@ export const RESILIENCE_LAYERS = [
       {
         id: "MX-WOHMT-WYKWK-X25K9",
         label: "With support",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-of-fiscal-gap-through-drr-and-resilience-measures",
+        note: "Shows the modelled change in the disaster financing shortfall under a resilience scenario that includes financial support.",
         csvDownload: "yes",
         desc: "Change in fiscal gap with financial support.",
       },
       {
         id: "MX-5GL7W-40NYZ-T1IX1",
         label: "Without support",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-of-fiscal-gap-through-drr-and-resilience-measures",
+        note: "Shows the modelled change in the disaster financing shortfall under a resilience scenario that excludes financial support.",
         csvDownload: "yes",
         desc: "Change in fiscal gap without financial support.",
       },
@@ -45,6 +50,8 @@ export const RESILIENCE_LAYERS = [
     id: null,
     key: "recovery-consumption",
     label: "Recovery consumption",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-of-household-consumption-and-asset-ownership-resilience-after-an-extreme-event",
     type: "vt",
     geometry: "point",
     desc: "Post-disaster well-being, consumption recovery and asset ownership for the poorest households with and without resilient investment",
@@ -56,12 +63,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of post-disaster well-being, consumption recovery and asset ownership among the poorest households in scenarios with and without resilience investment.",
   },
   {
     id: null,
     key: "adaptation",
     label: "Adaptation in Infrastructure losses",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-infrastructure-losses-due-to-resilient-investment-adaptation",
     type: "vt",
     geometry: "point",
     desc: "Spatial distribution of adaptation measures and resilience interventions.",
@@ -73,13 +82,15 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Planned map of infrastructure adaptation and resilience measures. The viewer leaves the measure of avoided loss unspecified.",
   },
   // — Stubs from inventory (no MapX view yet) —
   {
     id: "MX-SL3SM-AR11B-4LQ8T",
     key: "early-warning-coverage",
     label: "Early Warning Coverage",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-multi-hazard-early-warning-system-comprehensiveness-score",
     csvDownload: "yes",
     type: "vt",
     desc: "Number of hazards covered by an early warning system and number of Admin 2 risk models.",
@@ -91,12 +102,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_UNDERSTAND,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Number of hazards covered by early warning systems and number of risk models at the second administrative level (Admin 2).",
   },
   {
     id: null,
     key: "economic-impacts-reduction",
     label: "Reduction in Economic Impacts of Multiple Shocks",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-impacts-of-multiple-hazards",
     type: "vt",
     desc: "Reduction in economic impacts of multiple shocks with resilient investment.",
     source: SOURCE_TBC,
@@ -107,12 +120,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_UNDERSTAND,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of economic impacts from multiple shocks in scenarios with and without additional resilience investment.",
   },
   {
     id: null,
     key: "life-years-adaptation-benefit",
     label: "Reduction in life years lost",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-life-years-lost",
     type: "vt",
     desc: "Adaptation benefit in relation to life years lost from disasters.",
     source: SOURCE_TBC,
@@ -123,12 +138,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed estimate of disaster-related years of life that adaptation could save. UNDRR and WHO are developing the methodology.",
   },
   {
     id: null,
     key: "recovery-utilities",
     label: "Recovery Time Utilities",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduced-recovery-time-of-utilities-and-restoration-of-public-assets-after-extreme-event",
     type: "vt",
     desc: "Recovery time of utilities after a major shock; restoration time for public assets.",
     source: SOURCE_TBC,
@@ -140,12 +157,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Estimated time to restore utilities and public assets after a major shock.",
   },
   {
     id: null,
     key: "agricultural-losses-reduction",
     label: "Reduction in Agricultural Losses",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-agricultural-losses-with-resilience-measures",
     type: "vt",
     desc: "Reduction in agricultural losses with and without resilience measures under RCP 2.6 and 8.5 scenarios.",
     source: SOURCE_TBC,
@@ -157,12 +176,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of agricultural losses with and without resilience measures under the RCP 2.6 and RCP 8.5 climate scenarios.",
   },
   {
     id: null,
     key: "food-price-impact",
     label: "Food Price Impact of Climate Change",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-food-price-variation-with-resilience-measures",
     type: "vt",
     desc: "Impact of climate change and resilience building on food prices (FAO elasticity calculations 2026–2027).",
     source: SOURCE_TBC,
@@ -174,12 +195,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed estimate of how food prices respond to climate change and resilience measures.",
   },
   {
     id: null,
     key: "resilient-housing-benefit",
     label: "Adaptation Benefit of Resilient Housing",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
     type: "vt",
     desc: "Adaptation benefit of increase in resilient housing including insurability, house price, mortgage and insurance affordability.",
     source: SOURCE_TBC,
@@ -191,12 +214,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Assessment of how more resilient housing affects access to insurance, house prices, and mortgage and insurance affordability.",
   },
   {
     id: null,
     key: "ecosystem-investment-benefit",
     label: "Adaptation Benefit via Ecosystem Investment",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-avoid-losses-with-ecosystem-investments",
     type: "vt",
     desc: "Adaptation benefit in reduced losses through ecosystem investment under RCP 2.6 and 8.5 scenarios.",
     source: SOURCE_TBC,
@@ -207,12 +232,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Potential losses avoided through ecosystem investment under the RCP 2.6 and RCP 8.5 climate scenarios.",
   },
   {
     id: null,
     key: "adaptation-benefit-gdp",
     label: "Adaptation Benefit to GDP Growth",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-resilience-benefit-to-gdp-growth-and-poverty-reduction",
     type: "vt",
     desc: "Adaptation benefit to GDP growth and benefit to poverty headcount without a major shock.",
     source: SOURCE_TBC,
@@ -223,12 +250,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Assessment of the effects of adaptation on GDP growth and the number of people living in poverty in a scenario without a major shock.",
   },
   {
     id: null,
     key: "resilience-benefit-gdp",
     label: "Resilience Benefit to GDP Growth",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-resilience-benefit-to-gdp-growth-with-and-without-investment-in-case-of-an-extreme-event",
     type: "vt",
     desc: "Resilience benefit to GDP growth with and without investment in case of a 1:100 year event.",
     source: SOURCE_TBC,
@@ -239,12 +268,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of GDP growth following a modelled 1-in-100-year event in scenarios with and without resilience investment.",
   },
   {
     id: null,
     key: "supply-chain-damage-reduction",
     label: "Reduction in Supply Chain Damage",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-supply-chain-damage-and-losses-through-drr-or-adaptation-investment",
     type: "vt",
     desc: "Reduction in supply chain damage with adaptation investment.",
     source: SOURCE_TBC,
@@ -255,12 +286,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed estimate of the disaster-related supply chain damage that adaptation investment could prevent.",
   },
   {
     id: null,
     key: "bank-solvency-resilience",
     label: "Bank Solvency with Resilience Measures",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-improvement-to-bank-solvency-in-case-of-an-extreme-event",
     type: "vt",
     desc: "Bank solvency to a PML event with and without resilience measures.",
     source: SOURCE_TBC,
@@ -271,12 +304,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of bank solvency under a severe loss scenario with and without resilience measures.",
   },
   {
     id: null,
     key: "sovereign-debt-pml",
     label: "Sovereign Debt Change (PML Event)",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-avoided-sovereign-debt-increase-in-case-of-an-extreme-event",
     type: "vt",
     desc: "Sovereign debt change due to a PML event (stress test).",
     source: SOURCE_TBC,
@@ -287,12 +322,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Stress test of government debt under a severe disaster scenario defined by probable maximum loss (PML).",
   },
   {
     id: null,
     key: "drr-future-spending",
     label: "Future DRR / Resilience Spending",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-increase-of-planned-drr-resilience-spending-relative-to-aal-pml",
     type: "vt",
     desc: "Future planned spending on DRR and resilience in relation to AAL/PML.",
     source: SOURCE_TBC,
@@ -303,12 +340,14 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of planned disaster risk reduction and resilience spending with modelled average annual loss and probable maximum loss.",
   },
   {
     id: null,
     key: "emergency-funding",
     label: "Emergency Funding Requirement",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduced-percentage-of-emergency-funding-required-in-extreme-events",
     type: "vt",
     desc: "Percentage of emergency funding required with and without a reserve in a PML event.",
     source: SOURCE_TBC,
@@ -319,6 +358,6 @@ export const RESILIENCE_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of the share of emergency funding required after a severe event in scenarios with and without a financial reserve.",
   },
 ];

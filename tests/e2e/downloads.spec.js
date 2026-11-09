@@ -44,7 +44,7 @@ test("a Sources dataset opens in the viewer, where its values-only CSV can be do
   await page.waitForFunction(() => window.__mapxStub?.ready === true);
   await expect(sourcesPage(page).locator("th", { hasText: /^Download$/ })).toHaveCount(0);
   await expect(sourcesPage(page).locator(".layer-downloads")).toHaveCount(0);
-  await sourcesPage(page).getByRole("link", { name: "Recovery Speed", exact: true }).click();
+  await sourcesPage(page).getByRole("link", { name: "Poorest: Earthquake", exact: true }).click();
   await expect(page).toHaveURL(/#risk-resilience\?layers=recovery-speed$/);
   const row = layerRow(page, "Recovery Speed");
   await settled(row);

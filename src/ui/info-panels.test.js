@@ -94,8 +94,10 @@ describe("buildSourcesPanel", () => {
     // The utility styles the cell, so the ids carry no element of their own.
     expect(panel.querySelector(".data-table__mapx-id code")).toBeNull();
     expect(panel.querySelector(".data-table__mapx-id .mg-badge")).toBeNull();
-    // A compound layer still lists one id per line.
-    expect(idCells.some((cell) => cell.querySelector("br"))).toBe(true);
+    // Scenario-specific notes expand compound layers into individual source rows.
+    const floodDepth = idCells.find((cell) => cell.textContent === "MX-V07LO-829XA-4BIZ8");
+    expect(floodDepth.closest("tr").textContent).toContain("modelled river flood depth");
+    expect(floodDepth.querySelector("br")).toBeNull();
     expect(idCells.some((cell) => /^MX-/.test(cell.textContent.trim()))).toBe(true);
   });
 
@@ -139,10 +141,10 @@ describe("buildSourcesPanel", () => {
     const panel = buildSourcesPanel();
     const links = [...panel.querySelectorAll("a.sources-map-link")];
     expect(links.length).toBeGreaterThan(30);
-    expect(links.find((link) => link.textContent === "Landslides").getAttribute("href")).toBe(
-      "#hazard?layers=landslides",
-    );
-    expect(links.find((link) => link.textContent === "Recovery Speed").getAttribute("href")).toBe(
+    expect(
+      panel.querySelector('#sources-hazard a[href="#hazard?layers=landslides"]')?.getAttribute("href"),
+    ).toBe("#hazard?layers=landslides");
+    expect(links.find((link) => link.textContent === "Poorest: Earthquake").getAttribute("href")).toBe(
       "#risk-resilience?layers=recovery-speed",
     );
     expect(
