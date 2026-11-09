@@ -38,7 +38,7 @@ describe("import-inventory --apply", () => {
     );
     const configPath = join(fixture, "src/config/layers/gar.js");
     const before = readFileSync(configPath, "utf8").replace(
-      'explainerUrl: ""',
+      /explainerUrl:\s*"[^"]*"/,
       'explainerUrl: "https://example.org/methodology#rice"',
     );
     writeFileSync(configPath, before);
@@ -65,7 +65,7 @@ describe("import-inventory --apply", () => {
     });
     const config = readFileSync(join(fixture, "src/config/layers/gar.js"), "utf8");
     expect(config).toContain('note: "First line, with a comma\\nSecond line: $&"');
-    expect(config).toContain('explainerUrl: "https://example.org/methodology#rice"');
+    expect(config).toMatch(/explainerUrl:\s*"https:\/\/example\.org\/methodology#rice"/);
     expect(config.match(/https:\/\/example.org\/methodology#rice/g)).toHaveLength(1);
     const second = execFileSync(
       process.execPath,
@@ -345,9 +345,10 @@ describe("import-inventory --apply", () => {
     const fixture = makeFixture();
     const configPath = join(fixture, "src/config/layers/hazard.js");
     const config = readFileSync(configPath, "utf8").replace(
-      /(id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n)\s+downloads: [^\n]+\n/,
+      /(id: "MX-V07LO-829XA-4BIZ8",[^{}]*?)\s+downloads: [^\n]+\n/,
       "$1",
     );
+    expect(config).not.toContain("global_pc_h25glob.tif");
     writeFileSync(configPath, config);
     execFileSync(process.execPath, [join(fixture, "scripts/import-inventory.mjs"), "--apply"], {
       cwd: fixture,
@@ -356,7 +357,7 @@ describe("import-inventory --apply", () => {
     const flooding = after.slice(after.indexOf('key: "river-flooding"'), after.indexOf("sources: ["));
     expect(flooding).not.toContain("downloads:");
     expect(after).toMatch(
-      /id: "MX-V07LO-829XA-4BIZ8",\n\s+label: "Depth",\n\s+downloads: \[\["https:\/\/gar-data\.unepgrid\.ch\/2026\/global_pc_h25glob\.tif", 3601777774\]\],/,
+      /id: "MX-V07LO-829XA-4BIZ8",[^{}]*?downloads: \[\["https:\/\/gar-data\.unepgrid\.ch\/2026\/global_pc_h25glob\.tif", 3601777774\]\],/,
     );
   });
 

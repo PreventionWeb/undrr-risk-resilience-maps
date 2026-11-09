@@ -26,6 +26,8 @@ export const RISK_LAYERS = [
     id: null,
     key: "multiple-hazards",
     label: "Multiple Hazards",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-impact-of-multiple-hazards",
     type: "vt",
     geometry: "point",
     desc: "Estimates how multiple hazards or shocks could jointly affect people, assets, services or welfare, highlighting risks that may be underestimated when shocks are assessed separately",
@@ -37,12 +39,14 @@ export const RISK_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed assessment of the combined effects of multiple hazards on people, assets, services or household well-being.",
   },
   {
     id: null,
     key: "years-lost",
     label: "Life year lost",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-life-years-lost-due-to-disasters",
     type: "vt",
     geometry: "point",
     desc: "Estimates the potential loss of human life and remaining life expectancy associated with disaster impacts, helping show how risk affects people across generations",
@@ -54,7 +58,7 @@ export const RISK_LAYERS = [
     r2rCategory: "Societies",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed estimate of the remaining years of life lost to premature disaster-related deaths. UNDRR and WHO are developing the methodology.",
   },
   {
     id: null,
@@ -74,48 +78,72 @@ export const RISK_LAYERS = [
       {
         id: "MX-VCP83-3E2TG-PJWFJ",
         label: "Poorest: Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year earthquake for households in the lowest income quintile within each country.",
         csvDownload: "yes",
         desc: "Poorest households - 1:100 earthquake event.",
       },
       {
         id: "MX-YBWIB-YLHIV-WKG2H",
         label: "Poorest: Flood",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year flood for households in the lowest income quintile within each country.",
         csvDownload: "yes",
         desc: "Poorest households - 1:100 flood event.",
       },
       {
         id: "MX-RTJQZ-WHX2B-SI4HB",
         label: "Poorest: Storm",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year storm for households in the lowest income quintile within each country.",
         csvDownload: "yes",
         desc: "Poorest households - 1:100 storm event.",
       },
       {
         id: "MX-DMKUU-PAPIT-W4EMP",
         label: "Poorest: Tsunami",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year tsunami for households in the lowest income quintile within each country.",
         csvDownload: "yes",
         desc: "Poorest households - 1:100 tsunami event.",
       },
       {
         id: "MX-HHA9G-4VUF9-CREXQ",
         label: "Richest: Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year earthquake for households in the highest income quintile within each country.",
         csvDownload: "yes",
         desc: "Richest households - 1:100 earthquake event.",
       },
       {
         id: "MX-MDFMH-34XOD-EU9HN",
         label: "Richest: Flood",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year flood for households in the highest income quintile within each country.",
         csvDownload: "yes",
         desc: "Richest households -  1:100 flood event.",
       },
       {
         id: "MX-PZYN0-UQZTF-J6I8N",
         label: "Richest: Storm",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year storm for households in the highest income quintile within each country.",
         csvDownload: "yes",
         desc: "Richest households -  1:100 storm event.",
       },
       {
         id: "MX-O4I9O-FHOJD-EHNNA",
         label: "Richest: Tsunami",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-recovery-speed-of-top-bottom-income-groups-from-a-1-in-100-year-event",
+        note: "Shows modelled consumption recovery after a 1-in-100-year tsunami for households in the highest income quintile within each country.",
         csvDownload: "yes",
         desc: "Richest households -  1:100 tsunami event.",
       },
@@ -140,18 +168,27 @@ export const RISK_LAYERS = [
       {
         id: "MX-443WM-S89FY-2ANCD",
         label: "Current",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Shows the expected direct disaster loss per year to public assets covered by the model under current climate conditions.",
         csvDownload: "yes",
         desc: "AAL for public assets under current climate.",
       },
       {
         id: "MX-6HW4M-X4PAM-WH46T",
         label: "RCP 2.6",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Shows the expected direct disaster loss per year to public assets covered by the model under the RCP 2.6 climate scenario.",
         csvDownload: "yes",
         desc: "AAL for public assets under RCP 2.6.",
       },
       {
         id: "MX-QLZI0-AXK6X-8OAN7",
         label: "RCP 8.5",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Shows the expected direct disaster loss per year to public assets covered by the model under the RCP 8.5 climate scenario.",
         csvDownload: "yes",
         desc: "AAL for public assets under RCP 8.5.",
       },
@@ -178,24 +215,36 @@ export const RISK_LAYERS = [
       {
         id: "MX-2V1JX-EV4WL-AQKZV",
         label: "Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Modelled direct earthquake losses to public infrastructure at a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML to public infrastructure - Earthquake",
       },
       {
         id: "MX-241F9-QO6FA-T9BU6",
         label: "Flood",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Modelled direct flood losses to public infrastructure at a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML to public infrastructure - Flood",
       },
       {
         id: "MX-T29Z1-M34D1-JUOCG",
         label: "Storm",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Modelled direct storm losses to public infrastructure at a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML to public infrastructure - Storm",
       },
       {
         id: "MX-IW2XA-WEITA-ROOG4",
         label: "Tsunami",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-losses-to-public-infrastructure",
+        note: "Modelled direct tsunami losses to public infrastructure at a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML to public infrastructure - Tsunami",
       },
@@ -219,10 +268,38 @@ export const RISK_LAYERS = [
     status: AWAITING,
     note: NOTE_PENDING,
     sources: [
-      { id: null, label: "Wheat", desc: "Average annual loss for crops." },
-      { id: null, label: "Maize", desc: "Average annual loss for crops." },
-      { id: null, label: "Rice", desc: "Average annual loss for crops." },
-      { id: null, label: "Soybean", desc: "Average annual loss for crops." },
+      {
+        id: null,
+        label: "Wheat",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
+        note: "Long-term average annual wheat production loss due to drought.",
+        desc: "Average annual loss for crops.",
+      },
+      {
+        id: null,
+        label: "Maize",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
+        note: "Long-term average annual maize production loss due to drought.",
+        desc: "Average annual loss for crops.",
+      },
+      {
+        id: null,
+        label: "Rice",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
+        note: "Long-term average annual rice production loss due to drought.",
+        desc: "Average annual loss for crops.",
+      },
+      {
+        id: null,
+        label: "Soybean",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
+        note: "Long-term average annual soybean production loss due to drought.",
+        desc: "Average annual loss for crops.",
+      },
     ],
     widget: { type: "sub-tabs", label: "Crop" },
   },
@@ -243,10 +320,38 @@ export const RISK_LAYERS = [
     status: AWAITING,
     note: NOTE_PENDING,
     sources: [
-      { id: null, label: "Wheat", desc: "Probable maximum loss for crops." },
-      { id: null, label: "Maize", desc: "Probable maximum loss for crops." },
-      { id: null, label: "Rice", desc: "Probable maximum loss for crops." },
-      { id: null, label: "Soybean", desc: "Probable maximum loss for crops." },
+      {
+        id: null,
+        label: "Wheat",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
+        note: "Modelled wheat production loss due to drought at a specified return period.",
+        desc: "Probable maximum loss for crops.",
+      },
+      {
+        id: null,
+        label: "Maize",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
+        note: "Modelled maize production loss due to drought at a specified return period.",
+        desc: "Probable maximum loss for crops.",
+      },
+      {
+        id: null,
+        label: "Rice",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
+        note: "Modelled rice production loss due to drought at a specified return period.",
+        desc: "Probable maximum loss for crops.",
+      },
+      {
+        id: null,
+        label: "Soybean",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
+        note: "Modelled soybean production loss due to drought at a specified return period.",
+        desc: "Probable maximum loss for crops.",
+      },
     ],
     widget: { type: "sub-tabs", label: "Crop" },
   },
@@ -268,36 +373,54 @@ export const RISK_LAYERS = [
       {
         id: "MX-YP5S0-VBMJK-R7IMX",
         label: "AAL Current",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the expected direct disaster loss per year to modelled housing stock under current climate conditions.",
         csvDownload: "yes",
         desc: "AAL for housing under current climate.",
       },
       {
         id: "MX-MKE3F-AONM0-27UM0",
         label: "AAL RCP 2.6",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the expected direct disaster loss per year to modelled housing stock under the RCP 2.6 climate scenario.",
         csvDownload: "yes",
         desc: "AAL for housing under RCP 2.6.",
       },
       {
         id: "MX-O1L8F-IKWHZ-VZTO7",
         label: "AAL RCP 8.5",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the expected direct disaster loss per year to modelled housing stock under the RCP 8.5 climate scenario.",
         csvDownload: "yes",
         desc: "AAL for housing under RCP 8.5.",
       },
       {
         id: "MX-ZA12C-TU5AH-L9K7P",
         label: "PML Current",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the modelled level of direct disaster loss to housing under current climate conditions, associated with a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML for housing under current climate.",
       },
       {
         id: "MX-XY8R2-9T29I-7235T",
         label: "PML RCP 2.6",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the modelled level of direct disaster loss to housing under the RCP 2.6 climate scenario, associated with a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML for housing under RCP 2.6.",
       },
       {
         id: "MX-VWYGB-7A6CV-QC1UG",
         label: "PML RCP 8.5",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-reduction-in-housing-losses-aal-pml",
+        note: "Shows the modelled level of direct disaster loss to housing under the RCP 8.5 climate scenario, associated with a selected annual exceedance probability.",
         csvDownload: "yes",
         desc: "PML for housing under RCP 8.5.",
       },
@@ -320,7 +443,7 @@ export const RISK_LAYERS = [
     r2rCategory: "Environment",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed measure of disaster-related ecosystem loss. The viewer leaves the loss indicator and unit unspecified.",
   },
   {
     id: null,
@@ -340,25 +463,45 @@ export const RISK_LAYERS = [
       {
         id: "MX-9NADN-CB8JT-WC1OD",
         label: "Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled average annual losses from earthquakes as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "AAL to GDP 2025 — earthquake.",
       },
       {
         id: "MX-Y0QE0-24K69-FKLY4",
         label: "Landslides",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled average annual losses from landslides as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "AAL to GDP 2025 — landslides.",
       },
       {
         id: "MX-1IW5U-0WB6E-23TWY",
         label: "Tropical Cyclones",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled average annual losses from tropical cyclones as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "AAL to GDP 2025 — tropical cyclones.",
       },
-      { id: "MX-YYCOH-BJR17-AI5DC", label: "Floods", csvDownload: "yes", desc: "AAL to GDP 2025 — floods." },
+      {
+        id: "MX-YYCOH-BJR17-AI5DC",
+        label: "Floods",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled average annual losses from floods as a share of GDP in the 2025 baseline.",
+        csvDownload: "yes",
+        desc: "AAL to GDP 2025 — floods.",
+      },
       {
         id: "MX-GWI29-SUI19-JI9NK",
         label: "Tsunamis",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled average annual losses from tsunamis as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "AAL to GDP 2025 — tsunamis.",
       },
@@ -383,25 +526,45 @@ export const RISK_LAYERS = [
       {
         id: "MX-D7PMU-PL88W-UYF2D",
         label: "Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-probable-maximum-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled losses from earthquakes at a selected annual exceedance probability, expressed as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "PML to GDP 2025 — earthquake.",
       },
       {
         id: "MX-AXEIH-GM2KV-TGOII",
         label: "Landslides",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-probable-maximum-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled losses from landslides at a selected annual exceedance probability, expressed as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "PML to GDP 2025 — landslides.",
       },
       {
         id: "MX-V0I12-3KA70-ZVMX9",
         label: "Tropical Cyclones",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-probable-maximum-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled losses from tropical cyclones at a selected annual exceedance probability, expressed as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "PML to GDP 2025 — tropical cyclones.",
       },
-      { id: "MX-2C1U4-W0QF9-OQ7EO", label: "Floods", csvDownload: "yes", desc: "PML to GDP 2025 — floods." },
+      {
+        id: "MX-2C1U4-W0QF9-OQ7EO",
+        label: "Floods",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-probable-maximum-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled losses from floods at a selected annual exceedance probability, expressed as a share of GDP in the 2025 baseline.",
+        csvDownload: "yes",
+        desc: "PML to GDP 2025 — floods.",
+      },
       {
         id: "MX-C7MNL-TEXT7-TN001",
         label: "Tsunamis",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-probable-maximum-losses-of-real-gdp-now-and-2050",
+        note: "Shows modelled losses from tsunamis at a selected annual exceedance probability, expressed as a share of GDP in the 2025 baseline.",
         csvDownload: "yes",
         desc: "PML to GDP 2025 — tsunamis.",
       },
@@ -427,30 +590,45 @@ export const RISK_LAYERS = [
       {
         id: "MX-X144T-FVH4D-CNILH",
         label: "Floods",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-chance-of-a-disaster-exceeding-public-financing-capacity-fiscal-gap",
+        note: "Shows how often losses from floods could exceed available public financing. A shorter return period indicates a more frequent potential shortfall.",
         csvDownload: "yes",
         desc: "Current fiscal gap — floods.",
       },
       {
         id: "MX-6R1HD-1QCSB-CDRCP",
         label: "Landslides",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-chance-of-a-disaster-exceeding-public-financing-capacity-fiscal-gap",
+        note: "Shows how often losses from landslides could exceed available public financing. A shorter return period indicates a more frequent potential shortfall.",
         csvDownload: "yes",
         desc: "Current fiscal gap — landslides.",
       },
       {
         id: "MX-VPWOT-F3J3E-N5CPW",
         label: "Tropical Cyclones",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-chance-of-a-disaster-exceeding-public-financing-capacity-fiscal-gap",
+        note: "Shows how often losses from tropical cyclones could exceed available public financing. A shorter return period indicates a more frequent potential shortfall.",
         csvDownload: "yes",
         desc: "Current fiscal gap — tropical cyclones.",
       },
       {
         id: "MX-HH3SN-J2JQY-ZKSZV",
         label: "Earthquake",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-chance-of-a-disaster-exceeding-public-financing-capacity-fiscal-gap",
+        note: "Shows how often losses from earthquakes could exceed available public financing. A shorter return period indicates a more frequent potential shortfall.",
         csvDownload: "yes",
         desc: "Current fiscal gap — earthquake.",
       },
       {
         id: "MX-I91L8-9WESU-ZXA05",
         label: "Tsunamis",
+        explainerUrl:
+          "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-chance-of-a-disaster-exceeding-public-financing-capacity-fiscal-gap",
+        note: "Shows how often losses from tsunamis could exceed available public financing. A shorter return period indicates a more frequent potential shortfall.",
         csvDownload: "yes",
         desc: "Current fiscal gap — tsunamis.",
       },
@@ -461,6 +639,8 @@ export const RISK_LAYERS = [
     id: null,
     key: "cost-supply-chain-disruption",
     label: "Supply Chain Disruption",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-annual-direct-economic-cost-of-supply-chain-disruption",
     type: "vt",
     geometry: "point",
     desc: "Economic cost of disaster-induced supply chain disruption.",
@@ -472,12 +652,14 @@ export const RISK_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Proposed estimate of the economic cost of disaster-related supply chain disruption, including impacts beyond the directly affected area or sector.",
   },
   {
     id: null,
     key: "bank-solvency-capital-adequacy",
     label: "Bank Solvency / Capital Adequacy",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-improvement-to-bank-solvency-in-case-of-an-extreme-event",
     type: "vt",
     geometry: "point",
     desc: "Bank solvency in an AAL year and capital adequacy indicators.",
@@ -489,12 +671,14 @@ export const RISK_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Assessment of banks’ ability to absorb losses and maintain adequate capital in a scenario at the average annual loss (AAL) level.",
   },
   {
     id: null,
     key: "sovereign-debt-stress-test",
     label: "Sovereign Debt Stress Test",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-avoided-sovereign-debt-increase-in-case-of-an-extreme-event",
     type: "vt",
     geometry: "point",
     desc: "Sovereign debt due to an AAL event (stress test).",
@@ -506,7 +690,7 @@ export const RISK_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_LINK,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Stress test of government debt under a disaster scenario at the average annual loss (AAL) level.",
   },
   {
     id: null,
@@ -523,12 +707,14 @@ export const RISK_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Spending on disaster risk reduction and resilience as a share of GDP.",
   },
   {
     id: null,
     key: "humanitarian-vs-prevention-expenditure",
     label: "Humanitarian vs. Prevention Expenditure",
+    explainerUrl:
+      "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-average-expenditure-on-humanitarian-relief",
     type: "vt",
     geometry: "point",
     desc: "Average expenditure on humanitarian relief compared to anticipatory action and prevention.",
@@ -540,6 +726,6 @@ export const RISK_LAYERS = [
     r2rCategory: "Economy",
     rrStep: STEP_PRIORITIZE,
     status: AWAITING,
-    note: NOTE_PENDING,
+    note: "Comparison of average spending on humanitarian relief, anticipatory action and prevention.",
   },
 ];

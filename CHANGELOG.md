@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Import programme-team explanatory notes and methodology links across the layer inventory, preserving GAR climate variants and reviewed download settings. Correct the inventory HDI type and unconfirmed life-years licence to match the viewer.
+
 ## [0.0.13] - 2026-11-09
 
 ### Added
