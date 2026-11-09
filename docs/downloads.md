@@ -28,9 +28,9 @@ stakeholder preview PIN when prompted (access details are shared separately).
 2. Wait for **Download started**, then choose **Done**. Closing the dialog or pressing Escape during
    the fetch cancels the download. If the map briefly blanks behind the dialog, it is reading a
    temporary reference view for region names.
-3. For a hosted raster, open `http://localhost:3001/#hazard?layers=landslides` and choose
+3. For a hosted raster, open `http://localhost:3001/#hazard?layers=river-flooding` and choose
    the GeoTIFF link in the expanded row. The link shows the file's size; files over 1 GB ask for
-   confirmation first. Beneath each GeoTIFF link, **File URL** shows the hosted file’s full
+   confirmation first. In that confirmation modal, **File URL** shows the hosted file’s full
    address in a read-only field. Select and copy it to use an alternate download manager;
    copying the URL does not start a download. CSVs are generated in the browser and have no
    hosted file URL.

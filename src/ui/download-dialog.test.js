@@ -313,6 +313,28 @@ describe("createDownloadDialog", () => {
       expect(retry().hidden).toBe(true);
     });
 
+    it("shows a selectable hosted URL only for the file confirmation that supplied it", () => {
+      void dialog.confirm({
+        title: "Download a large file?",
+        message: "big.tif is 3.6 GB.",
+        confirmLabel: "Download",
+        fileUrl: "https://files.example/big.tif",
+      });
+      const field = dialog.element.querySelector(".download-dialog__url");
+      const box = dialog.element.querySelector(".download-dialog__file");
+      expect(box.hidden).toBe(false);
+      expect(field.readOnly).toBe(true);
+      field.select();
+      expect(field.value.slice(field.selectionStart, field.selectionEnd)).toBe(
+        "https://files.example/big.tif",
+      );
+      dialog.open({ title: "Download CSV", run: () => new Promise(() => {}) });
+      expect(box.hidden).toBe(true);
+      expect(field.value).toBe("");
+      void ask();
+      expect(box.hidden).toBe(true);
+    });
+
     it("resolves true on the confirm button, closes and returns focus", async () => {
       const answer = ask();
       extra().click();

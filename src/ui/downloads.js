@@ -319,6 +319,7 @@ export function createDownloads({
       title: "Download a large file?",
       message: `${filename} is ${size}. It may take a long time and use a lot of data; a fast, unmetered connection is recommended.`,
       confirmLabel: `Download (${size})`,
+      fileUrl: url,
       opener: link,
     });
     if (ok) startFileDownload(url, filename);

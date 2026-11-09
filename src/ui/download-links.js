@@ -2,7 +2,7 @@
  * Download controls markup (#64); visibility is governed by features.js.
  *
  * `downloadListHtml(layer, source)` draws a view's download controls: a link
- * per hosted file (format, size and a selectable URL) and a "Download CSV"
+ * per hosted file (format and size) and a "Download CSV"
  * button for region-level vector views. The layer row and the Sources table
  * both use it. Clicks go to the caller's delegated listener
  * (`createDownloads().handleClick`, src/ui/downloads.js): the CSV button opens
@@ -45,7 +45,7 @@ export function downloadListHtml(layer, source = null, { prefix = "" } = {}) {
   const items = files.map((file) => {
     const size = formatBytes(file.bytes);
     const large = file.large ? ' data-large=""' : "";
-    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" target="_blank" rel="noopener" data-bytes="${file.bytes}"${large} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a><label class="layer-downloads__url-label"><span>File URL</span><textarea class="layer-downloads__url" rows="2" readonly spellcheck="false" aria-label="${escapeHtml(`File URL for ${file.filename}: ${name}`)}">${escapeHtml(file.url)}</textarea></label><p class="layer-downloads__hint">Copy this URL to use a download manager.</p></li>`;
+    return `<li class="layer-downloads__item">${lead}<a class="layer-downloads__link" href="${escapeHtml(file.url)}" download="${escapeHtml(file.filename)}" target="_blank" rel="noopener" data-bytes="${file.bytes}"${large} aria-label="${escapeHtml(`Download ${file.filename}: ${name} (${file.format}, ${size})`)}">${DOWNLOAD_ICON}Download ${escapeHtml(file.filename)} <span class="layer-downloads__meta">(${escapeHtml(file.format)}, ${escapeHtml(size)})</span></a></li>`;
   });
   if (csv) {
     items.push(

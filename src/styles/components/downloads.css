@@ -59,41 +59,6 @@
   font-weight: 600;
 }
 
-/* Keep hosted URLs selectable without following the download link. */
-.layer-downloads__url-label {
-  display: block;
-  margin-top: 0.4rem;
-  font-weight: 600;
-}
-
-.layer-downloads__url {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 40px;
-  margin-top: 0.2rem;
-  padding: 0.4rem;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--color-text);
-  font: inherit;
-  font-weight: 400;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  resize: vertical;
-}
-
-.layer-downloads__url:focus-visible {
-  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
-  outline-offset: 2px;
-}
-
-.layer-downloads__hint {
-  margin: 0.2rem 0 0.5rem;
-  color: var(--color-text-muted);
-}
-
 /* ── CSV progress dialog (native <dialog>, top layer) ── */
 
 .download-dialog {
@@ -181,4 +146,40 @@
    before it can be made transparent. The dialog backdrop covers the map then. */
 [data-ui="mapx"].is-reading-data {
   opacity: 0;
+}
+
+/* Keep hosted URLs selectable without following the download link. */
+.download-dialog__url-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-weight: 600;
+}
+
+.download-dialog__url {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 0.2rem;
+  padding: 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  resize: vertical;
+}
+
+.download-dialog__url:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
+  outline-offset: 2px;
+}
+
+.download-dialog__hint {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--color-text-muted);
 }

@@ -371,6 +371,8 @@ describe("large-file confirmation", () => {
     expect(dialogEl().dataset.state).toBe("confirm");
     expect(dialogEl().querySelector('[data-part="status"]').textContent).toContain("big.tif is 3.6 GB");
     expect(startFileDownload).not.toHaveBeenCalled();
+    expect(dialogEl().querySelector(".download-dialog__url").value).toBe("https://files.example/big.tif");
+    expect(dialogEl().querySelector(".download-dialog__file").hidden).toBe(false);
     dialogEl().querySelector('[data-action="extra"]').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(startFileDownload).toHaveBeenCalledWith("https://files.example/big.tif", "big.tif");

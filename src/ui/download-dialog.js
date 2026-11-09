@@ -45,7 +45,7 @@ const FOCUSABLE =
  * @param {{ doc?: Document }} [options]
  * @returns {{
  *   open(options: { title: string, run: (stepper: DialogStepper) => Promise<string>, opener?: Element|null }): void,
- *   confirm(options: { title: string, message: string, confirmLabel: string, opener?: Element|null }): Promise<boolean>,
+ *   confirm(options: { title: string, message: string, confirmLabel: string, fileUrl?: string, opener?: Element|null }): Promise<boolean>,
  *   close(): void,
  *   readonly element: HTMLDialogElement,
  *   readonly state: string|null,
@@ -71,6 +71,12 @@ export function createDownloadDialog({ doc = document } = {}) {
     </div>
     <p class="download-dialog__status" data-part="status"></p>
     <p class="download-dialog__notice mg-form-help" data-part="notice" hidden></p>
+    <div class="download-dialog__file" hidden>
+      <label class="download-dialog__url-label">File URL
+        <textarea class="download-dialog__url" rows="2" readonly spellcheck="false"></textarea>
+      </label>
+      <p class="download-dialog__hint">Copy this URL to use a download manager.</p>
+    </div>
     <div class="download-dialog__actions mg-buttons">
       <button type="button" class="mg-button mg-button-primary" data-action="extra" hidden></button>
       <button type="button" class="mg-button mg-button-primary" data-action="retry" hidden>Try again</button>
@@ -87,6 +93,8 @@ export function createDownloadDialog({ doc = document } = {}) {
   const value = dialog.querySelector('[data-part="value"]');
   const status = dialog.querySelector('[data-part="status"]');
   const notice = dialog.querySelector('[data-part="notice"]');
+  const fileBox = dialog.querySelector(".download-dialog__file");
+  const fileUrlField = dialog.querySelector(".download-dialog__url");
   const retryBtn = dialog.querySelector('[data-action="retry"]');
   const extraBtn = dialog.querySelector('[data-action="extra"]');
   const closeBtn = dialog.querySelector('.download-dialog__actions [data-action="close"]');
@@ -184,6 +192,8 @@ export function createDownloadDialog({ doc = document } = {}) {
   function show(text, run, opener) {
     settle(false); // a confirm still open is answered "no"
     current = { run, opener };
+    fileBox.hidden = true;
+    fileUrlField.value = "";
     title.textContent = text;
     dialog.setAttribute("aria-label", text);
     if (!dialog.isConnected) doc.body.appendChild(dialog);
@@ -206,12 +216,14 @@ export function createDownloadDialog({ doc = document } = {}) {
   /**
    * Ask before going on. Resolves true when the confirm button is pressed,
    * false on Cancel, Escape, ✕ or anything else that closes the dialog.
-   * @param {{ title: string, message: string, confirmLabel: string, opener?: Element|null }} options
+   * @param {{ title: string, message: string, confirmLabel: string, fileUrl?: string, opener?: Element|null }} options
    * @returns {Promise<boolean>}
    */
-  function confirm({ title: text, message, confirmLabel, opener = doc.activeElement }) {
+  function confirm({ title: text, message, confirmLabel, fileUrl = "", opener = doc.activeElement }) {
     if (destroyed) return Promise.resolve(false);
     show(text, null, opener);
+    fileUrlField.value = fileUrl;
+    fileBox.hidden = !fileUrl;
     generation++; // any earlier run is abandoned
     return new Promise((resolve) => {
       confirmAccepted = false;
@@ -283,7 +295,7 @@ export function createDownloadDialog({ doc = document } = {}) {
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = [...dialog.querySelectorAll(FOCUSABLE)].filter((el) => !el.hidden);
+      const focusable = [...dialog.querySelectorAll(FOCUSABLE)].filter((el) => !el.closest("[hidden]"));
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
