@@ -1,16 +1,23 @@
 /** Representative recorded contracts, 2026-10-23. No network access.
  * Full/current catalogue coverage belongs to the opt-in live audit, not this snapshot. */
+import sdkLegends from "../../tests/fixtures/legends/representative-sdk-legends.json";
+import { resolveParsedMapXLegend } from "./legends.js";
 import views from "../../tests/fixtures/legends/representative-mapx-views.json";
 import rasters from "../../tests/fixtures/legends/representative-geoserver.json";
 import { webcrypto } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { resolveCustomMapXLegend } from "./custom-legends.js";
-import { getGeoServerLegendJsonUrl, parseGeoServerRasterLegend } from "./raster-legends.js";
+import { parseGeoServerRasterLegend } from "./raster-legends.js";
 
 describe("representative upstream legend contracts", () => {
+  it("validates production 1.14.3 SDK envelopes recorded on 9 November", () => {
+    for (const [idView, response] of Object.entries(sdkLegends)) {
+      const resolution = resolveParsedMapXLegend(response, idView);
+      expect(!!resolution.legend, idView).toBe(response.supported);
+    }
+  });
   it("accepts recorded discrete, continuous and grouped raster styles", () => {
     for (const view of views.filter((view) => view.type === "rt")) {
-      expect(getGeoServerLegendJsonUrl(view.data.source.legend), view.id).toBeTruthy();
       expect(parseGeoServerRasterLegend(rasters[view.id]), view.id).toBeTruthy();
     }
   });

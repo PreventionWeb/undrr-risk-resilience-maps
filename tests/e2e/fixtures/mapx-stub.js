@@ -18,7 +18,7 @@
 (function () {
   "use strict";
 
-  var VERSION = "1.14.2";
+  var VERSION = "1.14.3";
 
   var stub = {
     ready: false,
@@ -211,14 +211,21 @@
     get_view_legend_image: function (params) {
       return legendImage(params.idView);
     },
-    /**
-     * The live catalogue src/sdk/legends.js reads. Raster views with no
-     * `data.source.legend` are what the app's approved-provider policy rejects
-     * without any request, so legend resolution falls to the image above —
-     * which is the real behaviour for every layer this suite touches except
-     * Earthquake PGA, whose GeoServer legend the suite deliberately does not
-     * reach. The result is a `[data-legend-reason="raster"]` image legend.
-     */
+    // Official SDK envelopes are injected by legend browser tests. Other views
+    // intentionally exercise the image fallback without contacting a provider.
+    get_view_legend_json: function (params) {
+      return (
+        (window.__mapxStubLegends || {})[params.idView] || {
+          idView: params.idView,
+          type: "rt",
+          provider: null,
+          supported: false,
+          data: null,
+          reason: "no_legend",
+        }
+      );
+    },
+    // Only reviewed custom-code legends need catalogue source hashes.
     get_views: function () {
       return Array.from(known).map(function (id) {
         return (

@@ -8,7 +8,13 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Resolve vector and GeoServer raster HTML legends through MapX's official structured legend API, preserving continuous ramps, grouped/custom legends and image fallback while removing parent-page GeoServer/mirror requests. Bound SDK waits and retain retryable failures.
+
 - Disable Shift-drag box zoom and Ctrl/right-drag map rotation in standalone and embedded viewers, preserving normal panning, zoom and keyboard navigation. Interaction setup failures do not block map startup.
+
+### Fixed
+
+- Show the no-data indicator consistently with Site Details' filtered attribute table, including null raster samples, while preserving genuine zero and valid measurements.
 
 ## [0.0.12] - 2026-11-06
 

@@ -1,6 +1,6 @@
 # ADR 0001: Guarded structured legends with image fallback
 
-- Status: Proposed
+- Status: Accepted; transport decision superseded by the 2026-11-09 extension
 - Date: 2026-07-24
 
 ## Context
@@ -72,3 +72,23 @@ For the four configured custom-code views, use reviewed local legend definitions
 pinned to SHA-256 of the upstream methods. Never evaluate upstream JavaScript.
 Fall back on drift; the live catalogue audit makes that drift visible before release.
 This adds current catalogue coverage without a generic custom-code or SLD interpreter.
+
+## 2026-11-09 extension: official SDK contract
+
+MapX 1.14.3 now supplies `get_view_legend_json({ idView })`, with an explicit
+provider and support status. This supersedes the vector catalogue extraction and
+parent-page direct/mirror raster transport decisions above. Use computed `mapx`
+vector rules and unchanged `geoserver` JSON through strict adapters. Preserve
+continuous ramps, groups, local definitions and `get_view_legend_image` fallback.
+ArcGIS is not implemented upstream.
+
+SDK requests have a five-second consumer deadline, manager/view/language-scoped
+success caching and shared in-flight requests. Failures are evicted for retry.
+The envelope is limited to 256 KiB after delivery, entries to 500 and groups to 20.
+This delivery limit bounds adapter work, not network buffering inside MapX.
+MapX owns discovery, HTTP requests, credentials, redirects and mirror policy;
+the parent no longer needs raster provider or mirror connection permissions.
+
+Only the four hash-pinned custom-code definitions still read catalogue metadata,
+solely to compare `data.methods`. Do not evaluate upstream code or treat successful
+catalogue reads as a guarantee of that remaining metadata contract.

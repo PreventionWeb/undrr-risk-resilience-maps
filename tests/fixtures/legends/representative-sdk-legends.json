@@ -1,0 +1,384 @@
+{
+  "MX-BDDVD-UDYMU-ZBBOC": {
+    "idView": "MX-BDDVD-UDYMU-ZBBOC",
+    "type": "vt",
+    "provider": "mapx",
+    "supported": true,
+    "data": {
+      "title": "Legend",
+      "geometry": "polygon",
+      "attribute": {
+        "name": "marine",
+        "type": "string"
+      },
+      "rules": [
+        {
+          "value": "1",
+          "value_to": "2",
+          "label": "Coastal",
+          "labels": {
+            "en": "Coastal"
+          },
+          "color": "#0000ff",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": "rgb(113 66 255 / 0.5)"
+        },
+        {
+          "value": "2",
+          "value_to": null,
+          "label": "Marine",
+          "labels": {
+            "en": "Marine"
+          },
+          "color": "#00ffff",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": "rgb(0 203 204 / 0.5)"
+        }
+      ]
+    }
+  },
+  "MX-J3YTW-RUQN3-40P87": {
+    "idView": "MX-J3YTW-RUQN3-40P87",
+    "type": "rt",
+    "provider": "geoserver",
+    "supported": true,
+    "data": {
+      "Legend": [
+        {
+          "layerName": "PGA_250y",
+          "title": "Peak Ground Acceleration PGA - 250 Years",
+          "rules": [
+            {
+              "symbolizers": [
+                {
+                  "Raster": {
+                    "colormap": {
+                      "entries": [
+                        {
+                          "label": "0",
+                          "quantity": "0.1",
+                          "color": "#808080",
+                          "opacity": "0.0"
+                        },
+                        {
+                          "label": "< 100",
+                          "quantity": "100",
+                          "color": "#FFF195"
+                        },
+                        {
+                          "label": "100 - 250",
+                          "quantity": "250",
+                          "color": "#FFD93D"
+                        },
+                        {
+                          "label": "250 - 500",
+                          "quantity": "500",
+                          "color": "#FDAE61"
+                        },
+                        {
+                          "label": "500 - 1000",
+                          "quantity": "1000",
+                          "color": "#D7191C"
+                        },
+                        {
+                          "label": "> 1000",
+                          "quantity": "5000",
+                          "color": "#5F021F"
+                        }
+                      ],
+                      "type": "intervals"
+                    },
+                    "opacity": "1.0"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "MX-FF8JM-ZLBR5-8HKIF": {
+    "idView": "MX-FF8JM-ZLBR5-8HKIF",
+    "type": "rt",
+    "provider": "geoserver",
+    "supported": true,
+    "data": {
+      "Legend": [
+        {
+          "layerName": "Wind_T50",
+          "title": "Tropical Cyclone Wind - 50 Years",
+          "rules": [
+            {
+              "symbolizers": [
+                {
+                  "Raster": {
+                    "colormap": {
+                      "entries": [
+                        {
+                          "label": "< 80",
+                          "quantity": "80",
+                          "color": "#EEF5FC",
+                          "opacity": "0.0"
+                        },
+                        {
+                          "label": "80 - 150",
+                          "quantity": "150",
+                          "color": "#C8DDF0"
+                        },
+                        {
+                          "label": "150 - 250",
+                          "quantity": "250",
+                          "color": "#73B3D8"
+                        },
+                        {
+                          "label": "250 - 350",
+                          "quantity": "350",
+                          "color": "#2879B9"
+                        },
+                        {
+                          "label": "> 350",
+                          "quantity": "1000",
+                          "color": "#08306B"
+                        }
+                      ],
+                      "type": "ramp"
+                    },
+                    "opacity": "1.0",
+                    "vendor-options": {
+                      "brightness": "0.519608"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "MX-3JEC0-8ZTTQ-OQ7SU": {
+    "idView": "MX-3JEC0-8ZTTQ-OQ7SU",
+    "type": "rt",
+    "provider": "geoserver",
+    "supported": true,
+    "data": {
+      "Legend": [
+        {
+          "layerName": "HWER_50",
+          "title": "Heatwave exceedance rate for a heat index > 50\u00b0C",
+          "rules": [
+            {
+              "symbolizers": [
+                {
+                  "Raster": {
+                    "colormap": {
+                      "entries": [
+                        {
+                          "label": " 0.0",
+                          "quantity": "0",
+                          "color": "#FFF5F0"
+                        },
+                        {
+                          "label": " 4.5",
+                          "quantity": "4.465438809",
+                          "color": "#FEE0D2"
+                        },
+                        {
+                          "label": " 8.9",
+                          "quantity": "8.930877618",
+                          "color": "#FCBBA1"
+                        },
+                        {
+                          "label": " 13.4",
+                          "quantity": "13.396316427",
+                          "color": "#FC9272"
+                        },
+                        {
+                          "label": " 17.9",
+                          "quantity": "17.861755236",
+                          "color": "#FB6A4A"
+                        },
+                        {
+                          "label": " 22.3",
+                          "quantity": "22.327194045000002",
+                          "color": "#EF3B2C"
+                        },
+                        {
+                          "label": " 26.8",
+                          "quantity": "26.792632854",
+                          "color": "#CB181D"
+                        },
+                        {
+                          "label": " 30.9",
+                          "quantity": "30.914576370000002",
+                          "color": "#A50F15"
+                        },
+                        {
+                          "label": " 34.3",
+                          "quantity": "34.3495293",
+                          "color": "#67000D"
+                        }
+                      ],
+                      "type": "ramp"
+                    },
+                    "opacity": "1.0"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "MX-YLZJG-JAIID-V27X5": {
+    "idView": "MX-YLZJG-JAIID-V27X5",
+    "type": "cc",
+    "supported": false,
+    "reason": "unsupported_view_type"
+  },
+  "MX-VCP83-3E2TG-PJWFJ": {
+    "idView": "MX-VCP83-3E2TG-PJWFJ",
+    "type": "vt",
+    "provider": "mapx",
+    "supported": true,
+    "data": {
+      "title": "% of consumption recovered after 1 year of event",
+      "geometry": "polygon",
+      "attribute": {
+        "name": "j0_recoveryspeedearthquakeq1",
+        "type": "number"
+      },
+      "rules": [
+        {
+          "value": 0,
+          "value_to": 20,
+          "label": "0 - 20",
+          "labels": {
+            "ar": "0 - 11.5",
+            "bn": "0 - 11.5",
+            "de": "0 - 11.5",
+            "en": "0 - 20",
+            "es": "0 - 11.5",
+            "fa": "0 - 11.5",
+            "fr": "0 - 11.5",
+            "ps": "0 - 11.5",
+            "ru": "0 - 11.5",
+            "zh": "0 - 11.5"
+          },
+          "color": "#f7f4f9",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        },
+        {
+          "value": 20,
+          "value_to": 40,
+          "label": "20 - 40",
+          "labels": {
+            "ar": "11.5 - 35.2",
+            "bn": "11.5 - 35.2",
+            "de": "11.5 - 35.2",
+            "en": "20 - 40",
+            "es": "11.5 - 35.2",
+            "fa": "11.5 - 35.2",
+            "fr": "11.5 - 35.2",
+            "ps": "11.5 - 35.2",
+            "ru": "11.5 - 35.2",
+            "zh": "11.5 - 35.2"
+          },
+          "color": "#d4b9da",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        },
+        {
+          "value": 40,
+          "value_to": 60,
+          "label": "40 - 60",
+          "labels": {
+            "ar": "35.2 - 55.3",
+            "bn": "35.2 - 55.3",
+            "de": "35.2 - 55.3",
+            "en": "40 - 60",
+            "es": "35.2 - 55.3",
+            "fa": "35.2 - 55.3",
+            "fr": "35.2 - 55.3",
+            "ps": "35.2 - 55.3",
+            "ru": "35.2 - 55.3",
+            "zh": "35.2 - 55.3"
+          },
+          "color": "#df65b0",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        },
+        {
+          "value": 60,
+          "value_to": 80,
+          "label": "60 - 80",
+          "labels": {
+            "ar": "55.3 - 68.5",
+            "bn": "55.3 - 68.5",
+            "de": "55.3 - 68.5",
+            "en": "60 - 80",
+            "es": "55.3 - 68.5",
+            "fa": "55.3 - 68.5",
+            "fr": "55.3 - 68.5",
+            "ps": "55.3 - 68.5",
+            "ru": "55.3 - 68.5",
+            "zh": "55.3 - 68.5"
+          },
+          "color": "#ce1256",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        },
+        {
+          "value": 80,
+          "value_to": 100,
+          "label": "80 - 100",
+          "labels": {
+            "ar": "68.5 - 90.2",
+            "bn": "68.5 - 90.2",
+            "de": "68.5 - 90.2",
+            "en": "80 - 100",
+            "es": "68.5 - 90.2",
+            "fa": "68.5 - 90.2",
+            "fr": "68.5 - 90.2",
+            "ps": "68.5 - 90.2",
+            "ru": "68.5 - 90.2",
+            "zh": "68.5 - 90.2"
+          },
+          "color": "#67001f",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        },
+        {
+          "value": null,
+          "value_to": null,
+          "label": "No data",
+          "labels": {
+            "en": "No data"
+          },
+          "color": "#a9a9a9",
+          "opacity": 0.7,
+          "size": 1,
+          "sprite": null,
+          "color_border": null
+        }
+      ]
+    }
+  }
+}

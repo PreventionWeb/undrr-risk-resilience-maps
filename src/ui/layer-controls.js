@@ -17,6 +17,11 @@ export { normalizeLayerTransparency };
 
 const IMAGE_FALLBACK_LABELS = {
   raster: "Structured raster legend not supported — showing MapX image",
+  "no-legend": "Structured legend unavailable — showing MapX image",
+  "unsupported-provider": "Structured legend not supported — showing MapX image",
+  "sdk-unavailable": "Structured legend unavailable — showing MapX image",
+  "fetch-failed": "Structured legend unavailable — showing MapX image",
+  "invalid-response": "Structured legend invalid — showing MapX image",
   "raster-json-unavailable": "Structured raster legend unavailable — showing MapX image",
   "raster-json-invalid": "Structured raster legend invalid — showing MapX image",
   "raster-json-unsupported": "Raster style not supported — showing MapX image",
@@ -186,8 +191,8 @@ export async function addLegend(layer, container) {
       fallbackDiagnostic = resolution.diagnostic ?? null;
     } catch {
       if (!isCurrentRequest()) return;
-      fallbackReason = "catalog-miss";
-      // Catalogue errors fall through to the MapX image fallback.
+      fallbackReason = "sdk-unavailable";
+      // SDK errors fall through to the MapX image fallback.
     }
   }
 

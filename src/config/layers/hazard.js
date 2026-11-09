@@ -82,6 +82,7 @@ export const HAZARD_LAYERS = [
         id: "MX-V07LO-829XA-4BIZ8",
         label: "Depth",
         downloads: [["https://gar-data.unepgrid.ch/2026/global_pc_h25glob.tif", 3601777774]],
+        legendNote: "Source legend unit: cm. “Absent” means that no data is reported for that location.",
         desc: "Flood depth in mm, 25yr return period.",
       },
       {
@@ -104,6 +105,7 @@ export const HAZARD_LAYERS = [
     key: "earthquake-pga",
     label: "Earthquake PGA",
     type: "rt",
+    legendNote: "Peak ground acceleration (cm/s²).",
     desc: "Peak Ground Acceleration from the GEM Global Seismic Hazard Map.",
     source: "Global Earthquake Model (GEM) Foundation.",
     sourceUrl: "https://www.globalquakemodel.org/gem",
