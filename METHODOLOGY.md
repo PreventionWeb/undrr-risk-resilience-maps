@@ -20,17 +20,25 @@ The only unauthenticated way to enumerate views is through the SDK's iframe post
 2. Creates an `mxsdk.Manager` instance pointing at a project
 3. Waits for the `ready` event
 4. Calls `get_views` to get the full view catalogue
-5. Writes per-project JSON and a combined CSV to `research/`
+5. Writes per-project JSON and a combined CSV to the selected output directory
 
-Run it with:
+After the [README setup](README.md#developing), install Chromium on the first run.
+Create a separate output directory to preserve the checked-in research snapshots;
+the helper requires the directory to exist and overwrites matching output files.
 
 ```bash
-npx playwright install chromium           # first run, after the README setup
-node scripts/probe-mapx-views.js            # writes to research/
-node scripts/probe-mapx-views.js /tmp/probe  # or another directory
+npx playwright install chromium  # first run only
+mkdir -p /tmp/probe
+node scripts/probe-mapx-views.js /tmp/probe
 ```
 
-This produces `research/mapx-views-{project}.json` files and a `research/mapx-views-all.csv` with every view ID, type, title, and description across all probed projects.
+This produces `/tmp/probe/mapx-views-{project}.json` files and
+`/tmp/probe/mapx-views-all.csv` with every view ID, type, title, and description
+across all probed projects. Substitute another existing directory if needed.
+
+Running `node scripts/probe-mapx-views.js` without an output argument writes to
+`research/` and overwrites matching research snapshots. Use that default only
+when deliberately refreshing those records.
 
 ### Known MapX projects
 
@@ -74,7 +82,7 @@ Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key 
 
 ### Probe output files
 
-The probe script writes to `research/`:
+The probe script writes these files to the selected directory (`research/` by default):
 
 - `mapx-views-eco-drr.json` and `mapx-views-home.json` — per-project view details
 - `mapx-views-all.csv` — combined flat catalogue

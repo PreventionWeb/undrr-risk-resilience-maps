@@ -78,8 +78,9 @@ existing 14-column repository CSV unchanged.
 - A content editor mirrors approved tracker metadata into `data/inventory.csv`.
 - Engineering runs `node scripts/import-inventory.mjs` as a dry-run. `External runtime` maps to a
   published layer but intentionally supplies no MapX ID.
-- Metadata changes that the importer does not patch—description, source, citation, licence, source
-  URL, controls, or provider settings—still require a reviewed code change.
+- The importer syncs descriptions and other supported fields through the reviewed
+  [inventory workflow](inventory.md). Source, citation, licence, source URL, controls and provider
+  settings still require manual configuration edits and review.
 - Engineering must re-run the external-layer contract tests and a live browser check when the
   source API, crop list, scenarios, geometry, or styling changes.
 
