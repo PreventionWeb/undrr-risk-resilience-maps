@@ -10,7 +10,7 @@
 A robust working prototype has been built. We are now defining **Version 1** — the production-ready release. This is the right moment to raise anything that isn't captured here, because:
 
 - Changes to V1 scope after build begins carry significant effort and cost implications
-- Anything not listed in §3 "In scope at V1" is explicitly deferred — it will not be in the first release
+- Anything not listed in [§4 "In scope at production launch"](#in-scope-at-production-launch) is explicitly deferred — it will not be in the first release
 - The resourcing plan in [Resourcing Plan](resourcing-plan.md) is based on this scope
 
 **If something is missing, wrong, or unclear — flag it before sign-off.**  
@@ -100,7 +100,7 @@ The following is implemented and tested as of July 2026:
 ### Content pipeline
 
 - `data/inventory.csv`: master layer inventory, column-aligned to the programme team's spreadsheet; source of truth for layer metadata. Runtime external layers have a blank MapX ID and `External runtime` status.
-- `scripts/import-inventory.mjs`: dry-run diff tool and `--apply` mode to patch MapX view IDs and status changes from CSV into JS config
+- `scripts/import-inventory.mjs`: dry-run comparison and reviewed CSV-to-config updates; see the [inventory workflow](inventory.md) for supported fields and manual edits
 - CSV export (Sources page): generates a timestamped CSV of the current layer inventory
 - `docs/external-layers.md`: approval, tracker, architecture, performance, and operating requirements for exceptional non-MapX sources
 

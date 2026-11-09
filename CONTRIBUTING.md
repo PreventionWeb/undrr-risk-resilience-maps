@@ -1,6 +1,6 @@
 # Contributing
 
-> Keep this document updated as the project evolves.
+Start with the [README setup](README.md#developing) for Node, Yarn and the local viewer.
 
 ## Workflow
 
@@ -8,9 +8,22 @@
 - `main` requires the Conventional PR title check; the repository uses squash merges with the PR title as the default commit subject.
 - PRs should be reviewed before merging.
 
-## Tests
+## Checks and tests
 
-- `yarn test` — unit tests (vitest + jsdom). Fast; run these constantly.
+Before submitting code or inventory changes, run the checks used by
+[CI](.github/workflows/ci.yml):
+
+```bash
+yarn lint
+yarn test
+yarn build
+```
+
+CI also runs the browser suite in a separate job. For documentation changes, verify affected
+links, anchors, commands and claims; choose executable checks for the instructions changed.
+Check formatting on edited files with `yarn prettier --check <files>`.
+
+- `yarn test` — unit tests (vitest + jsdom).
 - `yarn test:e2e` — the Chromium smoke suite (Playwright). It starts its own Vite
   dev server on port 3040, so nothing needs launching first. First run only:
   `npx playwright install chromium`.
@@ -39,6 +52,25 @@ is only for guarantees that need a real browser (URL and history, focus and
 keys, what actually renders). MapX is stubbed there and must stay stubbed — no
 test may reach MapX, GeoServer or EDRA. See
 [ARCHITECTURE.md](ARCHITECTURE.md#testing) for the split and the stub.
+
+### Live upstream checks
+
+These optional commands contact real services and are separate from the stubbed suites:
+
+| Command                          | Runbook                                                          |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `yarn test:edra-contract`        | [External runtime layers](docs/external-layers.md)               |
+| `yarn test:mapx-raster-contract` | [Legend contracts and QA](docs/legends.md#tests-and-comparisons) |
+| `yarn test:downloads-contract`   | [Download maintenance](docs/downloads.md#maintenance)            |
+
+Run them when the relevant source contract changes or its runbook calls for a release check.
+
+### Agent guidance
+
+When working with Claude Code, use the **MapX SDK skill** (`/mapx-sdk-dev`) if available
+for embedding, view management or SDK integration. It covers the postMessage bridge,
+view queries and map controls. Repository setup and contribution rules remain here and
+in the README.
 
 ## Commits
 
@@ -69,7 +101,7 @@ The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-c
 
 ## Releasing
 
-A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) builds the highest `vX.Y.Z` tag into `/m/risk-and-resilience-maps/`. Merging to `main` only updates the GitHub Pages preview. See [README § Deployment](README.md#deployment).
+A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) builds the highest `vX.Y.Z` tag into `/m/risk-and-resilience-maps/`. Merging to `main` only updates the GitHub Pages preview. See [deployment requirements](docs/deployment.md).
 
 1. Open a `chore: release vX.Y.Z` PR that turns `## [Unreleased]` in the CHANGELOG into `## [X.Y.Z] - YYYY-MM-DD` and sets `version` in `package.json`. Merge it.
 2. Tag the merge commit on `main` with an annotated tag and push it:
@@ -90,6 +122,13 @@ To hold back or roll back, set the `MAPS_VERSION` CI/CD variable in drupal-micro
 
 ## Documentation
 
-Keep project docs updated alongside code changes. See the [README](README.md#project-documentation) for the full list of documentation files and what each one covers.
+Keep project docs updated alongside code changes. Use the [documentation index](docs/index.md)
+to find the maintained guide for each task. Update that guide and link to it rather than
+copying detailed instructions into the README, architecture, learnings and scope documents.
+The README should keep orientation, first use, adoption limits and routes to deeper guides.
+
+Update the index when adding a guide. Keep proposals, dated findings and archived research
+distinct from current instructions; prototype implementation does not approve V1 scope.
+Preserve required credits and the conditions attached to recorded measurements.
 
 When adding new work items, use [TODO.md](TODO.md). When discovering SDK quirks, design constraints, or non-obvious decisions, record them in [LEARNINGS.md](LEARNINGS.md).

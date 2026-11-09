@@ -2,7 +2,9 @@
 
 > MapX view ID discovery approach and API research. This covers how view IDs were found during the research phase.
 >
-> **Source of truth for view IDs:** [`data/inventory.csv`](data/inventory.csv) — maintained via [`scripts/import-inventory.mjs`](scripts/import-inventory.mjs). The probe and search methods below are for _discovering_ new view IDs, not for day-to-day maintenance.
+> **Source of truth for view IDs:** [`data/inventory.csv`](data/inventory.csv). Follow the [inventory workflow](docs/inventory.md) for day-to-day maintenance. The probe and search methods below record research-phase discovery approaches.
+>
+> **November 2026 navigation note:** the API observations below retain their original research conditions. See [the MapX 1.14.2 acceptance record](LEARNINGS.md#mapx-1142-production-acceptance-29-october-2026) for later integration findings; the original claims of exclusive catalogue access below are not a current comparison of all MapX endpoints.
 
 ## Discovering MapX view IDs
 
@@ -23,6 +25,7 @@ The only unauthenticated way to enumerate views is through the SDK's iframe post
 Run it with:
 
 ```bash
+npx playwright install chromium           # first run, after the README setup
 node scripts/probe-mapx-views.js            # writes to research/
 node scripts/probe-mapx-views.js /tmp/probe  # or another directory
 ```
@@ -73,7 +76,9 @@ Response hits include `view_id`, `title`, `project_id`, and `abstract`. API key 
 
 The probe script writes to `research/`:
 
-- `mapx-views-eco-drr.json` / `.csv` — 85 views from Eco-DRR project
-- `mapx-views-home.json` / `.csv` — 22 views from HOME project
+- `mapx-views-eco-drr.json` and `mapx-views-home.json` — per-project view details
+- `mapx-views-all.csv` — combined flat catalogue
 
-These are raw dumps used to build the [crosswalk](research/gri-mapx-crosswalk.csv).
+The existing raw dumps were used to build the [crosswalk](research/gri-mapx-crosswalk.csv).
+The April catalogue counts above describe that research snapshot. Use a separate output
+directory when probing current catalogues to preserve those records.
