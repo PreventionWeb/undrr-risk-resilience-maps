@@ -147,3 +147,38 @@
 [data-ui="mapx"].is-reading-data {
   opacity: 0;
 }
+
+/* Path separators are preferred wrap points; long filenames can still wrap. */
+.download-dialog__url-label {
+  margin: 0.75rem 0 0.35rem;
+  font-weight: 600;
+}
+
+.download-dialog__url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.download-dialog__url {
+  display: block;
+  min-width: 0;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  user-select: text;
+}
+
+.download-dialog__copy {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.download-dialog__hint {
+  margin: 0.4rem 0 0;
+  color: var(--color-text-muted);
+}

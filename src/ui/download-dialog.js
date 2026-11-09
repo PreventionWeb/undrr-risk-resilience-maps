@@ -24,6 +24,8 @@
  * MapX call cannot be), but its result is ignored and nothing is downloaded.
  */
 import { createLayerAnnouncer } from "./announcer.js";
+import { escapeHtml } from "../utils/html.js";
+import { attachCopyButtonFallback } from "./mangrove-copy-button.js";
 
 const STEPS = ["fetching", "processing", "downloading"];
 // A one-off hint for a slow fetch, not a duration estimate or a stall detector.
@@ -45,7 +47,7 @@ const FOCUSABLE =
  * @param {{ doc?: Document }} [options]
  * @returns {{
  *   open(options: { title: string, run: (stepper: DialogStepper) => Promise<string>, opener?: Element|null }): void,
- *   confirm(options: { title: string, message: string, confirmLabel: string, opener?: Element|null }): Promise<boolean>,
+ *   confirm(options: { title: string, message: string, confirmLabel: string, fileUrl?: string, opener?: Element|null }): Promise<boolean>,
  *   close(): void,
  *   readonly element: HTMLDialogElement,
  *   readonly state: string|null,
@@ -71,6 +73,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     </div>
     <p class="download-dialog__status" data-part="status"></p>
     <p class="download-dialog__notice mg-form-help" data-part="notice" hidden></p>
+    <div class="download-dialog__file" hidden></div>
     <div class="download-dialog__actions mg-buttons">
       <button type="button" class="mg-button mg-button-primary" data-action="extra" hidden></button>
       <button type="button" class="mg-button mg-button-primary" data-action="retry" hidden>Try again</button>
@@ -87,6 +90,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   const value = dialog.querySelector('[data-part="value"]');
   const status = dialog.querySelector('[data-part="status"]');
   const notice = dialog.querySelector('[data-part="notice"]');
+  const fileBox = dialog.querySelector(".download-dialog__file");
   const retryBtn = dialog.querySelector('[data-action="retry"]');
   const extraBtn = dialog.querySelector('[data-action="extra"]');
   const closeBtn = dialog.querySelector('.download-dialog__actions [data-action="close"]');
@@ -104,6 +108,44 @@ export function createDownloadDialog({ doc = document } = {}) {
   let confirmAccepted = false;
   let destroyed = false;
   let waitHintTimer = null;
+  let detachCopyFallback = () => {};
+
+  function clearFile() {
+    detachCopyFallback();
+    detachCopyFallback = () => {};
+    fileBox.replaceChildren();
+    fileBox.hidden = true;
+  }
+
+  function showFile(url) {
+    if (!url) return;
+    // Prefer breaks after path separators, keeping the scheme together. The
+    // copy utility always receives the original URL without presentation markup.
+    const wrappedUrl = escapeHtml(url).replace(/([^/])\/(?!\/)/g, "$1/<wbr>");
+    fileBox.innerHTML = `
+      <p class="download-dialog__url-label">File URL</p>
+      <div class="download-dialog__url-row">
+        <code class="download-dialog__url mg-code" dir="ltr">${wrappedUrl}</code>
+        <button type="button"
+          class="download-dialog__copy mg-button mg-button-primary mg-button-outline mg-button--icon mg-copy-button"
+          data-mg-copy-button data-mg-copy-button-initialized="true" data-text-to-copy="${escapeHtml(url)}"
+          data-tooltip-label="Copied!" data-copied-label="File URL copied to clipboard."
+          aria-label="Copy file URL">
+          <span class="mg-icon mg-icon-copy mg-button__icon" aria-hidden="true"></span>
+          <span class="mg-copy-button__feedback" aria-hidden="true">Copied!</span>
+          <span class="mg-u-sr-only" aria-live="polite"></span>
+        </button>
+      </div>
+      <p class="download-dialog__hint">Copy this URL to use a download manager.</p>
+    `;
+    fileBox.hidden = false;
+    // Reserve this button from the CDN initializer and use the shared local
+    // utility throughout its lifetime. Mangrove 2.3.0's legacy copy fallback
+    // focuses a textarea outside the native modal, where it is inert, and can
+    // claim success without copying. The local utility reports failure honestly
+    // when the Clipboard API is unavailable or blocked (e.g. by an embed host).
+    detachCopyFallback = attachCopyButtonFallback(fileBox.querySelector("[data-mg-copy-button]"));
+  }
 
   function say(message) {
     // No record: every state change is a new event for the region.
@@ -184,6 +226,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   function show(text, run, opener) {
     settle(false); // a confirm still open is answered "no"
     current = { run, opener };
+    clearFile();
     title.textContent = text;
     dialog.setAttribute("aria-label", text);
     if (!dialog.isConnected) doc.body.appendChild(dialog);
@@ -206,12 +249,13 @@ export function createDownloadDialog({ doc = document } = {}) {
   /**
    * Ask before going on. Resolves true when the confirm button is pressed,
    * false on Cancel, Escape, ✕ or anything else that closes the dialog.
-   * @param {{ title: string, message: string, confirmLabel: string, opener?: Element|null }} options
+   * @param {{ title: string, message: string, confirmLabel: string, fileUrl?: string, opener?: Element|null }} options
    * @returns {Promise<boolean>}
    */
-  function confirm({ title: text, message, confirmLabel, opener = doc.activeElement }) {
+  function confirm({ title: text, message, confirmLabel, fileUrl = "", opener = doc.activeElement }) {
     if (destroyed) return Promise.resolve(false);
     show(text, null, opener);
+    showFile(fileUrl);
     generation++; // any earlier run is abandoned
     return new Promise((resolve) => {
       confirmAccepted = false;
@@ -229,6 +273,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   function close() {
     if (!dialog.open && !dialog.hasAttribute("open")) return;
     generation++;
+    clearFile();
     clearTimeout(waitHintTimer);
     waitHintTimer = null;
     if (typeof dialog.close === "function") dialog.close();
@@ -283,7 +328,7 @@ export function createDownloadDialog({ doc = document } = {}) {
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = [...dialog.querySelectorAll(FOCUSABLE)].filter((el) => !el.hidden);
+      const focusable = [...dialog.querySelectorAll(FOCUSABLE)].filter((el) => !el.closest("[hidden]"));
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];

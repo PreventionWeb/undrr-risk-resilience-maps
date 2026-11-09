@@ -34,6 +34,7 @@ describe("createDownloadDialog", () => {
   afterEach(() => {
     dialog.destroy();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   const live = () => dialog.element.querySelector('[role="status"]');
@@ -312,6 +313,84 @@ describe("createDownloadDialog", () => {
       expect(footerClose().textContent).toBe("Cancel");
       expect(retry().hidden).toBe(true);
     });
+
+    it("shows a selectable hosted URL only for the file confirmation that supplied it", () => {
+      void dialog.confirm({
+        title: "Download a large file?",
+        message: "big.tif is 3.6 GB.",
+        confirmLabel: "Download",
+        fileUrl: "https://files.example/big.tif",
+      });
+      const field = dialog.element.querySelector(".download-dialog__url");
+      const box = dialog.element.querySelector(".download-dialog__file");
+      expect(box.hidden).toBe(false);
+      expect(field.tagName).toBe("CODE");
+      expect(field.textContent).toBe("https://files.example/big.tif");
+      expect(dialog.element.querySelector("[data-mg-copy-button]").dataset.textToCopy).toBe(
+        "https://files.example/big.tif",
+      );
+      dialog.open({ title: "Download CSV", run: () => new Promise(() => {}) });
+      expect(box.hidden).toBe(true);
+      expect(box.childElementCount).toBe(0);
+      void ask();
+      expect(box.hidden).toBe(true);
+    });
+
+    it("copies the exact URL without accepting the download", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      vi.stubGlobal("navigator", { clipboard: { writeText } });
+      const accepted = vi.fn();
+      void dialog
+        .confirm({
+          title: "Download a large file?",
+          message: "big.tif is 3.6 GB.",
+          confirmLabel: "Download",
+          fileUrl: "https://files.example/path/big.tif?key=a&other=b",
+        })
+        .then(accepted);
+      const copy = dialog.element.querySelector("[data-mg-copy-button]");
+      copy.click();
+      await flush();
+      expect(writeText).toHaveBeenCalledExactlyOnceWith("https://files.example/path/big.tif?key=a&other=b");
+      expect(copy.querySelector('[aria-live="polite"]').textContent).toBe("File URL copied to clipboard.");
+      expect(accepted).not.toHaveBeenCalled();
+      expect(dialog.state).toBe("confirm");
+    });
+
+    it.each(["unavailable", "denied"])(
+      "reports %s clipboard access without confirming the download",
+      async (mode) => {
+        vi.stubGlobal(
+          "navigator",
+          mode === "unavailable"
+            ? {}
+            : {
+                clipboard: { writeText: () => Promise.reject(new Error("NotAllowedError")) },
+              },
+        );
+        const accepted = vi.fn();
+        void dialog
+          .confirm({
+            title: "Download a large file?",
+            message: "big.tif is 3.6 GB.",
+            confirmLabel: "Download",
+            fileUrl: "https://files.example/big.tif",
+          })
+          .then(accepted);
+        const copy = dialog.element.querySelector("[data-mg-copy-button]");
+        // The CDN's document-wide initializer must not replace the safe handler.
+        expect(copy.dataset.mgCopyButtonInitialized).toBe("true");
+        copy.click();
+        await flush();
+        expect(copy.classList.contains("mg-copy-button--copied")).toBe(false);
+        expect(copy.querySelector('[aria-live="polite"]').textContent).toBe(
+          "Copy failed. Select the text and copy it manually.",
+        );
+        expect(dialog.element.querySelector("code").textContent).toBe("https://files.example/big.tif");
+        expect(accepted).not.toHaveBeenCalled();
+        expect(dialog.state).toBe("confirm");
+      },
+    );
 
     it("resolves true on the confirm button, closes and returns focus", async () => {
       const answer = ask();
