@@ -1,0 +1,18 @@
+name: PR title request
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  request:
+    name: Request title validation
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Title validation is performed by the trusted default-branch workflow.'
