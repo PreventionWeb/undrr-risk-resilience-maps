@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
-- Show a selectable hosted file URL in the large GeoTIFF download confirmation modal so users can copy it into an alternate download manager.
+- Show a wrapping hosted file URL as code text with a copy button in the large GeoTIFF download confirmation modal so users can copy it into an alternate download manager.
 
 ### Changed
 

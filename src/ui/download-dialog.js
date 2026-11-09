@@ -24,6 +24,8 @@
  * MapX call cannot be), but its result is ignored and nothing is downloaded.
  */
 import { createLayerAnnouncer } from "./announcer.js";
+import { escapeHtml } from "../utils/html.js";
+import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
 
 const STEPS = ["fetching", "processing", "downloading"];
 // A one-off hint for a slow fetch, not a duration estimate or a stall detector.
@@ -71,12 +73,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     </div>
     <p class="download-dialog__status" data-part="status"></p>
     <p class="download-dialog__notice mg-form-help" data-part="notice" hidden></p>
-    <div class="download-dialog__file" hidden>
-      <label class="download-dialog__url-label">File URL
-        <textarea class="download-dialog__url" rows="2" readonly spellcheck="false"></textarea>
-      </label>
-      <p class="download-dialog__hint">Copy this URL to use a download manager.</p>
-    </div>
+    <div class="download-dialog__file" hidden></div>
     <div class="download-dialog__actions mg-buttons">
       <button type="button" class="mg-button mg-button-primary" data-action="extra" hidden></button>
       <button type="button" class="mg-button mg-button-primary" data-action="retry" hidden>Try again</button>
@@ -94,7 +91,6 @@ export function createDownloadDialog({ doc = document } = {}) {
   const status = dialog.querySelector('[data-part="status"]');
   const notice = dialog.querySelector('[data-part="notice"]');
   const fileBox = dialog.querySelector(".download-dialog__file");
-  const fileUrlField = dialog.querySelector(".download-dialog__url");
   const retryBtn = dialog.querySelector('[data-action="retry"]');
   const extraBtn = dialog.querySelector('[data-action="extra"]');
   const closeBtn = dialog.querySelector('.download-dialog__actions [data-action="close"]');
@@ -112,6 +108,47 @@ export function createDownloadDialog({ doc = document } = {}) {
   let confirmAccepted = false;
   let destroyed = false;
   let waitHintTimer = null;
+  let copyController = null;
+  let detachCopyFallback = () => {};
+
+  function clearFile() {
+    copyController?.abort();
+    copyController = null;
+    detachCopyFallback();
+    detachCopyFallback = () => {};
+    fileBox.replaceChildren();
+    fileBox.hidden = true;
+  }
+
+  function showFile(url) {
+    if (!url) return;
+    // Prefer breaks after path separators, keeping the scheme together. The
+    // copy utility always receives the original URL without presentation markup.
+    const wrappedUrl = escapeHtml(url).replace(/([^/])\/(?!\/)/g, "$1/<wbr>");
+    fileBox.innerHTML = `
+      <p class="download-dialog__url-label">File URL</p>
+      <div class="download-dialog__url-row">
+        <code class="download-dialog__url mg-code" dir="ltr">${wrappedUrl}</code>
+        <button type="button"
+          class="download-dialog__copy mg-button mg-button-primary mg-button-outline mg-button--icon mg-copy-button"
+          data-mg-copy-button data-text-to-copy="${escapeHtml(url)}"
+          data-tooltip-label="Copied!" data-copied-label="File URL copied to clipboard."
+          aria-label="Copy file URL">
+          <span class="mg-icon mg-icon-copy mg-button__icon" aria-hidden="true"></span>
+          <span class="mg-copy-button__feedback" aria-hidden="true">Copied!</span>
+          <span class="mg-u-sr-only" aria-live="polite"></span>
+        </button>
+      </div>
+      <p class="download-dialog__hint">Copy this URL to use a download manager.</p>
+    `;
+    fileBox.hidden = false;
+    copyController = new AbortController();
+    const detach = attachCopyButtonFallback(fileBox.querySelector("[data-mg-copy-button]"));
+    detachCopyFallback = detach;
+    initMangroveCopyButtons(fileBox, { signal: copyController.signal }).then((applied) => {
+      if (applied) detach();
+    });
+  }
 
   function say(message) {
     // No record: every state change is a new event for the region.
@@ -192,8 +229,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   function show(text, run, opener) {
     settle(false); // a confirm still open is answered "no"
     current = { run, opener };
-    fileBox.hidden = true;
-    fileUrlField.value = "";
+    clearFile();
     title.textContent = text;
     dialog.setAttribute("aria-label", text);
     if (!dialog.isConnected) doc.body.appendChild(dialog);
@@ -222,8 +258,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   function confirm({ title: text, message, confirmLabel, fileUrl = "", opener = doc.activeElement }) {
     if (destroyed) return Promise.resolve(false);
     show(text, null, opener);
-    fileUrlField.value = fileUrl;
-    fileBox.hidden = !fileUrl;
+    showFile(fileUrl);
     generation++; // any earlier run is abandoned
     return new Promise((resolve) => {
       confirmAccepted = false;
@@ -241,6 +276,7 @@ export function createDownloadDialog({ doc = document } = {}) {
   function close() {
     if (!dialog.open && !dialog.hasAttribute("open")) return;
     generation++;
+    clearFile();
     clearTimeout(waitHintTimer);
     waitHintTimer = null;
     if (typeof dialog.close === "function") dialog.close();
