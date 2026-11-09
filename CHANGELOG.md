@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Disable Shift-drag box zoom and Ctrl/right-drag map rotation in standalone and embedded viewers, preserving normal panning, zoom and keyboard navigation. Interaction setup failures do not block map startup.
+
 ## [0.0.12] - 2026-11-06
 
 ### Changed
