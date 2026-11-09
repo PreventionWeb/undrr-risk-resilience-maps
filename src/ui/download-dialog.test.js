@@ -357,6 +357,41 @@ describe("createDownloadDialog", () => {
       expect(dialog.state).toBe("confirm");
     });
 
+    it.each(["unavailable", "denied"])(
+      "reports %s clipboard access without confirming the download",
+      async (mode) => {
+        vi.stubGlobal(
+          "navigator",
+          mode === "unavailable"
+            ? {}
+            : {
+                clipboard: { writeText: () => Promise.reject(new Error("NotAllowedError")) },
+              },
+        );
+        const accepted = vi.fn();
+        void dialog
+          .confirm({
+            title: "Download a large file?",
+            message: "big.tif is 3.6 GB.",
+            confirmLabel: "Download",
+            fileUrl: "https://files.example/big.tif",
+          })
+          .then(accepted);
+        const copy = dialog.element.querySelector("[data-mg-copy-button]");
+        // The CDN's document-wide initializer must not replace the safe handler.
+        expect(copy.dataset.mgCopyButtonInitialized).toBe("true");
+        copy.click();
+        await flush();
+        expect(copy.classList.contains("mg-copy-button--copied")).toBe(false);
+        expect(copy.querySelector('[aria-live="polite"]').textContent).toBe(
+          "Copy failed. Select the text and copy it manually.",
+        );
+        expect(dialog.element.querySelector("code").textContent).toBe("https://files.example/big.tif");
+        expect(accepted).not.toHaveBeenCalled();
+        expect(dialog.state).toBe("confirm");
+      },
+    );
+
     it("resolves true on the confirm button, closes and returns focus", async () => {
       const answer = ask();
       extra().click();

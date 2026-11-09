@@ -198,3 +198,35 @@ test("embed opt-out follows the full-viewer link", async ({ page }) => {
   await settled(layerRow(page, "Landslides"));
   await expect(page.locator(".layer-downloads, .layer-downloads-slot")).toHaveCount(0);
 });
+
+test("a modal reports unavailable clipboard access and keeps its URL selectable", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+  });
+  await gotoApp(page, "#hazard?layers=river-flooding");
+  const row = layerRow(page, "River Flooding");
+  await settled(row);
+  const download = row.locator("a.layer-downloads__link");
+  await download.click();
+  const dialog = page.getByRole("dialog", { name: "Download a large file?" });
+  const copy = dialog.getByRole("button", { name: "Copy file URL" });
+  await copy.click();
+  await expect(copy.locator("[aria-live]")).toHaveText("Copy failed. Select the text and copy it manually.");
+  await expect(copy).not.toHaveClass(/mg-copy-button--copied/);
+  await expect(dialog).toHaveAttribute("data-state", "confirm");
+  const url = dialog.locator("code");
+  expect(
+    await url.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      return window.getSelection().toString();
+    }),
+  ).toBe("https://gar-data.unepgrid.ch/2026/global_pc_h25glob.tif");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(download).toBeFocused();
+  await download.click();
+  await expect(dialog.getByRole("button", { name: "Copy file URL" }).locator("[aria-live]")).toBeEmpty();
+});

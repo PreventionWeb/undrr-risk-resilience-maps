@@ -33,7 +33,8 @@ stakeholder preview PIN when prompted (access details are shared separately).
    confirmation first. In that confirmation modal, **File URL** shows the hosted file’s full
    address as wrapping code text. Use **Copy file URL** to copy it into an alternate download manager;
    copying the URL does not start a download. CSVs are generated in the browser and have no
-   hosted file URL.
+   hosted file URL. If clipboard access is blocked or unavailable, the copy control reports
+   failure; select the URL text and copy it manually.
 
 ![GeoTIFF file URL and copy button in the download confirmation modal](images/geotiff-file-url.png)
 

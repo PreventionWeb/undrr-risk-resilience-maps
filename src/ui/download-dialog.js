@@ -25,7 +25,7 @@
  */
 import { createLayerAnnouncer } from "./announcer.js";
 import { escapeHtml } from "../utils/html.js";
-import { attachCopyButtonFallback, initMangroveCopyButtons } from "./mangrove-copy-button.js";
+import { attachCopyButtonFallback } from "./mangrove-copy-button.js";
 
 const STEPS = ["fetching", "processing", "downloading"];
 // A one-off hint for a slow fetch, not a duration estimate or a stall detector.
@@ -108,12 +108,9 @@ export function createDownloadDialog({ doc = document } = {}) {
   let confirmAccepted = false;
   let destroyed = false;
   let waitHintTimer = null;
-  let copyController = null;
   let detachCopyFallback = () => {};
 
   function clearFile() {
-    copyController?.abort();
-    copyController = null;
     detachCopyFallback();
     detachCopyFallback = () => {};
     fileBox.replaceChildren();
@@ -131,7 +128,7 @@ export function createDownloadDialog({ doc = document } = {}) {
         <code class="download-dialog__url mg-code" dir="ltr">${wrappedUrl}</code>
         <button type="button"
           class="download-dialog__copy mg-button mg-button-primary mg-button-outline mg-button--icon mg-copy-button"
-          data-mg-copy-button data-text-to-copy="${escapeHtml(url)}"
+          data-mg-copy-button data-mg-copy-button-initialized="true" data-text-to-copy="${escapeHtml(url)}"
           data-tooltip-label="Copied!" data-copied-label="File URL copied to clipboard."
           aria-label="Copy file URL">
           <span class="mg-icon mg-icon-copy mg-button__icon" aria-hidden="true"></span>
@@ -142,12 +139,12 @@ export function createDownloadDialog({ doc = document } = {}) {
       <p class="download-dialog__hint">Copy this URL to use a download manager.</p>
     `;
     fileBox.hidden = false;
-    copyController = new AbortController();
-    const detach = attachCopyButtonFallback(fileBox.querySelector("[data-mg-copy-button]"));
-    detachCopyFallback = detach;
-    initMangroveCopyButtons(fileBox, { signal: copyController.signal }).then((applied) => {
-      if (applied) detach();
-    });
+    // Reserve this button from the CDN initializer and use the shared local
+    // utility throughout its lifetime. Mangrove 2.3.0's legacy copy fallback
+    // focuses a textarea outside the native modal, where it is inert, and can
+    // claim success without copying. The local utility reports failure honestly
+    // when the Clipboard API is unavailable or blocked (e.g. by an embed host).
+    detachCopyFallback = attachCopyButtonFallback(fileBox.querySelector("[data-mg-copy-button]"));
   }
 
   function say(message) {
