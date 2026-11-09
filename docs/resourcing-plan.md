@@ -191,14 +191,16 @@ _Making it possible for non-developers to update layer metadata without a code c
 **Effort:** S–M (KH + CE) for process definition; ongoing XS per update cycle  
 **Resource:** KH + CE
 
-**Current state:** `scripts/import-inventory.mjs` handles MapX view ID and status updates from CSV.
-Description, source, citation, license still require direct JS edits. Runtime external layers use a
-blank MapX ID and `External runtime` status; their additional governance fields and workflow are
-defined in [external-layers.md](external-layers.md).
+**Implementation note (9 November 2026):** the importer now syncs labels and descriptions as
+well as MapX IDs, supported disabled-status transitions and optional metadata. Source,
+citation and license still need developer edits. See the [inventory workflow](inventory.md)
+for the current contract, and [external-layers.md](external-layers.md) for runtime source governance.
+This updates implementation status, not the work-package estimates or scope approval.
 
 **Tasks:**
 
-- Extend `import-inventory.mjs --apply` to patch description and source fields (M — KH)
+- Extend `import-inventory.mjs --apply` to patch description and source fields (M — KH).
+  November implementation note: description updates are implemented; source-field updates remain open.
 - Document the editorial workflow: who owns the CSV, how changes get into the repo, who reviews (XS — KH + CE)
 - Define a cadence for content reviews (new layers, retired layers, updated view IDs)
 - Consider: can the CSV live in SharePoint and sync to the repo automatically? (Webhook or manual export step)

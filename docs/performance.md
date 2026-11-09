@@ -42,17 +42,25 @@ threshold is asserted in CI.
 
 ## Concurrent legends: share catalogue refreshes
 
+**Historical implementation, superseded 9 November 2026.** This measurement records
+an optimization of the earlier catalogue-based legend adapter. The viewer now uses
+`get_view_legend_json` for structured legends, with catalogue reads retained for reviewed
+custom-code hash checks. The catalogue-refresh regression test described below was
+removed with that migration. See the [current legend contracts](legends.md#public-contracts)
+for the maintained behavior.
+
 Several visible rows can ask for legends concurrently, including the home and
 cross-tab rows of the same layer. When those views were missing from the cached
 MapX catalogue, each request independently cleared the cache and issued another
-`get_views` call. All misses against one catalogue snapshot now share its refresh.
+`get_views` call. The optimized adapter shared one refresh for all misses against a
+single catalogue snapshot.
 
-For three concurrent misses, the regression test verifies **four catalogue RPCs
-→ two** (the original catalogue plus one refresh). A later `view_add` can still
-cause another refresh against the new snapshot; missing views retain their image
-fallback and a failed refresh remains retryable. Cache state belongs to its SDK
-manager so a late failure from a retired manager cannot evict the replacement's
-catalogue. These are deterministic request counts, not measured service latency.
+For three concurrent misses, the regression test verified **four catalogue RPCs
+→ two** (the original catalogue plus one refresh). A later `view_add` could still
+cause another refresh against the new snapshot; missing views retained their image
+fallback and a failed refresh remained retryable. Cache state belonged to its SDK
+manager so a late failure from a retired manager could not evict the replacement's
+catalogue. These were deterministic request counts, not measured service latency.
 
 ## Downloads: where the wait remains
 
