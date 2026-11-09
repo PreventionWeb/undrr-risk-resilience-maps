@@ -1,285 +1,157 @@
 # Legend architecture and operations
 
-This guide explains how legends are resolved, rendered, diagnosed, tested, and extended. It is
-maintainer documentation, not a release checklist. One-time acceptance status and screenshots
-belong in the relevant pull request.
+Legends use the public **MapX 1.14.3+** `get_view_legend_json({ idView })` command.
+The viewer validates provider data and renders HTML; MapX owns discovery and transport.
+Representative production contract verification: **9 November 2026**.
 
-Last contract verification: **2026-10-23**
+## Resolution and ownership
 
-## Principles
+1. Provider-owned local/runtime legend, when configured.
+2. Official SDK JSON envelope, validated before provider dispatch:
+   - `vt`, provider `mapx`: computed vector rules as shown in MapX's legend.
+   - `rt`, provider `geoserver`: unchanged GeoServer `{ Legend: [...] }` data.
+3. The four reviewed custom-code definitions use `get_views` only to hash-check
+   `data.methods`. No upstream JavaScript is evaluated. An unknown or changed
+   custom-code view falls back to an image.
+4. Unsupported, malformed, unavailable or excessive data uses `get_view_legend_image`.
+   A failed image is non-fatal. Structured legends retain a lazy comparison image.
 
-- Prefer a structured HTML legend when the source exposes rules we can reproduce faithfully.
-- Fail closed to the MapX image fallback when a rule or upstream response is unfamiliar.
-- Keep provider-specific parsing outside the UI and outside other adapters.
-- Treat MapX catalogue fields and HTTP routes according to their actual support status.
-- Do not parse legend pixels or generic SLD documents.
+`src/ui/layer-controls.js` owns precedence and rendering; `src/sdk/legends.js` owns
+SDK requests, envelope validation, caching and the vector adapter.
+`src/sdk/raster-legends.js` parses provider data without network access.
+`src/sdk/legend-model.js` defines the shared model and validation.
 
-Use these terms consistently:
+Successful results and concurrent requests are shared by manager, view ID and requested
+label language for the page lifetime. A manager change or explicit reset retires the
+cache. Failed/unsupported results are evicted so a later `view_add` or retry can recover.
+An old request cannot overwrite or evict a replacement manager's result. A DOM ownership
+marker prevents late results from appearing in a closed or replaced layer slot.
 
-- **Provider-owned structured legend:** entries supplied by local/runtime layer configuration.
-- **MapX-derived vector legend:** entries validated from a MapX vector view.
-- **GeoServer-derived raster legend:** classes, grouped layers, and continuous ramps validated from GeoServer JSON.
-- **MapX image fallback:** the image returned by `get_view_legend_image`.
+## Public contracts
 
-## Resolution flow
-
-```text
-provider-owned structured legend
-  └─ otherwise: MapX get_views catalogue
-       ├─ vt: validate supported data.style fields
-       ├─ cc: match a reviewed definition and SHA-256 of data.methods
-       └─ rt: validate approved data.source.legend URL
-              ├─ request GeoServer JSON directly
-              └─ on the approved provider's HTTP 403 origin denial, retry through MapX mirror
-                    └─ accept intervals/values, numeric ramps, and validated groups
-  └─ normalize into LegendDefinition and render structured HTML
-       └─ if any step fails: request and display the MapX image fallback
+```js
+const result = await sdk.ask("get_view_legend_json", { idView });
+// { idView, type, provider, supported, data, reason? }
 ```
 
-`src/ui/layer-controls.js` owns precedence and rendering. `src/sdk/legends.js` owns the MapX
-catalogue and vector adapter. `src/sdk/raster-legends.js` owns the approved GeoServer transport and
-raster adapter. `src/sdk/legend-model.js` owns the provider-neutral model and shared validation.
+Supported vector `data` contains `title`, `geometry`, `attribute` and ordered `rules`.
+Rules expose `value`, `value_to`, `label`, `labels`, `color`, `opacity`, `size`, `sprite`
+and `color_border`. The SDK computes visible null rules and deduplicates the legend.
+Use localized `labels`, then the SDK's `label`, then a primitive value; preserve explicit
+range text and order instead of inventing scientific class boundaries from `value_to`.
+The title is already resolved in the iframe's language (English in this viewer).
 
-The MapX catalogue cache is scoped to the active SDK manager and refreshes once when a requested
-view is missing, because `view_add` can introduce a public cross-project view after initialization.
-Concurrent misses against the same snapshot share one refresh; a later missing view can refresh
-the replacement snapshot. A failed request is evicted only from its own manager's cache.
-A successful raster resolution is cached for the page session by view revision, legend URL, and
-language; failures are not cached, so a later retry can recover.
-A DOM ownership marker prevents a late asynchronous result from being appended to a closed layer
-or an obsolete compound-layer source.
+GeoServer data retains its documented `Legend[].rules[].symbolizers[].Raster.colormap`
+shape. The parser preserves ordered groups, discrete classes, opacity and continuous
+numeric ramps. It uses provider titles, because the SDK envelope does not expose
+catalogue `legendTitles` overrides. Reviewed source-unit notes in the layer configuration
+retain the previous PGA, flood-depth and population unit text; styles still follow the SDK.
 
-## Shared model
+Unsupported responses carry `supported: false` and a reason such as `no_legend`,
+`unsupported_provider`, `custom_style`, `fetch_failed`, `invalid_response` or
+`unsupported_view_type`. A missing view can reject. The viewer also validates the
+returned view ID and the type/provider pairing. ArcGIS is not implemented upstream.
 
-Every structured adapter returns:
+Sources: [MapX SDK implementation](https://github.com/unep-grid/mapx/commit/f8ebab16),
+[maintainer contract discussion](https://github.com/unep-grid/mapx/issues/288),
+[GeoServer legend JSON](https://docs.geoserver.org/latest/en/user/services/wms/get_legend_graphic/).
+
+## Shared model and supported styles
 
 ```js
 {
-  title: "cm/s2",
-  entries: [{
-    color: "#FFF195",
-    label: "< 100",
-    opacity: 1,
-    size: null,
-    geometry: "polygon",
-    borderColor: null
-  }]
+  title: "Peak Ground Acceleration",
+  entries: [{ color: "#FFF195", label: "< 100", opacity: 1,
+    size: null, geometry: "polygon", borderColor: null }]
 }
 ```
 
-The renderer understands `point`, `line`, and `polygon` geometry. A zero-opacity raster entry is
-shown as a crossed swatch so a transparent/no-data class remains visible and comparable with the
-MapX image.
+Optional `ramp` quantities align with entries and determine value-weighted gradient stops.
+Optional `groups` preserve ordered sublayer legends; custom definitions may use `matrix`.
+The renderer supports point, line and polygon symbols. Zero-opacity classes retain a
+crossed swatch and readable text.
 
-## Upstream contracts
+| Source/style                                          | Behavior                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------- |
+| Local/runtime definitions                             | Configuration is authoritative                                            |
+| SDK vector point/line/polygon rules                   | Colors, opacity, sizes, borders, localized labels and computed null rules |
+| GeoServer `intervals` / `values`                      | Discrete classes                                                          |
+| GeoServer `ramp`                                      | Continuous gradient with numeric stop positions and readable labels       |
+| GeoServer groups                                      | Ordered sublayer titles and legends                                       |
+| Reviewed custom-code definitions                      | Exact view ID and methods SHA-256; image on drift                         |
+| Sprite, custom JSON, unknown provider, malformed data | MapX image fallback                                                       |
 
-| Interface                         | Fields used                                                                                                                                       | Status and owner                                                                                                                                                                                   | Failure behavior                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| MapX SDK `get_views`              | `id`, `type`, vector `data.geometry.type`, `data.style.rules`, `nulls`, `titleLegend`, `custom.json`; raster `data.source.legend`, `legendTitles` | SDK command is public; detailed view shapes are observed from MapX and not yet confirmed as a stable client contract                                                                               | Strict validation fails to the image                                 |
-| MapX SDK `get_view_legend_image`  | Base64/data-URL image                                                                                                                             | Public SDK fallback                                                                                                                                                                                | Missing image is non-fatal                                           |
-| GeoServer `GetLegendGraphic` JSON | `Legend[].rules[].symbolizers[].Raster.colormap`                                                                                                  | [Documented GeoServer output](https://docs.geoserver.org/latest/en/user/services/wms/get_legend_graphic/); provider-owned availability/CORS                                                        | Invalid or unsupported JSON fails to the image                       |
-| MapX `/get/mirror`                | `url` query parameter                                                                                                                             | Internal, unversioned MapX route inferred from [MapX source](https://github.com/unep-grid/mapx/blob/e618823c3b869efe77842d69f6bfed9d4404f9f2/app/src/js/mirror_util/index.js); not an SDK contract | Direct request remains first; mirror failure falls back to the image |
-| MapX `/get/view/item/:id`         | Public view object used by the live contract script                                                                                               | Observed public for eligible public views; not used by the application runtime                                                                                                                     | Live check fails visibly                                             |
+## Limits and transport
 
-The approved structured-raster providers are:
+At most two legend SDK calls are in flight per manager, leaving room for layer/camera
+commands under the SDK’s shared request limit. Each call has a five-second deadline
+including queue time. Expired queued calls are never sent; timed-out active calls keep
+their slot until the SDK settles. A timeout stops waiting and allows
+fallback; it does **not** cancel the cross-frame request or MapX's upstream HTTP request.
+No parent-page GeoServer requests or `/get/mirror` retries remain. MapX chooses provider
+URLs and honors each view's mirror setting; its networking policies are upstream-owned.
+The old provider allowlist and streamed HTTP-body reader have been removed with that transport.
 
-| Host                   | Direct request | MapX mirror retry |
-| ---------------------- | -------------- | ----------------- |
-| `giri.unepgrid.ch`     | HTTPS only     | Allowed           |
-| `datacore.unepgrid.ch` | HTTPS only     | Allowed           |
+The delivered envelope is limited to 256 KiB before adapter work; this does not bound
+network buffering within MapX. At most 500 entries and 20 raster groups are accepted.
+Labels/titles are limited to 200 characters without control characters; colors follow
+the shared restricted grammar; opacity, size and ramp quantities must be valid.
+Unsupported shapes fall back as a whole rather than presenting a plausible partial legend.
 
-The allowlist is a security boundary. It pins the HTTPS host, exact WMS path, the exact configured
-layer names, permitted query keys, and mirror permission; duplicate or unknown query parameters
-are rejected. A new endpoint or layer must be reviewed before being added to
-`APPROVED_RASTER_PROVIDERS`. Do not make the mirror generic: legend URLs come from mutable MapX
-metadata, and the mirror performs a server-side request.
+No additional parent-page provider/mirror CSP connections are required for legends.
+MapX iframe/SDK permissions and unrelated download/external-data connections remain relevant.
+Custom-code source hashes still rely on observed catalogue metadata; the official legend
+API does not establish that separate support guarantee.
 
-MapX's current mirror implementation follows upstream redirects. The exact endpoint/query policy
-prevents arbitrary redirect targets from being supplied in view metadata, but production approval
-still requires MapX confirmation of its destination/redirect controls and change policy.
+## Diagnostics
 
-## Supported styles and deliberate fallbacks
+| DOM marker                                  | Meaning                              |
+| ------------------------------------------- | ------------------------------------ |
+| `data-legend-mode="local-structured"`       | Local/runtime definition             |
+| `data-legend-mode="mapx-vector-structured"` | SDK vector rules                     |
+| `data-legend-mode="mapx-raster-structured"` | SDK GeoServer data                   |
+| `data-legend-mode="mapx-custom-structured"` | Hash-checked local custom definition |
+| `data-legend-mode="mapx-image"`             | Image fallback                       |
+| `data-legend-transport="mapx-sdk"`          | Official structured SDK command      |
+| `data-legend-reason="…"`                    | Adapter/SDK fallback reason          |
+| `data-legend-comparison="mapx-image"`       | Lazy comparison image                |
 
-| Source/style                                    | Structured HTML | Notes                                                                         |
-| ----------------------------------------------- | --------------- | ----------------------------------------------------------------------------- |
-| Provider-owned local entries                    | Yes             | Configuration/provider is authoritative                                       |
-| MapX vector point/line/polygon rules            | Yes             | Colors, opacity, size, border, localized labels/title, and visible null rules |
-| GeoServer raster `intervals`                    | Yes             | Discrete classes                                                              |
-| GeoServer raster `values`                       | Yes             | Discrete values                                                               |
-| Reviewed custom-code definitions                | Yes             | Exact view ID and methods SHA-256; fall back on drift                         |
-| GeoServer raster `ramp`                         | Yes             | Continuous sRGB gradient with value-weighted stops and readable labels        |
-| Vector sprites or enabled custom JSON           | No              | Image preserves symbols/custom behavior                                       |
-| Static raster images and non-approved providers | No              | No trusted structured contract                                                |
-| Unknown, malformed, unsafe, or excessive rules  | No              | Never render a plausible partial legend                                       |
+`sdk-unavailable` means rejection or deadline; `schema-invalid` means envelope/size drift;
+`unsupported-style` covers symbols or values we cannot render; `raster-json-unsupported`
+means the GeoServer parser rejected a shape. SDK reasons use hyphens in DOM diagnostics.
+Legend metadata failures do not mean the underlying map layer failed.
 
-Safety limits are intentional fallback thresholds:
+## Tests and comparisons
 
-- HTTPS, credential-free, allowlisted raster provider URLs only.
-- The approved provider's explicit HTTP 403 origin denial is the only reason to try the mirror.
-- Direct requests reject redirects; network/CORS failures go straight to the MapX image fallback.
-- One five-second budget covers direct request, optional mirror retry, and body reading.
-- Response content type must be JSON.
-- Response bodies are streamed and stopped at 256 KiB.
-- At most 500 legend entries.
-- Labels/titles are at most 200 characters and contain no control characters.
-- Colors must match the shared restricted CSS color grammar.
-- Requests omit credentials and referrer information.
+Run `yarn test`, `yarn test:e2e`, `yarn lint`, `yarn build` and `yarn format:check`.
+Recorded SDK/provider responses under `tests/fixtures/legends/` keep routine tests offline.
+Browser tests inject envelopes; the parent page must not contact a raster provider.
+They exercise discrete, continuous, grouped and bivariate rendering plus image fallback.
 
-## Diagnostics and troubleshooting
-
-Stable DOM markers make the path inspectable without changing user-facing copy:
-
-| Marker                                        | Meaning                                     |
-| --------------------------------------------- | ------------------------------------------- |
-| `data-legend-mode="local-structured"`         | Provider-owned structured legend            |
-| `data-legend-mode="mapx-vector-structured"`   | MapX-derived vector legend                  |
-| `data-legend-mode="mapx-raster-structured"`   | GeoServer-derived raster legend             |
-| `data-legend-mode="mapx-image"`               | MapX image fallback                         |
-| `data-legend-reason="…"`                      | Adapter fallback reason                     |
-| `data-legend-transport="direct\|mapx-mirror"` | Raster request path                         |
-| `data-legend-failure="…"`                     | Non-sensitive transport/parser failure kind |
-| `data-legend-status="…"`                      | HTTP status when available                  |
-| `data-legend-comparison="mapx-image"`         | Lazy comparison image                       |
-
-| Reason                               | Likely cause                                                                        | Action                                                                 |
-| ------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `raster`                             | Static/non-WMS URL, unapproved host, insecure URL, or no structured raster contract | Confirm the image is correct; approve a new provider only after review |
-| `raster-json-unavailable`            | Network/CORS, timeout, HTTP failure, or failure of the approved 403 mirror retry    | Inspect transport/failure/status markers; run the live contract check  |
-| `raster-json-invalid`                | Wrong content type, excessive/stalled body, invalid JSON                            | Inspect provider response; do not loosen limits to hide upstream drift |
-| `raster-json-unsupported`            | Valid JSON with an unsupported schema or colormap                                   | Add a separate, tested adapter/component only if required              |
-| `catalog-miss`                       | View absent after one catalogue refresh                                             | Confirm `view_add`, project, and view ID                               |
-| `custom-style` / `unsupported-style` | Custom JSON, sprite, unsafe, or unfamiliar vector rule                              | Keep the image unless faithful structured support is designed          |
-| `schema-invalid` / `too-many-rules`  | MapX schema drift or safety limit                                                   | Inspect the current view and update tests before changing the adapter  |
-
-“Structured raster legend unavailable” concerns legend metadata only; it does not mean the raster
-map data failed.
-
-## Privacy and deployment
-
-Direct GeoServer requests reveal the visitor's IP and ordinary request metadata to the approved
-provider. Mirror retries reveal the requested provider URL to MapX, and MapX sees the visitor's
-request to its API. The URL must not contain credentials or secrets.
-
-Deployment Content Security Policy must permit connections to the approved provider and
-`https://api.mapx.org`. Confirm privacy/CSP acceptance before production use.
-
-## Testing and regression QA
-
-Run the default checks for every legend change:
-
-```bash
-yarn test
-yarn lint
-yarn build
-yarn format:check
-```
-
-Run the network-dependent contract before legend-related merges and releases, and after a MapX or
-provider incident:
+The opt-in command runs an isolated browser with the production SDK and the application's
+actual adapters. Chromium must be installed (`yarn playwright install chromium`).
+It defaults to all configured IDs, including unpublished inventory entries:
 
 ```bash
 yarn test:mapx-raster-contract
+# Narrow an investigation or record representative public SDK responses:
+yarn test:mapx-raster-contract --view MX-J3YTW-RUQN3-40P87 --record /tmp/mapx-legends.json
 ```
 
-The script derives every configured MapX source from product configuration, including unpublished
-prototypes. It verifies vector rules, raster JSON (with a simulated non-MapX origin), and reviewed
-custom-code definitions. It is not a substitute for a real browser/CORS and visual test.
+For an adapter change, compare representative vector, PGA, continuous/grouped and custom
+legends with **Show MapX image legend (comparison)**. Check titles, count/order, labels,
+colors, opacity, geometry/size, borders and no-data. Check readable text at 200% zoom and
+keyboard access. Include deliberate unsupported and missing-image cases. Record results
+and limitations in the PR, rather than leaving a general verification backlog open.
 
-For representative structured legends:
+## Custom maintenance and extension
 
-1. Record `data-legend-mode` and, for raster, `data-legend-transport`.
-2. Expand **Show MapX image legend (comparison)**.
-3. Compare title, count/order, labels/ranges, colors, opacity, geometry/size, borders, and no-data.
-4. Test at 200% zoom and traverse the scroll region by keyboard.
-5. Record any difference as a defect or an intentional presentation decision.
+The custom magnitude/IDP symbols and water/nutrition matrix remain local reviewed definitions.
+Any methods-code edit triggers image fallback, even if unrelated to styling. Review actual
+paint/filter expressions, update the local definition and hash, and refresh its recorded
+fixture together. Never update a hash merely to silence drift.
 
-Also test one example of each deliberate fallback: invalid raster ramp, static/non-approved
-raster, vector sprite, changed/unreviewed custom-coded view, catalogue miss, and missing MapX image.
-
-## Extension rules
-
-When adding a new provider or style:
-
-1. Identify a documented or explicitly approved structured contract.
-2. Add a provider-specific adapter; do not add provider branches to the renderer.
-3. Normalize only fully understood fields into `LegendDefinition`.
-4. Add strict fixtures for valid, malformed, oversized, and unsupported responses.
-5. Preserve a labelled MapX image fallback.
-6. Add or update a live contract check when the dependency is external.
-7. Complete browser visual comparison before merge.
-
-Another raster service needs its own adapter unless it returns the exact validated GeoServer representation.
-
-## Ownership and retirement
-
-The application maintainer owns adapters, tests, provider approval, and regression checks. MapX
-owns the SDK, view schema, image renderer, view API, and mirror service. The raster provider owns
-its WMS/GeoServer response.
-
-The comparison disclosure may be removed only after the representative browser matrix in this
-guide has been completed, differences have been resolved or explicitly accepted, and the
-application owner approves removal.
-
-Publisher-side MapX style or legend changes require a page reload because catalogue and successful
-raster resolution caches are page-session scoped.
-
-Revisit this design when any of these occur:
-
-- MapX documents a provider-neutral structured raster legend SDK command.
-- MapX changes or withdraws `get_views` fields, `/get/mirror`, or `/get/view/item/:id`.
-- The provider changes host, schema, CORS, or colormap behavior.
-- Mirror rate limits or latency become operationally significant.
-- More than a small number of providers require separate adapters.
-
-If MapX supplies an official structured raster API, migrate the raster resolver to it, remove
-direct/mirror permissions and the corresponding live contract, and reassess the comparison UI
-separately. If the undocumented contracts cannot be governed, disable structured extraction and
-retain the MapX image fallback.
-
-## Complete configured coverage
-
-The 2026-10-23 audit covers 68 configured public MapX views: 44 vectors, 20 rasters,
-and four custom-code views. Layers with no assigned view ID cannot be audited yet.
-EDRA owns its separate runtime HTML legend. This is coverage of the current catalogue,
-not a promise to render every future MapX style or unavailable provider response.
-
-Raster groups retain each sublayer title and order. Continuous ramps interpolate by
-numeric quantity, not evenly spaced labels; the stop list remains readable text.
-River flood depth now follows the provider JSON instead of a hand-maintained palette.
-HDI is configured as raster, matching its actual MapX type.
-
-Custom-code views do not expose a portable structured style. Their definitions in
-`src/sdk/custom-legend-definitions.js` were reviewed against the full public
-`data.methods` code and are pinned to its SHA-256. Runtime never executes that code.
-An unknown ID, missing crypto support, or any code change falls back to MapX's image.
-To update a definition, fetch the view, review its actual paint/filter expressions,
-update the HTML definition and hash, and refresh the representative custom-code fixture together.
-Do not simply update the hash to silence a failed live check.
-
-The water/nutrition view uses a labelled HTML matrix; magnitude/IDP circles retain
-relative size (scaled to fit the legend). The disasters/IDPs classes follow the
-actual MapLibre step expressions: upstream's hand-built legend gives misleading
-upper bounds and omits the open-ended class. These are prototype source styles;
-HTML rendering does not validate the underlying scientific classifications.
-
-Representative contracts in `tests/fixtures/legends/` keep default tests offline.
-They cover three raster shapes and the four manually reviewed custom-code views.
-They are not an inventory of every map: the opt-in live audit checks every configured source ID. `tests/e2e/html-legends.spec.js` exercises
-discrete, continuous, grouped and bivariate rendering with intercepted provider JSON.
-
-## Remote changes and manual maintenance
-
-| Change                                                  | What happens                                                                                                            | Maintainer action                                                                                                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| New/changed data values, with the same style            | Legends still describe the same style; data refresh is managed by the source/MapX.                                      | Usually none. This viewer does not compute a new classification from the data.                                                                                     |
-| A supported vector or raster style changes              | A fresh page load reads current MapX rules or GeoServer JSON. The open page caches results and does not poll for edits. | Usually none; check the live audit before release.                                                                                                                 |
-| Any code changes in one of the four custom-code views   | The SHA-256 no longer matches, so HTML falls back to MapX's image legend.                                               | Review actual paint/filter expressions, then update the local definition, hash and representative fixture together. Even unrelated code edits trigger this review. |
-| A new provider/layer or unsupported style is introduced | It may use an image fallback until supported.                                                                           | Review the endpoint/style and update the allowlist or adapter as needed.                                                                                           |
-
-When communicating with MapX, distinguish the dynamic raster/vector adapters from
-these four manually maintained exceptions, and distinguish this draft from what is
-already deployed in production. The draft demonstrates HTML rendering
-for the current catalogue; it does not provide a generic MapX structured legend API
-or eliminate every future need for MapX development. Raster HTML still depends on
-GeoServer JSON and, for some requests, MapX's mirror. A supported upstream API
-would reduce these dependencies and the manual maintenance burden.
+Publisher-side changes require a page reload because successful resolutions are cached.
+New providers need a documented SDK provider contract and a separate tested adapter.
+Schema changes, unsupported styles or custom-code drift should retain image fallback until
+faithful structured support is implemented. See ADR 0001 for the migration decision.

@@ -25,8 +25,7 @@
  * (blank "CSV download"), and how many CSV views carry no `maplab` of their own
  * (their names come from the reference view at download time).
  *
- * The view JSON comes from MapX's public `get/view/item` API, the same source
- * check-mapx-raster-legends.mjs reads. Nothing here reads attribute tables.
+ * The view JSON comes from MapX's public `get/view/item` API, rather than the browser SDK path used by the legend audit. Nothing here reads attribute tables.
  */
 import { TABS } from "../src/config/layers.js";
 import { isLayerAvailable } from "../src/config/layers/status.js";

@@ -8,6 +8,7 @@ export const EXPOSURE_LAYERS = [
     id: "MX-6YLMU-U4WXC-2JJD7",
     key: "population",
     label: "Population",
+    legendNote: "Number of people per pixel (km²).",
     downloads: [["https://gar-data.unepgrid.ch/2026/ghrsl22a.tif", 162710557]],
     type: "rt",
     desc: "Population distribution (HRSL/GHSL 2022).",

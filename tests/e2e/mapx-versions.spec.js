@@ -1,8 +1,8 @@
 import { expect, gotoApp, layerRow, layerSwitch, settled, test, toggleLayer } from "./fixtures/app.js";
 
-// Production MapX is now 1.14.2. These are consumer guarantees; the SDK
+// Production MapX is now 1.14.3. These are consumer guarantees; the SDK
 // is stubbed so the suite remains independent of the hosted service.
-test.describe("MapX 1.14.2", () => {
+test.describe("MapX 1.14.3", () => {
   test("a fresh layer's opacity slider reads 100%", async ({ page }) => {
     await gotoApp(page, "#hazard");
     const flooding = layerRow(page, "River Flooding");
@@ -58,3 +58,29 @@ test.describe("MapX 1.14.2", () => {
     await expect(infobox).toBeHidden();
   });
 });
+
+for (const value of [null, 0]) {
+  test(`normalized raster ${value} keeps Site Details text and indicator consistent`, async ({ page }) => {
+    await gotoApp(page, "?inspect=1#hazard");
+    const flooding = layerRow(page, "River Flooding");
+    await toggleLayer(flooding);
+    await settled(flooding);
+    await page.locator('[data-ui="inspect-toggle"]').click();
+    await page.evaluate((value) => {
+      const idView = window.__mapxStub.openViews[0];
+      window.__mapxStub.emit("click_features", {
+        attributes: { [idView]: [{ GRAY_INDEX: value }] },
+        lngLat: { lng: 1, lat: 2 },
+      });
+    }, value);
+    const row = page.locator("#site-inspector .site-inspector-layer-row");
+    await expect(row).toHaveCount(1);
+    if (value === null) {
+      await expect(row).toContainText("No data at this location.");
+      await expect(row.locator(".site-inspector-indicator--no-data")).toHaveCount(1);
+    } else {
+      await expect(row.locator(".site-inspector-attrs")).toContainText("0");
+      await expect(row.locator(".site-inspector-indicator--has-data")).toHaveCount(1);
+    }
+  });
+}

@@ -415,6 +415,25 @@ describe("layer rows — VT with no hit", () => {
 describe("layer rows — RT layer", () => {
   beforeEach(() => buildSiteInspectorPanel());
 
+  it.each([
+    ["normalized null", [{ GRAY_INDEX: null }], false],
+    ["genuine zero", [{ GRAY_INDEX: 0 }], true],
+    ["valid measurement", [{ GRAY_INDEX: 159.5582275390625 }], true],
+    ["hidden attributes only", [{ GRAY_INDEX: null, gid: 123 }], false],
+    ["empty click", [], false],
+  ])("keeps the indicator and visible data consistent for %s", (_name, attributes, hasData) => {
+    showSiteInspector({
+      lngLat: { lat: 0, lng: 0 },
+      views: { "rt-view": attributes },
+      openViewsSnapshot: new Set(["rt-view"]),
+    });
+    const row = document.querySelector(".site-inspector-layer-row");
+    expect(row.querySelector(".site-inspector-indicator--has-data") != null).toBe(hasData);
+    expect(row.querySelector(".site-inspector-indicator--no-data") != null).toBe(!hasData);
+    expect(row.textContent.includes("No data at this location.")).toBe(!hasData);
+    if (hasData) expect(row.querySelector(".site-inspector-attrs")).not.toBeNull();
+  });
+
   it("shows 'not queryable' note for RT layer absent from batch", () => {
     showSiteInspector({
       lngLat: { lat: 0, lng: 0 },

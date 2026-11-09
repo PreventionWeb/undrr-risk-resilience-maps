@@ -14,6 +14,12 @@ function setupDOM() {
 describe("showInfobox", () => {
   beforeEach(setupDOM);
 
+  it.each([null, 0, 159.5582275390625])("preserves the raster null/zero contract for %s", (value) => {
+    showInfobox({ attributes: [{ GRAY_INDEX: value }] });
+    expect(document.getElementById("infobox").style.display).toBe(value === null ? "none" : "block");
+    if (value !== null) expect(document.querySelector(".infobox-body").textContent).toContain(String(value));
+  });
+
   // --- hiding cases ---
 
   it("hides the box for null data", () => {

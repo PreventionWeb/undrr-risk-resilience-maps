@@ -181,7 +181,14 @@ function buildLayerRow(idView, views) {
   // Normalize: MapX sends an array of feature objects; take the first one.
   const rawAttrs = views[idView];
   const props = inBatch ? (Array.isArray(rawAttrs) ? rawAttrs[0] : rawAttrs) : null;
-  const hasData = inBatch && props != null && typeof props === "object";
+  const entries =
+    props != null && typeof props === "object"
+      ? Object.entries(props).filter(
+          ([k, v]) =>
+            !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && !isEmptyAttributeValue(v) && !isNoData(v),
+        )
+      : [];
+  const hasData = entries.length > 0;
   const indicatorMod = hasData ? "has-data" : "no-data";
 
   let html = `
@@ -208,10 +215,6 @@ function buildLayerRow(idView, views) {
   if (hasData) {
     // Render attribute table. "inBatch" beats local type — raster views MapX
     // queried with WMS GetFeatureInfo (GRAY_INDEX) come through here too.
-    const entries = Object.entries(props).filter(
-      ([k, v]) =>
-        !HIDDEN_ATTRIBUTE_KEYS.includes(k.toLowerCase()) && !isEmptyAttributeValue(v) && !isNoData(v),
-    );
     const labelledEntries = entries.map(([key, value]) => [attributeLabel(key), attributeValue(value)]);
     if (labelledEntries.length > 0) {
       html += `<table class="site-inspector-attrs">`;
