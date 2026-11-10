@@ -33,8 +33,19 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("cyclone surge uses HTML classes and only fetches its comparison image on demand", async ({ page }) => {
+test("structured legends hide the comparison control by default", async ({ page }) => {
   await gotoApp(page, "#hazard?layers=cyclone-surge");
+  await expect(page.locator('[data-legend-mode="mapx-raster-structured"]')).toContainText("Low exposure");
+  await expect(page.locator("[data-legend-comparison]")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => window.__mapxStub.calls.filter((call) => call.method === "get_view_legend_image").length,
+    ),
+  ).toBe(0);
+});
+
+test("cyclone surge uses HTML classes and only fetches its comparison image on demand", async ({ page }) => {
+  await gotoApp(page, "?legendComparison=1#hazard?layers=cyclone-surge");
   const legend = page.locator('[data-legend-mode="mapx-raster-structured"]');
   await expect(legend).toContainText("Low exposure");
   await expect(legend.locator('[role="listitem"]')).toHaveCount(4);

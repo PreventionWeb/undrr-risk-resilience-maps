@@ -200,7 +200,9 @@ export async function addLegend(layer, container) {
     requestMarker.remove();
     renderStructuredLegend(structuredLegend, container, structuredMode, structuredTransport);
     addLegendNote(layer, container);
-    addImageLegendComparison(layer.id, container);
+    if (new URLSearchParams(window.location.search).get("legendComparison") === "1") {
+      addImageLegendComparison(layer.id, container);
+    }
     return;
   }
 

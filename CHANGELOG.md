@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Hide the MapX image legend comparison control unless the page URL includes `?legendComparison=1`. Keep image fallback available for unsupported legends.
+
 ## [0.0.14] - 2026-11-10
 
 ### Changed
