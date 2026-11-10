@@ -223,3 +223,43 @@
   min-height: 40px;
   flex-shrink: 0;
 }
+
+.map-share-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: var(--z-panel);
+  gap: 0.4rem;
+  background: rgb(var(--mg-color-neutral-0));
+  min-height: 40px;
+}
+
+.metric-resources-dialog .mg-share {
+  margin-top: 1.25rem;
+  max-inline-size: 100%;
+}
+
+.metric-resources-dialog .mg-share__copy-button {
+  text-align: start;
+}
+
+.metric-resources-dialog .mg-share__copy-text {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.metric-resources-dialog .mg-share input[hidden] {
+  display: none;
+}
+
+.metric-resources-dialog__metric {
+  margin-block: 0.75rem;
+}
+
+.metric-resources-dialog__metric > div {
+  padding-block: 0.75rem;
+}
+
+.metric-resources-dialog .download-dialog__header + .mg-share {
+  margin-top: 0;
+}

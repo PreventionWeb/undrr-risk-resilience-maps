@@ -29,8 +29,9 @@ import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
 import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
+import { createLayersStore, mirrorOpenViews, toUrlLayers } from "../state/layers-store.js";
 import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { formatHash } from "../state/hash.js";
 import { createMetricResourcesDialog } from "./metric-resources-dialog.js";
 import { createDownloads } from "./downloads.js";
 import { canMapLoad } from "../sdk/availability.js";
@@ -323,7 +324,31 @@ export function createSidebar(
     disposers.push(() => mapFrame?.classList.remove(MASK_CLASS));
   }
 
-  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads });
+  function getMapShare() {
+    const entries = toUrlLayers(layersStore.all(), registry.urlKeyOrder());
+    const url = new URL(".", (rootDoc.defaultView ?? window).location.href);
+    if (!downloads) url.searchParams.set("downloads", "0");
+    url.hash = formatHash(router.activeTab, entries);
+    return {
+      url: url.href,
+      metrics: entries.map(({ key, sourceIdx }) => {
+        const layer = registry.byKey(key);
+        return { layer, source: layer.sources?.[sourceIdx] ?? null };
+      }),
+    };
+  }
+  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads, getMapShare });
+  const shareButton = appMap ? rootDoc.createElement("button") : null;
+  if (shareButton) {
+    shareButton.type = "button";
+    shareButton.className = "map-share-button mg-button mg-button-primary mg-button-outline";
+    shareButton.setAttribute("aria-haspopup", "dialog");
+    shareButton.setAttribute("aria-label", "Share map");
+    shareButton.innerHTML = '<span class="mg-icon mg-icon-share" aria-hidden="true"></span>Share';
+    shareButton.addEventListener("click", () => resources.open({ opener: shareButton }), { signal });
+    appMap.appendChild(shareButton);
+    disposers.push(() => shareButton.remove());
+  }
   disposers.push(() => resources.destroy());
 
   /**
