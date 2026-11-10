@@ -16,8 +16,11 @@ export function createMetricResourcesDialog({
   const { signal } = listeners;
   let opener = null;
   let contentListeners = null;
+  let shareSignature = null;
+  let metricView = false;
 
   function close() {
+    contentListeners?.abort();
     if (typeof dialog.close === "function") dialog.close();
     else dialog.removeAttribute("open");
     if (opener?.isConnected) opener.focus();
@@ -45,6 +48,7 @@ export function createMetricResourcesDialog({
     (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         close();
       }
       if (event.key !== "Tab") return;
@@ -85,20 +89,55 @@ export function createMetricResourcesDialog({
       ${section("Methodology and data", (links ? `<p>${links}</p>` : "") + (downloads ? downloadListHtml(layer, source) : ""))}`;
   }
 
+  function shareMarkup(share) {
+    if (!share) return "";
+    if (share.pending)
+      return '<section class="mg-share" role="status"><p>The map is updating. Sharing will be available when it finishes.</p></section>';
+    return mapShareHtml(share.url, {
+      deviceShare: Boolean(doc.defaultView.navigator.share),
+      showHeading: metricView,
+    });
+  }
+
+  function wireShare(share) {
+    if (share && !share.pending)
+      attachMapShare(dialog.querySelector(".mg-share"), share.url, { signal: contentListeners.signal });
+  }
+
+  function refreshShare() {
+    if (!dialog.open) return;
+    const share = getMapShare();
+    const signature = JSON.stringify([share?.url, share?.pending]);
+    if (signature === shareSignature) return;
+    shareSignature = signature;
+    const region = dialog.querySelector(".metric-resources-dialog__share");
+    const focused = doc.activeElement;
+    const action = region.contains(focused) ? focused.closest("[data-action]")?.dataset.action : null;
+    const label = region.contains(focused) ? focused.getAttribute("aria-label") : null;
+    contentListeners?.abort();
+    contentListeners = new AbortController();
+    region.innerHTML = shareMarkup(share);
+    wireShare(share);
+    if (action || label) {
+      const replacement = [...region.querySelectorAll("button, a")].find((control) =>
+        action ? control.dataset.action === action : control.getAttribute("aria-label") === label,
+      );
+      (replacement || dialog.querySelector("h2")).focus();
+    }
+  }
+
   return {
     element: dialog,
+    refreshShare,
     open({ layer = null, source = null, opener: trigger = doc.activeElement } = {}) {
       opener = trigger;
       contentListeners?.abort();
       contentListeners = new AbortController();
       const share = getMapShare();
+      metricView = Boolean(layer);
+      shareSignature = JSON.stringify([share?.url, share?.pending]);
       const title = layer ? viewLabel(layer, source) : "Share this map";
-      const shareHtml = share
-        ? mapShareHtml(share.url, {
-            deviceShare: Boolean(doc.defaultView.navigator.share),
-            showHeading: Boolean(layer),
-          })
-        : "";
+      const shareHtml = `<div class="metric-resources-dialog__share">${shareMarkup(share)}</div>`;
       const metricsHtml = layer
         ? metricHtml(layer, source)
         : share?.metrics
@@ -109,7 +148,8 @@ export function createMetricResourcesDialog({
             .join("") || "<p>No layers selected.</p>";
       const url = new URL(".", doc.defaultView.location.href);
       const setting = new URLSearchParams(doc.defaultView.location.search).get("downloads");
-      if (setting !== null) url.searchParams.set("downloads", setting);
+      if (!downloads) url.searchParams.set("downloads", "0");
+      else if (setting !== null) url.searchParams.set("downloads", setting);
       url.hash = "sources";
       dialog.setAttribute("aria-label", layer ? `Resources: ${title}` : title);
       dialog.innerHTML = `
@@ -122,8 +162,7 @@ export function createMetricResourcesDialog({
           <button type="button" class="mg-button mg-button-secondary" data-action="close-resources">Back to map</button>
           <a href="${escapeHtml(url.href)}" target="_blank" rel="noopener" aria-label="View all sources (opens in a new tab)">View all sources</a>
         </div>`;
-      if (share)
-        attachMapShare(dialog.querySelector(".mg-share"), share.url, { signal: contentListeners.signal });
+      wireShare(share);
       if (!dialog.isConnected) doc.body.appendChild(dialog);
       if (!dialog.open) {
         if (typeof dialog.showModal === "function") dialog.showModal();

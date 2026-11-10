@@ -90,3 +90,75 @@ test("failed copying offers a selectable map URL and can still return to the map
   await expect(modal).toBeHidden();
   await expect(page.getByRole("button", { name: "Share map", exact: true })).toBeFocused();
 });
+
+for (const width of [320, 390]) {
+  test(`Share leaves the layer-panel collapse control clickable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await gotoApp(page, "?inspect=1#hazard?layers=landslides");
+    await settled(layerRow(page, "Landslides"));
+    const actualToggle = page.locator(".layer-panel-toggle");
+    const box = await actualToggle.boundingBox();
+    const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    expect(
+      await page.evaluate(
+        ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest(".layer-panel-toggle")),
+        center,
+      ),
+    ).toBe(true);
+    await page.mouse.click(center.x, center.y);
+    await expect(page.locator(".layer-panel")).toHaveClass(/is-collapsed/);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "Share map", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Share this map", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    const inspect = page.locator('[data-ui="inspect-toggle"]');
+    await inspect.click();
+    await page.evaluate(() =>
+      window.__mapxStub.emit("click_features", { attributes: {}, lngLat: { lng: 1, lat: 2 } }),
+    );
+    await expect(page.locator("#site-inspector")).toBeVisible();
+    await page.getByRole("button", { name: "Share map", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#site-inspector")).toBeVisible();
+  });
+}
+
+test("sharing waits through a source switch and refreshes within an open metric modal", async ({ page }) => {
+  await gotoApp(page, "#hazard?layers=river-flooding,earthquake-pga");
+  const river = layerRow(page, "River Flooding");
+  const earthquake = layerRow(page, "Earthquake PGA");
+  await settled(river);
+  await settled(earthquake);
+  await page.evaluate(() => {
+    window.__mapxStub.delayMs = 600;
+  });
+  await river.locator(".widget-sub-tab").nth(1).click();
+  const share = page.getByRole("button", { name: "Share map", exact: true });
+  await expect(share).toBeDisabled();
+  await expect(
+    river.getByRole("button", { name: "Citation, methodology and downloads", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    earthquake.getByRole("button", { name: "Citation, methodology and downloads", exact: true }),
+  ).toBeEnabled();
+  await earthquake.getByRole("button", { name: "Citation, methodology and downloads", exact: true }).click();
+  const modal = page.getByRole("dialog", { name: /^Resources: Earthquake PGA/ });
+  await expect(modal).toContainText("The map is updating");
+  await expect(modal.getByRole("button", { name: "Copy map link", exact: true })).toHaveCount(0);
+  await expect(modal.getByRole("button", { name: "Copy map link", exact: true })).toBeVisible();
+  const linkedIn = new URL(await modal.getByRole("link", { name: "Share on LinkedIn" }).getAttribute("href"));
+  expect(new URL(linkedIn.searchParams.get("url")).hash).toBe(
+    "#hazard?layers=river-flooding:1,earthquake-pga",
+  );
+  await expect(modal.locator("h2")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(share).toBeEnabled();
+  await share.click();
+  const fullMap = page.getByRole("dialog", { name: "Share this map", exact: true });
+  await expect(fullMap.locator("details")).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await river.getByRole("button", { name: "Citation, methodology and downloads", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Resources: River Flooding – Frequency", exact: true }),
+  ).toBeVisible();
+});

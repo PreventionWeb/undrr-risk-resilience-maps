@@ -440,6 +440,7 @@ export function createLayerRow(
     body.appendChild(desc);
   }
 
+  let resourcesButton;
   body.appendChild(buildMetaLinks());
 
   let widgetSlot = null;
@@ -469,6 +470,7 @@ export function createLayerRow(
     const metadata = document.createElement("p");
     metadata.className = "layer-meta-links";
     const detailsLink = document.createElement("button");
+    resourcesButton = detailsLink;
     detailsLink.type = "button";
     detailsLink.className = "layer-resources-button";
     detailsLink.textContent = "Citation, methodology and downloads";
@@ -476,6 +478,7 @@ export function createLayerRow(
     detailsLink.addEventListener(
       "click",
       () => {
+        if (isBusyStatus(last.status)) return;
         const source = isCompound(layer)
           ? layer.sources[clampSourceIdx(layer, last.applied ? last.appliedSourceIdx : last.sourceIdx)]
           : null;
@@ -642,6 +645,7 @@ export function createLayerRow(
     last = next;
     const busy = isBusyStatus(next.status);
     const wasBusy = isBusyStatus(prev.status);
+    if (resourcesButton.disabled !== busy) resourcesButton.disabled = busy;
 
     renderToggle(next, busy);
     // Every new activation expands on apply unless the header starts it.

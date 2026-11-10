@@ -260,6 +260,22 @@
   padding-block: 0.75rem;
 }
 
-.metric-resources-dialog .download-dialog__header + .mg-share {
+.metric-resources-dialog .download-dialog__header + .metric-resources-dialog__share .mg-share {
   margin-top: 0;
+}
+
+/* Reserve a toolbar row: narrow layer panels otherwise sit under Share. */
+@media (max-width: 480px) {
+  [data-ui="app-map"]:has(> .map-share-button) .layer-panel {
+    top: 3.75rem;
+    max-height: calc(100% - 4.5rem);
+  }
+  [data-ui="app-map"]:has(> .map-share-button) .inspect-toggle-btn {
+    left: 0.75rem;
+  }
+  [data-ui="app-map"]:has(> .map-share-button) .site-inspector {
+    top: 3.75rem;
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+  }
 }

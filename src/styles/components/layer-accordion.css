@@ -394,3 +394,8 @@
   outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
   outline-offset: 2px;
 }
+
+.layer-resources-button:disabled {
+  color: var(--color-text-muted);
+  cursor: wait;
+}

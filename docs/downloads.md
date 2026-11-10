@@ -65,11 +65,12 @@ and downloads. **Back to map**, the close button or Escape dismisses it and rest
 The modal also includes Mangrove ShareButtons controls for the **full current map**, with social,
 email and copy actions (plus device sharing where supported). Sharing uses the applied layers,
 source indices and provider settings; opening one metric’s resources does not limit the shared map
-to that metric. If copying fails, a selectable URL is provided for manual copying.
+to that metric. If copying fails, a selectable URL is provided for manual copying. Sharing waits until map loading
+and scenario changes settle; an open metric modal updates its sharing controls when the map is ready.
 
 The map’s **Share** button opens the same modal with sharing first and expandable resources for each
 active metric. **View all sources** opens the standalone Sources page in a new tab. Shared links
-from embeds open the standalone viewer with the same map state. Download opt-outs are preserved.
+from embeds open the standalone viewer with the same map state. Download opt-outs are preserved, including app-level opt-outs when opening the full Sources page.
 
 Published dataset names still open the corresponding map variant. Unpublished entries have no
 viewer link. The layer-inventory CSV export remains at the bottom of Sources.

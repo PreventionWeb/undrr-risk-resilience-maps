@@ -30,7 +30,7 @@ import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } f
 import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { createLayersStore, mirrorOpenViews, toUrlLayers } from "../state/layers-store.js";
-import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { clampSourceIdx, createLayerController, isBusyStatus } from "../services/layer-controller.js";
 import { formatHash } from "../state/hash.js";
 import { createMetricResourcesDialog } from "./metric-resources-dialog.js";
 import { createDownloads } from "./downloads.js";
@@ -241,7 +241,12 @@ export function createSidebar(
 
   // Layer switches are aria-disabled until the map can accept changes, so they
   // are re-rendered when it becomes (or stops being) ready.
-  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
+  disposers.push(
+    onSDKReadyChange(() => {
+      refreshLayerRows();
+      refreshSharing();
+    }),
+  );
   disposers.push(() => router.destroy());
   // Runs first on destroy (disposers run in reverse), so a MapX call that
   // settles afterwards is dropped before anything else is torn down.
@@ -331,6 +336,7 @@ export function createSidebar(
     url.hash = formatHash(router.activeTab, entries);
     return {
       url: url.href,
+      pending: !isSDKReady() || layersStore.all().some((record) => isBusyStatus(record.status)),
       metrics: entries.map(({ key, sourceIdx }) => {
         const layer = registry.byKey(key);
         return { layer, source: layer.sources?.[sourceIdx] ?? null };
@@ -350,6 +356,17 @@ export function createSidebar(
     disposers.push(() => shareButton.remove());
   }
   disposers.push(() => resources.destroy());
+  function refreshSharing() {
+    if (shareButton) {
+      shareButton.disabled = getMapShare().pending;
+      shareButton.title = shareButton.disabled
+        ? "Wait for the map to finish updating before sharing"
+        : "Share the current map";
+    }
+    resources.refreshShare();
+  }
+  refreshSharing();
+  disposers.push(layersStore.subscribe(refreshSharing));
 
   /**
    * Does a layer record want this view on the map: it shows it, or it is

@@ -184,7 +184,11 @@ describe("createDownloadDialog", () => {
         return "done";
       },
     });
+    const behind = vi.fn();
+    document.addEventListener("keydown", behind);
     key(dialog.element, "Escape");
+    document.removeEventListener("keydown", behind);
+    expect(behind).not.toHaveBeenCalled();
     expect(dialog.element.hasAttribute("open")).toBe(false);
     expect(document.activeElement).toBe(opener);
     expect(live().textContent).toBe("");
