@@ -14,7 +14,8 @@ Representative production contract verification: **9 November 2026**.
    `data.methods`. No upstream JavaScript is evaluated. An unknown or changed
    custom-code view falls back to an image.
 4. Unsupported, malformed, unavailable or excessive data uses `get_view_legend_image`.
-   A failed image is non-fatal. Structured legends retain a lazy comparison image.
+   A failed image is non-fatal. Structured legends offer a lazy comparison image only
+   when the page query contains `legendComparison=1`.
 
 `src/ui/layer-controls.js` owns precedence and rendering; `src/sdk/legends.js` owns
 SDK requests, envelope validation, caching and the vector adapter.
@@ -138,8 +139,11 @@ yarn test:mapx-raster-contract
 yarn test:mapx-raster-contract --view MX-J3YTW-RUQN3-40P87 --record /tmp/mapx-legends.json
 ```
 
-For an adapter change, compare representative vector, PGA, continuous/grouped and custom
-legends with **Show MapX image legend (comparison)**. Check titles, count/order, labels,
+For an adapter change, add `?legendComparison=1` before the URL hash (or
+`&legendComparison=1` alongside existing query parameters), for example
+`/?legendComparison=1#hazard?layers=cyclone-surge`. Reload, then compare representative
+vector, PGA, continuous/grouped and custom legends with **Show MapX image legend (comparison)**.
+The control is hidden by default; unsupported styles still use image fallback without this flag. Check titles, count/order, labels,
 colors, opacity, geometry/size, borders and no-data. Check readable text at 200% zoom and
 keyboard access. Include deliberate unsupported and missing-image cases. Record results
 and limitations in the PR, rather than leaving a general verification backlog open.

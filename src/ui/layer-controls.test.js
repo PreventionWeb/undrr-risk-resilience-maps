@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { waitFor } from "../../tests/support/async.js";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
@@ -238,6 +238,11 @@ describe("addOpacitySlider", () => {
 // ─── addLegend ────────────────────────────────────────────────────────────────
 describe("addLegend", () => {
   let container;
+  const originalUrl = window.location.href;
+
+  afterEach(() => {
+    window.history.replaceState(null, "", originalUrl);
+  });
 
   beforeEach(() => {
     container = document.createElement("div");
@@ -341,7 +346,7 @@ describe("addLegend", () => {
     expect(container.querySelector(".html-legend").dataset.legendMode).toBe("mapx-raster-structured");
     expect(container.querySelector(".html-legend").dataset.legendTransport).toBe("mapx-mirror");
     expect(container.querySelector(".html-legend-swatch--transparent")).not.toBeNull();
-    expect(container.querySelector("details.legend-diagnostic")).not.toBeNull();
+    expect(container.querySelector("details.legend-diagnostic")).toBeNull();
     expect(getViewLegendImage).not.toHaveBeenCalled();
   });
 
@@ -398,10 +403,7 @@ describe("addLegend", () => {
     expect(container.querySelector(".html-legend-label").textContent).toBe("High");
     expect(container.querySelector(".html-legend-swatch--point")).not.toBeNull();
     expect(container.querySelector(".html-legend").dataset.legendMode).toBe("mapx-vector-structured");
-    expect(container.querySelector("details.legend-diagnostic").open).toBe(false);
-    expect(container.querySelector("details summary").textContent).toBe(
-      "Show MapX image legend (comparison)",
-    );
+    expect(container.querySelector("details.legend-diagnostic")).toBeNull();
     expect(getViewLegendImage).not.toHaveBeenCalled();
   });
 
@@ -422,7 +424,23 @@ describe("addLegend", () => {
     });
   });
 
+  it.each([
+    "",
+    "?inspect=1",
+    "?legendComparison",
+    "?legendComparison=0",
+    "?legendComparison=false",
+    "#hazard?legendComparison=1",
+  ])("hides local legend comparisons without the opt-in query (%s)", async (search) => {
+    window.history.replaceState(null, "", `/${search}`);
+    await addLegend(simpleLayer, container);
+    expect(container.querySelector(".html-legend")).not.toBeNull();
+    expect(container.querySelector("[data-legend-comparison]")).toBeNull();
+    expect(getViewLegendImage).not.toHaveBeenCalled();
+  });
+
   it("lazy-loads the MapX image when its structured-legend comparison is opened", async () => {
+    window.history.replaceState(null, "", "/?legendComparison=1");
     getViewLegendImage.mockResolvedValue("data:image/png;base64,abc==");
     await addLegend(simpleLayer, container);
     const details = container.querySelector("details.legend-diagnostic");
@@ -439,6 +457,7 @@ describe("addLegend", () => {
   });
 
   it("shows a non-fatal message when a comparison image is unavailable", async () => {
+    window.history.replaceState(null, "", "/?legendComparison=1");
     getViewLegendImage.mockResolvedValue(null);
     await addLegend(simpleLayer, container);
     const details = container.querySelector("details.legend-diagnostic");
