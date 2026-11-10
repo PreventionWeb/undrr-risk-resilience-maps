@@ -182,3 +182,44 @@
   margin: 0.4rem 0 0;
   color: var(--color-text-muted);
 }
+
+/* Metric resources share the download dialog's native modal surface. */
+.metric-resources-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.metric-resources-dialog section + section {
+  margin-top: 1rem;
+}
+
+.metric-resources-dialog h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.metric-resources-dialog p {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  white-space: pre-line;
+}
+
+.metric-resources-dialog .layer-downloads {
+  font-size: 0.85rem;
+}
+
+.metric-resources-dialog__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.metric-resources-dialog .download-dialog__close {
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+}

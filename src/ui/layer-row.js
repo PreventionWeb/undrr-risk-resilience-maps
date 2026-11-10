@@ -261,6 +261,7 @@ function legendLayerFor(layer, record) {
  * @param {ReturnType<import("../services/layer-controller.js").createLayerController>|null} options.controller
  * @param {() => boolean} [options.isReady] - whether the map accepts layer changes yet
  * @param {() => boolean} [options.isVisible] - whether the row's tab is shown
+ * @param {(options: object) => void} [options.onShowResources] - show resources for the applied metric
  * @param {() => boolean} [options.selectionPending] - a pick made through another
  *   row's controls for this layer is settling (its controls announce failures)
  * @param {(message: string, record: object) => void} [options.announce] - say
@@ -277,6 +278,7 @@ export function createLayerRow(
     controller,
     isReady = () => true,
     isVisible = () => true,
+    onShowResources = () => {},
     selectionPending = () => false,
     announce: announceTo,
   },
@@ -466,18 +468,21 @@ export function createLayerRow(
   function buildMetaLinks() {
     const metadata = document.createElement("p");
     metadata.className = "layer-meta-links";
-    const detailsLink = document.createElement("a");
-    // Always use the standalone page, including from an embedded viewer.
-    const location = element.ownerDocument.defaultView.location;
-    const url = new URL(".", location.href);
-    const downloadsSetting = new URLSearchParams(location.search).get("downloads");
-    if (downloadsSetting !== null) url.searchParams.set("downloads", downloadsSetting);
-    url.hash = "sources";
-    detailsLink.href = url.href;
-    detailsLink.target = "_blank";
-    detailsLink.rel = "noopener";
+    const detailsLink = document.createElement("button");
+    detailsLink.type = "button";
+    detailsLink.className = "layer-resources-button";
     detailsLink.textContent = "Citation, methodology and downloads";
-    detailsLink.setAttribute("aria-label", "Citation, methodology and downloads (opens in a new tab)");
+    detailsLink.setAttribute("aria-haspopup", "dialog");
+    detailsLink.addEventListener(
+      "click",
+      () => {
+        const source = isCompound(layer)
+          ? layer.sources[clampSourceIdx(layer, last.applied ? last.appliedSourceIdx : last.sourceIdx)]
+          : null;
+        onShowResources({ layer, source, opener: detailsLink });
+      },
+      { signal },
+    );
     metadata.appendChild(detailsLink);
     return metadata;
   }

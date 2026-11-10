@@ -31,6 +31,7 @@ import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
 import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
 import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { createMetricResourcesDialog } from "./metric-resources-dialog.js";
 import { createDownloads } from "./downloads.js";
 import { canMapLoad } from "../sdk/availability.js";
 import { createRouter } from "../services/router.js";
@@ -322,6 +323,9 @@ export function createSidebar(
     disposers.push(() => mapFrame?.classList.remove(MASK_CLASS));
   }
 
+  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads });
+  disposers.push(() => resources.destroy());
+
   /**
    * Does a layer record want this view on the map: it shows it, or it is
    * asked to be on with this view as its (compound) target?
@@ -395,6 +399,7 @@ export function createSidebar(
       controller: layerController,
       isReady: isSDKReady,
       isVisible: () => router.activeTab === tabId,
+      onShowResources: (options) => resources.open(options),
       // The home row's external controls announce failures of their own picks.
       selectionPending: () =>
         [...(rowsByKey.get(layer.key) ?? [])].some((other) => other.hasPendingSelection()),

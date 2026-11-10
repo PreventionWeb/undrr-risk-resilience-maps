@@ -23,8 +23,9 @@ Start the viewer with the [README development setup](../README.md#developing) an
 stakeholder preview PIN when prompted (access details are shared separately).
 
 1. Open `http://localhost:3001/#risk-resilience?layers=recovery-speed` and wait for the
-   layer to load. Choose **Citation, methodology and downloads** to open Sources in a new tab,
-   then choose **Download CSV** in the desired variant's Notes cell.
+   layer to load. Choose **Citation, methodology and downloads** to open the displayed metric's resources,
+   then choose **Download CSV**. Close the download dialog to return to resources, and choose
+   **Back to map** (or press Escape) to resume the map with the same scenario and focus.
 2. Wait for **Download started**, then choose **Done**. Closing the dialog or pressing Escape during
    the fetch cancels the download. If the map briefly blanks behind the dialog, it is reading a
    temporary reference view for region names.
@@ -58,8 +59,11 @@ You can also open Sources directly and download any offered dataset without sele
 
 Downloads appear in each Sources row's Notes cell alongside methodology links and explanatory
 notes. A view with a download no longer shows “Request data”; views without downloads keep it.
-The layer panel has one **Citation, methodology and downloads** link, opening the standalone
-Sources page in a new tab (also from embeds). An explicit `?downloads=0` setting is preserved.
+The layer panel has one **Citation, methodology and downloads** control that opens a modal for the
+displayed metric, including in embeds. It includes notes, source, citation, license, methodology
+and downloads. **Back to map**, the close button or Escape dismisses it and restores focus.
+**View all sources** opens the standalone Sources page in a new tab; an explicit `?downloads=0`
+setting is preserved.
 
 Published dataset names still open the corresponding map variant. Unpublished entries have no
 viewer link. The layer-inventory CSV export remains at the bottom of Sources.

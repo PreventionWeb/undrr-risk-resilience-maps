@@ -198,7 +198,8 @@
 }
 
 .tab-panel-intro a,
-.layer-meta-links a {
+.layer-meta-links a,
+.layer-resources-button {
   color: var(--color-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -378,4 +379,18 @@
   font-size: 0.78rem;
   color: var(--color-text);
   line-height: 1.3;
+}
+
+.layer-resources-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.layer-resources-button:focus-visible {
+  outline: var(--mg-focus-ring-width) solid rgb(var(--mg-color-focus-ring));
+  outline-offset: 2px;
 }

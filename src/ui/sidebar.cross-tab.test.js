@@ -729,16 +729,16 @@ describe("layer state consistency", () => {
       expect(mocks.viewAdd).toHaveBeenCalledTimes(2);
     });
 
-    it("opens Sources from a layer's citation link without touching layers", async () => {
+    it("opens metric resources without touching layers", async () => {
       const lengthBefore = history.length;
       const hashBefore = location.hash;
       const tabBefore = sidebar.activeTab;
-      const link = homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a");
-      expect(link.target).toBe("_blank");
-      expect(new URL(link.href).hash).toBe("#sources");
+      const link = homeItem("risk", "Recovery Speed").querySelector(".layer-resources-button");
+      expect(link.getAttribute("aria-haspopup")).toBe("dialog");
       link.click();
       await quiet();
 
+      expect(document.querySelector(".metric-resources-dialog").open).toBe(true);
       expect(sidebar.activeTab).toBe(tabBefore);
       expect(location.hash).toBe(hashBefore);
       expect(history.length).toBe(lengthBefore);

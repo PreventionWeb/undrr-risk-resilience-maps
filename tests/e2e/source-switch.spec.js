@@ -29,8 +29,8 @@ test.describe("source switch", () => {
       "MX-KU5ID-GHTH8-C2WG3",
     );
     await expect(
-      crops.getByRole("link", { name: "Citation, methodology and downloads", exact: false }),
-    ).toHaveAttribute("target", "_blank");
+      crops.getByRole("button", { name: "Citation, methodology and downloads", exact: true }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
     await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
     await page.goto("/?downloads=0#gar?layers=gar26-aal-crops:7");
     await expect(layerRow(page, "Crop average annual loss (%)").getByRole("combobox")).toHaveValue("7");

@@ -148,9 +148,15 @@ test("embed: downloads default on", async ({ page }) => {
   await page.waitForFunction(() => window.__mapxStub?.ready);
   const row = layerRow(page, "Landslides");
   await settled(row);
-  const link = row.getByRole("link", { name: "Citation, methodology and downloads", exact: false });
-  await expect(link).toHaveAttribute("target", "_blank");
-  await expect(link).toHaveAttribute("href", /\/#sources$/);
+  const link = row.getByRole("button", { name: "Citation, methodology and downloads", exact: true });
+  await link.click();
+  const resources = page.locator(".metric-resources-dialog");
+  await expect(resources).toBeVisible();
+  await expect(resources.locator('a[href="https://gar-data.unepgrid.ch/2026/ls_phex.tif"]')).toBeVisible();
+  await expect(resources.getByRole("link", { name: "View all sources", exact: false })).toHaveAttribute(
+    "href",
+    /\/#sources$/,
+  );
   await expect(row.locator(".layer-downloads")).toHaveCount(0);
 });
 
@@ -228,4 +234,53 @@ test("a modal reports unavailable clipboard access and keeps its URL selectable"
   await expect(download).toBeFocused();
   await download.click();
   await expect(dialog.getByRole("button", { name: "Copy file URL" }).locator("[aria-live]")).toBeEmpty();
+});
+
+test("metric resources preserve the scenario, support downloads and return focus to the map", async ({
+  page,
+}) => {
+  await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+  const row = layerRow(page, "Crop average annual loss (%)");
+  await settled(row);
+  const trigger = row.getByRole("button", { name: "Citation, methodology and downloads", exact: true });
+  const before = await openViews(page);
+  await trigger.click();
+  const resources = page.getByRole("dialog", {
+    name: "Resources: Crop average annual loss (%) – Rice AAL (%) – Warming level +2°C",
+    exact: true,
+  });
+  await expect(resources).toBeVisible();
+  await expect(resources).toContainText("rice production loss under a +2°C warming level");
+  await expect(resources.getByRole("heading", { name: "Citation", exact: true })).toBeVisible();
+  await expect(resources.getByRole("link", { name: "Learn more about this metric" })).toBeVisible();
+  await page.keyboard.press("Shift+Tab");
+  await expect(resources.getByRole("link", { name: "View all sources", exact: false })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(resources.getByRole("button", { name: "Close resources", exact: true })).toBeFocused();
+  const button = resources.locator('[data-view-id="MX-KU5ID-GHTH8-C2WG3"]');
+  const downloaded = page.waitForEvent("download");
+  await button.click();
+  await downloaded;
+  const progress = page.locator("dialog.download-dialog:not(.metric-resources-dialog)");
+  await expect(progress).toHaveAttribute("data-state", "done");
+  await page.keyboard.press("Escape");
+  await expect(progress).toBeHidden();
+  await expect(resources).toBeVisible();
+  await expect(button).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 600 });
+  const bounds = await resources.boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.width).toBeLessThanOrEqual(390);
+  expect(bounds.height).toBeLessThanOrEqual(600);
+  await resources.getByRole("button", { name: "Back to map" }).click();
+  await expect(resources).toBeHidden();
+  await expect(trigger).toBeFocused();
+  await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
+  expect(await openViews(page)).toEqual(before);
+  await expect(row.getByRole("combobox")).toHaveValue("7");
+  await trigger.click();
+  await page.keyboard.press("Escape");
+  await expect(resources).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
