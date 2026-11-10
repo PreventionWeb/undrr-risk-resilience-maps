@@ -649,17 +649,17 @@ Enabled by default, with `MAP_DOWNLOADS_ENABLED` in `src/config/features.js` as 
 switch. `resolveDownloadsEnabled()` enforces that switch at the app and sidebar boundaries; URL or
 programmatic opt-ins cannot override it. `?downloads=0` or `{ downloadsEnabled: false }` opts out for
 one viewer. When enabled, `createSidebar()` creates one `createDownloads()` instance and hands it to
-every layer row (`downloads` option). Otherwise no download instance or controls are created. The embed
-reads the same policy and preserves opt-outs in its full-viewer link. Sources links dataset names to
-their maps; it has no per-map download controls.
+the Sources panel and the shared metric resources dialog (`downloads` option). Otherwise no download instance or controls are created. The embed
+reads the same policy and preserves opt-outs in its full-viewer and Sources links. Sources links dataset
+names to their maps and provides per-map downloads beside the methodology notes.
 
 - **What a view offers** is decided from config alone (`getViewDownloads()` in
   `src/config/downloads.js`): hosted files from the view's `downloads: [[url, bytes]]` (imported from
   `data/inventory.csv`), and a CSV for views marked `csvDownload: "yes"` (the inventory's "CSV download"
   column, per view; published `vt` layers only).
-- **Markup** (`src/ui/download-links.js`) fills the row's `.layer-downloads-slot` for the view shown,
-  next to the context links. Delegated `click` and `auxclick` listeners on the slot handle CSV requests
-  and large-file confirmation. A view with a download hides "Request data" in the layer panel
+- **Markup** (`src/ui/download-links.js`) fills each Sources row's Notes cell for its view.
+  Delegated `click` and `auxclick` listeners on the Sources panel handle CSV requests
+  and large-file confirmation. A view with a download hides "Request data" in Sources
   (`layerLinksHtml(view, { downloadsEnabled })`).
 - **The CSV flow** reads the table through `src/sdk/table.js`. A view the session has not loaded is
   added for the read and removed again without going through the layer controller: no store write,
@@ -696,7 +696,8 @@ Format: `#tab?layers=key:sourceIdx,key:sourceIdx,...`
   - **ignore**: empty hash, unknown id or in-page anchor (e.g. a Mangrove tab section `#mg-tabs__section-...`). Tab and layers are left alone.
   - **keep-layers**: an info tab (`home`, `sources`, `about`) with no `layers`, such as a plain `href="#sources"` link. Info tabs don't show the map, so the view switches, the open layers stay on, and the hash is rewritten in place (`replaceState`) to the canonical `#sources?layers=...`. The same applies on Back to a bare info-tab entry.
   - **reconcile**: a data tab (with or without `layers`), or an info tab carrying `layers`. Tab and layers are applied exactly as below.
-- In-app links to info pages (nav links, a layer's "Citation and methodology details") ask the router for the tab directly rather than relying on the hash.
+- In-app navigation links to info pages ask the router for the tab directly rather than relying on the hash. A layer's “Citation, methodology and downloads” button opens a native modal for its applied source. Closing restores focus without navigation; its secondary “View all sources” link opens the standalone Sources page in a new tab.
+- The map's **Share** button opens that same instance-owned modal with Mangrove ShareButtons markup and expandable resources for the active layers. `getMapShare()` serializes applied records through `toUrlLayers()` and `formatHash()`, including provider settings, against the local standalone viewer base (also in embeds). The metric view includes the same full-map sharing controls. `map-share.js` supplies native social/email links, optional device sharing and clipboard feedback with manual-copy fallback; it does not change the document's shortlink or depend on the React component's global URL lookup. All listeners and pending copy feedback are released on re-render or viewer destruction.
 - On a reconciling `hashchange`, the router's `reconcileLayersFromUrl()` sets intent from the new URL: layers absent from it are turned off, and those in it are asked for with their source and settings. The controller works out what has to change (turn on, turn off, switch source, replace an external variant), and the source widget or external controls are rebuilt if they show something else.
 - History entries: a single user action (toggle, source switch, tab switch) pushes one entry. A layer's hash write pushes unless it continues an action on that layer: when a write finds the layer still has pending intent (`controller.hasPendingIntent(key)`: `desired`, a compound layer's `sourceIdx` or an external layer's `settings` differ from what MapX shows), the key is remembered, and its next writes replace that entry until one finds the intent applied (a record change that settles the intent without a URL change also closes it). So a double-click on a switch (on, then off while the add was in flight) makes one entry that already holds the pre-click state, and Back does not turn the layer on; quick A→B→C source picks make one entry ending on C even if B reached the map first. Any other push (another layer, a tab switch, clear-all), the end of a batch and a back/forward navigation close the open actions, so a later action never replaces an earlier one's entry. Multi-layer changes run inside the router's `batch()`, which skips the per-layer writes and writes once when the batch settles: clear-all pushes one entry, while restore and back/forward replace the current entry because the URL already holds the target state. The `hashchange` handler switches tabs without writing, so the previous layers are never written under the new tab.
 

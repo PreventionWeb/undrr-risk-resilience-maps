@@ -182,3 +182,100 @@
   margin: 0.4rem 0 0;
   color: var(--color-text-muted);
 }
+
+/* Metric resources share the download dialog's native modal surface. */
+.metric-resources-dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.metric-resources-dialog section + section {
+  margin-top: 1rem;
+}
+
+.metric-resources-dialog h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.metric-resources-dialog p {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  white-space: pre-line;
+}
+
+.metric-resources-dialog .layer-downloads {
+  font-size: 0.85rem;
+}
+
+.metric-resources-dialog__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.metric-resources-dialog .download-dialog__close {
+  min-width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.map-share-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: var(--z-panel);
+  gap: 0.4rem;
+  background: rgb(var(--mg-color-neutral-0));
+  min-height: 40px;
+}
+
+.metric-resources-dialog .mg-share {
+  margin-top: 1.25rem;
+  max-inline-size: 100%;
+}
+
+.metric-resources-dialog .mg-share__copy-button {
+  text-align: start;
+}
+
+.metric-resources-dialog .mg-share__copy-text {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.metric-resources-dialog .mg-share input[hidden] {
+  display: none;
+}
+
+.metric-resources-dialog__metric {
+  margin-block: 0.75rem;
+}
+
+.metric-resources-dialog__metric > div {
+  padding-block: 0.75rem;
+}
+
+.metric-resources-dialog .download-dialog__header + .metric-resources-dialog__share .mg-share {
+  margin-top: 0;
+}
+
+/* Reserve a toolbar row: narrow layer panels otherwise sit under Share. */
+@media (max-width: 480px) {
+  [data-ui="app-map"]:has(> .map-share-button) .layer-panel {
+    top: 3.75rem;
+    max-height: calc(100% - 4.5rem);
+  }
+  [data-ui="app-map"]:has(> .map-share-button) .inspect-toggle-btn {
+    left: 0.75rem;
+  }
+  [data-ui="app-map"]:has(> .map-share-button) .site-inspector {
+    top: 3.75rem;
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+  }
+}

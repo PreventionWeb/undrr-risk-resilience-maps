@@ -3,8 +3,8 @@
  *
  * `downloadListHtml(layer, source)` draws a view's download controls: a link
  * per hosted file (format and size) and a "Download CSV"
- * button for region-level vector views. The layer row and the Sources table
- * both use it. Clicks go to the caller's delegated listener
+ * button for region-level vector views. The Sources table
+ * uses it. Clicks go to the caller's delegated listener
  * (`createDownloads().handleClick`, src/ui/downloads.js): the CSV button opens
  * the progress dialog, and a link to a file over 1 GB (`data-large`) asks for
  * confirmation first.
@@ -28,7 +28,7 @@ const DOWNLOAD_ICON = '<span class="mg-icon mg-icon-download" aria-hidden="true"
  *
  * Each control's accessible name (aria-label) carries the view's label
  * ("Download CSV: Losses to housing – AAL Current (values per region)"), so
- * the many controls on the Sources page and in the panel can be told apart out
+ * the many controls on the Sources page can be told apart out
  * of context. The name starts with the visible words (WCAG 2.5.3). An
  * aria-label rather than visually hidden text: browsers put a space before a
  * hidden span ("CSV : Losses…").

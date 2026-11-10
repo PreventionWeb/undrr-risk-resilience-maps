@@ -9,6 +9,11 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Changed
 
 - Hide the MapX image legend comparison control unless the page URL includes `?legendComparison=1`. Keep image fallback available for unsupported legends.
+- Replace the layer panel's separate resource links with one “Citation, methodology and downloads” control that opens a modal for the displayed metric. Include notes, citation, license, methodology and downloads, with “Back to map” and a secondary “View all sources” link. Also offer per-map downloads on Sources. Add Mangrove share controls to the modal and a map Share button that opens the same modal with resources for all active layers; share links preserve the full map’s layer and scenario state.
+
+### Fixed
+
+- Keep Share clear of the layer-panel controls on narrow screens. Wait for map transitions before sharing and refresh sharing in an open metric modal when the map settles. Preserve effective download opt-outs in the Sources link, and keep modal Escape from closing inspection results behind it.
 
 ## [0.0.14] - 2026-11-10
 

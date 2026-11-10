@@ -29,8 +29,10 @@ import { createLayerRow } from "./layer-row.js";
 import { buildCrossTabSections, buildTabPanel, updateDisabledLayerVisibility } from "./layer-panel.js";
 import { createNav, INFO_TABS } from "./nav.js";
 import { makeDraggable, makeResizable, onPanelCollapse, onPanelExpand } from "../utils/panels.js";
-import { createLayersStore, mirrorOpenViews } from "../state/layers-store.js";
-import { clampSourceIdx, createLayerController } from "../services/layer-controller.js";
+import { createLayersStore, mirrorOpenViews, toUrlLayers } from "../state/layers-store.js";
+import { clampSourceIdx, createLayerController, isBusyStatus } from "../services/layer-controller.js";
+import { formatHash } from "../state/hash.js";
+import { createMetricResourcesDialog } from "./metric-resources-dialog.js";
 import { createDownloads } from "./downloads.js";
 import { canMapLoad } from "../sdk/availability.js";
 import { createRouter } from "../services/router.js";
@@ -239,7 +241,12 @@ export function createSidebar(
 
   // Layer switches are aria-disabled until the map can accept changes, so they
   // are re-rendered when it becomes (or stops being) ready.
-  disposers.push(onSDKReadyChange(() => refreshLayerRows()));
+  disposers.push(
+    onSDKReadyChange(() => {
+      refreshLayerRows();
+      refreshSharing();
+    }),
+  );
   disposers.push(() => router.destroy());
   // Runs first on destroy (disposers run in reverse), so a MapX call that
   // settles afterwards is dropped before anything else is torn down.
@@ -322,6 +329,45 @@ export function createSidebar(
     disposers.push(() => mapFrame?.classList.remove(MASK_CLASS));
   }
 
+  function getMapShare() {
+    const entries = toUrlLayers(layersStore.all(), registry.urlKeyOrder());
+    const url = new URL(".", (rootDoc.defaultView ?? window).location.href);
+    if (!downloads) url.searchParams.set("downloads", "0");
+    url.hash = formatHash(router.activeTab, entries);
+    return {
+      url: url.href,
+      pending: !isSDKReady() || layersStore.all().some((record) => isBusyStatus(record.status)),
+      metrics: entries.map(({ key, sourceIdx }) => {
+        const layer = registry.byKey(key);
+        return { layer, source: layer.sources?.[sourceIdx] ?? null };
+      }),
+    };
+  }
+  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads, getMapShare });
+  const shareButton = appMap ? rootDoc.createElement("button") : null;
+  if (shareButton) {
+    shareButton.type = "button";
+    shareButton.className = "map-share-button mg-button mg-button-primary mg-button-outline";
+    shareButton.setAttribute("aria-haspopup", "dialog");
+    shareButton.setAttribute("aria-label", "Share map");
+    shareButton.innerHTML = '<span class="mg-icon mg-icon-share" aria-hidden="true"></span>Share';
+    shareButton.addEventListener("click", () => resources.open({ opener: shareButton }), { signal });
+    appMap.appendChild(shareButton);
+    disposers.push(() => shareButton.remove());
+  }
+  disposers.push(() => resources.destroy());
+  function refreshSharing() {
+    if (shareButton) {
+      shareButton.disabled = getMapShare().pending;
+      shareButton.title = shareButton.disabled
+        ? "Wait for the map to finish updating before sharing"
+        : "Share the current map";
+    }
+    resources.refreshShare();
+  }
+  refreshSharing();
+  disposers.push(layersStore.subscribe(refreshSharing));
+
   /**
    * Does a layer record want this view on the map: it shows it, or it is
    * asked to be on with this view as its (compound) target?
@@ -395,14 +441,13 @@ export function createSidebar(
       controller: layerController,
       isReady: isSDKReady,
       isVisible: () => router.activeTab === tabId,
-      onNavigate: (target) => switchTab(target),
+      onShowResources: (options) => resources.open(options),
       // The home row's external controls announce failures of their own picks.
       selectionPending: () =>
         [...(rowsByKey.get(layer.key) ?? [])].some((other) => other.hasPendingSelection()),
       // Every row of a layer announces through the instance's one region, which
       // drops the repeats, so one event is heard once.
       announce: (message, record) => announcer.announce(layer.key, message, record),
-      downloads,
     });
     allRows.push(row);
     if (isLayerAvailable(layer) && layer.key) {
@@ -573,7 +618,7 @@ export function createSidebar(
   // Populate info page with all info panels
   if (infoPage) {
     infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
-    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
+    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal, downloads })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
   }
 

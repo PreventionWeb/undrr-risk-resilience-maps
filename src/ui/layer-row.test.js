@@ -94,7 +94,7 @@ beforeEach(() => {
 });
 
 describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
-  it("keeps the applied variant's explanation and links during a failed scenario switch", () => {
+  it("keeps the applied variant's explanation during a failed scenario switch", () => {
     const layer = {
       ...compound,
       r2rCategory: "GAR2026",
@@ -104,7 +104,8 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
         explainerUrl: `https://example.org/metrics#scenario-${i}`,
       })),
     };
-    const { store, el } = setup(layer, { variant });
+    const onShowResources = vi.fn();
+    const { store, el } = setup(layer, { variant, onShowResources });
     store.set("flood", {
       desired: true,
       applied: true,
@@ -114,14 +115,17 @@ describe.each(["full", "compact"])("createLayerRow (%s)", (variant) => {
       status: "idle",
     });
     expect(el.querySelector(".layer-desc").textContent).toContain("Explanation 1");
-    expect(el.querySelector('a[href="https://example.org/metrics#scenario-1"]')).not.toBeNull();
-    expect(new URL(el.querySelector('a[href^="mailto:"]').href).searchParams.get("body")).toContain(
-      "Map title: 100y",
-    );
+    expect(el.querySelectorAll(".layer-meta-links button")).toHaveLength(1);
     store.set("flood", { sourceIdx: 0, status: "switching" });
     store.set("flood", { sourceIdx: 1, status: "error", error: "failed" });
     expect(el.querySelector(".layer-desc").textContent).toContain("Explanation 1");
-    expect(el.querySelector('a[href="https://example.org/metrics#scenario-1"]')).not.toBeNull();
+    el.querySelector(".layer-resources-button").click();
+    expect(onShowResources).toHaveBeenCalledWith({
+      layer,
+      source: layer.sources[1],
+      opener: expect.any(Element),
+    });
+    expect(el.querySelectorAll(".layer-meta-links button")).toHaveLength(1);
   });
   it("renders the same record twice without DOM changes or SDK calls", async () => {
     const { store, row, el } = setup(simple, { variant });
@@ -366,7 +370,7 @@ describe("createLayerRow full variant", () => {
     const { el } = setup(simple);
     expect(el.className).toBe("layer-item");
     expect(el.querySelector(".layer-body").style.display).toBe("none");
-    expect(el.querySelector(".layer-meta-links a[href='#sources']")).not.toBeNull();
+    expect(el.querySelector(".layer-resources-button")).not.toBeNull();
     expect(el.querySelector(".layer-widget-slot")).not.toBeNull();
   });
 
@@ -455,11 +459,15 @@ describe("createLayerRow full variant", () => {
     expect(controller.setOn).toHaveBeenLastCalledWith("pop", true);
   });
 
-  it("opens Sources from the citation link", () => {
-    const onNavigate = vi.fn();
-    const { el } = setup(simple, { onNavigate });
-    el.querySelector(".layer-meta-links a[href='#sources']").click();
-    expect(onNavigate).toHaveBeenCalledWith("sources");
+  it("opens resources for the displayed metric", () => {
+    const onShowResources = vi.fn();
+    const { el } = setup(simple, { onShowResources });
+    const button = el.querySelector(".layer-resources-button");
+    expect(button.textContent).toBe("Citation, methodology and downloads");
+    expect(button.getAttribute("aria-haspopup")).toBe("dialog");
+    button.click();
+    expect(onShowResources).toHaveBeenCalledWith({ layer: simple, source: null, opener: button });
+    expect(el.querySelector(".layer-downloads, a[href^='mailto:']")).toBeNull();
   });
 
   it("builds the source widget when the layer comes on and rebuilds it when the source changes elsewhere", async () => {

@@ -46,7 +46,7 @@ for (const downloads of [false, true]) {
     await page.goto(`/${downloads ? "?downloads=1" : "?downloads=0"}#sources`);
     await page.waitForFunction(() => window.__mapxStub?.ready === true);
     const sources = page.locator('[data-tab-panel="sources"]');
-    await expect(sources.locator(".layer-downloads, [data-action='download-csv']")).toHaveCount(0);
+    expect((await sources.locator(".layer-downloads").count()) > 0).toBe(downloads);
     const name = "Rice AAL (%) – Warming level +2°C";
     await sources.getByRole("link", { name, exact: true }).click();
     await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);

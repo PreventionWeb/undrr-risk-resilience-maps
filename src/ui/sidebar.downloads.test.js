@@ -71,13 +71,20 @@ vi.mock("../sdk/client.js", () => ({
   getSDK: () => mocks.sdk,
 }));
 vi.mock("./home.js", () => ({ buildHomePanel: () => document.createElement("div") }));
-vi.mock("./info-panels.js", () => ({
-  buildSourcesPanel: (options) => {
-    mocks.sources.push(options);
-    return document.createElement("div");
-  },
-  buildAboutPanel: () => document.createElement("div"),
+vi.mock("../config/layers/index.js", async () => ({
+  TABS: (await import("../config/layers.js")).TABS,
 }));
+vi.mock("./info-panels.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    buildSourcesPanel: (options) => {
+      mocks.sources.push(options);
+      return actual.buildSourcesPanel(options);
+    },
+    buildAboutPanel: () => document.createElement("div"),
+  };
+});
 vi.mock("./mangrove-on-this-page-nav.js", () => ({ initMangroveOnThisPageNav: vi.fn() }));
 vi.mock("./mangrove-tabs.js", () => ({ initMangroveTabs: vi.fn() }));
 vi.mock("./layer-controls.js", () => ({ addOpacitySlider: vi.fn(), addLegend: vi.fn() }));
@@ -105,6 +112,11 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
       (row) => row.querySelector(".layer-label").textContent === layer.label,
     );
 
+  const resourceRow = (layer) =>
+    [...document.querySelectorAll("a.sources-map-link")]
+      .find((link) => link.textContent === layer.label)
+      .closest("tr");
+
   beforeEach(() => {
     history.replaceState(null, "", "#");
     mocks.calls.length = 0;
@@ -128,15 +140,16 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     expect(document.querySelector(".layer-downloads-slot")).toBeNull();
     expect(document.querySelector(".layer-downloads")).toBeNull();
     expect(document.querySelector("dialog")).toBeNull();
-    expect(mocks.sources.at(-1)).not.toHaveProperty("downloads");
+    expect(mocks.sources.at(-1).downloads).toBeNull();
     // The request link is still the route for the GAR2026 vector layer.
-    expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
+    expect(resourceRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
   });
 
   it("defaults downloads on", () => {
     build();
-    expect(homeRow(layers.raster).querySelector("a.layer-downloads__link")).not.toBeNull();
-    expect(homeRow(layers.vector).querySelector("[data-action='download-csv']")).not.toBeNull();
+    expect(resourceRow(layers.raster).querySelector("a.layer-downloads__link")).not.toBeNull();
+    expect(resourceRow(layers.vector).querySelector("[data-action='download-csv']")).not.toBeNull();
+    expect(homeRow(layers.vector).querySelector(".layer-downloads")).toBeNull();
   });
 
   it("respects the repository kill switch even for an explicit programmatic opt-in", () => {
@@ -146,39 +159,37 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     );
     build({ downloadsEnabled: true });
     expect(document.querySelector(".layer-downloads, .layer-downloads-slot, dialog")).toBeNull();
-    expect(homeRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
+    expect(resourceRow(layers.vector).querySelector('a[href^="mailto:"]')).not.toBeNull();
   });
 
   it("shows a GeoTIFF link with format and size, marked for confirmation when large", () => {
     build({ downloadsEnabled: true });
-    const link = homeRow(layers.raster).querySelector("a.layer-downloads__link");
+    const link = resourceRow(layers.raster).querySelector("a.layer-downloads__link");
     expect(link.href).toBe("https://gar-data.unepgrid.ch/2026/big_grid.tif");
     expect(link.getAttribute("download")).toBe("big_grid.tif");
     expect(link.textContent).toContain("Download big_grid.tif");
     expect(link.textContent).toContain("(GeoTIFF, 1.5 GB)");
     expect(link.hasAttribute("data-large")).toBe(true);
-    expect(homeRow(layers.raster).textContent).not.toContain("Over 1 GB");
-    expect(homeRow(layers.raster).querySelector("[data-action='download-csv']")).toBeNull();
+    expect(resourceRow(layers.raster).textContent).not.toContain("Over 1 GB");
+    expect(resourceRow(layers.raster).querySelector("[data-action='download-csv']")).toBeNull();
   });
 
   it("offers Download CSV for a vector layer in place of Request data, and keeps the request elsewhere", () => {
     build({ downloadsEnabled: true });
-    const vectorRow = homeRow(layers.vector);
+    const vectorRow = resourceRow(layers.vector);
     expect(vectorRow.querySelector("[data-action='download-csv']").textContent).toContain("Download CSV");
     expect(vectorRow.querySelector('a[href^="mailto:"]')).toBeNull();
-    const liveRow = homeRow(layers.live);
+    const liveRow = resourceRow(layers.live);
     expect(liveRow.querySelector(".layer-downloads")).toBeNull();
     expect(liveRow.querySelector('a[href^="mailto:"]')).not.toBeNull();
-    expect(mocks.sources.at(-1)).not.toHaveProperty("downloads");
+    expect(mocks.sources.at(-1).downloads.handleClick).toBeTypeOf("function");
   });
 
   it("generates the CSV through the dialog, adding the unloaded view only for the read", async () => {
     build({ downloadsEnabled: true });
     sidebar.showTab("test");
-    // Shown as in an expanded row (jsdom will not focus inside display: none),
-    // without the expand control, which would also turn the layer on.
-    homeRow(layers.vector).querySelector(".layer-body").style.display = "block";
-    const button = homeRow(layers.vector).querySelector("[data-action='download-csv']");
+    sidebar.showTab("sources");
+    const button = resourceRow(layers.vector).querySelector("[data-action='download-csv']");
     button.focus();
     button.click();
     const dialog = document.querySelector("dialog.download-dialog");
@@ -232,7 +243,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
     build({ downloadsEnabled: true });
     await sidebar.controller.setOn("vector-layer", true);
     expect(mocks.viewAdd).toHaveBeenCalledWith("MX-VEC-1");
-    homeRow(layers.vector).querySelector("[data-action='download-csv']").click();
+    resourceRow(layers.vector).querySelector("[data-action='download-csv']").click();
     const dialog = document.querySelector("dialog.download-dialog");
     await waitFor(() => expect(dialog.dataset.state).toBe("done"));
     expect(mocks.calls.map(([method]) => method)).toEqual(["get_view_table_attribute"]);
@@ -241,7 +252,7 @@ describe("sidebar downloads (prototype, ?downloads=1)", () => {
 
   it("removes the dialog with the instance", () => {
     build({ downloadsEnabled: true });
-    homeRow(layers.vector).querySelector("[data-action='download-csv']").click();
+    resourceRow(layers.vector).querySelector("[data-action='download-csv']").click();
     expect(document.querySelector("dialog")).not.toBeNull();
     sidebar.destroy();
     sidebar = null;

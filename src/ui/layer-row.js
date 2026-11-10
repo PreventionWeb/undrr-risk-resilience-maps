@@ -32,8 +32,6 @@ import { clampSourceIdx, isBusyStatus, settingsMatch } from "../services/layer-c
 import { offRecord } from "../state/layers-store.js";
 import { createLayerAnnouncer } from "./announcer.js";
 import { setLoadingText } from "./inline-loader.js";
-import { layerLinksHtml } from "../utils/layer-links.js";
-import { downloadListHtml } from "./download-links.js";
 
 // MapX view types: cc = custom coded (live), rt = raster tile, vt = vector tile
 const TYPE_LABELS = { cc: "live", rt: "raster", vt: "vector" };
@@ -263,17 +261,13 @@ function legendLayerFor(layer, record) {
  * @param {ReturnType<import("../services/layer-controller.js").createLayerController>|null} options.controller
  * @param {() => boolean} [options.isReady] - whether the map accepts layer changes yet
  * @param {() => boolean} [options.isVisible] - whether the row's tab is shown
- * @param {(tabId: string) => void} [options.onNavigate] - open another page (full row's citation link)
+ * @param {(options: object) => void} [options.onShowResources] - show resources for the applied metric
  * @param {() => boolean} [options.selectionPending] - a pick made through another
  *   row's controls for this layer is settling (its controls announce failures)
  * @param {(message: string, record: object) => void} [options.announce] - say
  *   something about this layer through a live region the caller owns (the
  *   sidebar's, shared by every row of the layer, so one event is announced
  *   once). Without it the row builds a region of its own.
- * @param {{ handleClick: (event: MouseEvent) => void }|null} [options.downloads] -
- *   map data downloads (#64): when given, the row shows
- *   the shown view's download links and "Download CSV" button, and hands the
- *   button's clicks to `handleClick`. Without it the row is unchanged.
  * @returns {LayerRow}
  */
 export function createLayerRow(
@@ -284,10 +278,9 @@ export function createLayerRow(
     controller,
     isReady = () => true,
     isVisible = () => true,
-    onNavigate = () => {},
+    onShowResources = () => {},
     selectionPending = () => false,
     announce: announceTo,
-    downloads = null,
   },
 ) {
   const full = variant === "full";
@@ -447,33 +440,12 @@ export function createLayerRow(
     body.appendChild(desc);
   }
 
-  const contextLinks = buildSlot("layer-meta-links");
-  body.appendChild(contextLinks);
-  // Prototype downloads (#64): only built when the instance enables them.
-  const downloadSlot = downloads ? buildSlot("layer-downloads-slot") : null;
-  if (downloadSlot) {
-    body.appendChild(downloadSlot);
-    downloadSlot.addEventListener("click", downloads.handleClick, { signal });
-    downloadSlot.addEventListener("auxclick", downloads.handleClick, { signal });
-  }
-  function setSlotHtml(slot, html) {
-    if (slot.dataset.content === html) return;
-    slot.innerHTML = html;
-    slot.dataset.content = html;
-    slot.hidden = !html;
-  }
-  /** The links for the view shown: the layer, or its compound `source`. */
-  function renderContextLinks(source = null) {
-    const view = source ? { ...layer, ...source, sources: undefined } : layer;
-    setSlotHtml(contextLinks, layerLinksHtml(view, { downloadsEnabled: Boolean(downloads) }));
-    if (downloadSlot) setSlotHtml(downloadSlot, downloadListHtml(layer, source));
-  }
-  renderContextLinks(layer.sources?.[0] ?? null);
+  let resourcesButton;
+  body.appendChild(buildMetaLinks());
 
   let widgetSlot = null;
   let statusEl = null;
   if (full) {
-    body.appendChild(buildMetaLinks());
     // Compound layers render the source switcher here, external layers their controls.
     widgetSlot = buildSlot("layer-widget-slot");
     body.appendChild(widgetSlot);
@@ -497,24 +469,20 @@ export function createLayerRow(
   function buildMetaLinks() {
     const metadata = document.createElement("p");
     metadata.className = "layer-meta-links";
-    if (layer.sourceUrl && layer.source && layer.source !== "Source to be confirmed.") {
-      const sourceLink = document.createElement("a");
-      sourceLink.href = layer.sourceUrl;
-      sourceLink.target = "_blank";
-      sourceLink.rel = "noopener";
-      sourceLink.textContent = "Source";
-      metadata.appendChild(sourceLink);
-      metadata.append(" · ");
-    }
-    const detailsLink = document.createElement("a");
-    detailsLink.href = "#sources";
-    detailsLink.textContent = "Citation and methodology details";
-    // Navigate like the nav links do; the href stays for open-in-new-tab.
+    const detailsLink = document.createElement("button");
+    resourcesButton = detailsLink;
+    detailsLink.type = "button";
+    detailsLink.className = "layer-resources-button";
+    detailsLink.textContent = "Citation, methodology and downloads";
+    detailsLink.setAttribute("aria-haspopup", "dialog");
     detailsLink.addEventListener(
       "click",
-      (e) => {
-        e.preventDefault();
-        onNavigate("sources");
+      () => {
+        if (isBusyStatus(last.status)) return;
+        const source = isCompound(layer)
+          ? layer.sources[clampSourceIdx(layer, last.applied ? last.appliedSourceIdx : last.sourceIdx)]
+          : null;
+        onShowResources({ layer, source, opener: detailsLink });
       },
       { signal },
     );
@@ -677,6 +645,7 @@ export function createLayerRow(
     last = next;
     const busy = isBusyStatus(next.status);
     const wasBusy = isBusyStatus(prev.status);
+    if (resourcesButton.disabled !== busy) resourcesButton.disabled = busy;
 
     renderToggle(next, busy);
     // Every new activation expands on apply unless the header starts it.
@@ -759,9 +728,6 @@ export function createLayerRow(
     // Show the shown source's description instead of the parent's.
     if (desc && isCompound(layer))
       setText(desc, layerDescriptionText(layer, legendLayer.note || legendLayer.desc || layer.desc));
-    renderContextLinks(
-      isCompound(layer) ? layer.sources[clampSourceIdx(layer, record.appliedSourceIdx)] : null,
-    );
   }
 
   /** The layer went off: clear its controls and return the row to its compact state. */

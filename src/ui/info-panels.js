@@ -7,6 +7,7 @@ import { downloadLayerInventory } from "../utils/export-layers.js";
 import { escapeHtml } from "../utils/html.js";
 import { getLayerStatus, isLayerAvailable } from "../config/layers/status.js";
 import { TABS } from "../config/layers/index.js";
+import { downloadListHtml } from "./download-links.js";
 import { layerLinksHtml } from "../utils/layer-links.js";
 import { formatHash } from "../state/hash.js";
 
@@ -38,24 +39,27 @@ function mapxIds(layer) {
 }
 
 /** Build attribution rows with viewer links for available maps. */
-function buildSourcesTable(layers, tabId) {
+function buildSourcesTable(layers, tabId, downloads) {
   const rows = layers
     .flatMap((layer) =>
-      layer.sources?.some((source) => source.note || source.explainerUrl)
+      layer.sources?.some((source) => source.note || source.explainerUrl) ||
+      (downloads && layer.sources?.length)
         ? layer.sources.map((source, sourceIdx) => ({
             layer: { ...layer, ...source, sources: undefined },
             sourceIdx,
+            downloadLayer: layer,
+            source,
             available: isLayerAvailable(layer) && Boolean(source.id),
           }))
-        : [{ layer, sourceIdx: 0, available: isLayerAvailable(layer) }],
+        : [{ layer, downloadLayer: layer, source: null, sourceIdx: 0, available: isLayerAvailable(layer) }],
     )
-    .map(({ layer, sourceIdx, available }) => {
+    .map(({ layer, downloadLayer, source, sourceIdx, available }) => {
       const status = getLayerStatus(layer);
       const isTrackedOnly = status !== "Active";
       const rowClass = isTrackedOnly ? ' class="data-table__row--planned"' : "";
       const statusBadge = isTrackedOnly ? statusLabel(status) : "";
       const ids = mapxIds(layer);
-      const links = layerLinksHtml(layer);
+      const links = layerLinksHtml(layer, { downloadsEnabled: Boolean(downloads) });
       const name =
         !isTrackedOnly && available && layer.key
           ? `<a class="sources-map-link" href="${escapeHtml(formatHash(tabId, [{ key: layer.key, sourceIdx }]))}">${escapeHtml(layer.label)}</a>`
@@ -73,7 +77,7 @@ function buildSourcesTable(layers, tabId) {
         <td>${sourceCell(layer.source, layer.sourceUrl)}</td>
         <td>${escapeHtml(layer.citation)}</td>
         <td class="data-table__license">${sourceCell(layer.license, layer.licenseUrl)}</td>
-        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}</td>
+        <td>${escapeHtml(layer.note || layer.desc)}${links ? `<p>${links}</p>` : ""}${downloads ? downloadListHtml(downloadLayer, source) : ""}</td>
       </tr>`;
     })
     .join("");
@@ -97,7 +101,7 @@ function buildSourcesTable(layers, tabId) {
 }
 
 /** Build the Sources page. `signal` removes the page's listeners. */
-export function buildSourcesPanel({ signal } = {}) {
+export function buildSourcesPanel({ signal, downloads = null } = {}) {
   const categoryNavItems = TABS.map((tab) => {
     const sectionId = `sources-${tab.id}`;
     return `
@@ -116,7 +120,7 @@ export function buildSourcesPanel({ signal } = {}) {
           <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
             <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
-            ${buildSourcesTable(planned, tab.id)}
+            ${buildSourcesTable(planned, tab.id, downloads)}
           </details>`
         : "";
     return `
@@ -124,7 +128,7 @@ export function buildSourcesPanel({ signal } = {}) {
         <div class="mg-container">
           <h2 class="info-page-section__title">${escapeHtml(tab.label)} Data</h2>
           <h3 class="info-source-subtitle">Available data</h3>
-          ${available.length > 0 ? buildSourcesTable(available, tab.id) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
+          ${available.length > 0 ? buildSourcesTable(available, tab.id, downloads) : '<p class="info-source-empty">No datasets are currently published in this category.</p>'}
           ${plannedSection}
         </div>
       </section>`;
@@ -187,6 +191,11 @@ export function buildSourcesPanel({ signal } = {}) {
   panel
     .querySelector("[data-action='download-inventory']")
     .addEventListener("click", downloadLayerInventory, { signal });
+
+  if (downloads) {
+    panel.addEventListener("click", downloads.handleClick, { signal });
+    panel.addEventListener("auxclick", downloads.handleClick, { signal });
+  }
 
   // The app owns the hash (page + layers). Mangrove's default click handler
   // replaces it with a section id, breaking reloads and history restoration.

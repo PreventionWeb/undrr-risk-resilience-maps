@@ -324,6 +324,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         close();
         return;
       }
