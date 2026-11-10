@@ -731,12 +731,17 @@ describe("layer state consistency", () => {
 
     it("opens Sources from a layer's citation link without touching layers", async () => {
       const lengthBefore = history.length;
-      homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a[href='#sources']").click();
+      const hashBefore = location.hash;
+      const tabBefore = sidebar.activeTab;
+      const link = homeItem("risk", "Recovery Speed").querySelector(".layer-meta-links a");
+      expect(link.target).toBe("_blank");
+      expect(new URL(link.href).hash).toBe("#sources");
+      link.click();
       await quiet();
 
-      expect(sidebar.activeTab).toBe("sources");
-      expect(location.hash).toBe("#sources?layers=recovery,pop");
-      expect(history.length).toBe(lengthBefore + 1);
+      expect(sidebar.activeTab).toBe(tabBefore);
+      expect(location.hash).toBe(hashBefore);
+      expect(history.length).toBe(lengthBefore);
       expectLayerState({ ...RECOVERY, on: true });
     });
 

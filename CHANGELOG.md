@@ -9,6 +9,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Changed
 
 - Hide the MapX image legend comparison control unless the page URL includes `?legendComparison=1`. Keep image fallback available for unsupported legends.
+- Replace the layer panel's separate resource links with one “Citation, methodology and downloads” link that opens Sources in a new tab. Put per-map downloads alongside citation and methodology notes on Sources.
 
 ## [0.0.14] - 2026-11-10
 

@@ -395,14 +395,12 @@ export function createSidebar(
       controller: layerController,
       isReady: isSDKReady,
       isVisible: () => router.activeTab === tabId,
-      onNavigate: (target) => switchTab(target),
       // The home row's external controls announce failures of their own picks.
       selectionPending: () =>
         [...(rowsByKey.get(layer.key) ?? [])].some((other) => other.hasPendingSelection()),
       // Every row of a layer announces through the instance's one region, which
       // drops the repeats, so one event is heard once.
       announce: (message, record) => announcer.announce(layer.key, message, record),
-      downloads,
     });
     allRows.push(row);
     if (isLayerAvailable(layer) && layer.key) {
@@ -573,7 +571,7 @@ export function createSidebar(
   // Populate info page with all info panels
   if (infoPage) {
     infoPanels.set("home", append(infoPage, buildHomePanel({ tabs, onNavigate: navigateTo, signal })));
-    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal })));
+    infoPanels.set("sources", append(infoPage, buildSourcesPanel({ signal, downloads })));
     infoPanels.set("about", append(infoPage, buildAboutPanel()));
   }
 

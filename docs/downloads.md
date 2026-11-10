@@ -23,8 +23,8 @@ Start the viewer with the [README development setup](../README.md#developing) an
 stakeholder preview PIN when prompted (access details are shared separately).
 
 1. Open `http://localhost:3001/#risk-resilience?layers=recovery-speed` and wait for the
-   layer to load. In its expanded row, choose **Download CSV**. The file contains values for the
-   selected source; use the row's source selector to download another variant.
+   layer to load. Choose **Citation, methodology and downloads** to open Sources in a new tab,
+   then choose **Download CSV** in the desired variant's Notes cell.
 2. Wait for **Download started**, then choose **Done**. Closing the dialog or pressing Escape during
    the fetch cancels the download. If the map briefly blanks behind the dialog, it is reading a
    temporary reference view for region names.
@@ -46,8 +46,7 @@ is guidance, not an estimate or an indication that the service has stalled. The
 hint clears on the next stage, error, cancellation or retry. Mangrove supplies the
 static reduced-motion and forced-colour rendering of the indicator.
 
-You can also start from Sources: choose a published dataset name to open its map, then download
-from the layer row.
+You can also open Sources directly and download any offered dataset without selecting its map.
 
 ## What is offered
 
@@ -57,12 +56,12 @@ from the layer row.
 | Reviewed region-level vector views | "Download CSV": values per region          | Generated in the browser from the view's MapX attribute table    |
 | Everything else                    | Nothing; keeps "Request data" where shown  | –                                                                |
 
-Downloads appear in the layer panel for the view shown (a compound layer's selected source). In that
-panel, a view with a download no longer shows "Request data"; a view without one keeps it.
+Downloads appear in each Sources row's Notes cell alongside methodology links and explanatory
+notes. A view with a download no longer shows “Request data”; views without downloads keep it.
+The layer panel has one **Citation, methodology and downloads** link, opening the standalone
+Sources page in a new tab (also from embeds). An explicit `?downloads=0` setting is preserved.
 
-Sources contains attribution rather than per-map download controls. Click a published dataset name
-to open it in the viewer, where downloads are available when enabled. Rows for individual variants
-open that exact source; grouped dataset rows open the default source. Unpublished entries have no
+Published dataset names still open the corresponding map variant. Unpublished entries have no
 viewer link. The layer-inventory CSV export remains at the bottom of Sources.
 
 Clicking a file over 1 GB first opens a confirmation dialog (the same dialog the CSV uses) that
@@ -204,10 +203,9 @@ added for the read and removed again, outside the layer controller:
 - views the session has loaded (on the map now or earlier, or added for a previous read) are read
   without another add.
 
-In the layer panel a row's downloads are only visible while the layer is on (expanding a row turns it
-on), so the target view is normally read without an add. Temporary adds serve the region-name and
-region-code reference reads, and programmatic `requestCsv(viewId)` calls for unloaded views. The
-download flow leaves layer selection, URL state and camera position unchanged.
+Downloads from Sources read an already loaded view directly, or temporarily load an unused view
+for the read and remove it afterwards. The flow leaves layer selection, URL state and camera
+position unchanged.
 
 ### Accessibility
 

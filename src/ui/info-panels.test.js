@@ -127,14 +127,24 @@ describe("buildSourcesPanel", () => {
     expect(table.querySelector("[aria-sort]")).toBeNull();
   });
 
-  it("keeps download controls out of Sources even when supplied a download handler", () => {
-    const panel = buildSourcesPanel({ downloads: { handleClick: vi.fn() } });
-    expect(
-      panel.querySelector(".data-table__downloads, .layer-downloads, [data-action='download-csv']"),
-    ).toBeNull();
-    expect([...panel.querySelectorAll("thead th")].map((th) => th.textContent)).not.toContain("Download");
+  it("shows each variant's downloads with its notes and delegates clicks", () => {
+    const handleClick = vi.fn();
+    const panel = buildSourcesPanel({ downloads: { handleClick } });
+    const button = panel.querySelector('[data-view-id="MX-KU5ID-GHTH8-C2WG3"]');
+    const row = button.closest("tr");
+    expect(row.textContent).toContain("Rice AAL (%) – Warming level +2°C");
+    expect(row.textContent).toContain("under a +2°C warming level");
+    expect(row.querySelector('a[href*="methodology#"]')).not.toBeNull();
+    expect(row.querySelector('a[href^="mailto:"]')).toBeNull();
+    button.click();
+    expect(handleClick).toHaveBeenCalledOnce();
+    expect(panel.querySelector("a.layer-downloads__link")).not.toBeNull();
+  });
+
+  it("omits downloads when disabled and retains data requests", () => {
+    const panel = buildSourcesPanel();
+    expect(panel.querySelector(".layer-downloads")).toBeNull();
     expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(30);
-    expect(panel.querySelector('[data-action="download-inventory"]')).not.toBeNull();
   });
 
   it("links published dataset names to the correct viewer tab and source", () => {

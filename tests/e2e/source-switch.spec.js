@@ -12,7 +12,7 @@ import {
 } from "./fixtures/app.js";
 
 test.describe("source switch", () => {
-  test("GAR crop scenarios keep the map, explanation, request and shared link together", async ({ page }) => {
+  test("GAR crop scenarios keep the map, explanation and shared link together", async ({ page }) => {
     await page.goto("/?downloads=0#gar?layers=gar26-aal-crops");
     await page.waitForFunction(() => window.__mapxStub?.ready === true);
     const crops = layerRow(page, "Crop average annual loss (%)");
@@ -28,13 +28,9 @@ test.describe("source switch", () => {
       "data-view-id",
       "MX-KU5ID-GHTH8-C2WG3",
     );
-    const request = new URL(
-      await crops.getByRole("link", { name: "Request data", exact: true }).getAttribute("href"),
-    );
-    expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
-    expect(request.searchParams.get("body")).toContain(
-      "https://www.undrr.org/m/risk-and-resilience-maps/#gar?layers=gar26-aal-crops:7",
-    );
+    await expect(
+      crops.getByRole("link", { name: "Citation, methodology and downloads", exact: false }),
+    ).toHaveAttribute("target", "_blank");
     await expect(page).toHaveURL(/#gar\?layers=gar26-aal-crops:7$/);
     await page.goto("/?downloads=0#gar?layers=gar26-aal-crops:7");
     await expect(layerRow(page, "Crop average annual loss (%)").getByRole("combobox")).toHaveValue("7");

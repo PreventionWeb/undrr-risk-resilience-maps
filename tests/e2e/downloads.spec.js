@@ -25,30 +25,24 @@ test("downloads=0 hides map download controls", async ({ page }) => {
   await expect(page.locator("[data-action='download-csv'], dialog")).toHaveCount(0);
 });
 
-test("by default, a raster row links its GeoTIFF with format and size", async ({ page }) => {
+test("by default, Sources links each raster GeoTIFF with format and size", async ({ page }) => {
   await gotoApp(page, "#hazard?layers=landslides");
   await page.waitForFunction(() => window.__mapxStub?.ready === true);
   const row = layerRow(page, "Landslides");
   await settled(row);
-  const link = row.locator("a.layer-downloads__link");
+  await page.goto("/#sources");
+  const link = sourcesPage(page).locator('a[href="https://gar-data.unepgrid.ch/2026/ls_phex.tif"]');
   await expect(link).toBeVisible();
   await expect(link).toHaveAttribute("href", "https://gar-data.unepgrid.ch/2026/ls_phex.tif");
   await expect(link).toHaveAttribute("download", "ls_phex.tif");
   await expect(link).toHaveAccessibleName("Download ls_phex.tif: Landslides – Exposure (GeoTIFF, 75.7 MB)");
 });
 
-test("a Sources dataset opens in the viewer, where its values-only CSV can be downloaded", async ({
-  page,
-}) => {
+test("Sources downloads a values-only CSV without selecting the map", async ({ page }) => {
   await page.goto("/#sources");
   await page.waitForFunction(() => window.__mapxStub?.ready === true);
   await expect(sourcesPage(page).locator("th", { hasText: /^Download$/ })).toHaveCount(0);
-  await expect(sourcesPage(page).locator(".layer-downloads")).toHaveCount(0);
-  await sourcesPage(page).getByRole("link", { name: "Poorest: Earthquake", exact: true }).click();
-  await expect(page).toHaveURL(/#risk-resilience\?layers=recovery-speed$/);
-  const row = layerRow(page, "Recovery Speed");
-  await settled(row);
-  const button = row.locator("[data-action='download-csv']");
+  const button = sourcesPage(page).locator('[data-view-id="MX-VCP83-3E2TG-PJWFJ"]');
   const id = await button.getAttribute("data-view-id");
   const downloadEvent = page.waitForEvent("download");
   await button.click();
@@ -78,8 +72,8 @@ test("a Sources dataset opens in the viewer, where its values-only CSV can be do
   }, id);
   expect(calls.filter(([method]) => method === "get_view_table_attribute")).toHaveLength(1);
   expect(calls.filter(([method]) => method === "view_add")).toHaveLength(1);
-  expect(calls.some(([method]) => method === "view_remove")).toBe(false);
-  expect(await openViews(page)).toContain(id);
+  expect(calls.some(([method]) => method === "view_remove")).toBe(true);
+  expect(await openViews(page)).not.toContain(id);
 
   // Escape closes the dialog and returns focus to the button.
   await page.keyboard.press("Escape");
@@ -96,7 +90,8 @@ test("closing the dialog mid-fetch keeps the displayed map intact", async ({ pag
     window.__mapxStub.tableDelayMs = 600;
     window.__mapxStub.calls = [];
   });
-  const button = row.locator("[data-action='download-csv']");
+  await page.getByRole("link", { name: "Sources", exact: true }).first().click();
+  const button = sourcesPage(page).locator('[data-view-id="MX-VCP83-3E2TG-PJWFJ"]');
   const id = await button.getAttribute("data-view-id");
   let downloaded = false;
   page.on("download", () => {
@@ -134,7 +129,8 @@ test("a slow CSV read shows honest progress and a cancellable wait hint without 
   await page.evaluate(() => {
     window.__mapxStub.tableDelayMs = 20_000;
   });
-  const button = row.locator("[data-action='download-csv']");
+  await page.getByRole("link", { name: "Sources", exact: true }).first().click();
+  const button = sourcesPage(page).locator('[data-view-id="MX-VCP83-3E2TG-PJWFJ"]');
   await button.click();
   const dialog = page.locator("dialog.download-dialog");
   await expect(dialog.locator("progress")).not.toHaveAttribute("value");
@@ -152,10 +148,10 @@ test("embed: downloads default on", async ({ page }) => {
   await page.waitForFunction(() => window.__mapxStub?.ready);
   const row = layerRow(page, "Landslides");
   await settled(row);
-  await expect(row.locator("a.layer-downloads__link")).toHaveAttribute(
-    "href",
-    "https://gar-data.unepgrid.ch/2026/ls_phex.tif",
-  );
+  const link = row.getByRole("link", { name: "Citation, methodology and downloads", exact: false });
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("href", /\/#sources$/);
+  await expect(row.locator(".layer-downloads")).toHaveCount(0);
 });
 
 for (const embed of [false, true]) {
@@ -206,7 +202,10 @@ test("a modal reports unavailable clipboard access and keeps its URL selectable"
   await gotoApp(page, "#hazard?layers=river-flooding");
   const row = layerRow(page, "River Flooding");
   await settled(row);
-  const download = row.locator("a.layer-downloads__link");
+  await page.getByRole("link", { name: "Sources", exact: true }).first().click();
+  const download = sourcesPage(page).locator(
+    'a[href="https://gar-data.unepgrid.ch/2026/global_pc_h25glob.tif"]',
+  );
   await download.click();
   const dialog = page.getByRole("dialog", { name: "Download a large file?" });
   const copy = dialog.getByRole("button", { name: "Copy file URL" });
