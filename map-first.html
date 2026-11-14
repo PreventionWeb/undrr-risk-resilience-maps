@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Map-first explorer · UNDRR</title>
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.3.0/css/style.css" />
+  </head>
+  <body class="workspace-preview map-first-preview">
+    <a class="mg-skip-link" href="#main">Skip to content</a>
+    <header id="header" class="mg-page-header mg-page-header--default">
+      <div class="mg-page-header__decoration" aria-hidden="true">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <div class="mg-page-header__toolbar-wrapper" data-vf-google-analytics-region="undrr-black-bar">
+        <div class="mg-page-header__container mg-container">
+          <div class="mg-page-header__region mg-page-header__region--toolbar">
+            <div id="block-undrrlogo" class="mg-page-header__block mg-page-header__block--logo">
+              <a href="https://www.undrr.org/"
+                ><img
+                  src="https://assets.undrr.org/logos/undrr/undrr-logo-horizontal.svg"
+                  alt="United Nations Office for Disaster Risk Reduction"
+                  title="UNDRR"
+                  width="324"
+                  height="47"
+                  class="mg-logo mg-logo--autocrop mg-page-header__logo-img"
+              /></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="workspace-app-bar">
+      <div>
+        Risk and resilience metrics
+        <span class="mg-tag mg-tag--outline preview-tag">Map-first prototype</span>
+      </div>
+      <a class="current-viewer" href="./layer-workspace.html"
+        >Stepper prototype <span class="mg-icon mg-icon-arrow-right" aria-hidden="true"></span
+      ></a>
+    </div>
+    <main id="main" class="mf-shell" tabindex="-1">
+      <aside class="mf-rail" aria-label="Find and save maps">
+        <div class="mf-rail-heading">
+          <h1>Explore the maps</h1>
+          <p>Find a topic. View a map. Keep what matters.</p>
+        </div>
+        <div class="mf-tabs" role="group" aria-label="Map collection">
+          <button id="mf-browse-tab" class="mg-button mg-button-primary" aria-pressed="true">Browse</button
+          ><button
+            id="mf-saved-tab"
+            class="mg-button mg-button-primary mg-button-outline"
+            aria-pressed="false"
+          >
+            My maps <span id="mf-saved-count" class="count">0</span>
+          </button>
+        </div>
+        <section id="mf-browse" aria-label="Browse maps">
+          <div class="mf-search">
+            <label for="mf-search">Find an indicator</label
+            ><input
+              id="mf-search"
+              class="mg-form-input"
+              type="search"
+              placeholder="Search losses, hazards, resilience…"
+            /><label class="mg-u-sr-only" for="mf-category">Dataset category</label
+            ><select id="mf-category" class="mg-form-select">
+              <option value="all">All categories</option>
+            </select>
+          </div>
+          <div id="mf-suggestions"></div>
+          <div class="mf-list-heading">
+            <h2>All datasets</h2>
+            <span id="mf-result-count"></span>
+          </div>
+          <div id="mf-datasets"></div>
+        </section>
+        <section id="mf-saved" aria-labelledby="mf-saved-heading" hidden>
+          <div class="mf-list-heading">
+            <h2 id="mf-saved-heading">My maps</h2>
+            <button id="mf-clear-saved" class="mg-button mg-button-primary mg-button-outline text-button">
+              Clear saved maps
+            </button>
+          </div>
+          <p class="mf-help">Saving keeps an exact variant. It does not change what is on the map.</p>
+          <div id="mf-saved-list"></div>
+        </section>
+        <div class="mf-rail-footer">
+          <button id="mf-downloads" class="mg-button mg-button-primary mg-button-outline">
+            <span class="mg-icon mg-icon-download" aria-hidden="true"></span>Download data</button
+          ><span id="mf-save-status" role="status"></span>
+        </div>
+      </aside>
+      <section class="mf-workspace" aria-label="Map workspace">
+        <header class="mf-map-heading">
+          <div>
+            <span class="eyebrow" id="mf-map-kind">Featured map</span>
+            <h2 id="mf-current-title"></h2>
+            <p id="mf-current-variant"></p>
+          </div>
+          <div class="mf-map-actions">
+            <button id="mf-save-current" class="mg-button mg-button-primary mg-button-outline"></button
+            ><button id="mf-compare" class="mg-button mg-button-primary mg-button-outline">Compare</button
+            ><button id="mf-single" class="mg-button mg-button-primary mg-button-outline" hidden>
+              One map
+            </button>
+          </div>
+        </header>
+        <div class="mf-location-bar">
+          <form id="mf-country-form">
+            <label for="mf-country">Find a country</label
+            ><input
+              id="mf-country"
+              class="mg-form-input"
+              list="mf-countries"
+              placeholder="Type a country name"
+              autocomplete="off"
+              disabled
+            /><datalist id="mf-countries"></datalist
+            ><button id="mf-country-go" class="mg-button mg-button-primary mg-button-outline" disabled>
+              Find
+            </button>
+          </form>
+          <span id="mf-country-hint">You can also click the map to inspect a location.</span
+          ><span id="mf-map-status" role="status">Connecting to map…</span>
+        </div>
+        <p id="mf-interpretation" class="mf-interpretation"></p>
+        <div id="map-grid" class="map-grid">
+          <section id="left-pane" class="map-pane" aria-label="Main map">
+            <div id="left-map-label" class="map-label"></div>
+            <div id="map-left" class="map-surface"></div>
+            <div id="left-legend" class="map-legend"></div>
+          </section>
+          <section id="right-pane" class="map-pane" aria-label="Comparison map" hidden>
+            <div id="right-map-label" class="map-label"></div>
+            <div id="map-right" class="map-surface"></div>
+            <div id="right-legend" class="map-legend"></div>
+          </section>
+          <section id="mf-inspection" class="mf-inspection" aria-labelledby="mf-inspection-title" hidden>
+            <div class="mf-inspection-heading">
+              <h2 id="mf-inspection-title" tabindex="-1">Location details</h2>
+              <button id="mf-close-inspection" class="mg-icon-button" aria-label="Close location details">
+                <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div id="mf-inspection-body"></div>
+          </section>
+        </div>
+        <footer class="mf-map-footer">
+          <span>Click a location to inspect the displayed indicator.</span
+          ><button
+            id="mf-link-views"
+            class="mg-button mg-button-primary mg-button-outline text-button"
+            aria-pressed="true"
+            hidden
+          >
+            Views linked</button
+          ><button id="mf-map-details" class="mg-button mg-button-primary mg-button-outline text-button">
+            About this map
+          </button>
+        </footer>
+      </section>
+    </main>
+    <dialog id="mf-download-dialog" class="workspace-dialog" aria-labelledby="mf-download-title">
+      <div class="dialog-heading">
+        <div>
+          <h2 id="mf-download-title">Download data</h2>
+          <p>Choose exact variants, including saved maps that are not displayed.</p>
+        </div>
+        <button class="mg-icon-button" data-dismiss aria-label="Close downloads">
+          <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="mf-download-results" class="download-results"></div>
+      <footer class="dialog-footer">
+        <span>CSV values are provided per region, without geometry.</span
+        ><button class="mg-button mg-button-primary" data-dismiss>Done</button>
+      </footer>
+    </dialog>
+    <div id="mf-announcement" class="mg-u-sr-only" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/preview/map-first.js"></script>
+  </body>
+</html>

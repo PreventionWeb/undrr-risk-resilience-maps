@@ -6,6 +6,12 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add a separate map-first prototype at `map-first.html`: immediate featured-map display, compact Browse and My maps views, independent viewing and saving, country/location inspection, saved-variant comparison and explicit download review. Preserve the stepper prototype and use an isolated workspace store. See [prototype notes](docs/map-first-prototype.md).
+
+- Add an isolated layer-workspace interaction preview at `layer-workspace.html`: searchable published-data catalog, independent child variants, persistent workspace, explicit single/overlay/compare modes, live stack ordering and opacity, linked comparison cameras, and per-variant download review. Start new workspaces in an inline Choose layers step with three real-map thumbnail suggestions instead of loading sample layers. Keep Choose layers and Explore map available through persistent step navigation, preserve draft selections across reloads and prevent Escape from exposing an unfinished workspace. Restore returning workspaces and provide a non-persistent `?start=1` review mode. The existing viewer remains the default. Align the preview with the canonical UNDRR header, published Mangrove controls, native radio semantics, theme tokens, font roles, icon masks and sentence-case UI copy. See [preview notes](docs/layer-workspace-preview.md) and [the alignment record](docs/mangrove-alignment.md).
+
 ### Changed
 
 - Hide the MapX image legend comparison control unless the page URL includes `?legendComparison=1`. Keep image fallback available for unsupported legends.
