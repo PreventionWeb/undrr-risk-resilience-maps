@@ -534,6 +534,11 @@ on the same release. Modules are fetched from the CDN rather than bundled.
 - `js/on-this-page-nav.js` enhances Sources category navigation through
   `src/ui/mangrove-on-this-page-nav.js`. Authored links remain usable if loading
   fails; aborting the panel lifetime destroys its observers and listeners.
+- `js/cite-this.js` enhances confirmed citation prose in resource modals through
+  `src/ui/mangrove-cite-this.js`. Rendered fallback text stays selectable without
+  the module. Each resource render owns its citation lifetime and nested-dialog
+  cleanup; share refreshes do not destroy citations. Citation URL copying and
+  bibliographic exports stay off without structured dataset metadata.
 - `js/tabs.js` auto-initialises `[data-mg-js-tabs]` containers on
   `DOMContentLoaded`. `src/ui/mangrove-tabs.js` retains a scoped loader with an
   abort-triggered `mgTabsDestroy` for window and font listeners; the current

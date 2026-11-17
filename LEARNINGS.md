@@ -11,11 +11,11 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 Reviewed the official [2.4.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.4.0)
 and [2.5.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.5.0) releases,
 tagged source at `71e4867`, and the deployed 2.3.0/2.5.0 CDN assets. Both HTML
-entry points now pin 2.5.0 CSS and preview access. The tabs, copy and Sources-nav
+entry points now pin 2.5.0 CSS and preview access. The tabs, copy, citation and Sources-nav
 loaders share `src/config/mangrove.js`; a test compares their release with both
 HTML entry points to prevent a partial upgrade.
 
-All five checked assets return HTTP 200. The deployed CSS identifies itself as
+All six checked assets return HTTP 200. The deployed CSS identifies itself as
 2.5.0, and all 48 non-data font/image URLs referenced by it answer HTTP 200.
 No consumed class or upstream token was removed. Of 35 custom properties read
 by local CSS, 34 are declared upstream; `--mg-card-border` is our own per-card
@@ -44,12 +44,26 @@ it is not a required migration. New quiz, syndicated-search, option-row and
 sticky-tab features do not replace current viewer controls. This CDN upgrade
 does not change the local package tree, Node engine or adopt React/hydration.
 
-Validation: 1,262 unit tests and all 126 Chromium browser tests pass, plus lint,
-production build and edited-file formatting. Added checks cover release alignment,
+Validation: 1,263 unit tests pass, plus lint, production build and edited-file
+formatting. The full Chromium run passed 128 of 129 tests; the remaining test
+used a generic summary selector that also matched the new hidden citation
+fallback. After narrowing it to the metric summary, all nine sharing/citation
+tests pass. Added checks cover release alignment,
 native select affordance and source switching in forced colours, and 40px sharing
 actions contained in 320/390px modals. Existing tests cover preview access,
 embeds, navigation breakpoints, Sources print layout, modal focus and copy failures.
 Forced colours are emulated in Chromium, not verified in Windows contrast themes.
+
+The resource modal additionally uses the release's `js/cite-this.js` (HTTP 200)
+with explicit `data-mg-cite-this-citation` values. Its page fallback would cite
+the viewer rather than the dataset. Disable citation-URL copying and RIS/BibTeX
+exports because the inventory supplies citation prose, not structured bibliographic
+fields or a confirmed dataset locator. Leave unconfirmed citations as text.
+Scope enhancement and teardown to each resource render, separately from share
+refreshes. The parent modal must ignore a child citation dialog's Escape/cancel
+and omit closed child-dialog controls from its focus loop. Authored citation
+text remains readable when CDN loading fails; the component opens selectable
+full text and reports failure if clipboard access is blocked.
 
 ---
 

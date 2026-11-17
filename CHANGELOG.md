@@ -8,6 +8,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Give resource and sharing modals a clearer title hierarchy, smaller metric disclosure headings, and consistent spacing between sharing, resource details and footer actions. Nest resource headings under their metric titles.
+- Offer Mangrove citation copying and a full-text citation dialog for supplied dataset credits, with readable fallback text and focus return to resources. Keep unconfirmed citations as text; omit generated citations, URL copying and reference-manager exports where structured dataset metadata is unavailable.
 - Upgrade both viewers and all consumed Mangrove CDN modules from 2.3.0 to 2.5.0, including responsive sharing layouts, authored-case table headings and improved form controls in forced colours. Share one version across dynamic module loaders and guard alignment with both HTML entry points.
 
 - Link category terms and the Global Assessment Report title directly in their introductory sentences, replacing the separate “UNDRR definition” callout.
