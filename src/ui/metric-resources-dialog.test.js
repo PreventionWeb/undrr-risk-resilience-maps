@@ -13,9 +13,36 @@ beforeEach(() => {
 afterEach(() => {
   modal?.destroy();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("metric resources modal", () => {
+  it("copies the supplied citation with the current settled map URL and refreshes that URL", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    let share = { url: "https://example.org/#hazard?layers=sample:1", pending: false };
+    modal = createMetricResourcesDialog({ getMapShare: () => share });
+    modal.open({ layer, opener });
+    const button = modal.element.querySelector('[data-action="copy-citation-map"]');
+    button.click();
+    await vi.waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`${layer.citation}\n\nMap link: ${share.url}`),
+    );
+    share = { url: "https://example.org/#hazard?layers=sample:2,other", pending: true };
+    modal.refreshShare();
+    expect(button.disabled).toBe(true);
+    const link = modal.element.querySelector('[data-part="citation-map-link"]');
+    expect(link.hidden).toBe(true);
+    share = { ...share, pending: false };
+    modal.refreshShare();
+    expect(button.disabled).toBe(false);
+    expect(link.href).toBe(share.url);
+    button.click();
+    await vi.waitFor(() =>
+      expect(writeText).toHaveBeenLastCalledWith(`${layer.citation}\n\nMap link: ${share.url}`),
+    );
+  });
+
   it("supplies the approved dataset citation without page fallback or invented export fields", () => {
     modal = createMetricResourcesDialog();
     modal.open({ layer, opener });

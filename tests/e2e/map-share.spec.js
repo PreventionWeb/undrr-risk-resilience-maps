@@ -89,7 +89,7 @@ test("failed copying offers a selectable map URL and can still return to the map
   await page.getByRole("button", { name: "Share map", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
   await modal.getByRole("button", { name: "Copy map link", exact: true }).click();
-  await expect(modal.getByRole("status")).toContainText("Could not copy");
+  await expect(modal.locator('[data-part="share-status"]')).toContainText("Could not copy");
   const fallback = modal.getByRole("textbox", { name: "Map link for manual copying" });
   await expect(fallback).toBeVisible();
   await expect(fallback).toBeFocused();
@@ -240,3 +240,52 @@ test("a blocked citation module leaves the supplied citation readable", async ({
   await expect(parent.locator("[data-mg-cite-this-text]")).toBeVisible();
   await expect(parent.getByRole("button", { name: "Copy citation", exact: true })).toHaveCount(0);
 });
+
+for (const clipboardFails of [false, true]) {
+  test(`citation and map link preserve all scenarios (clipboard fails: ${clipboardFails})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.addInitScript((fails) => {
+      window.copiedCitationLinks = [];
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            if (fails) throw new Error("blocked");
+            window.copiedCitationLinks.push(text);
+          },
+        },
+      });
+    }, clipboardFails);
+    await gotoApp(page, "#gar?layers=gar26-aal-crops:7,gar26-pml-crops:3");
+    await settled(layerRow(page, "Crop average annual loss (%)"));
+    await settled(layerRow(page, "Crop loss: 50-year drought (%)"));
+    await page.getByRole("button", { name: "Share map", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
+    const metric = modal.locator(".metric-resources-dialog__map").first();
+    const combined = metric.getByRole("button", { name: "Copy citation and map link", exact: true });
+    await expect(combined).toBeEnabled();
+    const mapLink = metric.getByRole("link", { name: "Map link", exact: true });
+    await expect(mapLink).toHaveAttribute("href", page.url());
+    const expected = `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${page.url()}`;
+    await combined.click();
+    if (clipboardFails) {
+      const fallback = metric.getByRole("textbox", { name: "Citation and map link for manual copying" });
+      await expect(fallback).toBeVisible();
+      await expect(fallback).toHaveValue(expected);
+      await expect(fallback).toBeFocused();
+      expect(await fallback.evaluate((el) => el.selectionEnd - el.selectionStart)).toBe(expected.length);
+      await expect(metric.locator('[data-part="citation-map-status"]')).toContainText("Could not copy");
+    } else {
+      await expect.poll(() => page.evaluate(() => window.copiedCitationLinks)).toEqual([expected]);
+      await expect(metric.locator('[data-part="citation-map-status"]')).toHaveText(
+        "Citation and map link copied.",
+      );
+    }
+    await expect(metric.locator("details.metric-resources-dialog__metric")).not.toHaveAttribute("open", "");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+  });
+}

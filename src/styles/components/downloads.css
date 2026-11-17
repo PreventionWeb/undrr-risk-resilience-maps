@@ -334,6 +334,44 @@
   display: none;
 }
 
+.metric-resources-dialog__citation-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.metric-resources-dialog__citation-tools .mg-button {
+  min-height: 2.5rem;
+  white-space: normal;
+  text-align: start;
+  max-width: 100%;
+  font-size: 0.875rem;
+}
+
+.metric-resources-dialog__citation-tools > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+}
+
+.metric-resources-dialog__citation-tools[hidden],
+.metric-resources-dialog__citation-tools [hidden],
+.metric-resources-dialog__citation textarea[hidden] {
+  display: none;
+}
+
+.metric-resources-dialog__citation [data-part="citation-map-status"]:not(:empty),
+.metric-resources-dialog__citation textarea {
+  margin-top: 0.5rem;
+}
+
+.metric-resources-dialog__citation textarea {
+  width: 100%;
+}
+
 /* Reserve a toolbar row: narrow layer panels otherwise sit under Share. */
 @media (max-width: 480px) {
   [data-ui="app-map"]:has(> .map-share-button:not([hidden])) .layer-panel {

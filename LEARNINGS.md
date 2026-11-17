@@ -44,11 +44,11 @@ it is not a required migration. New quiz, syndicated-search, option-row and
 sticky-tab features do not replace current viewer controls. This CDN upgrade
 does not change the local package tree, Node engine or adopt React/hydration.
 
-Validation: 1,263 unit tests pass, plus lint, production build and edited-file
-formatting. The full Chromium run passed 128 of 129 tests; the remaining test
-used a generic summary selector that also matched the new hidden citation
-fallback. After narrowing it to the metric summary, all nine sharing/citation
-tests pass. Added checks cover release alignment,
+Validation: 1,264 unit tests pass, plus lint, production build and edited-file
+formatting. The latest 33 affected Chromium tests pass across sharing/citations,
+downloads and Mangrove adoption. Combined-copy checks cover multilayer/scenario
+URLs, clipboard failure and mobile layout; the unit check verifies link refresh
+and disabling during pending map changes. Added checks cover release alignment,
 native select affordance and source switching in forced colours, and 40px sharing
 actions contained in 320/390px modals. Existing tests cover preview access,
 embeds, navigation breakpoints, Sources print layout, modal focus and copy failures.
@@ -66,6 +66,13 @@ text remains readable when CDN loading fails. In the share modal each metric
 title and citation sit above its collapsed “More map details” disclosure, so
 copying never requires opening notes/source/licence/download details. The component opens selectable
 full text and reports failure if clipboard access is blocked.
+
+“Copy citation” continues to copy only the supplied credit. A separate “Copy
+citation and map link” action appends a labelled `Map link:` containing the
+current settled viewer URL, including all selected layers and scenarios. Its
+visible Map link and clipboard payload refresh with share state; it is disabled
+during updates. Clipboard failure exposes a selectable combined text field.
+This viewer locator is separate from a canonical dataset/publication URL.
 
 ---
 

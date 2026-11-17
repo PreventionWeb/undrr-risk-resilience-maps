@@ -539,6 +539,9 @@ on the same release. Modules are fetched from the CDN rather than bundled.
   the module. Each resource render owns its citation lifetime and nested-dialog
   cleanup; share refreshes do not destroy citations. Citation URL copying and
   bibliographic exports stay off without structured dataset metadata.
+  A separate “Copy citation and map link” action appends the current settled
+  viewer URL to the supplied credit, explicitly labelled as a Map link. It
+  refreshes with share state and provides selectable text on clipboard failure.
 - `js/tabs.js` auto-initialises `[data-mg-js-tabs]` containers on
   `DOMContentLoaded`. `src/ui/mangrove-tabs.js` retains a scoped loader with an
   abort-triggered `mgTabsDestroy` for window and font listeners; the current
