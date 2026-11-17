@@ -4,28 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## [Unreleased]
+## [0.0.15] - 2026-11-17
+
+### Added
+
+- Add 29 programme-team GAR2026 maps under 14 controls with regional CSV downloads. Revise crop-loss notes and credits while preserving existing climate variants, methodology links and download settings. Exclude spreadsheet lookup/autofill regressions; new licences remain unconfirmed.
+- Add a shared resources modal for notes, source, citation, licence, methodology and downloads, available from layer controls and the map Share button. Keep each map’s citation visible above its collapsed details. Share links preserve the complete map’s layers and scenarios; each citation copies the supplied credit with a URL for that specific metric/scenario. Show the full citation in one copy field and offer selectable text when clipboard access fails.
 
 ### Changed
 
-- Keep a single Mangrove citation copy field containing the supplied credit and the cited metric’s own map/scenario URL. Show the full text, remove extra citation/map-link actions, and retain selectable text on copy failure. Share controls continue to link the complete map.
-- Keep each active map’s citation visible above its collapsed “More map details” section in the sharing modal, with its metric title alongside it.
-
-- Give resource and sharing modals a clearer title hierarchy, smaller metric disclosure headings, and consistent spacing between sharing, resource details and footer actions. Nest resource headings under their metric titles.
-- Offer Mangrove citation copying and a full-text citation dialog for supplied dataset credits, with readable fallback text and focus return to resources. Keep unconfirmed citations as text; omit generated citations, URL copying and reference-manager exports where structured dataset metadata is unavailable.
-- Upgrade both viewers and all consumed Mangrove CDN modules from 2.3.0 to 2.5.0, including responsive sharing layouts, authored-case table headings and improved form controls in forced colours. Share one version across dynamic module loaders and guard alignment with both HTML entry points.
-
-- Link category terms and the Global Assessment Report title directly in their introductory sentences, replacing the separate “UNDRR definition” callout.
-
-- Import the 17 November programme inventory: add 29 GAR2026 maps under 14 controls with regional CSV downloads, revise crop-loss notes and credits, and preserve reviewed links, climate variants and download settings. Exclude spreadsheet lookup/autofill regressions; new licences remain unconfirmed.
-- Hide the MapX image legend comparison control unless the page URL includes `?legendComparison=1`. Keep image fallback available for unsupported legends.
-- Replace the layer panel's separate resource links with one “Citation, methodology and downloads” control that opens a modal for the displayed metric. Include notes, citation, license, methodology and downloads, with “Back to map” and a secondary “View all sources” link. Also offer per-map downloads on Sources. Add Mangrove share controls to the modal and a map Share button that opens the same modal with resources for all active layers; share links preserve the full map’s layer and scenario state.
+- Upgrade standalone and embedded viewers to Mangrove 2.5.0, including responsive sharing, authored-case table headings and improved form controls in forced colours. Keep release pins aligned across both entry points and dynamic modules. Use a documented local citation-module patch to guard clipboard callbacks after teardown.
+- Improve resource-modal heading hierarchy, section spacing and footer actions. Link category terms and the GAR report title directly in their intro sentences, replacing the separate “UNDRR definition” callout.
+- Hide the MapX image-legend comparison control unless the page URL includes `?legendComparison=1`; retain image fallback for unsupported legends.
 
 ### Fixed
 
-- Prevent intrinsic grid sizing from clipping sharing/citation controls in narrow modals. Keep nested citation Escape from closing Site Details or feature results behind resources, and guard pending clipboard callbacks after citation teardown using the matching, locally patched Mangrove module.
-- Hide the map Share button until the map is ready so it cannot overlap startup loading feedback; keep it hidden after startup failure and reveal it on recovery.
-- Keep Share clear of the layer-panel controls on narrow screens. Wait for map transitions before sharing and refresh sharing in an open metric modal when the map settles. Preserve effective download opt-outs in the Sources link, and keep modal Escape from closing inspection results behind it.
+- Keep Share clear of layer-panel controls on narrow screens and hide it until initial map readiness, including after startup failure. Constrain modal grids so sharing and citation controls fit at 320 px.
+- Preserve Site Details and feature results when closing resource/citation dialogs. Guard delayed clipboard results after citation teardown, preserve nested-dialog focus, and provide honest copy-failure feedback.
+- Wait for map transitions before sharing and refresh sharing in open resources when the map settles. Preserve effective download opt-outs in Sources links and offer per-map downloads on Sources.
 
 ## [0.0.14] - 2026-11-10
 
