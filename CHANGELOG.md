@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- Offer “Copy citation and map link” alongside dataset citation controls, preserving the supplied credit and appending the current layers/scenarios URL. Keep “Copy citation” unchanged, disable combined copying while the map updates, and provide selectable text if copying fails.
+- Keep a single Mangrove citation copy field containing the supplied credit and the cited metric’s own map/scenario URL. Show the full text, remove extra citation/map-link actions, and retain selectable text on copy failure. Share controls continue to link the complete map.
 - Keep each active map’s citation visible above its collapsed “More map details” section in the sharing modal, with its metric title alongside it.
 
 - Give resource and sharing modals a clearer title hierarchy, smaller metric disclosure headings, and consistent spacing between sharing, resource details and footer actions. Nest resource headings under their metric titles.

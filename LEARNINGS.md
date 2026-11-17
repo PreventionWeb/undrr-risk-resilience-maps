@@ -46,9 +46,9 @@ does not change the local package tree, Node engine or adopt React/hydration.
 
 Validation: 1,264 unit tests pass, plus lint, production build and edited-file
 formatting. The latest 33 affected Chromium tests pass across sharing/citations,
-downloads and Mangrove adoption. Combined-copy checks cover multilayer/scenario
-URLs, clipboard failure and mobile layout; the unit check verifies link refresh
-and disabling during pending map changes. Added checks cover release alignment,
+downloads and Mangrove adoption. Citation checks cover distinct per-metric/scenario URLs alongside full-map
+sharing, clipboard failure and mobile layout; the unit check verifies the
+standard payload without duplicate controls. Added checks cover release alignment,
 native select affordance and source switching in forced colours, and 40px sharing
 actions contained in 320/390px modals. Existing tests cover preview access,
 embeds, navigation breakpoints, Sources print layout, modal focus and copy failures.
@@ -67,12 +67,15 @@ title and citation sit above its collapsed “More map details” disclosure, so
 copying never requires opening notes/source/licence/download details. The component opens selectable
 full text and reports failure if clipboard access is blocked.
 
-“Copy citation” continues to copy only the supplied credit. A separate “Copy
-citation and map link” action appends a labelled `Map link:` containing the
-current settled viewer URL, including all selected layers and scenarios. Its
-visible Map link and clipboard payload refresh with share state; it is disabled
-during updates. Clipboard failure exposes a selectable combined text field.
-This viewer locator is separate from a canonical dataset/publication URL.
+The standard Mangrove citation field shows and copies the supplied credit plus
+its own metric/scenario URL, labelled `Map link:`. The sidebar resolves the
+metric's owning category and selected source and preserves provider settings;
+embed citations use the standalone viewer address. Global Share links still
+preserve all active layers. No additional combined-copy or map-link controls
+are rendered. Hide “All citation options” because no exports are offered, show
+full citation text without line clamping, and retain the component's selectable
+full-text dialog for clipboard failures. A citation URL is a snapshot of the
+metric being described, so unrelated sharing updates do not change it.
 
 ---
 

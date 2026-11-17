@@ -10,6 +10,7 @@ export function createMetricResourcesDialog({
   doc = document,
   downloads = null,
   getMapShare = () => null,
+  getCitationUrl = () => null,
 } = {}) {
   const dialog = doc.createElement("dialog");
   dialog.className = "download-dialog metric-resources-dialog";
@@ -29,30 +30,6 @@ export function createMetricResourcesDialog({
     if (opener?.isConnected) opener.focus();
   }
 
-  async function copyCitationAndMap(button) {
-    const share = getMapShare();
-    if (!share?.url || share.pending) return;
-    const lifetime = citationsLifetime.signal;
-    const container = button.closest(".metric-resources-dialog__citation");
-    const status = container.querySelector('[data-part="citation-map-status"]');
-    const fallback = container.querySelector("textarea");
-    const text = `${button.dataset.citation}\n\nMap link: ${share.url}`;
-    const isCurrent = () => !lifetime.aborted && getMapShare()?.url === share.url && !getMapShare()?.pending;
-    try {
-      await doc.defaultView.navigator.clipboard.writeText(text);
-      if (!isCurrent()) return;
-      fallback.hidden = true;
-      status.textContent = "Citation and map link copied.";
-    } catch {
-      if (!isCurrent()) return;
-      status.textContent = "Could not copy. Select the citation and map link below and copy them manually.";
-      fallback.value = text;
-      fallback.hidden = false;
-      fallback.focus();
-      fallback.select();
-    }
-  }
-
   dialog.addEventListener(
     "cancel",
     (event) => {
@@ -66,8 +43,6 @@ export function createMetricResourcesDialog({
     "click",
     (event) => {
       if (event.target.closest('[data-action="close-resources"]')) close();
-      else if (event.target.closest('[data-action="copy-citation-map"]'))
-        copyCitationAndMap(event.target.closest('[data-action="copy-citation-map"]'));
       else downloads?.handleClick(event);
     },
     { signal },
@@ -115,16 +90,19 @@ export function createMetricResourcesDialog({
       : escapeHtml(text);
   }
 
-  function citationHtml(citation) {
+  function citationHtml(citation, layer, source) {
     if (/^(source to be confirmed\.?|tbd)$/i.test(citation.trim())) return `<p>${escapeHtml(citation)}</p>`;
+    const mapUrl = getCitationUrl(layer, source);
+    const text = mapUrl ? `${citation}\n\nMap link: ${mapUrl}` : citation;
     return `<div class="metric-resources-dialog__citation">
       <div class="mg-cite-this" data-mg-cite-this
-      data-mg-cite-this-citation="${escapeHtml(citation)}"
+      data-mg-cite-this-citation="${escapeHtml(text)}"
+      ${mapUrl ? `data-mg-cite-this-url="${escapeHtml(mapUrl)}"` : ""}
       data-mg-cite-this-copy-url="false" data-mg-cite-this-export="none">
       <details class="mg-cite-this__fallback" open>
         <summary class="mg-cite-this__summary" hidden>Citation</summary>
         <div class="mg-cite-this__content">
-          <p class="mg-cite-this__text" data-mg-cite-this-text>${escapeHtml(citation)}</p>
+          <p class="mg-cite-this__text" data-mg-cite-this-text>${escapeHtml(text)}</p>
           <div class="mg-cite-this__actions">
             <button type="button" class="mg-cite-this__copy" data-mg-cite-this-copy hidden>Copy citation</button>
             <span class="mg-cite-this__status" data-mg-cite-this-status role="status" aria-live="polite"></span>
@@ -132,32 +110,7 @@ export function createMetricResourcesDialog({
         </div>
       </details>
       </div>
-      <div class="metric-resources-dialog__citation-tools" hidden>
-        <a data-part="citation-map-link" target="_blank" rel="noopener">Map link</a>
-        <button type="button" class="mg-button mg-button-primary mg-button-outline"
-          data-action="copy-citation-map" data-citation="${escapeHtml(citation)}" disabled>Copy citation and map link</button>
-      </div>
-      <p data-part="citation-map-status" role="status"></p>
-      <textarea class="mg-form-textarea" readonly hidden rows="4" aria-label="Citation and map link for manual copying"></textarea>
     </div>`;
-  }
-
-  function refreshCitationLinks(share) {
-    for (const container of dialog.querySelectorAll(".metric-resources-dialog__citation")) {
-      container.querySelector(".metric-resources-dialog__citation-tools").hidden = !share?.url;
-      const button = container.querySelector('[data-action="copy-citation-map"]');
-      button.disabled = !share?.url || Boolean(share.pending);
-      const link = container.querySelector('[data-part="citation-map-link"]');
-      if (share?.url) link.href = share.url;
-      else link.removeAttribute("href");
-      link.hidden = Boolean(share?.pending);
-      container.querySelector('[data-part="citation-map-status"]').textContent = "";
-      const fallback = container.querySelector("textarea");
-      if (doc.activeElement === fallback || (share?.pending && doc.activeElement === link))
-        dialog.querySelector(".download-dialog__title").focus();
-      fallback.hidden = true;
-      fallback.value = "";
-    }
   }
 
   function metricHtml(layer, source = null, level = 3, includeCitation = true) {
@@ -166,7 +119,7 @@ export function createMetricResourcesDialog({
     return `
       ${view.note || view.desc ? section("Notes", `<p>${escapeHtml(view.note || view.desc)}</p>`, level) : ""}
       ${view.source ? section("Source", `<p>${linkedText(view.source, view.sourceUrl)}</p>`, level) : ""}
-      ${includeCitation && view.citation ? section("Citation", citationHtml(view.citation), level) : ""}
+      ${includeCitation && view.citation ? section("Citation", citationHtml(view.citation, layer, source), level) : ""}
       ${view.license ? section("License", `<p>${linkedText(view.license, view.licenseUrl)}</p>`, level) : ""}
       ${section("Methodology and data", (links ? `<p>${links}</p>` : "") + (downloads ? downloadListHtml(layer, source) : ""), level)}`;
   }
@@ -175,7 +128,7 @@ export function createMetricResourcesDialog({
     const view = source ? { ...layer, ...source } : layer;
     return `<section class="metric-resources-dialog__map">
       <h4 class="metric-resources-dialog__map-title">${escapeHtml(viewLabel(layer, source))}</h4>
-      ${view.citation ? section("Citation", citationHtml(view.citation), 5) : ""}
+      ${view.citation ? section("Citation", citationHtml(view.citation, layer, source), 5) : ""}
       <details class="mg-details metric-resources-dialog__metric">
         <summary>More map details</summary>
         <div>${metricHtml(layer, source, 5, false)}</div>
@@ -212,7 +165,6 @@ export function createMetricResourcesDialog({
     contentListeners = new AbortController();
     region.innerHTML = shareMarkup(share);
     wireShare(share);
-    refreshCitationLinks(share);
     if (action || label) {
       const replacement = [...region.querySelectorAll("button, a")].find((control) =>
         action ? control.dataset.action === action : control.getAttribute("aria-label") === label,
@@ -259,7 +211,6 @@ export function createMetricResourcesDialog({
           <a href="${escapeHtml(url.href)}" target="_blank" rel="noopener" aria-label="View all sources (opens in a new tab)">View all sources</a>
         </div>`;
       wireShare(share);
-      refreshCitationLinks(share);
       if (!dialog.isConnected) doc.body.appendChild(dialog);
       if (!dialog.open) {
         if (typeof dialog.showModal === "function") dialog.showModal();

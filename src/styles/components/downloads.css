@@ -312,12 +312,21 @@
 
 /* The enclosing resource section already supplies the citation heading. */
 .metric-resources-dialog .mg-cite-this__header,
+.metric-resources-dialog .mg-cite-this__more,
 .metric-resources-dialog .mg-cite-this__fallback > summary {
   display: none;
 }
 
 .metric-resources-dialog .mg-cite-this__panel {
   max-inline-size: none;
+}
+
+/* The one copy field shows the entire citation, including its metric URL. */
+.metric-resources-dialog .mg-cite-this__preview-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  white-space: pre-line;
 }
 
 .metric-resources-dialog .mg-cite-this__fallback {
@@ -332,44 +341,6 @@
 .metric-resources-dialog .mg-cite-this__fallback[hidden],
 .metric-resources-dialog .mg-cite-this__copy[hidden] {
   display: none;
-}
-
-.metric-resources-dialog__citation-tools {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.metric-resources-dialog__citation-tools .mg-button {
-  min-height: 2.5rem;
-  white-space: normal;
-  text-align: start;
-  max-width: 100%;
-  font-size: 0.875rem;
-}
-
-.metric-resources-dialog__citation-tools > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-}
-
-.metric-resources-dialog__citation-tools[hidden],
-.metric-resources-dialog__citation-tools [hidden],
-.metric-resources-dialog__citation textarea[hidden] {
-  display: none;
-}
-
-.metric-resources-dialog__citation [data-part="citation-map-status"]:not(:empty),
-.metric-resources-dialog__citation textarea {
-  margin-top: 0.5rem;
-}
-
-.metric-resources-dialog__citation textarea {
-  width: 100%;
 }
 
 /* Reserve a toolbar row: narrow layer panels otherwise sit under Share. */

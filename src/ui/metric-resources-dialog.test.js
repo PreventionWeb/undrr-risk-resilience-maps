@@ -17,30 +17,15 @@ afterEach(() => {
 });
 
 describe("metric resources modal", () => {
-  it("copies the supplied citation with the current settled map URL and refreshes that URL", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { clipboard: { writeText } });
-    let share = { url: "https://example.org/#hazard?layers=sample:1", pending: false };
-    modal = createMetricResourcesDialog({ getMapShare: () => share });
+  it("puts the metric URL into the standard citation payload without extra copy controls", () => {
+    const url = "https://example.org/#hazard?layers=sample:1";
+    modal = createMetricResourcesDialog({ getCitationUrl: () => url });
     modal.open({ layer, opener });
-    const button = modal.element.querySelector('[data-action="copy-citation-map"]');
-    button.click();
-    await vi.waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(`${layer.citation}\n\nMap link: ${share.url}`),
-    );
-    share = { url: "https://example.org/#hazard?layers=sample:2,other", pending: true };
-    modal.refreshShare();
-    expect(button.disabled).toBe(true);
-    const link = modal.element.querySelector('[data-part="citation-map-link"]');
-    expect(link.hidden).toBe(true);
-    share = { ...share, pending: false };
-    modal.refreshShare();
-    expect(button.disabled).toBe(false);
-    expect(link.href).toBe(share.url);
-    button.click();
-    await vi.waitFor(() =>
-      expect(writeText).toHaveBeenLastCalledWith(`${layer.citation}\n\nMap link: ${share.url}`),
-    );
+    const cite = modal.element.querySelector("[data-mg-cite-this]");
+    expect(cite.dataset.mgCiteThisCitation).toBe(`${layer.citation}\n\nMap link: ${url}`);
+    expect(cite.dataset.mgCiteThisUrl).toBe(url);
+    expect(cite.querySelector("[data-mg-cite-this-text]").textContent).toBe(cite.dataset.mgCiteThisCitation);
+    expect(modal.element.querySelector('[data-action="copy-citation-map"]')).toBeNull();
   });
 
   it("supplies the approved dataset citation without page fallback or invented export fields", () => {

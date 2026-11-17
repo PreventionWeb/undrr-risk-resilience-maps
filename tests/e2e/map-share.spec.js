@@ -198,27 +198,27 @@ for (const clipboardFails of [false, true]) {
     const parent = page.getByRole("dialog", { name: /^Resources: Crop average annual loss/ });
     const citation = parent.locator("[data-mg-cite-this]");
     const approved = "Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.";
-    const preview = citation.getByRole("button", { name: `Copy citation: ${approved}`, exact: true });
+    const text = `${approved}\n\nMap link: ${page.url()}`;
+    const preview = citation.getByRole("button", { name: /^Copy citation:/ });
     await expect(preview).toBeVisible();
     await preview.click();
     const options = citation.getByRole("dialog", { name: "Citation", exact: true });
     if (clipboardFails) {
       await expect(options).toBeVisible();
       await expect(options.getByRole("status")).toContainText("Copy failed");
-      await expect(options.locator("[data-mg-cite-this-text]")).toHaveText(approved);
+      await expect(options.locator("[data-mg-cite-this-text]")).toHaveText(text);
     } else {
-      await expect.poll(() => page.evaluate(() => window.copiedCitations)).toEqual([approved]);
-      await citation.getByRole("button", { name: "All citation options", exact: true }).click();
-      await expect(options).toBeVisible();
+      await expect.poll(() => page.evaluate(() => window.copiedCitations)).toEqual([text]);
+      await expect(options).toBeHidden();
     }
-    await expect(options.getByRole("link", { name: /Download RIS|Download BibTeX/ })).toHaveCount(0);
-    await expect(options.getByRole("button", { name: "Copy citation URL", exact: true })).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(options).toBeHidden();
-    await expect(parent).toBeVisible();
-    await expect(
-      clipboardFails ? preview : citation.getByRole("button", { name: "All citation options", exact: true }),
-    ).toBeFocused();
+    await expect(citation.getByRole("button", { name: "All citation options", exact: true })).toHaveCount(0);
+    if (clipboardFails) {
+      await expect(options.getByRole("link", { name: /Download RIS|Download BibTeX/ })).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(options).toBeHidden();
+      await expect(parent).toBeVisible();
+      await expect(preview).toBeFocused();
+    }
     await parent.getByRole("button", { name: "Back to map", exact: true }).click();
     await expect(trigger).toBeFocused();
     await trigger.click();
@@ -235,14 +235,14 @@ test("a blocked citation module leaves the supplied citation readable", async ({
   await row.getByRole("button", { name: "Citation, methodology and downloads", exact: true }).click();
   const parent = page.getByRole("dialog", { name: /^Resources: Crop average annual loss/ });
   await expect(parent.locator("[data-mg-cite-this-text]")).toHaveText(
-    "Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.",
+    `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${page.url()}`,
   );
   await expect(parent.locator("[data-mg-cite-this-text]")).toBeVisible();
   await expect(parent.getByRole("button", { name: "Copy citation", exact: true })).toHaveCount(0);
 });
 
 for (const clipboardFails of [false, true]) {
-  test(`citation and map link preserve all scenarios (clipboard fails: ${clipboardFails})`, async ({
+  test(`one citation control links its own metric and scenario (clipboard fails: ${clipboardFails})`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
@@ -263,25 +263,37 @@ for (const clipboardFails of [false, true]) {
     await settled(layerRow(page, "Crop loss: 50-year drought (%)"));
     await page.getByRole("button", { name: "Share map", exact: true }).click();
     const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
-    const metric = modal.locator(".metric-resources-dialog__map").first();
-    const combined = metric.getByRole("button", { name: "Copy citation and map link", exact: true });
-    await expect(combined).toBeEnabled();
-    const mapLink = metric.getByRole("link", { name: "Map link", exact: true });
-    await expect(mapLink).toHaveAttribute("href", page.url());
-    const expected = `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${page.url()}`;
-    await combined.click();
+    const metrics = modal.locator(".metric-resources-dialog__map");
+    const metric = metrics.first();
+    const field = metric.getByRole("button", { name: /^Copy citation:/ });
+    await expect(field).toBeVisible();
+    const expectedUrl = new URL("/", page.url());
+    expectedUrl.hash = "#gar?layers=gar26-aal-crops:7";
+    const expected = `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${expectedUrl.href}`;
+    const linkedIn = new URL(
+      await modal.getByRole("link", { name: "Share on LinkedIn" }).getAttribute("href"),
+    );
+    expect(linkedIn.searchParams.get("url")).toBe(page.url());
+    await expect(metrics.nth(1).locator("[data-mg-cite-this]")).toHaveAttribute(
+      "data-mg-cite-this-url",
+      expectedUrl.href.replace("gar26-aal-crops:7", "gar26-pml-crops:3"),
+    );
+    await expect(metric.getByRole("link", { name: "Map link", exact: true })).toHaveCount(0);
+    await expect(metric.getByRole("button", { name: "Copy citation and map link", exact: true })).toHaveCount(
+      0,
+    );
+    await expect(metric.getByRole("button", { name: "All citation options", exact: true })).toHaveCount(0);
+    await field.click();
     if (clipboardFails) {
-      const fallback = metric.getByRole("textbox", { name: "Citation and map link for manual copying" });
+      const fallback = metric.getByRole("dialog", { name: "Citation", exact: true });
       await expect(fallback).toBeVisible();
-      await expect(fallback).toHaveValue(expected);
-      await expect(fallback).toBeFocused();
-      expect(await fallback.evaluate((el) => el.selectionEnd - el.selectionStart)).toBe(expected.length);
-      await expect(metric.locator('[data-part="citation-map-status"]')).toContainText("Could not copy");
+      await expect(fallback.locator("[data-mg-cite-this-text]")).toHaveText(expected);
+      await expect(fallback.getByRole("status")).toContainText("Copy failed");
+      await page.keyboard.press("Escape");
+      await expect(modal).toBeVisible();
+      await expect(field).toBeFocused();
     } else {
       await expect.poll(() => page.evaluate(() => window.copiedCitationLinks)).toEqual([expected]);
-      await expect(metric.locator('[data-part="citation-map-status"]')).toHaveText(
-        "Citation and map link copied.",
-      );
     }
     await expect(metric.locator("details.metric-resources-dialog__metric")).not.toHaveAttribute("open", "");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
