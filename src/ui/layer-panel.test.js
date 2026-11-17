@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { TABS } from "../config/layers/index.js";
 import {
   buildCrossTabSections,
   buildTabPanel,
@@ -24,11 +25,23 @@ function rowFactory() {
 const keys = (container, selector) => [...container.querySelectorAll(selector)].map((el) => el.dataset.key);
 
 describe("buildTabPanel", () => {
+  it.each(TABS)("links the opening phrase of the $label intro in the sentence", (tab) => {
+    const panel = buildTabPanel(tab, { addRow: rowFactory() });
+    const intro = panel.querySelector(".tab-panel-intro");
+    const paragraph = intro.querySelector("p");
+    const link = paragraph.querySelector("a");
+    expect(paragraph.textContent).toBe(tab.description);
+    expect(link.textContent).toBe(tab.descriptionLink.text);
+    expect(link.href).toBe(tab.descriptionLink.url);
+    expect(intro.querySelector(":scope > a")).toBeNull();
+    expect(intro.textContent).not.toContain("UNDRR definition");
+  });
+
   const flat = {
     id: "hazard",
     label: "Hazard",
     description: "Hazard layers",
-    definitionUrl: "https://example.org/hazard",
+    descriptionLink: { text: "Hazard", url: "https://example.org/hazard" },
     layers: [layer("quake"), unpublished("storm"), layer("flood")],
     groups: null,
   };
@@ -47,7 +60,8 @@ describe("buildTabPanel", () => {
     expect(link.href).toBe("https://example.org/hazard");
     expect(link.target).toBe("_blank");
     expect(link.rel).toBe("noopener");
-    expect(link.textContent).toBe("UNDRR definition");
+    expect(link.textContent).toBe("Hazard");
+    expect(link.parentElement).toBe(panel.querySelector(".tab-panel-intro p"));
 
     expect(addRow.mock.calls.map(([l, variant, tabId]) => [l.key, variant, tabId])).toEqual([
       ["quake", "full", "hazard"],
