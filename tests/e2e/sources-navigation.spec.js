@@ -72,3 +72,23 @@ test("a copied category link opens Sources at that section", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Sources", exact: true })).toBeVisible();
   await expect(section).toBeFocused();
 });
+
+for (const [id, selection] of [
+  ["MX-D6YN2-LS2CM-90HEQ", "drought-food-price-correlation"],
+  ["MX-M28TX-840DM-HCYBJ", "food-import-dependence:1"],
+  ["MX-FBFCK-NRXK9-6TFKN", "drought-limited-health-protection:5"],
+]) {
+  test(`new GAR map ${selection} opens its exact view from Sources and survives reload`, async ({ page }) => {
+    await gotoApp(page, "#sources");
+    const row = page.locator("tbody tr").filter({ hasText: id });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator(".layer-downloads")).toContainText("Download CSV");
+    // The workbook's generic GAR lookup must not attach a UNICEF methodology URL.
+    await expect(row.locator('a[href*="unicef.org"]')).toHaveCount(0);
+    await row.locator(".sources-map-link").click();
+    expect(new URL(page.url()).hash).toBe(`#gar?layers=${selection}`);
+    await expect.poll(() => page.evaluate(() => window.__mapxStub.openViews)).toEqual([id]);
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => window.__mapxStub?.openViews)).toEqual([id]);
+  });
+}

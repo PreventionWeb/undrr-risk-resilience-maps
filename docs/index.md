@@ -41,5 +41,7 @@ establish scope approval. [CHANGELOG](../CHANGELOG.md) records notable shipped c
   [implementation patterns](../research/implementation-patterns.md).
 
 The maintained layer inventory is [data/inventory.csv](../data/inventory.csv).
+The [17 November 2026 inventory review](inventory-review-2026-11-17.md) records
+handoff normalization and outstanding editorial questions.
 Research dumps and dated findings retain their original conditions; they are not current
 setup instructions. Keep raw research and sanitized fixtures intact when editing guidance.

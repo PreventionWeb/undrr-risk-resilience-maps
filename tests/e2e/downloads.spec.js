@@ -250,7 +250,7 @@ test("metric resources preserve the scenario, support downloads and return focus
     exact: true,
   });
   await expect(resources).toBeVisible();
-  await expect(resources).toContainText("rice production loss under a +2°C warming level");
+  await expect(resources).toContainText("rice production losses under +2°C warming");
   await expect(resources.getByRole("heading", { name: "Citation", exact: true })).toBeVisible();
   await expect(resources.getByRole("link", { name: "Learn more about this metric" })).toBeVisible();
   await page.keyboard.press("Shift+Tab");
