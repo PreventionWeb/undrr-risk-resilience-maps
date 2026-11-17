@@ -35,14 +35,20 @@ test("map Share opens the shared modal with resources and the complete map link"
   const linkedIn = new URL(await modal.getByRole("link", { name: "Share on LinkedIn" }).getAttribute("href"));
   expect(linkedIn.searchParams.get("url")).toBe(url);
   await modal.getByRole("button", { name: "Copy map link", exact: true }).click();
-  await expect(modal.getByRole("status")).toHaveText("Map link copied.");
+  await expect(modal.locator('[data-part="share-status"]')).toHaveText("Map link copied.");
   expect(await page.evaluate(() => window.copiedMapLinks)).toEqual([url]);
-  const flood = modal
-    .locator("details.metric-resources-dialog__metric")
-    .filter({ has: page.locator("summary", { hasText: "River Flooding" }) });
+  const floodMap = modal.locator(".metric-resources-dialog__map").filter({
+    has: page.getByRole("heading", { level: 4, name: /River Flooding/ }),
+  });
+  const flood = floodMap.locator("details.metric-resources-dialog__metric");
+  await expect(flood).not.toHaveAttribute("open", "");
+  await expect(floodMap.getByRole("heading", { name: "Citation", exact: true, level: 5 })).toBeVisible();
+  await expect(floodMap.locator(".mg-cite-this__preview")).toBeVisible();
+  await floodMap.locator(".mg-cite-this__preview").click();
+  await expect.poll(() => page.evaluate(() => window.copiedMapLinks.length)).toBe(2);
+  await expect(flood).not.toHaveAttribute("open", "");
   await flood.locator(":scope > summary").click();
-  await expect(flood.locator(":scope > summary").getByRole("heading", { level: 4 })).toBeVisible();
-  await expect(flood.getByRole("heading", { name: "Citation", exact: true, level: 5 })).toBeVisible();
+  await expect(flood.locator("[data-mg-cite-this]")).toHaveCount(0);
   await expect(flood.getByRole("link", { name: "Learn more about this metric" })).toBeVisible();
   await modal.getByRole("button", { name: "Back to map" }).click();
   await expect(trigger).toBeFocused();

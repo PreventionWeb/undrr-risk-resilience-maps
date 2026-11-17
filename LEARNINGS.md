@@ -62,7 +62,9 @@ fields or a confirmed dataset locator. Leave unconfirmed citations as text.
 Scope enhancement and teardown to each resource render, separately from share
 refreshes. The parent modal must ignore a child citation dialog's Escape/cancel
 and omit closed child-dialog controls from its focus loop. Authored citation
-text remains readable when CDN loading fails; the component opens selectable
+text remains readable when CDN loading fails. In the share modal each metric
+title and citation sit above its collapsed “More map details” disclosure, so
+copying never requires opening notes/source/licence/download details. The component opens selectable
 full text and reports failure if clipboard access is blocked.
 
 ---

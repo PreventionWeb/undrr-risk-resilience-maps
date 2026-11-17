@@ -105,15 +105,27 @@ export function createMetricResourcesDialog({
     </div>`;
   }
 
-  function metricHtml(layer, source = null, level = 3) {
+  function metricHtml(layer, source = null, level = 3, includeCitation = true) {
     const view = source ? { ...layer, ...source, sources: undefined } : layer;
     const links = layerLinksHtml(view, { downloadsEnabled: Boolean(downloads) });
     return `
       ${view.note || view.desc ? section("Notes", `<p>${escapeHtml(view.note || view.desc)}</p>`, level) : ""}
       ${view.source ? section("Source", `<p>${linkedText(view.source, view.sourceUrl)}</p>`, level) : ""}
-      ${view.citation ? section("Citation", citationHtml(view.citation), level) : ""}
+      ${includeCitation && view.citation ? section("Citation", citationHtml(view.citation), level) : ""}
       ${view.license ? section("License", `<p>${linkedText(view.license, view.licenseUrl)}</p>`, level) : ""}
       ${section("Methodology and data", (links ? `<p>${links}</p>` : "") + (downloads ? downloadListHtml(layer, source) : ""), level)}`;
+  }
+
+  function mapResourcesHtml(layer, source) {
+    const view = source ? { ...layer, ...source } : layer;
+    return `<section class="metric-resources-dialog__map">
+      <h4 class="metric-resources-dialog__map-title">${escapeHtml(viewLabel(layer, source))}</h4>
+      ${view.citation ? section("Citation", citationHtml(view.citation), 5) : ""}
+      <details class="mg-details metric-resources-dialog__metric">
+        <summary>More map details</summary>
+        <div>${metricHtml(layer, source, 5, false)}</div>
+      </details>
+    </section>`;
   }
 
   function shareMarkup(share) {
@@ -170,10 +182,7 @@ export function createMetricResourcesDialog({
       const metricsHtml = layer
         ? metricHtml(layer, source)
         : share?.metrics
-            .map(
-              ({ layer: item, source: variant }) =>
-                `<details class="mg-details metric-resources-dialog__metric"><summary><h4>${escapeHtml(viewLabel(item, variant))}</h4></summary><div>${metricHtml(item, variant, 5)}</div></details>`,
-            )
+            .map(({ layer: item, source: variant }) => mapResourcesHtml(item, variant))
             .join("") || "<p>No layers selected.</p>";
       const url = new URL(".", doc.defaultView.location.href);
       const setting = new URLSearchParams(doc.defaultView.location.search).get("downloads");
