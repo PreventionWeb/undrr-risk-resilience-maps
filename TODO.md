@@ -81,9 +81,11 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 
 - Remove the temporary `eslint/**/minimatch` resolution when ESLint and `@eslint/config-array` adopt a patched minimatch release. The override uses 11.0.4 to address GHSA-g3hv-75wg-m249; ESLint's use of the retained `Minimatch.match()` API and the full project lint were checked. Yarn reports the intentional override of the upstream 10.x ranges.
 
-- Updated to `2.3.0` (previous: `2.2.0`, `2.0.1`, `2.0.0`). CDN CSS and
-  vanilla tabs/copy/preview modules are pinned together. The 2.3.0 release's
-  runtime translation catalogues apply to React/hydrated components; the viewer
-  remains English and uses vanilla modules with explicit labels.
+- Updated to `2.5.0` (previous: `2.3.0`, `2.2.0`, `2.0.1`, `2.0.0`). Both
+  entry points pin matching CDN CSS and preview-access modules; tabs, copy and
+  Sources navigation use the shared version in `src/config/mangrove.js`.
+  See [the 2.5.0 compatibility review](LEARNINGS.md#mangrove-250-review-17-november-2026).
 - Continue checking future releases for changes to consumed tokens and classes.
-  The 2.3.0 CSS review found no removed tokens used here.
+  The 2.5.0 review found no removals among those consumed here. The viewer uses
+  vanilla modules with explicit English labels; React/hydration translations do
+  not translate these controls.

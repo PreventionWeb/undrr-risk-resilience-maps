@@ -6,6 +6,53 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ---
 
+## Mangrove 2.5.0 review (17 November 2026)
+
+Reviewed the official [2.4.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.4.0)
+and [2.5.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.5.0) releases,
+tagged source at `71e4867`, and the deployed 2.3.0/2.5.0 CDN assets. Both HTML
+entry points now pin 2.5.0 CSS and preview access. The tabs, copy and Sources-nav
+loaders share `src/config/mangrove.js`; a test compares their release with both
+HTML entry points to prevent a partial upgrade.
+
+All five checked assets return HTTP 200. The deployed CSS identifies itself as
+2.5.0, and all 48 non-data font/image URLs referenced by it answer HTTP 200.
+No consumed class or upstream token was removed. Of 35 custom properties read
+by local CSS, 34 are declared upstream; `--mg-card-border` is our own per-card
+property, supplied in `home.js` with a fallback in `home-panel.css`.
+
+The deployed copy-button and preview-access modules are byte-for-byte identical
+to 2.3.0. Keep copy's immediate local fallback, modal-safe hosted-URL copying,
+preview unlock persistence, and map warm-up's inert handling. Sources navigation
+retains its init/destroy contract, adds fixed previous/next click labels and
+sets an `on-this-page` analytics region when none is authored. No analytics
+service is added: the viewer's existing embed analytics sink remains local.
+The tabs wrapper retains the same exports and lifecycle; its new sticky behavior
+is opt-in. Current info panels do not instantiate a Mangrove tab set.
+
+Visible consumed changes include authored-case Sources table headings, responsive
+ShareButtons container queries and forced-colours form styles. Remove the local
+copy-link alignment/wrapping declarations already supplied by ShareButtons;
+retain app-specific modal spacing, the hidden manual-copy field guard, Share's
+mobile toolbar row and custom failed-switch styling. No hero title, MegaMenu
+logo or form override here compensates for the upstream fixes. The category
+navigation still needs its single scrolling rail and focused-link reveal.
+
+The experimental disclosure-to-dialog enhancer is a different contract from our
+native resource/progress modals, including nested download focus and cancellation;
+it is not a required migration. New quiz, syndicated-search, option-row and
+sticky-tab features do not replace current viewer controls. This CDN upgrade
+does not change the local package tree, Node engine or adopt React/hydration.
+
+Validation: 1,262 unit tests and all 126 Chromium browser tests pass, plus lint,
+production build and edited-file formatting. Added checks cover release alignment,
+native select affordance and source switching in forced colours, and 40px sharing
+actions contained in 320/390px modals. Existing tests cover preview access,
+embeds, navigation breakpoints, Sources print layout, modal focus and copy failures.
+Forced colours are emulated in Chromium, not verified in Windows contrast themes.
+
+---
+
 ## Mangrove 2.3.0 review (29 October 2026)
 
 The versioned CDN stylesheet identifies itself as `2.3.0`; the stylesheet and

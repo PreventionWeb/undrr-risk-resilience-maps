@@ -8,6 +8,8 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
+- Upgrade both viewers and all consumed Mangrove CDN modules from 2.3.0 to 2.5.0, including responsive sharing layouts, authored-case table headings and improved form controls in forced colours. Share one version across dynamic module loaders and guard alignment with both HTML entry points.
+
 - Link category terms and the Global Assessment Report title directly in their introductory sentences, replacing the separate “UNDRR definition” callout.
 
 - Import the 17 November programme inventory: add 29 GAR2026 maps under 14 controls with regional CSV downloads, revise crop-loss notes and credits, and preserve reviewed links, climate variants and download settings. Exclude spreadsheet lookup/autofill regressions; new licences remain unconfirmed.
