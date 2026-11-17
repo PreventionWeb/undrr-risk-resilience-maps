@@ -56,20 +56,20 @@ export function buildTabPanel(tab, { addRow, showDisabled = false }) {
   intro.className = "tab-panel-intro";
   const introText = document.createElement("p");
   introText.textContent = tab.description;
+  if (tab.descriptionLink && tab.description.startsWith(tab.descriptionLink.text)) {
+    const link = document.createElement("a");
+    link.href = tab.descriptionLink.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = tab.descriptionLink.text;
+    introText.replaceChildren(link, tab.description.slice(tab.descriptionLink.text.length));
+  }
   intro.appendChild(introText);
   if (tab.glossary) {
     const glossary = document.createElement("p");
     glossary.className = "tab-panel-glossary";
     glossary.textContent = tab.glossary;
     intro.appendChild(glossary);
-  }
-  if (tab.definitionUrl) {
-    const definitionLink = document.createElement("a");
-    definitionLink.href = tab.definitionUrl;
-    definitionLink.target = "_blank";
-    definitionLink.rel = "noopener";
-    definitionLink.textContent = "UNDRR definition";
-    intro.appendChild(definitionLink);
   }
   tabPanel.appendChild(intro);
 

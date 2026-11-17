@@ -37,7 +37,7 @@
  *   id            - hash routing id and the nav link's `data-tab`
  *   label         - nav link and home card title
  *   description   - panel intro and the nav link's description
- *   definitionUrl - optional UNDRR terminology link
+ *   descriptionLink - optional { text, url } linking the start of the intro
  *   glossary      - optional abbreviation note under the intro
  *   card          - the tab's home-page card: {icon, color, desc}. Optional; a
  *                   tab without one gets no card. Keeping it here means adding
@@ -112,8 +112,8 @@ export const TABS = [
     label: "Risk",
     collection: "r2r",
     description:
-      "Potential disaster losses, shaped by hazard, exposure, vulnerability and the capacity to reduce or manage risk.",
-    definitionUrl: "https://www.undrr.org/terminology/disaster-risk",
+      "Disaster risk describes potential disaster losses, shaped by hazard, exposure, vulnerability and the capacity to reduce or manage risk.",
+    descriptionLink: { text: "Disaster risk", url: "https://www.undrr.org/terminology/disaster-risk" },
     glossary: "AAL means average annual loss; PML means probable maximum loss.",
     card: {
       icon: "01",
@@ -127,8 +127,8 @@ export const TABS = [
     label: "Resilience",
     collection: "r2r",
     description:
-      "The ability of systems and communities to resist, adapt to and recover from hazard impacts in a timely and efficient way.",
-    definitionUrl: "https://www.undrr.org/terminology/resilience",
+      "Resilience is the ability of systems and communities to resist, adapt to and recover from hazard impacts in a timely and efficient way.",
+    descriptionLink: { text: "Resilience", url: "https://www.undrr.org/terminology/resilience" },
     glossary: "DRR means disaster risk reduction.",
     card: {
       icon: "05",
@@ -141,8 +141,9 @@ export const TABS = [
     id: "hazard",
     label: "Hazard",
     collection: "r2r",
-    description: "Processes, phenomena or human activities that may cause harm, damage or disruption.",
-    definitionUrl: "https://www.undrr.org/terminology/hazard",
+    description:
+      "Hazards are processes, phenomena or human activities that may cause harm, damage or disruption.",
+    descriptionLink: { text: "Hazards", url: "https://www.undrr.org/terminology/hazard" },
     card: {
       icon: "02",
       color: "#c72236",
@@ -154,8 +155,9 @@ export const TABS = [
     id: "exposure",
     label: "Exposure",
     collection: "r2r",
-    description: "People, infrastructure and other tangible assets located in hazard-prone areas.",
-    definitionUrl: "https://www.undrr.org/terminology/exposure",
+    description:
+      "Exposure refers to people, infrastructure and other tangible assets located in hazard-prone areas.",
+    descriptionLink: { text: "Exposure", url: "https://www.undrr.org/terminology/exposure" },
     card: {
       icon: "03",
       color: "#ed833f",
@@ -168,8 +170,8 @@ export const TABS = [
     label: "Vulnerability",
     collection: "r2r",
     description:
-      "Physical, social, economic and environmental conditions that increase susceptibility to hazard impacts.",
-    definitionUrl: "https://www.undrr.org/terminology/vulnerability",
+      "Vulnerability describes physical, social, economic and environmental conditions that increase susceptibility to hazard impacts.",
+    descriptionLink: { text: "Vulnerability", url: "https://www.undrr.org/terminology/vulnerability" },
     card: {
       icon: "04",
       color: "#f0b429",
@@ -183,7 +185,10 @@ export const TABS = [
     collection: "gar",
     description:
       "Global Assessment Report on Disaster Risk Reduction — analytics and metrics highlighting systemic risk and resilience.",
-    definitionUrl: "https://www.undrr.org/gar",
+    descriptionLink: {
+      text: "Global Assessment Report on Disaster Risk Reduction",
+      url: "https://www.undrr.org/gar",
+    },
     crossTab: false,
     card: {
       icon: "06",
