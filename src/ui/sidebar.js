@@ -343,7 +343,22 @@ export function createSidebar(
       }),
     };
   }
-  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads, getMapShare });
+  function getCitationUrl(layer, source) {
+    const url = new URL(getMapShare().url);
+    const tab = tabs.find((candidate) => candidate.layers.some((item) => item.key === layer.key));
+    const sourceIdx = Math.max(
+      0,
+      layer.sources?.findIndex((item) => item === source || (source?.id && item.id === source.id)) ?? 0,
+    );
+    const selection = toUrlLayers(layersStore.all(), registry.urlKeyOrder()).find(
+      (item) => item.key === layer.key,
+    );
+    url.hash = formatHash(tab?.id ?? router.activeTab, [
+      { key: layer.key, sourceIdx, settings: selection?.settings },
+    ]);
+    return url.href;
+  }
+  const resources = createMetricResourcesDialog({ doc: rootDoc, downloads, getMapShare, getCitationUrl });
   const shareButton = appMap ? rootDoc.createElement("button") : null;
   if (shareButton) {
     shareButton.type = "button";
@@ -358,6 +373,7 @@ export function createSidebar(
   disposers.push(() => resources.destroy());
   function refreshSharing() {
     if (shareButton) {
+      shareButton.hidden = !isSDKReady();
       shareButton.disabled = getMapShare().pending;
       shareButton.title = shareButton.disabled
         ? "Wait for the map to finish updating before sharing"

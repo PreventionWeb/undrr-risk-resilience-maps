@@ -7,14 +7,14 @@
  * `--mg-on-this-page-nav-block-size` on `:root` so the browser's
  * `scroll-padding-top` always lands below the sticky bar. The script is
  * fetched from the CDN to stay in step with the stylesheet. Keep
- * MANGROVE_VERSION aligned with the `<link>` in index.html.
+ * the shared Mangrove version aligned with the `<link>` in index.html.
  *
  * Enhancement is optional: the authored markup renders all nav links in
  * sequence without it, so a load failure degrades to a static bar.
  */
 
-const MANGROVE_VERSION = "2.3.0";
-const ON_THIS_PAGE_NAV_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/on-this-page-nav.js`;
+import { MANGROVE_BASE_URL } from "../config/mangrove.js";
+const ON_THIS_PAGE_NAV_MODULE_URL = `${MANGROVE_BASE_URL}/js/on-this-page-nav.js`;
 
 let modulePromise = null;
 

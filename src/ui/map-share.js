@@ -14,7 +14,7 @@ export function mapShareHtml(url, { deviceShare = false, showHeading = true } = 
     ],
   ];
   return `<section class="mg-share" aria-label="Share current map">
-    ${showHeading ? '<header class="mg-share__header">Share this map</header>' : ""}
+    ${showHeading ? '<h3 class="mg-share__header">Share this map</h3>' : ""}
     <p>Includes all active layers and their selected scenarios.</p>
     <div class="mg-share__buttons">
       ${deviceShare ? '<button type="button" class="mg-share__button" data-action="share-device" aria-label="Share using your device" title="Share using your device"><span class="mg-icon mg-icon-share" aria-hidden="true"></span></button>' : ""}

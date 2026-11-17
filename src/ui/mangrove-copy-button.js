@@ -10,7 +10,7 @@
  * `data-mg-copy-button-initialized`, so calling it again over the same scope is
  * a no-op.
  *
- * The 2.3.0 module's only export is `mgCopyButton(scope)`: there is no
+ * The 2.5.0 module's only export is `mgCopyButton(scope)`: there is no
  * destroy, and nothing to undo globally -- the one listener it adds is a
  * `click` on the button element itself, so it is collected with the markup
  * whenever the caller replaces it. `signal` therefore covers the part that can
@@ -20,7 +20,7 @@
  * mangrove-tabs.js guards `mgTabsDestroy`.
  *
  * The script is fetched from the CDN rather than bundled so it stays in step
- * with the stylesheet. Keep MANGROVE_VERSION aligned with the `<link>` in
+ * with the stylesheet. Keep the shared Mangrove version aligned with the `<link>` in
  * index.html and with mangrove-tabs.js.
  *
  * Unlike mangrove-tabs.js, "never applied, never broken" does NOT hold here.
@@ -35,8 +35,8 @@
  * so nothing is copied or announced twice.
  */
 
-const MANGROVE_VERSION = "2.3.0";
-const COPY_BUTTON_MODULE_URL = `https://assets.undrr.org/mangrove/${MANGROVE_VERSION}/js/copy-button.js`;
+import { MANGROVE_BASE_URL } from "../config/mangrove.js";
+const COPY_BUTTON_MODULE_URL = `${MANGROVE_BASE_URL}/js/copy-button.js`;
 
 let modulePromise = null;
 

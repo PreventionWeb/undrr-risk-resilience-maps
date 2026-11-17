@@ -115,3 +115,46 @@ for (const width of [375, 899, 900, 901, 1280]) {
     await expect(page.locator(".nav-info-link[data-panel=about]")).toHaveClass(/is-active/);
   });
 }
+
+// 2.5 restores the browser's own select arrow in forced colours. Our smaller
+// source-selector styles must leave that affordance and the control usable.
+test("source selects keep their native affordance and work in forced colours", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active" });
+  await gotoApp(page, "#gar?layers=gar26-aal-crops");
+  const select = page.getByRole("combobox", { name: "Crop and climate scenario" });
+  await expect(select).toBeVisible();
+  await expect(select).toHaveCSS("appearance", "auto");
+  await expect(select).toHaveCSS("background-image", "none");
+  await select.selectOption("7");
+  await expect.poll(() => page.evaluate(() => window.__mapxStub.openViews)).toEqual(["MX-KU5ID-GHTH8-C2WG3"]);
+  await expect(select).toHaveValue("7");
+});
+
+for (const width of [320, 390]) {
+  test(`responsive sharing keeps every action inside its modal at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.addInitScript(() => {
+      navigator.share = async () => {};
+    });
+    await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+    await expect(page.getByRole("button", { name: "Share map", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Share map", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
+    await expect(modal).toBeVisible();
+    const actions = modal.locator(".mg-share__button");
+    await expect(actions).toHaveCount(5);
+    const bounds = await modal.boundingBox();
+    for (const action of await actions.all()) {
+      const box = await action.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(40);
+      expect(box.height).toBeGreaterThanOrEqual(40);
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+    }
+    const copy = modal.getByRole("button", { name: "Copy map link", exact: true });
+    expect(await copy.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(page.getByRole("button", { name: "Share map", exact: true })).toBeFocused();
+  });
+}

@@ -8,7 +8,7 @@
 
 ## Overview
 
-Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.3.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
+Static site, no backend. The app embeds MapX in an iframe via the SDK's postMessage bridge and wraps it in a sidebar UI styled with Mangrove (v2.5.0). See [docs/product-spec.md](docs/product-spec.md) for what we're building; this doc covers how.
 
 ## Structure
 
@@ -137,7 +137,7 @@ The app initialises in three phases to keep the UI responsive even if the MapX S
 
 1. **Immediate** — `createRiskMap(document.body)` runs `validateLayers()` first, which throws on config errors, then builds the sidebar: nav links are generated and wired, info pages are built, and layer accordions are rendered. The user can read the home, Sources, and About pages without waiting for the map.
 
-   Initial map feedback is owned by `src/ui/map-loading.js`, shared by standalone and embedded viewers. After 450 ms it shows Mangrove 2.3.0's decorative Loader beside visible loading text (a floating card on desktop, an in-flow line below the layer panel header on narrow screens); an already-mounted polite live region announces the wait and completion. Only the map frame is `aria-busy`, leaving the layer panel and the announcer available. The feedback never hides the iframe or covers map controls, so it cannot stop MapX painting or trap navigation. Readiness, startup failure and instance destruction all remove it; the existing service notice owns failure announcements. Information-page warm-up keeps it out of reach with the rest of the map. A map has no predictable content to skeletonize, so this uses explicit loading feedback rather than an imitation basemap.
+   Initial map feedback is owned by `src/ui/map-loading.js`, shared by standalone and embedded viewers. The map Share button stays hidden until SDK readiness (including after startup failure), so it cannot overlap that feedback; mobile toolbar space is reserved only while Share is visible. After 450 ms it shows Mangrove 2.5.0's decorative Loader beside visible loading text (a floating card on desktop, an in-flow line below the layer panel header on narrow screens); an already-mounted polite live region announces the wait and completion. Only the map frame is `aria-busy`, leaving the layer panel and the announcer available. The feedback never hides the iframe or covers map controls, so it cannot stop MapX painting or trap navigation. Readiness, startup failure and instance destruction all remove it; the existing service notice owns failure announcements. Information-page warm-up keeps it out of reach with the rest of the map. A map has no predictable content to skeletonize, so this uses explicit loading feedback rather than an imitation basemap.
 
 2. **SDK availability** — `src/sdk/availability.js` loads the remote SDK with a 15-second limit. After the manager starts, MapX gets 30 seconds of _loading time_ to fire its `ready` event. A failed request, invalid SDK response, manager-construction error, or stalled MapX iframe reveals an in-page service notice with manual retry and MapX availability links; the non-map pages remain usable. A visible 60-second countdown then reloads the current URL automatically, preserving its tab and layer hash while checking whether the service has recovered. Both the ready budget and the countdown run only while `isMapOnScreen()` (the map is the view the user is on); `canMapLoad()` is the wider question — can the iframe make progress at all — and is what tells the warm-up apart from a hidden map. So a healthy service is never reported as failed and nobody is reloaded out of an information page they are reading.
 
@@ -495,7 +495,7 @@ row.destroy(); // remove the row's listeners (widget and controls too); later up
 
 ### UI layer (Mangrove)
 
-All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.3.0/css/style.css) (v2.3.0). Components used:
+All styling builds on the [UNDRR Mangrove component library](https://assets.undrr.org/mangrove/2.5.0/css/style.css) (v2.5.0). Components used:
 
 - `mg-page-header` (`--default`, `__decoration`, `__toolbar-wrapper`, `__block--logo`) — UNDRR branding bar with Sendai stripe, matching PageHeader's rendered HTML. The logo is `mg-logo mg-logo--autocrop` and is preloaded from `assets.undrr.org/logos/...` (the canonical path, with no `/static/` segment); the decoration divs are `aria-hidden`. `--autocrop` only applies below 1164px, where Mangrove crops the lockup to the emblem and wordmark
 - `mg-mega-topbar` — category navigation bar (Simple Nav variant), with no ARIA menu roles. Mangrove 2.3 keeps labels from shrinking; overflow stays on the rail at all widths and keyboard focus reveals the whole focused link
@@ -526,31 +526,46 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 
 ### Mangrove JavaScript
 
-Mangrove ships vanilla behaviour scripts alongside the CSS. Two are loaded, both
-pinned to the same release as the stylesheet, both fetched from the CDN rather
-than bundled so they stay in step with it, and both optional — a load failure
-leaves the authored markup working, not broken.
+Mangrove ships vanilla behaviour scripts alongside the CSS. Both HTML entry
+points pin the stylesheet and preview gate to 2.5.0; CDN loaders share
+`src/config/mangrove.js`. A unit check keeps both entry points and all modules
+on the same release. Citation behavior is the one bundled exception below.
 
-- `js/tabs.js` for the Sources page tabs. It auto-initialises `[data-mg-js-tabs]`
-  containers on `DOMContentLoaded`, but our info panels are built from JavaScript
-  after that event, so `src/ui/mangrove-tabs.js` imports the module and calls
-  `mgTabs()` once the markup is in the document. Without it the panels render in
-  sequence. The sidebar's `destroy()` aborts the signal that runs `mgTabsDestroy`,
-  which is what removes the module's window and font listeners.
+- `js/on-this-page-nav.js` enhances Sources category navigation through
+  `src/ui/mangrove-on-this-page-nav.js`. Authored links remain usable if loading
+  fails; aborting the panel lifetime destroys its observers and listeners.
+- A locally patched Mangrove 2.5.0 `cite-this.js` enhances confirmed citation prose in resource modals through
+  `src/ui/mangrove-cite-this.js`. Rendered fallback text stays selectable without
+  the module. Each resource render owns its citation lifetime and nested-dialog
+  cleanup; share refreshes do not destroy citations. Citation URL copying and
+  bibliographic exports stay off without structured dataset metadata.
+  The standard citation field shows and copies the supplied credit plus a Map
+  link for that metric and scenario, including external-provider settings. It
+  uses the standalone viewer address in embeds. Share controls preserve the full
+  map; citation links identify the cited metric. There are no additional citation
+  actions: full text stays visible and a selectable dialog appears on copy failure.
+  The lazy bundle in `src/vendor/mangrove/` retains upstream source and licence,
+  adding lifetime guards around clipboard continuations so closing resources
+  cannot lead to late feedback or an attempted reopen of a destroyed dialog.
+  Nested citation Escape stops propagation to map tools while retaining native
+  dialog cancellation. See the vendor README for upgrade/replacement guidance.
+- `js/tabs.js` auto-initialises `[data-mg-js-tabs]` containers on
+  `DOMContentLoaded`. `src/ui/mangrove-tabs.js` retains a scoped loader with an
+  abort-triggered `mgTabsDestroy` for window and font listeners; the current
+  info panels do not instantiate a Mangrove tab set.
 - `js/copy-button.js` for the site inspector's copy control, through
   `src/ui/mangrove-copy-button.js`, which mirrors the tabs loader. Importing the
   module initialises the document once, but the inspector builds its button
   later, so the wrapper calls `mgCopyButton(scope)` over the coordinates row it
-  has just written. Mangrove 2.0 exports only `mgCopyButton`: there is no destroy, and
+  has just written. Mangrove 2.5 exports only `mgCopyButton`: there is no destroy, and
   nothing global to undo, because its one listener is a `click` on the button
   element and goes with the markup. The `signal` therefore guards the part that
   can outlive its markup — the inspector aborts the previous render's controller
   before each rebuild and on close, so a slow module load never wires a row that
   is already gone. A destroy export is still called if a later release adds one.
 
-  Unlike the tabs loader, this one is **not** optional in the "never applied,
-  never broken" sense. Without the tabs module every panel still renders, so the
-  content stays reachable; without the copy module the button is present,
+  Unlike navigation enhancement, copy needs a working fallback. Without the
+  copy module the button would otherwise remain present,
   focusable, not disabled and labelled — and inert. So the inspector attaches a
   local click handler (`attachCopyButtonFallback`) at render time, reading the
   same `data-*` attributes and raising the same copied state, tooltip and

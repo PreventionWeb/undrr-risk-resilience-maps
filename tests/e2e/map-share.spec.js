@@ -26,18 +26,29 @@ test("map Share opens the shared modal with resources and the complete map link"
   const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
   await expect(modal).toBeVisible();
   await expect(modal.locator(".mg-share")).toBeVisible();
-  await expect(modal.locator("details")).toHaveCount(3);
+  await expect(modal.locator("details.metric-resources-dialog__metric")).toHaveCount(3);
+  const resourcesHeading = modal.getByRole("heading", { name: "Map resources", level: 3 });
+  const copyBox = await modal.getByRole("button", { name: "Copy map link", exact: true }).boundingBox();
+  const headingBox = await resourcesHeading.boundingBox();
+  expect(headingBox.y - (copyBox.y + copyBox.height)).toBeGreaterThanOrEqual(24);
   const url = page.url();
   const linkedIn = new URL(await modal.getByRole("link", { name: "Share on LinkedIn" }).getAttribute("href"));
   expect(linkedIn.searchParams.get("url")).toBe(url);
   await modal.getByRole("button", { name: "Copy map link", exact: true }).click();
-  await expect(modal.getByRole("status")).toHaveText("Map link copied.");
+  await expect(modal.locator('[data-part="share-status"]')).toHaveText("Map link copied.");
   expect(await page.evaluate(() => window.copiedMapLinks)).toEqual([url]);
-  const flood = modal
-    .locator("details")
-    .filter({ has: page.locator("summary", { hasText: "River Flooding" }) });
-  await flood.locator("summary").click();
-  await expect(flood.getByRole("heading", { name: "Citation", exact: true })).toBeVisible();
+  const floodMap = modal.locator(".metric-resources-dialog__map").filter({
+    has: page.getByRole("heading", { level: 4, name: /River Flooding/ }),
+  });
+  const flood = floodMap.locator("details.metric-resources-dialog__metric");
+  await expect(flood).not.toHaveAttribute("open", "");
+  await expect(floodMap.getByRole("heading", { name: "Citation", exact: true, level: 5 })).toBeVisible();
+  await expect(floodMap.locator(".mg-cite-this__preview")).toBeVisible();
+  await floodMap.locator(".mg-cite-this__preview").click();
+  await expect.poll(() => page.evaluate(() => window.copiedMapLinks.length)).toBe(2);
+  await expect(flood).not.toHaveAttribute("open", "");
+  await flood.locator(":scope > summary").click();
+  await expect(flood.locator("[data-mg-cite-this]")).toHaveCount(0);
   await expect(flood.getByRole("link", { name: "Learn more about this metric" })).toBeVisible();
   await modal.getByRole("button", { name: "Back to map" }).click();
   await expect(trigger).toBeFocused();
@@ -78,7 +89,7 @@ test("failed copying offers a selectable map URL and can still return to the map
   await page.getByRole("button", { name: "Share map", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
   await modal.getByRole("button", { name: "Copy map link", exact: true }).click();
-  await expect(modal.getByRole("status")).toContainText("Could not copy");
+  await expect(modal.locator('[data-part="share-status"]')).toContainText("Could not copy");
   const fallback = modal.getByRole("textbox", { name: "Map link for manual copying" });
   await expect(fallback).toBeVisible();
   await expect(fallback).toBeFocused();
@@ -150,15 +161,255 @@ test("sharing waits through a source switch and refreshes within an open metric 
   expect(new URL(linkedIn.searchParams.get("url")).hash).toBe(
     "#hazard?layers=river-flooding:1,earthquake-pga",
   );
-  await expect(modal.locator("h2")).toBeFocused();
+  await expect(modal.locator(".download-dialog__title")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(share).toBeEnabled();
   await share.click();
   const fullMap = page.getByRole("dialog", { name: "Share this map", exact: true });
-  await expect(fullMap.locator("details")).toHaveCount(2);
+  await expect(fullMap.locator("details.metric-resources-dialog__metric")).toHaveCount(2);
   await page.keyboard.press("Escape");
   await river.getByRole("button", { name: "Citation, methodology and downloads", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Resources: River Flooding – Frequency", exact: true }),
   ).toBeVisible();
 });
+
+for (const clipboardFails of [false, true]) {
+  test(`dataset citation copies approved text and isolates its nested dialog (clipboard fails: ${clipboardFails})`, async ({
+    page,
+  }) => {
+    await page.addInitScript((fails) => {
+      window.copiedCitations = [];
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            if (fails) throw new Error("blocked");
+            window.copiedCitations.push(text);
+          },
+        },
+      });
+    }, clipboardFails);
+    await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+    const row = layerRow(page, "Crop average annual loss (%)");
+    await settled(row);
+    const trigger = row.getByRole("button", { name: "Citation, methodology and downloads", exact: true });
+    await trigger.click();
+    const parent = page.getByRole("dialog", { name: /^Resources: Crop average annual loss/ });
+    const citation = parent.locator("[data-mg-cite-this]");
+    const approved = "Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.";
+    const text = `${approved}\n\nMap link: ${page.url()}`;
+    const preview = citation.getByRole("button", { name: /^Copy citation:/ });
+    await expect(preview).toBeVisible();
+    await preview.click();
+    const options = citation.getByRole("dialog", { name: "Citation", exact: true });
+    if (clipboardFails) {
+      await expect(options).toBeVisible();
+      await expect(options.getByRole("status")).toContainText("Copy failed");
+      await expect(options.locator("[data-mg-cite-this-text]")).toHaveText(text);
+    } else {
+      await expect.poll(() => page.evaluate(() => window.copiedCitations)).toEqual([text]);
+      await expect(options).toBeHidden();
+    }
+    await expect(citation.getByRole("button", { name: "All citation options", exact: true })).toHaveCount(0);
+    if (clipboardFails) {
+      await expect(options.getByRole("link", { name: /Download RIS|Download BibTeX/ })).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(options).toBeHidden();
+      await expect(parent).toBeVisible();
+      await expect(preview).toBeFocused();
+    }
+    await parent.getByRole("button", { name: "Back to map", exact: true }).click();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(parent.locator("[data-mg-cite-this-ready]")).toHaveCount(1);
+    await expect(parent.locator(".mg-cite-this__dialog")).toHaveCount(1);
+  });
+}
+
+test("a blocked citation enhancement leaves the supplied citation readable", async ({ page }) => {
+  await page.route("**/vendor/mangrove/cite-this.js*", (route) => route.abort());
+  await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+  const row = layerRow(page, "Crop average annual loss (%)");
+  await settled(row);
+  await row.getByRole("button", { name: "Citation, methodology and downloads", exact: true }).click();
+  const parent = page.getByRole("dialog", { name: /^Resources: Crop average annual loss/ });
+  await expect(parent.locator("[data-mg-cite-this-text]")).toHaveText(
+    `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${page.url()}`,
+  );
+  await expect(parent.locator("[data-mg-cite-this-text]")).toBeVisible();
+  await expect(parent.getByRole("button", { name: "Copy citation", exact: true })).toHaveCount(0);
+});
+
+for (const clipboardFails of [false, true]) {
+  test(`one citation control links its own metric and scenario (clipboard fails: ${clipboardFails})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.addInitScript((fails) => {
+      window.copiedCitationLinks = [];
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (text) => {
+            if (fails) throw new Error("blocked");
+            window.copiedCitationLinks.push(text);
+          },
+        },
+      });
+    }, clipboardFails);
+    await gotoApp(page, "#gar?layers=gar26-aal-crops:7,gar26-pml-crops:3");
+    await settled(layerRow(page, "Crop average annual loss (%)"));
+    await settled(layerRow(page, "Crop loss: 50-year drought (%)"));
+    await page.getByRole("button", { name: "Share map", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "Share this map", exact: true });
+    const metrics = modal.locator(".metric-resources-dialog__map");
+    const metric = metrics.first();
+    const field = metric.getByRole("button", { name: /^Copy citation:/ });
+    await expect(field).toBeVisible();
+    const expectedUrl = new URL("/", page.url());
+    expectedUrl.hash = "#gar?layers=gar26-aal-crops:7";
+    const expected = `Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.\n\nMap link: ${expectedUrl.href}`;
+    const linkedIn = new URL(
+      await modal.getByRole("link", { name: "Share on LinkedIn" }).getAttribute("href"),
+    );
+    expect(linkedIn.searchParams.get("url")).toBe(page.url());
+    await expect(metrics.nth(1).locator("[data-mg-cite-this]")).toHaveAttribute(
+      "data-mg-cite-this-url",
+      expectedUrl.href.replace("gar26-aal-crops:7", "gar26-pml-crops:3"),
+    );
+    await expect(metric.getByRole("link", { name: "Map link", exact: true })).toHaveCount(0);
+    await expect(metric.getByRole("button", { name: "Copy citation and map link", exact: true })).toHaveCount(
+      0,
+    );
+    await expect(metric.getByRole("button", { name: "All citation options", exact: true })).toHaveCount(0);
+    await field.click();
+    if (clipboardFails) {
+      const fallback = metric.getByRole("dialog", { name: "Citation", exact: true });
+      await expect(fallback).toBeVisible();
+      await expect(fallback.locator("[data-mg-cite-this-text]")).toHaveText(expected);
+      await expect(fallback.getByRole("status")).toContainText("Copy failed");
+      await page.keyboard.press("Escape");
+      await expect(modal).toBeVisible();
+      await expect(field).toBeFocused();
+    } else {
+      await expect.poll(() => page.evaluate(() => window.copiedCitationLinks)).toEqual([expected]);
+    }
+    await expect(metric.locator("details.metric-resources-dialog__metric")).not.toHaveAttribute("open", "");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+  });
+}
+
+for (const tool of ["site-inspector", "infobox"]) {
+  test(`citation Escape leaves ${tool} behind the resource dialog open`, async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            throw new Error("blocked");
+          },
+        },
+      });
+    });
+    await gotoApp(page, "?inspect=1#hazard?layers=landslides");
+    await settled(layerRow(page, "Landslides"));
+    if (tool === "site-inspector") await page.locator('[data-ui="inspect-toggle"]').click();
+    await page.evaluate(
+      (name) =>
+        window.__mapxStub.emit("click_features", {
+          attributes: name === "infobox" ? { "MX-SITE": [{ name: "Site A", hazard: "flood" }] } : {},
+          lngLat: { lng: 1, lat: 2 },
+        }),
+      tool,
+    );
+    const behind = page.locator(`#${tool}`);
+    await expect(behind).toBeVisible();
+    // The feature infobox occupies the same corner as Share; use keyboard
+    // activation to keep it open while testing dialog Escape isolation.
+    await page.getByRole("button", { name: "Share map", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    const parent = page.getByRole("dialog", { name: "Share this map", exact: true });
+    const field = parent.getByRole("button", { name: /^Copy citation:/ });
+    await field.click();
+    const child = parent.getByRole("dialog", { name: "Citation", exact: true });
+    await expect(child).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(child).toBeHidden();
+    await expect(parent).toBeVisible();
+    await expect(behind).toBeVisible();
+    await expect(field).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(parent).toBeHidden();
+    await expect(behind).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(behind).toBeHidden();
+  });
+}
+
+for (const placement of ["field", "dialog"]) {
+  for (const outcome of ["resolve", "reject"]) {
+    test(`late clipboard ${outcome} from citation ${placement} cannot act after teardown`, async ({
+      page,
+    }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.addInitScript(
+        ({ placement, outcome }) => {
+          let calls = 0;
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+              writeText: () => {
+                if (placement === "dialog" && calls++ === 0) return Promise.reject(new Error("blocked"));
+                return new Promise((resolve, reject) => {
+                  window.finishDeferredCopy = () =>
+                    outcome === "reject" ? reject(new Error("late failure")) : resolve();
+                });
+              },
+            },
+          });
+        },
+        { placement, outcome },
+      );
+      await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+      await settled(layerRow(page, "Crop average annual loss (%)"));
+      await page.getByRole("button", { name: "Share map", exact: true }).click();
+      const parent = page.getByRole("dialog", { name: "Share this map", exact: true });
+      await parent.getByRole("button", { name: /^Copy citation:/ }).click();
+      if (placement === "dialog") {
+        const child = parent.getByRole("dialog", { name: "Citation", exact: true });
+        await expect(child).toBeVisible();
+        await child.getByRole("button", { name: "Copy citation", exact: true }).click();
+      }
+      await page.waitForFunction(() => typeof window.finishDeferredCopy === "function");
+      await page.evaluate((placement) => {
+        window.oldCopyFeedback = document.querySelector(
+          placement === "field"
+            ? ".mg-cite-this__preview-text"
+            : ".mg-cite-this__dialog [data-mg-cite-this-status]",
+        );
+      }, placement);
+      if (placement === "dialog") {
+        await page.keyboard.press("Escape");
+        await expect(parent).toBeVisible();
+      }
+      await page.keyboard.press("Escape");
+      await expect(parent).toBeHidden();
+      const feedback = await page.evaluate(async () => {
+        const before = window.oldCopyFeedback.textContent;
+        window.finishDeferredCopy();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { before, after: window.oldCopyFeedback.textContent };
+      });
+      expect(feedback.after).toBe(feedback.before);
+      expect(errors).toEqual([]);
+      await expect(page.locator("dialog[open]")).toHaveCount(0);
+      await page.getByRole("button", { name: "Share map", exact: true }).click();
+      await expect(parent.getByRole("button", { name: /^Copy citation:/ })).toBeVisible();
+      await expect(parent.locator(".mg-cite-this__dialog")).toHaveCount(1);
+    });
+  }
+}

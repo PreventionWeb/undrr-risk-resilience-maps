@@ -191,19 +191,43 @@
   overflow-wrap: anywhere;
 }
 
-.metric-resources-dialog section + section {
-  margin-top: 1rem;
+.metric-resources-dialog .download-dialog__header {
+  align-items: center;
+  margin-bottom: 0.75rem;
 }
 
-.metric-resources-dialog h3 {
-  margin: 0 0 0.25rem;
-  font-size: 0.85rem;
+.metric-resources-dialog .download-dialog__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.metric-resources-dialog__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.metric-resources-dialog__body > *,
+.metric-resources-dialog__map > * {
+  min-inline-size: 0;
+}
+
+.metric-resources-dialog__section-title,
+.metric-resources-dialog .mg-share__header {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .metric-resources-dialog p {
-  margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
   white-space: pre-line;
+  text-wrap: pretty;
 }
 
 .metric-resources-dialog .layer-downloads {
@@ -216,6 +240,8 @@
   flex-wrap: wrap;
   gap: 1rem;
   margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border-light);
 }
 
 .metric-resources-dialog .download-dialog__close {
@@ -234,46 +260,105 @@
   min-height: 40px;
 }
 
+/* Mangrove's button display must not override startup visibility. */
+.map-share-button[hidden] {
+  display: none;
+}
+
 .metric-resources-dialog .mg-share {
-  margin-top: 1.25rem;
+  margin: 0;
+  gap: 0.75rem;
   max-inline-size: 100%;
-}
-
-.metric-resources-dialog .mg-share__copy-button {
-  text-align: start;
-}
-
-.metric-resources-dialog .mg-share__copy-text {
-  overflow-wrap: anywhere;
-  white-space: normal;
 }
 
 .metric-resources-dialog .mg-share input[hidden] {
   display: none;
 }
 
-.metric-resources-dialog__metric {
-  margin-block: 0.75rem;
+.metric-resources-dialog__map {
+  display: grid;
+  gap: 0.75rem;
+  margin-block-start: 1rem;
 }
 
-.metric-resources-dialog__metric > div {
-  padding-block: 0.75rem;
+.metric-resources-dialog__map + .metric-resources-dialog__map {
+  padding-block-start: 1.25rem;
+  border-top: 1px solid var(--color-border-light);
 }
 
-.metric-resources-dialog .download-dialog__header + .metric-resources-dialog__share .mg-share {
-  margin-top: 0;
+.metric-resources-dialog__map-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.metric-resources-dialog .metric-resources-dialog__metric {
+  margin: 0;
+  padding: 0;
+}
+
+.metric-resources-dialog .metric-resources-dialog__metric > summary {
+  padding: 0.875rem 3rem 0.875rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.metric-resources-dialog .metric-resources-dialog__metric > div {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.metric-resources-dialog__map .metric-resources-dialog__section-title {
+  font-size: 0.875rem;
+}
+
+/* The enclosing resource section already supplies the citation heading. */
+.metric-resources-dialog .mg-cite-this__header,
+.metric-resources-dialog .mg-cite-this__more,
+.metric-resources-dialog .mg-cite-this__fallback > summary {
+  display: none;
+}
+
+.metric-resources-dialog .mg-cite-this__panel {
+  max-inline-size: none;
+}
+
+/* The one copy field shows the entire citation, including its metric URL. */
+.metric-resources-dialog .mg-cite-this__preview-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  white-space: pre-line;
+}
+
+.metric-resources-dialog .mg-cite-this__fallback {
+  background: transparent;
+  border: 0;
+}
+
+.metric-resources-dialog .mg-cite-this__fallback > .mg-cite-this__content {
+  padding: 0;
+}
+
+.metric-resources-dialog .mg-cite-this__fallback[hidden],
+.metric-resources-dialog .mg-cite-this__copy[hidden] {
+  display: none;
 }
 
 /* Reserve a toolbar row: narrow layer panels otherwise sit under Share. */
 @media (max-width: 480px) {
-  [data-ui="app-map"]:has(> .map-share-button) .layer-panel {
+  [data-ui="app-map"]:has(> .map-share-button:not([hidden])) .layer-panel {
     top: 3.75rem;
     max-height: calc(100% - 4.5rem);
   }
-  [data-ui="app-map"]:has(> .map-share-button) .inspect-toggle-btn {
+  [data-ui="app-map"]:has(> .map-share-button:not([hidden])) .inspect-toggle-btn {
     left: 0.75rem;
   }
-  [data-ui="app-map"]:has(> .map-share-button) .site-inspector {
+  [data-ui="app-map"]:has(> .map-share-button:not([hidden])) .site-inspector {
     top: 3.75rem;
     left: 0.75rem;
     max-width: calc(100% - 1.5rem);

@@ -13,9 +13,34 @@ beforeEach(() => {
 afterEach(() => {
   modal?.destroy();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("metric resources modal", () => {
+  it("puts the metric URL into the standard citation payload without extra copy controls", () => {
+    const url = "https://example.org/#hazard?layers=sample:1";
+    modal = createMetricResourcesDialog({ getCitationUrl: () => url });
+    modal.open({ layer, opener });
+    const cite = modal.element.querySelector("[data-mg-cite-this]");
+    expect(cite.dataset.mgCiteThisCitation).toBe(`${layer.citation}\n\nMap link: ${url}`);
+    expect(cite.dataset.mgCiteThisUrl).toBe(url);
+    expect(cite.querySelector("[data-mg-cite-this-text]").textContent).toBe(cite.dataset.mgCiteThisCitation);
+    expect(modal.element.querySelector('[data-action="copy-citation-map"]')).toBeNull();
+  });
+
+  it("supplies the approved dataset citation without page fallback or invented export fields", () => {
+    modal = createMetricResourcesDialog();
+    modal.open({ layer, opener });
+    const cite = modal.element.querySelector("[data-mg-cite-this]");
+    expect(cite.dataset.mgCiteThisCitation).toBe(layer.citation);
+    expect(cite.dataset.mgCiteThisCopyUrl).toBe("false");
+    expect(cite.dataset.mgCiteThisExport).toBe("none");
+    expect(cite.querySelector("[data-mg-cite-this-text]").textContent).toBe(layer.citation);
+    modal.open({ layer: { ...layer, citation: "Source to be confirmed." }, opener });
+    expect(modal.element.querySelector("[data-mg-cite-this]")).toBeNull();
+    expect(modal.element.textContent).toContain("Source to be confirmed.");
+  });
+
   it.each(["", "?downloads=1"])("preserves effective download opt-out over URL setting %s", (search) => {
     history.replaceState(null, "", `/${search}#hazard`);
     modal = createMetricResourcesDialog({ downloads: null });
