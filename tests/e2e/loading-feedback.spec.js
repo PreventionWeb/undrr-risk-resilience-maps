@@ -34,6 +34,7 @@ for (const mode of [
     const feedback = page.locator(".map-loading:visible");
     await expect(feedback).toBeVisible();
     await expect(feedback).toContainText("Loading map…");
+    await expect(page.locator(".map-share-button")).toBeHidden();
     await expect(page.locator('[data-ui="mapx"]')).toHaveAttribute("aria-busy", "true");
     // No full-map wash or hidden frame: MapX must keep painting to start up.
     await expect(page.locator('[data-ui="mapx"]')).toHaveCSS("opacity", "1");
@@ -90,6 +91,7 @@ for (const mode of [
     await expect(feedback).toHaveCount(0);
     await expect(page.locator('[data-ui="mapx"]')).not.toHaveAttribute("aria-busy");
     await expect(page.locator("#map-service-notice")).toBeHidden();
+    await expect(page.locator(".map-share-button")).toBeVisible();
   });
 }
 
@@ -102,10 +104,12 @@ test("startup failure replaces loading feedback, and a late ready recovers", asy
   await page.waitForFunction(() => window.__mapxStub?.listening("ready"));
   await page.clock.fastForward(31_000);
   await expect(page.locator("#map-service-notice")).toBeVisible();
+  await expect(page.locator(".map-share-button")).toBeHidden();
   await expect(page.locator(".map-loading")).toHaveCount(0);
   await expect(page.locator('[data-ui="mapx"]')).not.toHaveAttribute("aria-busy");
   await page.evaluate(() => window.__mapxStub.releaseReady());
   await expect(page.locator("#map-service-notice")).toBeHidden();
+  await expect(page.locator(".map-share-button")).toBeVisible();
 });
 
 test("an information page hides pending map feedback until the map is opened", async ({ page }) => {
@@ -128,7 +132,9 @@ test("embedded maps show the same startup feedback", async ({ page }) => {
   });
   await page.goto("/embed.html?tab=hazard");
   await expect(page.locator(".map-loading:visible")).toBeVisible();
+  await expect(page.locator(".map-share-button")).toBeHidden();
   await page.waitForFunction(() => window.__mapxStub?.listening("ready"));
   await page.evaluate(() => window.__mapxStub.releaseReady());
   await expect(page.locator(".map-loading")).toHaveCount(0);
+  await expect(page.locator(".map-share-button")).toBeVisible();
 });

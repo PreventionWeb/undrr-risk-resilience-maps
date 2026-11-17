@@ -358,6 +358,7 @@ export function createSidebar(
   disposers.push(() => resources.destroy());
   function refreshSharing() {
     if (shareButton) {
+      shareButton.hidden = !isSDKReady();
       shareButton.disabled = getMapShare().pending;
       shareButton.title = shareButton.disabled
         ? "Wait for the map to finish updating before sharing"

@@ -22,6 +22,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
+- Hide the map Share button until the map is ready so it cannot overlap startup loading feedback; keep it hidden after startup failure and reveal it on recovery.
 - Keep Share clear of the layer-panel controls on narrow screens. Wait for map transitions before sharing and refresh sharing in an open metric modal when the map settles. Preserve effective download opt-outs in the Sources link, and keep modal Escape from closing inspection results behind it.
 
 ## [0.0.14] - 2026-11-10
