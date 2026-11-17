@@ -8,6 +8,9 @@ under [resourcing WP-9](resourcing-plan.md#wp-9--content-pipeline--editorial-wor
 Use the [README setup](../README.md#developing) first. The importer reads CSV, not `.xlsx`;
 convert colleague spreadsheets to the repository's CSV shape before importing. Normalize handoff columns and compound source labels before importing a raw spreadsheet.
 
+See the [17 November 2026 import review](inventory-review-2026-11-17.md) for the
+latest handoff, normalization decisions and outstanding editorial questions.
+
 ## Review and apply an update
 
 1. Update `data/inventory.csv`, preserving its headers and stable layer keys. Existing

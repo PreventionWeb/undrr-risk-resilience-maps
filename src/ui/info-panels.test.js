@@ -10,10 +10,10 @@ describe("buildSourcesPanel", () => {
     const rows = [...panel.querySelectorAll("tbody tr")].filter((row) =>
       row.querySelector('a[href^="mailto:"]'),
     );
-    expect(rows).toHaveLength(30);
+    expect(rows).toHaveLength(59);
     const rice = rows.find((row) => row.textContent.includes("Rice AAL (%) – Warming level +2°C"));
     expect(rice.textContent).toContain("MX-KU5ID-GHTH8-C2WG3");
-    expect(rice.textContent).toContain("under a +2°C warming level");
+    expect(rice.textContent).toContain("under +2°C warming");
     const request = new URL(rice.querySelector('a[href^="mailto:"]').href);
     expect(request.searchParams.get("body")).toContain("Map title: Rice AAL (%) – Warming level +2°C");
     expect(request.searchParams.get("body")).toContain("#gar?layers=gar26-aal-crops:7");
@@ -133,7 +133,7 @@ describe("buildSourcesPanel", () => {
     const button = panel.querySelector('[data-view-id="MX-KU5ID-GHTH8-C2WG3"]');
     const row = button.closest("tr");
     expect(row.textContent).toContain("Rice AAL (%) – Warming level +2°C");
-    expect(row.textContent).toContain("under a +2°C warming level");
+    expect(row.textContent).toContain("under +2°C warming");
     expect(row.querySelector('a[href*="methodology#"]')).not.toBeNull();
     expect(row.querySelector('a[href^="mailto:"]')).toBeNull();
     button.click();
@@ -144,7 +144,7 @@ describe("buildSourcesPanel", () => {
   it("omits downloads when disabled and retains data requests", () => {
     const panel = buildSourcesPanel();
     expect(panel.querySelector(".layer-downloads")).toBeNull();
-    expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(30);
+    expect(panel.querySelectorAll('a[href^="mailto:"]')).toHaveLength(59);
   });
 
   it("links published dataset names to the correct viewer tab and source", () => {

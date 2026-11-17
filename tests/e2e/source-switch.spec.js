@@ -21,9 +21,7 @@ test.describe("source switch", () => {
     await expect(select.locator("option")).toHaveCount(12);
     await select.selectOption("7");
     await settled(crops);
-    await expect(crops.locator(".layer-desc")).toContainText(
-      "rice production loss under a +2°C warming level",
-    );
+    await expect(crops.locator(".layer-desc")).toContainText("rice production losses under +2°C warming");
     await expect(crops.locator(".layer-slider-slot input.mg-range")).toHaveAttribute(
       "data-view-id",
       "MX-KU5ID-GHTH8-C2WG3",
@@ -35,7 +33,7 @@ test.describe("source switch", () => {
     await page.goto("/?downloads=0#gar?layers=gar26-aal-crops:7");
     await expect(layerRow(page, "Crop average annual loss (%)").getByRole("combobox")).toHaveValue("7");
     await expect(layerRow(page, "Crop average annual loss (%)").locator(".layer-desc")).toContainText(
-      "rice production loss under a +2°C warming level",
+      "rice production losses under +2°C warming",
     );
   });
 

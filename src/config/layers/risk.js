@@ -258,8 +258,8 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Average annual loss for crops.",
-    source: "UNDRR, JRC and CIMA Foundation",
-    citation: CITATION_TBC,
+    source: "CIMA/JRC/UNDRR",
+    citation: "Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.",
     license: LICENSE_TBC,
     project: ECO_DRR,
     initiative: "AAL crops",
@@ -273,7 +273,7 @@ export const RISK_LAYERS = [
         label: "Wheat",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
-        note: "Long-term average annual wheat production loss due to drought.",
+        note: "Shows average annual drought-related wheat production losses.",
         desc: "Average annual loss for crops.",
       },
       {
@@ -281,7 +281,7 @@ export const RISK_LAYERS = [
         label: "Maize",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
-        note: "Long-term average annual maize production loss due to drought.",
+        note: "Shows average annual drought-related maize production losses.",
         desc: "Average annual loss for crops.",
       },
       {
@@ -289,7 +289,7 @@ export const RISK_LAYERS = [
         label: "Rice",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
-        note: "Long-term average annual rice production loss due to drought.",
+        note: "Shows average annual drought-related rice production losses.",
         desc: "Average annual loss for crops.",
       },
       {
@@ -297,7 +297,7 @@ export const RISK_LAYERS = [
         label: "Soybean",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-average-annual-crop-losses-from-drought-4-key-crops",
-        note: "Long-term average annual soybean production loss due to drought.",
+        note: "Shows average annual drought-related soybean production losses.",
         desc: "Average annual loss for crops.",
       },
     ],
@@ -310,8 +310,8 @@ export const RISK_LAYERS = [
     type: "vt",
     geometry: "point",
     desc: "Probable maximum loss for crops.",
-    source: "UNDRR, JRC and CIMA Foundation",
-    citation: CITATION_TBC,
+    source: "CIMA/JRC/UNDRR",
+    citation: "Data: CIMA/JRC/UNDRR. Cartography: UNEP GRID.",
     license: LICENSE_TBC,
     project: ECO_DRR,
     initiative: "PML crops",
@@ -325,7 +325,7 @@ export const RISK_LAYERS = [
         label: "Wheat",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
-        note: "Modelled wheat production loss due to drought at a specified return period.",
+        note: "Shows modelled drought-related wheat production losses at a specified return period.",
         desc: "Probable maximum loss for crops.",
       },
       {
@@ -333,7 +333,7 @@ export const RISK_LAYERS = [
         label: "Maize",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
-        note: "Modelled maize production loss due to drought at a specified return period.",
+        note: "Shows modelled drought-related maize production losses at a specified return period.",
         desc: "Probable maximum loss for crops.",
       },
       {
@@ -341,7 +341,7 @@ export const RISK_LAYERS = [
         label: "Rice",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
-        note: "Modelled rice production loss due to drought at a specified return period.",
+        note: "Shows modelled drought-related rice production losses at a specified return period.",
         desc: "Probable maximum loss for crops.",
       },
       {
@@ -349,7 +349,7 @@ export const RISK_LAYERS = [
         label: "Soybean",
         explainerUrl:
           "https://www.undrr.org/building-risk-knowledge/risk-and-resilience/methodology#metric-direct-probable-maximum-crop-losses-from-drought-4-key-crops",
-        note: "Modelled soybean production loss due to drought at a specified return period.",
+        note: "Shows modelled drought-related soybean production losses at a specified return period.",
         desc: "Probable maximum loss for crops.",
       },
     ],

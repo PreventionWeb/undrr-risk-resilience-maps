@@ -165,8 +165,8 @@ describe("generateLayerInventoryCSV", () => {
 
   it("exports GAR category layers with their MapX IDs and Uploaded status", () => {
     const garLines = lines.filter((l) => l.includes(",GAR,"));
-    expect(garLines).toHaveLength(35);
-    expect(garLines.filter((line) => line.includes("GAR2026"))).toHaveLength(30);
+    expect(garLines).toHaveLength(64);
+    expect(garLines.filter((line) => line.includes("GAR2026"))).toHaveLength(59);
     expect(csv).toContain("water-scarcity-child-nutrition");
     expect(csv).toContain("fatalities-gem");
     expect(csv).toContain("ecolosses-gem");
