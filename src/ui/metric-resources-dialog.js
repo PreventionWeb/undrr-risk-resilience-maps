@@ -51,7 +51,11 @@ export function createMetricResourcesDialog({
   dialog.addEventListener(
     "keydown",
     (event) => {
-      if (event.target.closest("dialog") !== dialog) return;
+      if (event.target.closest("dialog") !== dialog) {
+        // Let the child close natively, without dismissing map tools behind it.
+        if (event.key === "Escape") event.stopPropagation();
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

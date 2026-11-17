@@ -11,9 +11,9 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 Reviewed the official [2.4.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.4.0)
 and [2.5.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.5.0) releases,
 tagged source at `71e4867`, and the deployed 2.3.0/2.5.0 CDN assets. Both HTML
-entry points now pin 2.5.0 CSS and preview access. The tabs, copy, citation and Sources-nav
-loaders share `src/config/mangrove.js`; a test compares their release with both
-HTML entry points to prevent a partial upgrade.
+entry points now pin 2.5.0 CSS and preview access. The tabs, copy and Sources-nav
+CDN loaders share `src/config/mangrove.js`; tests compare both HTML entry points
+and the bundled citation module version to prevent a partial upgrade.
 
 All six checked assets return HTTP 200. The deployed CSS identifies itself as
 2.5.0, and all 48 non-data font/image URLs referenced by it answer HTTP 200.
@@ -44,9 +44,9 @@ it is not a required migration. New quiz, syndicated-search, option-row and
 sticky-tab features do not replace current viewer controls. This CDN upgrade
 does not change the local package tree, Node engine or adopt React/hydration.
 
-Validation: 1,264 unit tests pass, plus lint, production build and edited-file
-formatting. The latest 33 affected Chromium tests pass across sharing/citations,
-downloads and Mangrove adoption. Citation checks cover distinct per-metric/scenario URLs alongside full-map
+Validation: 1,265 unit tests pass, plus lint, production build and edited-file
+formatting. All 137 Chromium browser tests pass, including the strict 320px geometry check
+and six new nested-Escape/late-clipboard regressions. Citation checks cover distinct per-metric/scenario URLs alongside full-map
 sharing, clipboard failure and mobile layout; the unit check verifies the
 standard payload without duplicate controls. Added checks cover release alignment,
 native select affordance and source switching in forced colours, and 40px sharing
@@ -54,15 +54,31 @@ actions contained in 320/390px modals. Existing tests cover preview access,
 embeds, navigation breakpoints, Sources print layout, modal focus and copy failures.
 Forced colours are emulated in Chromium, not verified in Windows contrast themes.
 
-The resource modal additionally uses the release's `js/cite-this.js` (HTTP 200)
+Red-team review found three regressions and verified the fixes: grid intrinsic
+minimum sizing clipped 320px modals; child-dialog Escape reached map-tool
+handlers; pending clipboard callbacks could reopen a destroyed citation dialog.
+Use `minmax(0, 1fr)` plus zero child minimum inline sizes for the modal grid,
+and stop nested Escape propagation while preserving native cancellation.
+
+The citation module is now a lazy bundled copy of the exact 2.5.0 source under
+`src/vendor/mangrove/`, with Apache-2.0 licence and SHA/source provenance. Its
+instance lifetime flag guards all clipboard success/error continuations, both
+with and without native dialog support. The only other source change removes
+one redundant regex escape for lint. See its README for replacing the local
+patch after an upstream fix; the strict 320px test remains unchanged. Tests also
+cover tools behind the citation dialog and late clipboard success/rejection from
+the field and dialog after resources close.
+
+The resource modal uses the release's `js/cite-this.js` source (HTTP 200)
 with explicit `data-mg-cite-this-citation` values. Its page fallback would cite
 the viewer rather than the dataset. Disable citation-URL copying and RIS/BibTeX
 exports because the inventory supplies citation prose, not structured bibliographic
 fields or a confirmed dataset locator. Leave unconfirmed citations as text.
 Scope enhancement and teardown to each resource render, separately from share
-refreshes. The parent modal must ignore a child citation dialog's Escape/cancel
+refreshes. The parent modal must stop child-dialog Escape propagation without preventing
+native cancellation
 and omit closed child-dialog controls from its focus loop. Authored citation
-text remains readable when CDN loading fails. In the share modal each metric
+text remains readable when enhancement loading fails. In the share modal each metric
 title and citation sit above its collapsed “More map details” disclosure, so
 copying never requires opening notes/source/licence/download details. The component opens selectable
 full text and reports failure if clipboard access is blocked.

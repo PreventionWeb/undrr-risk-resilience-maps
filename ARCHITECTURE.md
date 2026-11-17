@@ -527,14 +527,14 @@ All styling builds on the [UNDRR Mangrove component library](https://assets.undr
 ### Mangrove JavaScript
 
 Mangrove ships vanilla behaviour scripts alongside the CSS. Both HTML entry
-points pin the stylesheet and preview gate to 2.5.0; dynamic loaders share
-`src/config/mangrove.js`. A unit check keeps both entry points and all loaders
-on the same release. Modules are fetched from the CDN rather than bundled.
+points pin the stylesheet and preview gate to 2.5.0; CDN loaders share
+`src/config/mangrove.js`. A unit check keeps both entry points and all modules
+on the same release. Citation behavior is the one bundled exception below.
 
 - `js/on-this-page-nav.js` enhances Sources category navigation through
   `src/ui/mangrove-on-this-page-nav.js`. Authored links remain usable if loading
   fails; aborting the panel lifetime destroys its observers and listeners.
-- `js/cite-this.js` enhances confirmed citation prose in resource modals through
+- A locally patched Mangrove 2.5.0 `cite-this.js` enhances confirmed citation prose in resource modals through
   `src/ui/mangrove-cite-this.js`. Rendered fallback text stays selectable without
   the module. Each resource render owns its citation lifetime and nested-dialog
   cleanup; share refreshes do not destroy citations. Citation URL copying and
@@ -544,6 +544,11 @@ on the same release. Modules are fetched from the CDN rather than bundled.
   uses the standalone viewer address in embeds. Share controls preserve the full
   map; citation links identify the cited metric. There are no additional citation
   actions: full text stays visible and a selectable dialog appears on copy failure.
+  The lazy bundle in `src/vendor/mangrove/` retains upstream source and licence,
+  adding lifetime guards around clipboard continuations so closing resources
+  cannot lead to late feedback or an attempted reopen of a destroyed dialog.
+  Nested citation Escape stops propagation to map tools while retaining native
+  dialog cancellation. See the vendor README for upgrade/replacement guidance.
 - `js/tabs.js` auto-initialises `[data-mg-js-tabs]` containers on
   `DOMContentLoaded`. `src/ui/mangrove-tabs.js` retains a scoped loader with an
   abort-triggered `mgTabsDestroy` for window and font listeners; the current

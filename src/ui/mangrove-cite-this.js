@@ -1,7 +1,4 @@
 /** Enhance supplied dataset citations, and release nested dialogs before replacing their markup. */
-import { MANGROVE_BASE_URL } from "../config/mangrove.js";
-
-export const CITE_THIS_MODULE_URL = `${MANGROVE_BASE_URL}/js/cite-this.js`;
 let modulePromise;
 
 export async function initMangroveCitations(scope, { signal } = {}) {
@@ -9,7 +6,7 @@ export async function initMangroveCitations(scope, { signal } = {}) {
   if (signal?.aborted || !citations.length) return false;
   let mod;
   try {
-    modulePromise ??= import(/* @vite-ignore */ CITE_THIS_MODULE_URL).catch((error) => {
+    modulePromise ??= import("../vendor/mangrove/cite-this.js").catch((error) => {
       modulePromise = null;
       throw error;
     });

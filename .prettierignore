@@ -9,3 +9,6 @@ yarn.lock
 
 # Sanitised MapX table fixtures: kept byte-for-byte as generated.
 src/utils/__fixtures__/
+
+# Preserve upstream source formatting so local lifetime patches remain reviewable.
+src/vendor/mangrove/cite-this.js

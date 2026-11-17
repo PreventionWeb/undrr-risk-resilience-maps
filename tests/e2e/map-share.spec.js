@@ -227,8 +227,8 @@ for (const clipboardFails of [false, true]) {
   });
 }
 
-test("a blocked citation module leaves the supplied citation readable", async ({ page }) => {
-  await page.route("**/js/cite-this.js", (route) => route.abort());
+test("a blocked citation enhancement leaves the supplied citation readable", async ({ page }) => {
+  await page.route("**/vendor/mangrove/cite-this.js*", (route) => route.abort());
   await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
   const row = layerRow(page, "Crop average annual loss (%)");
   await settled(row);
@@ -300,4 +300,116 @@ for (const clipboardFails of [false, true]) {
     await page.keyboard.press("Escape");
     await expect(modal).toBeHidden();
   });
+}
+
+for (const tool of ["site-inspector", "infobox"]) {
+  test(`citation Escape leaves ${tool} behind the resource dialog open`, async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            throw new Error("blocked");
+          },
+        },
+      });
+    });
+    await gotoApp(page, "?inspect=1#hazard?layers=landslides");
+    await settled(layerRow(page, "Landslides"));
+    if (tool === "site-inspector") await page.locator('[data-ui="inspect-toggle"]').click();
+    await page.evaluate(
+      (name) =>
+        window.__mapxStub.emit("click_features", {
+          attributes: name === "infobox" ? { "MX-SITE": [{ name: "Site A", hazard: "flood" }] } : {},
+          lngLat: { lng: 1, lat: 2 },
+        }),
+      tool,
+    );
+    const behind = page.locator(`#${tool}`);
+    await expect(behind).toBeVisible();
+    // The feature infobox occupies the same corner as Share; use keyboard
+    // activation to keep it open while testing dialog Escape isolation.
+    await page.getByRole("button", { name: "Share map", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    const parent = page.getByRole("dialog", { name: "Share this map", exact: true });
+    const field = parent.getByRole("button", { name: /^Copy citation:/ });
+    await field.click();
+    const child = parent.getByRole("dialog", { name: "Citation", exact: true });
+    await expect(child).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(child).toBeHidden();
+    await expect(parent).toBeVisible();
+    await expect(behind).toBeVisible();
+    await expect(field).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(parent).toBeHidden();
+    await expect(behind).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(behind).toBeHidden();
+  });
+}
+
+for (const placement of ["field", "dialog"]) {
+  for (const outcome of ["resolve", "reject"]) {
+    test(`late clipboard ${outcome} from citation ${placement} cannot act after teardown`, async ({
+      page,
+    }) => {
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.addInitScript(
+        ({ placement, outcome }) => {
+          let calls = 0;
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: {
+              writeText: () => {
+                if (placement === "dialog" && calls++ === 0) return Promise.reject(new Error("blocked"));
+                return new Promise((resolve, reject) => {
+                  window.finishDeferredCopy = () =>
+                    outcome === "reject" ? reject(new Error("late failure")) : resolve();
+                });
+              },
+            },
+          });
+        },
+        { placement, outcome },
+      );
+      await gotoApp(page, "#gar?layers=gar26-aal-crops:7");
+      await settled(layerRow(page, "Crop average annual loss (%)"));
+      await page.getByRole("button", { name: "Share map", exact: true }).click();
+      const parent = page.getByRole("dialog", { name: "Share this map", exact: true });
+      await parent.getByRole("button", { name: /^Copy citation:/ }).click();
+      if (placement === "dialog") {
+        const child = parent.getByRole("dialog", { name: "Citation", exact: true });
+        await expect(child).toBeVisible();
+        await child.getByRole("button", { name: "Copy citation", exact: true }).click();
+      }
+      await page.waitForFunction(() => typeof window.finishDeferredCopy === "function");
+      await page.evaluate((placement) => {
+        window.oldCopyFeedback = document.querySelector(
+          placement === "field"
+            ? ".mg-cite-this__preview-text"
+            : ".mg-cite-this__dialog [data-mg-cite-this-status]",
+        );
+      }, placement);
+      if (placement === "dialog") {
+        await page.keyboard.press("Escape");
+        await expect(parent).toBeVisible();
+      }
+      await page.keyboard.press("Escape");
+      await expect(parent).toBeHidden();
+      const feedback = await page.evaluate(async () => {
+        const before = window.oldCopyFeedback.textContent;
+        window.finishDeferredCopy();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return { before, after: window.oldCopyFeedback.textContent };
+      });
+      expect(feedback.after).toBe(feedback.before);
+      expect(errors).toEqual([]);
+      await expect(page.locator("dialog[open]")).toHaveCount(0);
+      await page.getByRole("button", { name: "Share map", exact: true }).click();
+      await expect(parent.getByRole("button", { name: /^Copy citation:/ })).toBeVisible();
+      await expect(parent.locator(".mg-cite-this__dialog")).toHaveCount(1);
+    });
+  }
 }

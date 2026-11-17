@@ -205,7 +205,13 @@
 
 .metric-resources-dialog__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
+}
+
+.metric-resources-dialog__body > *,
+.metric-resources-dialog__map > * {
+  min-inline-size: 0;
 }
 
 .metric-resources-dialog__section-title,
