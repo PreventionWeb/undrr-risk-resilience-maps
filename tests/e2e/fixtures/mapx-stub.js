@@ -169,6 +169,10 @@
     set_map_interactions: function () {
       return true;
     },
+    set_views_layer_order: function (params) {
+      stub.layerOrder = params.order.slice();
+      return stub.layerOrder;
+    },
     // main.js, on ready
     set_immersive_mode: function () {
       return true;

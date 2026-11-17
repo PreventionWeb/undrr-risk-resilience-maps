@@ -81,6 +81,8 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         main: "index.html",
+        layerWorkspace: "layer-workspace.html",
+        mapFirst: "map-first.html",
         // The iframe embed (docs/embedding.md phase 1): a second HTML entry over
         // the same modules, so it shares this bundle and its cache headers and
         // needs no pipeline of its own.

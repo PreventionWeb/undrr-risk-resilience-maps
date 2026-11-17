@@ -11,6 +11,12 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 - Add 29 programme-team GAR2026 maps under 14 controls with regional CSV downloads. Revise crop-loss notes and credits while preserving existing climate variants, methodology links and download settings. Exclude spreadsheet lookup/autofill regressions; new licences remain unconfirmed.
 - Add a shared resources modal for notes, source, citation, licence, methodology and downloads, available from layer controls and the map Share button. Keep each map’s citation visible above its collapsed details. Share links preserve the complete map’s layers and scenarios; each citation copies the supplied credit with a URL for that specific metric/scenario. Show the full citation in one copy field and offer selectable text when clipboard access fails.
 
+### Added
+
+- Add a separate map-first prototype at `map-first.html`: immediate featured-map display, compact Browse and My maps views, independent viewing and saving, country/location inspection, saved-variant comparison and explicit download review. Preserve the stepper prototype and use an isolated workspace store. See [prototype notes](docs/map-first-prototype.md).
+
+- Add an isolated layer-workspace interaction preview at `layer-workspace.html`: searchable published-data catalog, independent child variants, persistent workspace, explicit single/overlay/compare modes, live stack ordering and opacity, linked comparison cameras, and per-variant download review. Start new workspaces in an inline Choose layers step with three real-map thumbnail suggestions instead of loading sample layers. Keep Choose layers and Explore map available through persistent step navigation, preserve draft selections across reloads and prevent Escape from exposing an unfinished workspace. Restore returning workspaces and provide a non-persistent `?start=1` review mode. The existing viewer remains the default. Align the preview with the canonical UNDRR header, published Mangrove controls, native radio semantics, theme tokens, font roles, icon masks and sentence-case UI copy. See [preview notes](docs/layer-workspace-preview.md) and [the alignment record](docs/mangrove-alignment.md).
+
 ### Changed
 
 - Upgrade standalone and embedded viewers to Mangrove 2.5.0, including responsive sharing, authored-case table headings and improved form controls in forced colours. Keep release pins aligned across both entry points and dynamic modules. Use a documented local citation-module patch to guard clipboard callbacks after teardown.

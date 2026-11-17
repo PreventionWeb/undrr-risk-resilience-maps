@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Layer workspace · UNDRR</title>
+    <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.3.0/css/style.css" />
+  </head>
+  <body class="workspace-preview">
+    <a class="mg-skip-link" href="#main">Skip to content</a>
+    <header id="header" class="mg-page-header mg-page-header--default">
+      <div class="mg-page-header__decoration" aria-hidden="true">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <div class="mg-page-header__toolbar-wrapper" data-vf-google-analytics-region="undrr-black-bar">
+        <div class="mg-page-header__container mg-container">
+          <div class="mg-page-header__region mg-page-header__region--toolbar">
+            <div id="block-undrrlogo" class="mg-page-header__block mg-page-header__block--logo">
+              <a href="https://www.undrr.org/"
+                ><img
+                  src="https://assets.undrr.org/logos/undrr/undrr-logo-horizontal.svg"
+                  alt="United Nations Office for Disaster Risk Reduction"
+                  title="UNDRR"
+                  width="324"
+                  height="47"
+                  class="mg-logo mg-logo--autocrop mg-page-header__logo-img"
+              /></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="workspace-app-bar">
+      <div>
+        Risk and resilience metrics
+        <span class="mg-tag mg-tag--outline preview-tag">Interaction preview</span>
+      </div>
+      <a class="current-viewer" href="./"
+        >Current viewer <span class="mg-icon mg-icon-arrow-right" aria-hidden="true"></span
+      ></a>
+    </div>
+    <main id="main" class="workspace-shell" tabindex="-1">
+      <nav class="workspace-steps" aria-label="Workspace steps">
+        <ol>
+          <li>
+            <button type="button" data-step="choose">
+              <span class="step-number" aria-hidden="true">1</span><span>Choose layers</span
+              ><span class="step-selection-count"></span>
+            </button>
+          </li>
+          <li>
+            <button type="button" data-step="explore">
+              <span class="step-number" aria-hidden="true">2</span><span>Explore map</span>
+            </button>
+          </li>
+        </ol>
+      </nav>
+      <section id="catalog-panel" class="catalog-panel" hidden aria-labelledby="catalog-title">
+        <div class="dialog-heading">
+          <div>
+            <span class="eyebrow">Layer catalogue</span>
+            <h1 id="catalog-title" tabindex="-1">Choose layers</h1>
+            <p id="catalog-description">Add several variants of the same dataset to your workspace.</p>
+          </div>
+        </div>
+        <div class="catalog-search">
+          <span class="mg-icon mg-icon-search" aria-hidden="true"></span
+          ><input
+            class="mg-form-input"
+            id="catalog-search"
+            type="search"
+            placeholder="Search indicators, hazards, scenarios…"
+            aria-label="Search layers"
+          />
+        </div>
+        <div
+          id="catalog-filters"
+          class="catalog-filters"
+          role="group"
+          aria-label="Filter layers by category"
+        ></div>
+        <div class="catalog-results-heading">
+          <span id="catalog-result-count"></span><span>Published datasets</span>
+        </div>
+        <div id="catalog-results" class="catalog-results"></div>
+        <footer class="dialog-footer">
+          <span id="catalog-selection-count" role="status"></span
+          ><button id="catalog-done" class="mg-button mg-button-primary primary">Done</button>
+        </footer>
+      </section>
+
+      <aside class="workspace-sidebar" aria-label="My layer workspace">
+        <div class="workspace-heading">
+          <div>
+            <span class="eyebrow">Workspace</span>
+            <h1>My layers <span id="layer-count" class="count"></span></h1>
+          </div>
+          <button id="add-layers" class="mg-button mg-button-primary primary">
+            <span class="mg-icon mg-icon-plus" aria-hidden="true"></span>Add layers
+          </button>
+        </div>
+        <p class="sidebar-intro">Add layers, then choose what appears on the map.</p>
+        <section class="display-controls" aria-labelledby="display-controls-label">
+          <fieldset
+            class="mg-segmented-control mg-segmented-control--full-width view-switch"
+            aria-describedby="mode-explanation"
+          >
+            <legend id="display-controls-label" class="mg-segmented-control__legend">Map display</legend>
+            <div class="mg-segmented-control__group">
+              <input
+                class="mg-segmented-control__input"
+                type="radio"
+                id="mode-single"
+                name="map-display"
+                value="single"
+                data-mode="single"
+                checked
+              />
+              <label class="mg-segmented-control__label" for="mode-single">One layer</label>
+              <input
+                class="mg-segmented-control__input"
+                type="radio"
+                id="mode-overlay"
+                name="map-display"
+                value="overlay"
+                data-mode="overlay"
+              />
+              <label class="mg-segmented-control__label" for="mode-overlay">Overlay</label>
+              <input
+                class="mg-segmented-control__input"
+                type="radio"
+                id="mode-compare"
+                name="map-display"
+                value="compare"
+                data-mode="compare"
+              />
+              <label class="mg-segmented-control__label" for="mode-compare">Compare</label>
+            </div>
+          </fieldset>
+          <div class="mode-explanation" id="mode-explanation"></div>
+        </section>
+        <div class="stack-heading">
+          <span id="stack-caption">Selected layers</span
+          ><button id="clear-workspace" class="mg-button mg-button-primary mg-button-outline text-button">
+            Clear all
+          </button>
+        </div>
+        <div id="workspace-list" class="workspace-list"></div>
+        <div class="stack-base">
+          <span class="mg-icon mg-icon-map" aria-hidden="true"></span> World basemap
+          <span class="muted">Always underneath</span>
+        </div>
+        <div class="workspace-bottom">
+          <button id="review-downloads" class="mg-button mg-button-primary mg-button-outline download-button">
+            <span class="mg-icon mg-icon-download" aria-hidden="true"></span>Download data
+            <span id="download-count" class="count"></span>
+          </button>
+          <p>Download any selected layer, including hidden layers.</p>
+        </div>
+      </aside>
+      <section class="workspace-stage" aria-label="Map workspace">
+        <div id="map-grid" class="map-grid">
+          <section class="map-pane" id="left-pane" aria-label="Main map">
+            <div class="map-label" id="left-map-label"></div>
+            <div id="map-left" class="map-surface"></div>
+            <div class="map-legend" id="left-legend"></div>
+          </section>
+          <section class="map-pane" id="right-pane" aria-label="Comparison map" hidden>
+            <div class="map-label" id="right-map-label"></div>
+            <div id="map-right" class="map-surface"></div>
+            <div class="map-legend" id="right-legend"></div>
+          </section>
+        </div>
+        <footer class="map-footer">
+          <span id="map-summary"></span>
+          <div id="map-status" role="status">
+            <span class="mg-status-label mg-status-label--warning"
+              ><span class="mg-status-label__indicator" aria-hidden="true"></span>Connecting to map…</span
+            >
+          </div>
+        </footer>
+      </section>
+    </main>
+    <dialog id="download-dialog" class="workspace-dialog" aria-labelledby="downloads-title">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">Data downloads</span>
+          <h2 id="downloads-title">Download data</h2>
+          <p>Choose exact variants. Map visibility does not affect downloads.</p>
+        </div>
+        <button class="mg-icon-button icon-button" data-close aria-label="Close downloads">
+          <span class="mg-icon mg-icon-close" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="download-results" class="download-results"></div>
+      <footer class="dialog-footer">
+        <span>CSV values are provided per region, without geometry.</span
+        ><button class="mg-button mg-button-primary primary" data-close>Done</button>
+      </footer>
+    </dialog>
+    <div id="workspace-announcement" class="mg-u-sr-only" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/preview/layer-workspace.js"></script>
+  </body>
+</html>
