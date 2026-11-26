@@ -276,7 +276,7 @@ export function createSidebar(
   const announcer = createLayerAnnouncer(rootDoc);
   disposers.push(() => announcer.destroy());
 
-  // Prototype downloads (#64), only when enabled. A CSV is read from MapX,
+  // Map data downloads, only when enabled. A CSV is read from MapX,
   // which needs the view loaded in the session; a view that is not is added
   // for the read and removed again outside the layer controller (see
   // src/sdk/table.js). These two predicates keep that temporary view out of

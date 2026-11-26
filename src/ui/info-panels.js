@@ -283,7 +283,7 @@ export function buildAboutPanel() {
     <div class="info-page-section mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">What is this tool?</h2>
-        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> (working title) is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> – an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
+        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> – an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
         <p>It provides a single visualization platform for global risk and resilience data layers: hazard exposure, economic impacts, vulnerability indicators and resilience benchmarks across the eight hazards that cause 90% of all economic damage: floods, storms, drought, extreme heat, earthquake, tsunami, landslide and wildfire.</p>
         <p>The map viewer is one component of a broader GRAR Metrics Facility that also includes country risk profiles and supporting analytical resources. Learn more at <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">undrr.org/building-risk-knowledge/risk-and-resilience</a>.</p>
       </div>
@@ -292,14 +292,9 @@ export function buildAboutPanel() {
     <div class="info-page-section info-page-section--grey mg-content">
       <div class="mg-container">
         <div class="mg-highlight-box mg-highlight-box--secondary">
-          <h3>Platform status</h3>
-          <p>This tool is available in an <strong>early public release</strong>. The layer inventory and viewer are still being developed.</p>
-          <ul>
-            <li>Some entries on the Sources page are awaiting data or confirmation.</li>
-            <li>The name <em>GRAR Metrics Facility Map Viewer</em> is a working title and may change.</li>
-            <li>Data, design and structure are subject to change without notice.</li>
-            <li>For questions or feedback, contact the UNDRR digital team.</li>
-          </ul>
+          <h3>Data coverage and feedback</h3>
+          <p>The <a href="#sources">Sources</a> page lists dataset credits and identifies entries awaiting data or confirmation.</p>
+          <p>For questions or feedback, contact the UNDRR digital team.</p>
         </div>
       </div>
     </div>

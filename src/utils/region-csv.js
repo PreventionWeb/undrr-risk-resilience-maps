@@ -1,5 +1,5 @@
 /**
- * Values-only CSV for a region-level MapX vector view (prototype, #64).
+ * Values-only CSV for a region-level MapX vector view.
  *
  * Pure: takes the rows `get_view_table_attribute` returned and our own layer
  * config, returns the file's text. No DOM, no SDK. src/ui/downloads.js does the

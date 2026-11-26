@@ -1,5 +1,5 @@
 /**
- * The progress dialog for a generated download (prototype, #64).
+ * The progress dialog for a generated download.
  *
  * A native `<dialog>` opened with `showModal()`: the browser makes the rest of
  * the page inert and puts the dialog in the top layer. On top of that, the

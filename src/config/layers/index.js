@@ -16,7 +16,7 @@
  *              "disabled", "disabled-awaiting-data", or
  *              "disabled-pending-removal"
  *              Unpublished layers are not currently published in the map
- *              explorer, but remain in Sources and CSV export for prototype
+ *              explorer, but remain in Sources and CSV export for inventory
  *              tracking. Legacy `disabled: true` is still supported.
  *   legend   - optional [{color, label}] array for local HTML legend override.
  *              External providers own their runtime control and legend data.

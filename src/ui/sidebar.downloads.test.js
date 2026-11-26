@@ -93,7 +93,7 @@ import * as features from "../config/features.js";
 
 import { createSidebar } from "./sidebar.js";
 
-describe("sidebar downloads (prototype, ?downloads=1)", () => {
+describe("sidebar downloads (?downloads=1)", () => {
   let sidebar;
   let blobs;
 

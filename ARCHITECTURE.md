@@ -1,6 +1,6 @@
 # Architecture
 
-> See [docs/product-spec.md](docs/product-spec.md) for V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the prototype. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
+> See [docs/product-spec.md](docs/product-spec.md) for proposed V1 scope. See [research/gri-ux-analysis.md](research/gri-ux-analysis.md) for the GRI interaction model that informed the viewer. See [METHODOLOGY.md](METHODOLOGY.md) for MapX API/SDK discovery approach.
 > Runtime external-layer governance, source-tracker instructions, measured performance, and production trade-offs are documented in [docs/external-layers.md](docs/external-layers.md).
 > Legend architecture, upstream contracts, troubleshooting, and regression QA are documented in [docs/legends.md](docs/legends.md).
 > The implemented iframe embed and conditional script/web-component roadmap are documented in [docs/embedding.md](docs/embedding.md).
@@ -40,7 +40,7 @@ undrr-risk-resilience-maps/
 │   │   │   └── resilience.js
 │   │   ├── registry.js         # createLayerRegistry(): byKey / byViewId / urlKeyOrder
 │   │   ├── features.js         # Runtime flags from the URL: ?inspect=, ?downloads=
-│   │   ├── downloads.js        # Prototype downloads: hosted files per view, CSV eligibility, byte formatting
+│   │   ├── downloads.js        # Data downloads: hosted files per view, CSV eligibility, byte formatting
 │   │   └── validate.js         # Startup config validation (throws on errors)
 │   ├── sdk/                    # MapX SDK wrapper modules
 │   │   ├── client.js           # mxsdk.Manager lifecycle + SDK readiness flag
@@ -80,8 +80,8 @@ undrr-risk-resilience-maps/
 │   │   ├── mangrove-copy-button.js # Loads Mangrove's js/copy-button.js from the CDN and applies it to a scope
 │   │   ├── home.js             # Home page cards from each tab's `card` field (navigate through an onNavigate callback)
 │   │   ├── info-panels.js      # Sources and About full-page views
-│   │   ├── download-links.js   # Prototype downloads: the GeoTIFF links and "Download CSV" markup
-│   │   ├── downloads.js        # Prototype downloads: the CSV flow (table read, CSV, browser download)
+│   │   ├── download-links.js   # Data downloads: the GeoTIFF links and "Download CSV" markup
+│   │   ├── downloads.js        # Data downloads: the CSV flow (table read, CSV, browser download)
 │   │   ├── download-dialog.js  # The CSV progress dialog (native modal, focus trap, live status)
 │   │   ├── infobox.js          # Feature click popup (legacy; superseded by site-inspector)
 │   │   ├── site-inspector.js   # Inspect mode: click → Site Details panel (coordinates copied by Mangrove's CopyButton)
@@ -107,7 +107,7 @@ undrr-risk-resilience-maps/
 │           ├── home-panel.css  # Info page hero, sections, cards, Sources table
 │           ├── panels.css      # Drag + resize for layer panel and Site Details
 │           ├── site-inspector.css
-│           ├── downloads.css   # Prototype download lists and the CSV dialog
+│           ├── downloads.css   # Data download lists and the CSV dialog
 │           ├── widgets.css     # Sub-tabs and stepped-slider
 │           └── infobox.css
 ├── tests/
@@ -251,7 +251,7 @@ The active tab and open layers are encoded in the URL hash (format: `#tab?layers
 
 The current repository owns the **map registry** only: tab structure, layer metadata, MapX view IDs, legends, and map interaction. Future resilience indicators or chart-based content are expected to live in a separate system and be cross-linked from this app when appropriate. To keep that future path open, placeholder resilience entries can exist here before their final delivery format is settled.
 
-Layer lifecycle status and prototype availability are separate. An **In development** layer remains in that editorial state in Sources and inventory exports, but becomes available in the map explorer once every required MapX view ID exists. Layers without complete IDs stay hidden by default and can be revealed with the review toggle. Explicitly retired keys live in `data/removed-layer-keys.txt` and are excluded from both configuration and future imports.
+The map explorer offers published layers with complete MapX view IDs or an external runtime provider. **Show unpublished** reveals descriptions of unavailable layers. Sources and inventory exports retain unpublished entries for reference. Explicitly retired keys live in `data/removed-layer-keys.txt` and are excluded from both configuration and future imports.
 
 ### Simple vs compound layers
 
@@ -643,7 +643,7 @@ The floating layer panel includes:
 - **`onViewsChanged` option** — `main.js` passes it to `createSidebar()` and enables the inspect tool from it. It is called with the number of layers on the map (`applied` records) only when that number changes, from its own store subscriber. Intent never fires it, and a source switch does not either: the switching layer stays `applied` through the gap between its views (when `openViews` briefly lacks it), so inspect is not disabled mid-switch
 - **Opacity slider / legend** — rendered by `src/ui/layer-controls.js` after a layer is turned on. The SDK's setter takes "transparency" (0 = opaque, 100 = invisible). Its getter uses the same transparency scale; `normalizeLayerTransparency()` (`src/sdk/filters.js`) converts it with `100 - value`; the UI presents "opacity" 0-100, rounded to the slider's step so the thumb, the percentage beside it and `aria-valuetext` cannot disagree. Mangrove's Range pairs `mg-range` with an `mg-form-label` carrying `for`, which needs an id, and the same layer can show a slider in its home tab and in a cross-tab section at once; the visible "Opacity" text is therefore `aria-hidden` and the name comes from `aria-label` with the same word, with `aria-valuetext` spelling out the percentage the native value would read as a bare number. Legend priority is: a provider-owned structured legend; MapX 1.14.3 `get_view_legend_json` with validated `mapx` vector rules or `geoserver` raster data; reviewed custom-code definitions pinned to `data.methods` SHA-256; then the MapX image fallback. GeoServer classes, groups and numeric continuous ramps retain the existing renderer. MapX owns discovery and transport; no parent-page provider or mirror requests are made for legends. Responses are validated, consumer waits are bounded, successes/in-flight requests are shared per manager/view/language and failures can retry. Only reviewed custom-code IDs read the catalogue for a methods hash check. The contracts, fallback reasons and regression procedure are in `docs/legends.md`.
 
-### Data downloads (prototype)
+### Data downloads
 
 Enabled by default, with `MAP_DOWNLOADS_ENABLED` in `src/config/features.js` as the repository kill
 switch. `resolveDownloadsEnabled()` enforces that switch at the app and sidebar boundaries; URL or

@@ -28,8 +28,8 @@ Choose a guide below for the task you need to complete.
 
 [Product specification](product-spec.md) defines the proposed V1 scope and still requires
 stakeholder review. [Resourcing](resourcing-plan.md) holds work packages, estimates and risks;
-[TODO](../TODO.md) holds deferred technical work. Implemented prototype behavior does not
-establish scope approval. [CHANGELOG](../CHANGELOG.md) records notable shipped changes.
+[TODO](../TODO.md) holds deferred technical work. [CHANGELOG](../CHANGELOG.md) records
+notable shipped changes.
 
 ## Discovery and evidence
 

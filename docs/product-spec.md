@@ -5,18 +5,13 @@
 
 ---
 
-## ⚠ This document needs your feedback now
+## Stakeholder review
 
-A robust working prototype has been built. We are now defining **Version 1** — the production-ready release. This is the right moment to raise anything that isn't captured here, because:
+This specification proposes the scope for **Version 1** of the map viewer. Stakeholder sign-off sets the baseline for resourcing and change control.
 
-- Changes to V1 scope after build begins carry significant effort and cost implications
-- Anything not listed in [§4 "In scope at production launch"](#in-scope-at-production-launch) is explicitly deferred — it will not be in the first release
-- The resourcing plan in [Resourcing Plan](resourcing-plan.md) is based on this scope
+Review the [proposed launch scope](#in-scope-at-production-launch) and flag any gaps before sign-off. That list sets the scope for the [resourcing plan](resourcing-plan.md). Other features are deferred.
 
-**If something is missing, wrong, or unclear — flag it before sign-off.**  
-Once this document is agreed, it becomes the baseline for all effort estimates and change control.
-
-**Target for sign-off: 15 July 2026 progress review** (GRAR / UNEP/GRID-Geneva / Comms / IT). The resourcing discussion at that meeting depends on this scope being agreed.
+The original sign-off target was the 15 July 2026 progress review (GRAR / UNEP/GRID-Geneva / Comms / IT).
 
 ---
 
@@ -48,7 +43,7 @@ The tool is part of UNDRR's Risk & Resilience Metrics initiative. It does not du
 
 ---
 
-## 3. What has been built (current prototype)
+## 3. Implementation summary
 
 The following is implemented and tested as of July 2026:
 
@@ -87,7 +82,7 @@ The following is implemented and tested as of July 2026:
 - **Sources**: per-category attribution tables (source, citation, license, notes); MapX view ID toggle for technical review; layer inventory CSV download
 - **About**: tool description, acknowledgements, further reading
 
-### Data downloads (November 2026 prototype update)
+### Data downloads (November 2026 update)
 
 - Downloads default on in the standalone viewer and `embed.html`; `?downloads=0` opts out for one viewer.
 - The layer panel offers configured hosted GeoTIFFs and values-only CSVs for reviewed region-level
@@ -109,7 +104,7 @@ The following is implemented and tested as of July 2026:
 - Vite build system with a comprehensive unit-test suite
 - UNDRR Mangrove design system v2.5.0
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
-- Public standalone and iframe entry points for the soft launch
+- Public standalone and iframe entry points
 - Deployable as a static site (GitHub Pages / any static host)
 
 ---
@@ -154,11 +149,11 @@ The following are realistic and achievable features, but they represent distinct
 
 ## 5. Known gaps and pre-launch requirements
 
-These are things the prototype has as placeholders that must be resolved before production:
+The July specification identified the following gaps and requirements for launch.
 
 | Item                         | Current state                                                                                                                                                          | Required state                                                                                                                                         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Access control**           | Public standalone and iframe entry points for the soft launch                                                                                                          | Confirm the longer-term access model for V1                                                                                                            |
+| **Access control**           | Public standalone and iframe entry points                                                                                                                              | Confirm the longer-term access model for V1                                                                                                            |
 | **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                                                   | Final name agreed and applied throughout                                                                                                               |
 | **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                                                   | Pinned to a stable version to prevent silent breaking changes                                                                                          |
 | **Hosting**                  | GitHub Pages (deploys on every push)                                                                                                                                   | `www.undrr.org/m/risk-and-resilience-maps/` via undrr/drupal-microsites from the latest release tag (undrr/web-backlog#3105); Pages stays as a preview |
@@ -169,10 +164,9 @@ These are things the prototype has as placeholders that must be resolved before 
 | **Raster layer inspection**  | Correctly flagged as non-queryable                                                                                                                                     | No change needed — but UX message could be clearer                                                                                                     |
 | **Mobile experience**        | Not designed or tested for mobile                                                                                                                                      | Decision: is mobile in scope? If yes, significant layout work required                                                                                 |
 
-**November 2026 prototype clarification:** The download requirement above records the July proposal.
-The opt-in [prototype](downloads.md) now uses hosted URLs from the inventory and browser-generated
-CSVs from MapX attribute tables. Programme review is needed to decide whether this approach
-supersedes the proposed MapX URL configuration and can be made public.
+**November 2026 download update.** [Data downloads](downloads.md) use hosted URLs from the
+inventory and browser-generated CSVs from MapX attribute tables. The programme team still needs
+to confirm whether this approach meets the July requirement and confirm the default setting.
 
 ---
 
@@ -184,11 +178,11 @@ These must be answered before the resourcing plan can be finalised:
 2. **MapX legend contract stability** — can UNEP/GRID-Geneva confirm the consumed `get_views` fields and `/get/mirror` behavior, limits, and change communication? Until then, retain and monitor the MapX image fallback.
 3. **Country profile URL pattern** — what is the URL structure for UNDRR country profile pages? Needed to implement click-through (a known gap from original PRD scope).
 4. **Per-layer download URLs** — will the programme team configure download URLs in MapX for each view? If not, should Sources link to provider sites?
-   **November 2026 follow-up:** Does the [opt-in prototype](downloads.md), with inventory-hosted
-   file URLs and values-only CSVs, meet the programme requirement? Public availability and GRID's
+   **November 2026 follow-up.** Do the [current downloads](downloads.md), with inventory-hosted
+   file URLs and values-only CSVs, meet the programme requirement? The default setting and GRID's
    table-contract, region-code and units questions remain open.
 5. **Final tool name** — needed before any branding/copy work proceeds.
-6. **V1 access model** — should access continue to be public after the soft launch?
+6. **V1 access model** — should the standalone viewer and iframe embed remain publicly accessible?
 7. **Mobile scope** — required at launch, or desktop-first?
 8. **MapX collaboration scope** — SDK support only, or active co-development on this repository?
 9. **Dual map panels** — explicitly deferred, or still a launch requirement?

@@ -1,4 +1,4 @@
-# Data downloads (prototype)
+# Data downloads
 
 Map data downloads are enabled by default in standalone and embedded viewers.
 
