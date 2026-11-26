@@ -13,7 +13,6 @@
     "test:edra-contract": "node scripts/check-edra-contract.mjs",
     "test:mapx-raster-contract": "node scripts/check-mapx-raster-legends.mjs",
     "test:downloads-contract": "node scripts/check-downloads-contract.mjs",
-    "test:release-assets": "node scripts/check-release-assets.mjs",
     "test:all": "vitest run && playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",

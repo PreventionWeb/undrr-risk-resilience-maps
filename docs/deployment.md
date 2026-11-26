@@ -36,52 +36,6 @@ yarn build --base=./
 This checks the build contract; it does not exercise the downstream Alpine job or hosting headers.
 The GitHub Pages workflow uses its own base path from `vite.config.js`.
 
-## Caching across releases
-
-Every build gives its bundles new hashed names (`assets/embed-<hash>.js`). The HTML entries
-(`index.html` and `embed.html`) keep their URLs, and each names one build's bundles. A page
-opened before a release, or an older HTML copy still in a browser, proxy or Cloudflare
-cache, keeps asking for the previous build's bundles. Its JavaScript also loads more of
-them later (the EDRA and citation chunks). If those files are gone, the embed stays blank.
-During the v0.0.16 rollout a GAR page requested `embed-BiCrkA-t.js` and
-`shared-D7Qa7H7m.js` and got HTML 404 pages back
-([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
-
-The UNDRR host has to keep this contract. It is configured in drupal-microsites, not here
-([undrr/web-backlog#3116](https://gitlab.com/undrr/web-backlog/-/work_items/3116)):
-
-| Path                                     | Cache-Control                               | Notes                                                                                                                                                                 |
-| ---------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`, `index.html`, `embed.html`          | `no-cache` (or `max-age=0` at the edge too) | Applies with any query string. Cloudflare must revalidate HTML, not cache it by URL. Changing the URL query does not help, because embed URLs carry layer parameters. |
-| `assets/*`                               | `public, max-age=31536000, immutable`       | Hashed, so they never change                                                                                                                                          |
-| `assets/*` from the **previous** release | (same)                                      | Keep them deployed for at least 7 days after a release, longer than any HTML can stay cached. Remove them in a later deploy, not the one that replaces them.          |
-| Missing `assets/*`                       | n/a                                         | Return a real 404, not the HTML fallback page, so the failure is visible                                                                                              |
-
-Check a deployment with `yarn test:release-assets <base-url>`
-([scripts/check-release-assets.mjs](../scripts/check-release-assets.mjs)). It reads each
-HTML entry, with and without layer parameters, checks that the HTML revalidates and that
-every bundle it reaches loads as JavaScript or CSS, and reports bundles with a short cache
-lifetime. To confirm that a page opened before a release still loads afterward, record the
-live bundles before the tag deploys and require them afterward:
-
-```bash
-yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --record before.json
-# … release deploys …
-yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --expect before.json
-```
-
-The first run checks the build that is live now; with `--expect`, the second run also fails
-if any bundle of the recorded build is missing. A run that fails records nothing, and an
-empty record is refused, so a blocked or broken first run cannot turn into a passing
-second one. HTML that allows `stale-while-revalidate` or `stale-if-error` fails the check,
-because a cache would serve the old copy first. The script sees only response headers. Edge
-TTL overrides in Cloudflare are outside its view and need checking in the zone settings. www.undrr.org answers scripted requests with a Cloudflare bot challenge (403),
-so pass a header the zone allowlists with `--header "Name: value"`, or check in a browser:
-open the embed before the release, then reload it and confirm it uses the new bundles. The
-GitHub Pages preview fails the HTML check by design. Pages sends `max-age=600` and replaces
-the whole site on each deploy, so a preview embed can break for up to ten minutes after a
-merge.
-
 ## Hosting and access
 
 Both entry points open directly for the soft launch. After merging, confirm the GitHub Pages
