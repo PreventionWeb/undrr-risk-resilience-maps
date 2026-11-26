@@ -36,6 +36,28 @@ yarn build --base=./
 This checks the build contract; it does not exercise the downstream Alpine job or hosting headers.
 The GitHub Pages workflow uses its own base path from `vite.config.js`.
 
+## Caching
+
+Build output has fixed file names (`assets/embed.js`, `assets/shared.js`, …) with no content
+hashes; see `build.rollupOptions.output` in `vite.config.js`. A cached copy of `embed.html`
+from an earlier release therefore still finds its scripts after a deploy. With hashed names,
+each deploy deleted the files an older copy named, and a GAR landing-page embed stayed blank
+on 404s ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+
+The trade-off: a file's URL no longer changes when its content does. The chunks import each
+other, and the names they use internally change between builds, so an old cached chunk next
+to a new one can break the app. The UNDRR host should therefore serve:
+
+| Path                            | Cache-Control | Why                                                                                          |
+| ------------------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| `/`, `index.html`, `embed.html` | `no-cache`    | Any query string included. Visitors get the new release straight away                        |
+| `assets/*`                      | `no-cache`    | A browser revalidates each file (a quick `304` when unchanged), so it never mixes two builds |
+
+`no-cache` still lets browsers and Cloudflare keep the files; they only check with the server
+before using them. Purging Cloudflare on deploy is a useful extra. The GitHub Pages preview
+sends `max-age=600` for everything and can't be changed, so a preview visitor can see a broken
+mix of builds for up to ten minutes after a merge.
+
 ## Hosting and access
 
 Both entry points open directly for the soft launch. After merging, confirm the GitHub Pages

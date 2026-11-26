@@ -86,6 +86,19 @@ export default defineConfig(({ command }) => ({
         // needs no pipeline of its own.
         embed: "embed.html",
       },
+      // Fixed file names, no content hashes (PreventionWeb/undrr-risk-resilience-maps#89).
+      // A cached copy of `embed.html` from an earlier release must still find
+      // its scripts: with hashed names, each deploy deleted the files an older
+      // copy named, and a GAR embed stayed blank on 404s. The trade-off is that
+      // a file's URL no longer changes when its content does, so the host must
+      // serve everything under `assets/` with `Cache-Control: no-cache` (see
+      // docs/deployment.md "Caching"). Otherwise a browser can mix a cached old
+      // chunk with a new one, and those do not fit together.
+      output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name][extname]",
+      },
     },
   },
   test: {
