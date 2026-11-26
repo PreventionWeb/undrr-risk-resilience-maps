@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "../../tests/support/async.js";
-import { UNLOCKED_CLASS } from "./preview-gate.js";
 
 // `createRiskMap` is the only thing mounted here that needs MapX, so it is the
 // only thing replaced. The rest of the module — the parameters, the bridge, the
@@ -17,7 +16,6 @@ import { FEATURES } from "./messaging.js";
 
 /** The embed markup `embed.html` carries, reduced to the hooks this exercises. */
 const MARKUP = `
-  <div data-mg-preview-access data-mg-preview-id="grar-map-viewer"></div>
   <div class="embed-root" data-ui-embed>
     <section data-ui-embed-empty hidden></section>
     <nav class="embed-nav"><ul data-ui="nav"></ul></nav>
@@ -134,87 +132,8 @@ describe("mountEmbed", () => {
     return embed;
   }
 
-  /** Answer the gate the way Mangrove's script does. */
-  function unlockGate() {
-    document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-  }
-
-  describe("behind the preview gate", () => {
-    it("announces itself as locked so a host can say why the frame is quiet", () => {
-      mount();
-
-      const [ready] = named(windowRef, "ready");
-      expect(ready.origin).toBe(HOST);
-      expect(ready.data.payload).toMatchObject({ version: 1, locked: true });
-      // The tabs and layers it *would* show, so a host can build its own UI
-      // before anybody has answered the PIN.
-      expect(ready.data.payload.tabs).toContain("hazard");
-      expect(ready.data.payload.layers).toContain("landslides");
-    });
-
-    it("refuses every command, and lets none of them reach the map", () => {
-      mount();
-
-      windowRef.deliver(command("set-tab", { tab: "hazard" }, { id: "a" }));
-      windowRef.deliver(command("set-layers", { layers: [{ key: "landslides" }] }, { id: "b" }));
-      windowRef.deliver(command("get-state", {}, { id: "c" }));
-
-      expect(map.setTab).not.toHaveBeenCalled();
-      expect(map.setState).not.toHaveBeenCalled();
-      expect(named(windowRef, "state")).toEqual([]);
-      expect(named(windowRef, "error").map((entry) => entry.data.payload.code)).toEqual([
-        "locked",
-        "locked",
-        "locked",
-      ]);
-      expect(named(windowRef, "error").map((entry) => entry.data.id)).toEqual(["a", "b", "c"]);
-    });
-
-    it("reports no state while locked", () => {
-      mount();
-      map.emit("state", { tab: "hazard", layers: [{ key: "landslides", sourceIdx: 0 }] });
-      expect(named(windowRef, "state")).toEqual([]);
-    });
-
-    it("answers normally once the PIN has been entered inside the frame", async () => {
-      mount();
-      unlockGate();
-      await waitFor(() => expect(embed.gate.locked).toBe(false));
-
-      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
-      windowRef.deliver(command("set-tab", { tab: "hazard" }));
-
-      expect(map.setTab).toHaveBeenCalledWith("hazard");
-      expect(named(windowRef, "ready").at(-1).data.payload).toMatchObject({ locked: false });
-    });
-
-    it("never reports `locked: false` while the gate is shut, even if the map becomes ready", () => {
-      mount();
-      // Real MapX cannot get here — it makes no progress behind the gate's
-      // `visibility: hidden` (#24) — but `locked` is a claim about the gate, so
-      // it has to be read from the gate rather than assumed by whoever posts it.
-      // With a stubbed or a future map that does fire `ready`, the host would
-      // otherwise be told the prototype had been unlocked.
-      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
-
-      const readies = named(windowRef, "ready").map((entry) => entry.data.payload);
-      expect(readies).toHaveLength(2);
-      for (const payload of readies) expect(payload.locked).toBe(true);
-    });
-
-    it("records in the analytics event that it loaded behind the gate", () => {
-      const events = [];
-      mount("?tab=hazard", { analytics: { sink: (event) => events.push(event) } });
-      expect(events[0]).toMatchObject({ name: "embed_loaded", props: { locked: true } });
-    });
-  });
-
-  describe("unlocked", () => {
-    beforeEach(() => {
-      document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-    });
-
-    it("says nothing about a gate it is not behind, and posts ready from the map", () => {
+  describe("host messages", () => {
+    it("announces readiness with locked false when the map is ready", () => {
       mount();
       expect(named(windowRef, "ready")).toEqual([]);
 
@@ -321,10 +240,6 @@ describe("mountEmbed", () => {
   });
 
   describe("the command queue", () => {
-    beforeEach(() => {
-      document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-    });
-
     it("keeps commands sent before ready and runs them in order once the map is up", async () => {
       mount();
       const calls = [];
@@ -429,54 +344,7 @@ describe("mountEmbed", () => {
     });
   });
 
-  describe("the preview gate and the queue", () => {
-    it("queues nothing while locked: every command is refused straight away", async () => {
-      mount();
-      windowRef.deliver(command("set-view", { zoom: 4 }, { id: "early" }));
-      expect(named(windowRef, "error")[0].data).toMatchObject({ id: "early", payload: { code: "locked" } });
-
-      unlockGate();
-      await waitFor(() => expect(embed.gate.locked).toBe(false));
-      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
-      await Promise.resolve();
-      // The refused command does not come back to life after the unlock.
-      expect(map.setView).not.toHaveBeenCalled();
-    });
-
-    it("advertises its features even while locked", () => {
-      mount();
-      expect(named(windowRef, "ready")[0].data.payload.features).toEqual(FEATURES);
-    });
-
-    it("posts an unlocked ready when the gate opens on a map that is already up", async () => {
-      mount();
-      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
-      expect(named(windowRef, "ready").map((entry) => entry.data.payload.locked)).toEqual([true, true]);
-
-      unlockGate();
-      await waitFor(() => expect(named(windowRef, "ready")).toHaveLength(3));
-      expect(named(windowRef, "ready")[2].data.payload).toMatchObject({ locked: false, features: FEATURES });
-
-      windowRef.deliver(command("set-tab", { tab: "hazard" }));
-      await waitFor(() => expect(map.setTab).toHaveBeenCalledWith("hazard"));
-    });
-
-    it("holds the URL's camera until the gate is open and the map is ready", async () => {
-      mount("?tab=hazard&area=KEN");
-      map.emit("ready", { tabs: ["hazard"], layers: ["landslides"] });
-      await Promise.resolve();
-      expect(map.fitArea).not.toHaveBeenCalled();
-
-      unlockGate();
-      await waitFor(() => expect(map.fitArea).toHaveBeenCalledWith("KEN", { animate: false }));
-    });
-  });
-
   describe("camera commands", () => {
-    beforeEach(() => {
-      document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-    });
-
     /** Deliver a command and wait for the reply carrying its id. */
     async function ask(name, payload, id = name) {
       windowRef.deliver(command(name, payload, { id }));
@@ -594,10 +462,6 @@ describe("mountEmbed", () => {
   });
 
   describe("set-layers with variants", () => {
-    beforeEach(() => {
-      document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-    });
-
     const EDRA = "edra-crop-yield-reduction";
 
     it("applies variants to the layers it names, over any settings the entry carries", async () => {
@@ -626,10 +490,6 @@ describe("mountEmbed", () => {
   });
 
   describe("a configuration that selects nothing", () => {
-    beforeEach(() => {
-      document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
-    });
-
     it("renders an explicit empty state and builds no map", () => {
       mount("?allow=no-such-layer");
 
@@ -642,7 +502,11 @@ describe("mountEmbed", () => {
     it("tells the host it has nothing, and refuses commands", () => {
       mount("?tabs=no-such-tab");
 
-      expect(named(windowRef, "ready")[0].data.payload).toMatchObject({ tabs: [], layers: [] });
+      expect(named(windowRef, "ready")[0].data.payload).toMatchObject({
+        tabs: [],
+        layers: [],
+        locked: false,
+      });
       windowRef.deliver(command("set-layers", { layers: [{ key: "landslides" }] }, { id: "z" }));
       expect(named(windowRef, "error")[0].data).toMatchObject({
         id: "z",
@@ -652,7 +516,6 @@ describe("mountEmbed", () => {
   });
 
   it("stays silent in both directions when parentOrigin does not parse", () => {
-    document.querySelector("[data-mg-preview-access]").classList.add(UNLOCKED_CLASS);
     mount("?tab=hazard&parentOrigin=not-a-url");
 
     map.emit("ready", { tabs: ["hazard"], layers: [] });
@@ -664,7 +527,7 @@ describe("mountEmbed", () => {
     expect(warn.mock.calls.flat().join(" ")).toContain("parentOrigin");
   });
 
-  it("takes back the gate watch, the bridge and the map on destroy", () => {
+  it("destroys the bridge and the map", () => {
     mount();
     embed.destroy();
 

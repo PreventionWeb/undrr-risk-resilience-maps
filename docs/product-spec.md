@@ -109,7 +109,7 @@ The following is implemented and tested as of July 2026:
 - Vite build system with a comprehensive unit-test suite
 - UNDRR Mangrove design system v2.5.0
 - MapX SDK (UNEP/GRID-Geneva) via iframe/postMessage
-- PIN gate (prototype access control; see §4)
+- Public standalone and iframe entry points for the soft launch
 - Deployable as a static site (GitHub Pages / any static host)
 
 ---
@@ -158,7 +158,7 @@ These are things the prototype has as placeholders that must be resolved before 
 
 | Item                         | Current state                                                                                                                                                          | Required state                                                                                                                                         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Access control**           | 4-digit PIN in `data-mg-preview-pin` on the gate element in `index.html`                                                                                               | Real access control: public URL, UNDRR SSO, or IP allowlist — decision needed                                                                          |
+| **Access control**           | Public standalone and iframe entry points for the soft launch                                                                                                          | Confirm the longer-term access model for V1                                                                                                            |
 | **Tool name / branding**     | "GRAR Metrics Facility Map Viewer" used in `<title>`, `index.html`, About/Guide text                                                                                   | Final name agreed and applied throughout                                                                                                               |
 | **MapX SDK version**         | Loaded from `https://app.mapx.org/sdk/mxsdk.umd.js` (no version pin)                                                                                                   | Pinned to a stable version to prevent silent breaking changes                                                                                          |
 | **Hosting**                  | GitHub Pages (deploys on every push)                                                                                                                                   | `www.undrr.org/m/risk-and-resilience-maps/` via undrr/drupal-microsites from the latest release tag (undrr/web-backlog#3105); Pages stays as a preview |
@@ -188,7 +188,7 @@ These must be answered before the resourcing plan can be finalised:
    file URLs and values-only CSVs, meet the programme requirement? Public availability and GRID's
    table-contract, region-code and units questions remain open.
 5. **Final tool name** — needed before any branding/copy work proceeds.
-6. **Access control model** — who is this tool for, and how is access managed in production?
+6. **V1 access model** — should access continue to be public after the soft launch?
 7. **Mobile scope** — required at launch, or desktop-first?
 8. **MapX collaboration scope** — SDK support only, or active co-development on this repository?
 9. **Dual map panels** — explicitly deferred, or still a launch requirement?

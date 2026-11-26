@@ -38,10 +38,10 @@ The GitHub Pages workflow uses its own base path from `vite.config.js`.
 
 ## Hosting and access
 
-The preview PIN gate is present in both `index.html` and `embed.html`, configured through
-Mangrove's `data-mg-preview-*` attributes. It stores unlock state in `sessionStorage`.
-It must be replaced with production access control before launch. For framed storage
-behavior and gate removal, see [the embed preview gate](embedding.md#the-preview-gate-in-an-embed).
+Both entry points open directly for the soft launch. After merging, confirm the GitHub Pages
+viewer and embed load in a fresh browser context and a shared layer link restores its state.
+Repeat those checks at the UNDRR URLs after the release tag is deployed. If the launch
+includes an iframe on a UNDRR page, check it on that page too.
 
 Embedding on other sites also depends on response headers and Cloudflare behavior;
 see [which sites can embed it](embedding.md#which-sites-can-embed-it) for the unresolved

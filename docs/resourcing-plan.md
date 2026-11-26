@@ -113,7 +113,7 @@ _Was in original PRD scope; deferred from prototype. Clicking a country on the m
 
 ### WP-5 · Access control
 
-_Replace the hardcoded 4-digit PIN with production-appropriate access control._
+_The soft launch removes the prototype PIN from both entry points. The options below were scoped for the long-term V1 access decision._
 
 **Effort:** XS–S (KH) for public URL (just remove the gate); M–L (KH + IT) for SSO integration  
 **Resource:** KH (+ IT if SSO)  
@@ -121,7 +121,7 @@ _Replace the hardcoded 4-digit PIN with production-appropriate access control._
 
 **Options:**
 
-1. _Public URL_ — remove the `[data-mg-preview-access]` element and its script from `index.html`. Simplest.
+1. _Public URL_ — the soft launch uses this option.
 2. _IP allowlist_ — handled at the CDN/proxy layer; no app code change.
 3. _UNDRR SSO_ — requires backend token validation; significant new work and a backend component, which breaks the current static-site architecture.
 
@@ -129,7 +129,7 @@ _Replace the hardcoded 4-digit PIN with production-appropriate access control._
 
 ### WP-6 · Branding & copy finalisation
 
-_"GRAR Metrics Facility Map Viewer" appears in `<title>`, nav, About page, Guide page, and the PIN gate overlay. Needs replacement once the final name is confirmed._
+_"GRAR Metrics Facility Map Viewer" appears in `<title>`, nav, About page and Guide page. Needs replacement once the final name is confirmed._
 
 **Effort:** XS (KH) — search-and-replace plus light copy edit  
 **Resource:** KH + CE  

@@ -128,7 +128,7 @@ describe("MapX availability", () => {
 
     watchForMapReady(onTimeout, { timeoutMs: 100, tickMs: 10, shouldCount: () => visible });
 
-    // A user sitting behind the PIN gate, or reading an info page, for a long
+    // A user reading an info page for a long
     // time must not trip the failure notice.
     vi.advanceTimersByTime(10_000);
     expect(onTimeout).not.toHaveBeenCalled();
@@ -265,7 +265,7 @@ describe("MapX availability", () => {
       expect(canMapLoad(document)).toBe(true);
     });
 
-    it("is false while the preview gate hides the page", () => {
+    it("is false while the map container has hidden visibility", () => {
       setMap(`<div id="app-map" style="visibility: hidden"></div>`);
       expect(canMapLoad(document)).toBe(false);
     });

@@ -101,9 +101,7 @@
           harness.messages.push(data);
           log.textContent += JSON.stringify(data) + "\n";
           if (data.name === "ready") {
-            document.getElementById("status").textContent = data.payload.locked
-              ? "embed is locked behind its preview PIN"
-              : "embed ready";
+            document.getElementById("status").textContent = "embed ready";
           }
         });
 

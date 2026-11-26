@@ -1,12 +1,4 @@
-import {
-  layerRow,
-  layerSwitch,
-  openViews,
-  previewGateAttributes,
-  settled,
-  toggleLayer,
-  unlockPreviewGate,
-} from "./fixtures/app.js";
+import { layerRow, layerSwitch, openViews, settled, toggleLayer } from "./fixtures/app.js";
 import { expect, gotoEmbed, gotoHost, hostMessages, hostSend, hostUrl, test } from "./fixtures/embed.js";
 
 /** A row inside the embed's frame; the app fixture's row helpers take any scope. */
@@ -95,23 +87,6 @@ test.describe("embed: URL parameters", () => {
     }
   });
 
-  test("carries the standalone viewer's preview gate, unlocked here by the fixture", async ({ page }) => {
-    await gotoEmbed(page, "?tab=hazard");
-
-    const gate = page.locator("[data-mg-preview-access]");
-    await expect(gate).toHaveAttribute("data-mg-preview-id", "grar-map-viewer");
-    await expect(gate).toHaveClass(/mg-preview-access--unlocked/);
-  });
-
-  test("uses the same gate id and PIN as index.html, so the two cannot drift", () => {
-    const viewer = previewGateAttributes("index.html");
-    const embed = previewGateAttributes("embed.html");
-
-    expect(embed.id).toBe(viewer.id);
-    expect(embed.pin).toBe(viewer.pin);
-    expect(embed.pin).toMatch(/^\d{4}$/);
-  });
-
   test("renders an empty state, not the whole config, when an allowlist selects nothing", async ({
     page,
   }) => {
@@ -137,7 +112,7 @@ test.describe("embed: URL parameters", () => {
     await expect(embedRow(page, "Landslides")).toBeVisible();
   });
 
-  test("offers a full-viewer link carrying the state on screen", async ({ page }) => {
+  test("opens the full viewer without a PIN and carries the map state", async ({ page }) => {
     await gotoEmbed(page, "?tab=hazard&layers=landslides");
 
     const link = page.locator("[data-ui-full-viewer]");
@@ -145,6 +120,11 @@ test.describe("embed: URL parameters", () => {
 
     await toggleLayer(layerRow(page, "River Flooding"));
     await expect(link).toHaveAttribute("href", /#hazard\?layers=river-flooding,landslides$/);
+
+    // Follow the destination in the same browser context with no stored unlock.
+    await page.goto(await link.getAttribute("href"));
+    await expect(page.locator("#app-map")).toBeVisible();
+    await expect(layerSwitch(layerRow(page, "Landslides"))).toBeChecked();
   });
 
   test("never writes to its own URL or history", async ({ page }) => {
@@ -168,7 +148,7 @@ test.describe("embed: the host message API", () => {
 
     const [ready] = await named(page, "ready");
     expect(ready).toMatchObject({ type: "undrr-risk-map", v: 1, name: "ready" });
-    expect(ready.payload.version).toBe(1);
+    expect(ready.payload).toMatchObject({ version: 1, locked: false });
     expect(ready.payload.tabs).toContain("hazard");
     expect(ready.payload.layers).toContain("landslides");
 
@@ -592,151 +572,6 @@ test.describe("embed: origins", () => {
     await expect(embed.locator('.nav-tab-link[data-tab="hazard"]')).toHaveClass(/is-active/);
 
     expect(await page.evaluate(() => ({ href: location.href, length: history.length }))).toEqual(before);
-  });
-});
-
-/**
- * The embed is published to GitHub Pages, which cannot send `frame-ancestors`,
- * so the prototype barrier has to be in the page: `embed.html` carries the same
- * Mangrove preview gate as `index.html`. These specs are about what that gate
- * has to be worth — the map unreachable behind it, and the host bridge shut.
- */
-test.describe("embed: the preview gate", () => {
-  test.use({ previewUnlocked: false });
-
-  test("hides and inerts the whole embed until the PIN is entered", async ({ page }) => {
-    await gotoEmbed(page, "?tab=hazard&layers=landslides", { waitForMap: false });
-
-    const overlay = page.locator(".mg-preview-access__overlay");
-    await expect(overlay).toBeVisible();
-    // Not readable: Mangrove's `:has()` rule hides every child of <body>.
-    await expect(page.locator(".embed-root")).toBeHidden();
-    await expect(page.locator(".layer-panel")).toBeHidden();
-    // Not reachable: the gate marks the embed's siblings `inert`, so nothing in
-    // it is clickable or a tab stop.
-    await expect(page.locator(".embed-root")).toHaveAttribute("inert", "");
-
-    await unlockPreviewGate(page);
-
-    await expect(page.locator(".embed-root")).toBeVisible();
-    await expect(page.locator(".embed-root")).not.toHaveAttribute("inert", "");
-    await expect(layerSwitch(layerRow(page, "Landslides"))).toBeChecked();
-  });
-
-  test("keeps the map from spending its ready budget behind the gate", async ({ page }) => {
-    await gotoEmbed(page, "?tab=hazard", { waitForMap: false });
-
-    // `canMapLoad()` reads exactly this: a map container whose computed
-    // visibility is `hidden` cannot make progress, so the budget must not count.
-    // The MapX iframe is throttled to a standstill there for the same reason.
-    const container = page.locator("#app-map");
-    await expect(container).toBeHidden();
-    expect(await container.evaluate((el) => getComputedStyle(el).visibility)).toBe("hidden");
-
-    await unlockPreviewGate(page);
-    expect(await container.evaluate((el) => getComputedStyle(el).visibility)).toBe("visible");
-  });
-
-  test("asks again rather than looping when the browser blocks its storage", async ({ page }) => {
-    // Some browsers refuse storage to a third-party frame altogether. Mangrove's
-    // gate then cannot remember the unlock, so the PIN is asked once per load —
-    // which has to keep working, rather than trap a visitor behind a gate whose
-    // answer never takes.
-    await page.addInitScript(() => {
-      const throwBlocked = () => {
-        throw new Error("storage blocked");
-      };
-      Object.defineProperty(window, "sessionStorage", {
-        configurable: true,
-        get: throwBlocked,
-      });
-      Object.defineProperty(window, "localStorage", {
-        configurable: true,
-        get: throwBlocked,
-      });
-    });
-
-    await gotoEmbed(page, "?tab=hazard", { waitForMap: false });
-    await unlockPreviewGate(page);
-    await expect(page.locator(".embed-root")).toBeVisible();
-
-    // Reload: the gate is back, and still answerable.
-    await gotoEmbed(page, "?tab=hazard", { waitForMap: false });
-    await expect(page.locator(".mg-preview-access__overlay")).toBeVisible();
-    await unlockPreviewGate(page);
-    await expect(page.locator(".embed-root")).toBeVisible();
-  });
-
-  test("tells the host it is locked, and takes no command until it is not", async ({ page, origins }) => {
-    const embed = await gotoHost(page, origins, "?tab=hazard");
-
-    // `ready` arrives, so a host can show its own message instead of an
-    // apparently broken frame — and it says the embed is locked.
-    const [ready] = await named(page, "ready");
-    expect(ready.payload).toMatchObject({ version: 1, locked: true });
-    expect(ready.payload.tabs).toContain("hazard");
-    // `locked` is the gate's answer, not a constant written by whoever posts
-    // the message: while the gate is shut, no `ready` may ever claim otherwise.
-    for (const message of await named(page, "ready")) expect(message.payload.locked).toBe(true);
-
-    await hostSend(page, "set-tab", { tab: "exposure" });
-    await hostSend(page, "set-layers", { layers: [{ key: "landslides" }] });
-    await hostSend(page, "get-state", {}, { id: "locked-read" });
-
-    await expect.poll(async () => (await named(page, "error")).length).toBe(3);
-    for (const message of await named(page, "error")) expect(message.payload.code).toBe("locked");
-    // Nothing was driven, and nothing was reported.
-    expect(await named(page, "state")).toEqual([]);
-    await expect(embed.locator('.nav-tab-link[data-tab="exposure"]')).not.toHaveClass(/is-active/);
-  });
-
-  test("answers the host once its PIN is entered inside the frame", async ({ page, origins }) => {
-    // Hold the map's `ready` until the PIN has been answered, which is what real
-    // MapX does behind the gate: it cannot paint, so it makes no progress (#24).
-    // The stub is local JavaScript and would otherwise be ready a tick after the
-    // frame loaded — and this spec would then be reading a `ready` posted while
-    // the embed was still locked, and proving nothing about the unlock at all.
-    await page.addInitScript(() => {
-      window.__mapxStubHoldReady = true;
-    });
-    const embed = await gotoHost(page, origins, "?tab=hazard");
-
-    // Locked, so the only `ready` so far is the gate's, and it says so.
-    expect((await named(page, "ready")).map((message) => message.payload.locked)).toEqual([true]);
-
-    await unlockPreviewGate(embed);
-    const frame = page.frames().find((candidate) => candidate.url().includes("/embed.html"));
-    await frame.evaluate(() => window.__mapxStub.releaseReady());
-
-    // The real `ready` follows, from the map this time, and reports an open gate.
-    await expect.poll(async () => (await named(page, "ready")).at(-1)?.payload.locked).toBe(false);
-
-    await hostSend(page, "set-tab", { tab: "exposure" });
-    await expect(embed.locator('.nav-tab-link[data-tab="exposure"]')).toHaveClass(/is-active/);
-  });
-
-  test("never claims an open gate on a map that became ready while locked", async ({ page, origins }) => {
-    // The stub is ready a tick after the frame loads, gate or no gate, so a
-    // locked embed really does post a second `ready` here. It has to say the
-    // gate is shut: the field is a claim about the gate, and a host that was
-    // told otherwise would show its visitor a map behind a PIN prompt.
-    const embed = await gotoHost(page, origins, "?tab=hazard");
-    await expect.poll(async () => (await named(page, "ready")).length).toBe(2);
-
-    for (const message of await named(page, "ready")) expect(message.payload.locked).toBe(true);
-    await expect(embed.locator(".mg-preview-access__overlay")).toBeVisible();
-  });
-
-  test("the way out to the full viewer lands on a page that is gated too", async ({ page }) => {
-    // Finding 8 resolves here: both ends of the link are behind the same PIN.
-    // The href is built when the embed mounts, gate or no gate, so this reads it
-    // without unlocking — an unlock would persist for this origin and the
-    // standalone page would then let us straight in.
-    await gotoEmbed(page, "?tab=hazard", { waitForMap: false });
-
-    const href = await page.locator("[data-ui-full-viewer]").getAttribute("href");
-    await page.goto(href);
-    await expect(page.locator(".mg-preview-access__overlay")).toBeVisible();
   });
 });
 

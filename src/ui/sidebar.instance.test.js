@@ -173,9 +173,7 @@ describe("createSidebar", () => {
     expect($("#app-map").classList.contains("is-warming")).toBe(true);
     expect($("#app-map").getAttribute("aria-hidden")).toBe("true");
     // `inert` sits on the map and on each child, and a MutationObserver puts it
-    // back wherever it is removed or a child appears (Mangrove's preview gate
-    // strips it from every child of <body> when the PIN is accepted; the site
-    // inspector's panel is appended after this).
+    // back wherever it is removed or a child appears.
     expect($("#app-map").hasAttribute("inert")).toBe(true);
     expect([...$("#app-map").children].every((el) => el.hasAttribute("inert"))).toBe(true);
     // No map to skip to, so the page's one skip link points at the content
@@ -188,11 +186,7 @@ describe("createSidebar", () => {
 
   /**
    * `#site-inspector` is built lazily, long after the first tab renders, so a
-   * one-shot loop over `#app-map`'s children never reaches it. The map's own
-   * `inert` covers it in normal use — but the per-child loop exists precisely
-   * because Mangrove's preview gate strips that one from every child of
-   * `<body>` when the PIN is accepted, and then the late child would be the one
-   * reachable thing behind the information page.
+   * one-shot loop over `#app-map`'s children never reaches it.
    */
   it("marks a map child appended after the warm-up started", async () => {
     sidebar = createSidebar(document.body, { stateAdapter: memoryAdapter() });

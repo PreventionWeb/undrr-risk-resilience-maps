@@ -5,18 +5,16 @@ Explore Risk, Resilience, Hazard, Exposure and Vulnerability through toggleable 
 layers, legends and map downloads. A CSV inventory lets the programme team maintain
 layer metadata with developer review.
 
-The working prototype is available for stakeholder review. The [V1 scope](docs/product-spec.md)
+The viewer is ready for an early public release. The [V1 scope](docs/product-spec.md)
 still requires stakeholder sign-off; the [resourcing plan](docs/resourcing-plan.md) covers
 production work. Country analytics, developed separately by UNEP/GRID-Geneva using
 Apache Superset, are a complementary stream; integration is deferred beyond V1.
 
-## Preview access
+## Open the viewer
 
 Open the [released viewer](https://www.undrr.org/m/risk-and-resilience-maps/) or the
 [GitHub Pages preview of main](https://preventionweb.github.io/undrr-risk-resilience-maps/).
-The prototype uses a PIN gate, including in local development and embeds. Access details
-are shared separately. The gate remembers access for the browser tab and is due to be
-replaced with production access control before launch.
+The standalone and embedded viewers open directly in builds made for the soft launch.
 
 Choose a category and toggle a layer to explore the map. Share its URL to preserve
 the active tab and layers. **Show unpublished** reveals unpublished entries for review.
@@ -35,7 +33,7 @@ yarn install --frozen-lockfile
 yarn dev
 ```
 
-Open `http://localhost:3001`, enter the preview PIN, choose **Hazard** and toggle a
+Open `http://localhost:3001`, choose **Hazard** and toggle a
 layer. The live viewer needs network access to MapX and its CDN dependencies.
 
 For a production build, run `yarn build`, then `yarn preview` and open the URL it

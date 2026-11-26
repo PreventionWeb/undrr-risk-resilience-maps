@@ -31,11 +31,6 @@ describe("embedLoadedProps", () => {
     });
   });
 
-  it("records whether the embed loaded behind the preview gate", () => {
-    const props = embedLoadedProps({ referrer: "", tab: "hazard", layers: [], framed: true, locked: true });
-    expect(props.locked).toBe(true);
-  });
-
   it("reports an unknown host rather than guessing one", () => {
     expect(embedLoadedProps({ referrer: "", tab: "hazard", layers: [], framed: false }).host).toBeNull();
   });

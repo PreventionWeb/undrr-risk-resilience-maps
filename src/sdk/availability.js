@@ -143,14 +143,8 @@ export function loadMapXSdk({
  *
  * MapX renders inside a cross-origin iframe, and browsers throttle rendering
  * (rAF, and with it MapX's own start-up) to a standstill whenever that iframe
- * is not laid out inside the viewport. Two states in this app do exactly that:
- *
- * - the Mangrove preview gate, which sets `visibility: hidden` on the body's
- *   children until the PIN is entered;
- * - the browser tab being in the background.
- *
- * In both the iframe makes zero progress, so time spent in them must not count
- * against the ready budget.
+ * is hidden or its tab is in the background. Time spent in those states
+ * does not count against the ready budget.
  *
  * An information page being active is *not* one of them: the map stays laid out
  * in the viewport and keeps loading behind it (see `.app-map.is-warming` in
@@ -308,8 +302,8 @@ export function startMapServiceRetryCountdown({
   documentRef = document,
   reload = reloadPage,
   seconds = 60,
-  // Don't reload out from under someone reading an info page, looking at
-  // another tab, or still at the preview PIN gate.
+  // Don't reload out from under someone reading an info page
+  // or looking at another browser tab.
   shouldCountDown = () => isMapOnScreen(documentRef),
 } = {}) {
   const countdown = documentRef.getElementById("map-service-countdown");

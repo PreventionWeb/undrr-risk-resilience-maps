@@ -25,10 +25,8 @@
     /**
      * Hold the manager's `ready` event until `__mapxStub.releaseReady()` is
      * called. Real MapX loads in a cross-origin iframe and makes no progress
-     * while that iframe is not painted — behind the preview PIN gate, for
-     * instance (see #24) — but this stub is local JavaScript and is otherwise
-     * ready a tick after it is built. A spec about what happens *after* an
-     * unlock has to be able to reproduce a map that was not ready before it.
+     * while its iframe is hidden. Holding this event lets specs exercise the
+     * embed before readiness.
      *
      * Set it from an init script, as `window.__mapxStubHoldReady = true`: this
      * file is served as the SDK, so it runs later than any init script does.

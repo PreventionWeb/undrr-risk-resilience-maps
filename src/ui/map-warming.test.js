@@ -59,15 +59,12 @@ describe("map warm-up state", () => {
     expect(isMapOnScreen(document)).toBe(true);
   });
 
-  // Finding 1: Mangrove's preview-access.js removes `inert` from every direct
-  // child of <body> when the PIN is accepted, `#app-map` is one of them, and
-  // nothing upstream puts it back.
-  it("re-asserts inert after the preview gate strips it", async () => {
+  it("restores inert and aria-hidden when they are removed", async () => {
     const { appMap, skipLink } = setUpPage();
     const warming = createMapWarming(appMap, { skipLink, inertSupported: true });
     warming.set(true);
 
-    for (const child of document.body.children) child.removeAttribute("inert");
+    appMap.removeAttribute("inert");
     appMap.removeAttribute("aria-hidden");
     await flush();
 
@@ -75,7 +72,7 @@ describe("map warm-up state", () => {
     expect(appMap.getAttribute("aria-hidden")).toBe("true");
   });
 
-  // Finding 2: buildSiteInspectorPanel() appends its panel after createSidebar()
+  // buildSiteInspectorPanel() appends its panel after createSidebar()
   // has already switched to the home tab, so it missed the initial pass.
   it("makes a child appended after the warm-up started inert", async () => {
     const { appMap, skipLink } = setUpPage();

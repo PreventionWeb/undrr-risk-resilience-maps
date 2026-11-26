@@ -41,8 +41,8 @@ it the copy fails silently. Give the frame a height: the embed is a map, so it h
 v1 has no auto-sizing message — the one that existed only ever reported the height the host had just
 set (see §3).
 
-**While this is a prototype, the embed is behind a PIN**, like the standalone viewer. A visitor of
-your page enters it inside the frame; see "The preview gate in an embed" below.
+The embed opens directly for visitors. The **Open the full viewer** link carries the active tab
+and layers to the standalone viewer.
 
 **Temporary inspection policy.** Click info windows and the site-inspection tool are off by default
 following programme-lead feedback while the info-window visual design is revisited. MapX native
@@ -246,7 +246,6 @@ Error codes:
 
 | `code`                | Meaning                                                                                          |
 | --------------------- | ------------------------------------------------------------------------------------------------ |
-| `locked`              | the embed is behind its preview PIN; it takes no command and reports no state                    |
 | `empty-configuration` | its `tabs`/`allow` parameters select no layers, so there is no map to drive                      |
 | `malformed`           | a `set-layers` whose `layers` is not an array, or a camera command whose values don't validate   |
 | `queue-full`          | more than 32 commands were already waiting; this one was dropped                                 |
@@ -271,12 +270,8 @@ Rules a host can rely on:
   map is up, after the URL's own camera. Older embeds without `features` ignore them, so a host that
   supports both waits for `ready`. If the map service can't be reached, waiting commands (and any sent
   until the map is ready) are answered `not-ready`.
-- **`ready` can arrive more than once.** While the prototype is gated it arrives with `locked: true`,
-  then again with `locked: false` once someone has entered the PIN in the frame. Only the second means
-  the embed will take commands. **A locked embed queues nothing:** each command is answered with
-  `error: locked` straight away, so a host keeps its script and sends it again on the unlocked
-  `ready`. (Holding commands behind a PIN nobody may ever enter would leave a host waiting with no
-  answer.)
+- **`ready` includes `locked: false` for v1 hosts.** Earlier tagged builds with a preview PIN
+  may send `locked: true` and refuse commands with `error: locked` until the PIN is entered.
 - **One command at a time, in order.** A camera command is finished (answered with `view` or `error`)
   before the next one starts; every MapX call it makes has a deadline, so the queue can't stall.
   `set-tab` and `set-layers` are dispatched, not awaited: their outcome arrives as `state`, as before.
@@ -334,49 +329,12 @@ with no `X-Frame-Options: SAMEORIGIN` alongside it (browsers without `frame-ance
 back to that header). That is a change to UNDRR's hosting configuration, not to this repo; request it
 through undrr/web-backlog#3105.
 
-### The preview gate in an embed
-
-`embed.html` carries the same Mangrove preview gate as `index.html`: the same `data-mg-preview-id`
-(`grar-map-viewer`), the same PIN and the same `preview-access.js`. Until the PIN is entered, the map
-and the layer panel are hidden and inert, inside an iframe as at top level.
-
-**When a visitor is asked for the PIN.** `sessionStorage` is per tab. Current Chrome (since 115) and
-Firefox (since 103) also key a framed page's storage by the top-level site, so on another site's page
-a visitor enters the PIN inside the frame, once per tab, and an unlock on the standalone viewer
-doesn't carry over. It does carry over when the host page is on the same site as the viewer (any
-www.undrr.org page), and in browsers or policies that turn partitioning off. Safari hasn't been
-tested. When testing this, note that Playwright launches Chromium with partitioning disabled
-(microsoft/playwright#32230), and two `localhost` ports count as the same site.
-
-If a browser blocks the frame's storage altogether, Mangrove reveals the page for that load and asks
-again on the next one: the PIN always works, it just isn't remembered.
-
-**The bridge while locked.** A locked embed answers `ready` with `locked: true`, answers `set-tab`,
-`set-layers` and `get-state` with `error: locked`, and posts no `state`. A second `ready`
-(`locked: false`) arrives once the PIN is entered and the map is up, so a host can show its own
-message in the meantime.
-
-**The map warm-up and the ready budget.** Nothing to do: `canMapLoad()` treats a map container whose
-computed visibility is `hidden` as one that can't load, which is what the gate produces, so the ~30 s
-ready budget doesn't run behind the gate and a gated embed never shows the "map is temporarily
-unavailable" notice. (The information-page warm-up doesn't apply to an embed: it has no information
-pages.)
-
-**The "Open the full viewer" link** goes to `index.html`, which asks for the same PIN.
-
-**Removing the gate** from the embed: delete the gate element and the `preview-access.js` script from
-`embed.html`. `src/embed/preview-gate.js` reports "not locked" for a page with no gate, so the bridge
-opens up on its own. Delete the spec group in `tests/e2e/embed.spec.js` that runs with
-`previewUnlocked: false` at the same time. The GitHub Pages build publishes the same `embed.html`, so
-this removes the gate there too.
-
 ### Analytics
 
 The embed records one event on load, `embed_loaded`, with
 `{ host, framed, tab, layers, locked }` — `host` being `document.referrer`'s origin, because
 `window.parent.location` is unreadable across origins, and `null` when the browser sends no referrer.
-`locked` says whether the embed loaded behind the preview gate, which is the difference between a host
-whose visitors saw the map and one whose visitors saw a PIN prompt. The repository has no analytics
+`locked` remains `false` for compatibility with earlier events. The repository has no analytics
 platform yet (see `docs/resourcing-plan.md`), so the default sink
 writes the event to the console at debug level; pointing `createAnalytics({ sink })` at Matomo or
 whatever UNDRR standardises on is a one-line change in `src/embed/main.js`.
@@ -648,14 +606,14 @@ without an `allow` attribute, so geolocation and fullscreen inside MapX are unav
 Immersive mode hides those controls anyway.
 
 **Storage partitioning.** Current browsers partition storage and cookies in third-party iframes by
-top-level site by default (§8, "The preview gate in an embed", covers what that means for the PIN).
+top-level site by default.
 The app stores nothing itself (B16). MapX in a nested frame works anonymously for public views
 today (the standalone app is already a third-party context for MapX). **Unknown:** whether any MapX
 feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
 it will break in every embed mode and needs the Storage Access API or a MapX token.
 
-**PIN gate.** The iframe embed shows the same preview PIN prompt as the standalone viewer; a script
-embed (phase 2) would not, because it would lock the host page. See §8, "The preview gate in an embed".
+**Prototype access.** The original iframe embed reused the standalone viewer’s PIN prompt. The
+soft launch removes the prompt from both entry points.
 
 ## 5. Build and distribution
 
@@ -741,7 +699,7 @@ Answered by the maintainer (2026-09-18, PreventionWeb/undrr-risk-resilience-maps
    settles the phasing below: build phase 1, and treat phase 2 as conditional on a host needing
    something the iframe cannot give.
 3. **Preview PIN in embeds.** Embeds may ship before the PIN gate is replaced. The embed shows the
-   same PIN prompt as the standalone viewer (§8).
+   same PIN prompt as the standalone viewer in the original phase 1 build.
 4. **Hosting.** **Decided (September 2026), rollout in progress:**
    `https://www.undrr.org/m/risk-and-resilience-maps/`, built into undrr/drupal-microsites from the latest
    release tag (undrr/web-backlog#3105). GitHub Pages stays as a preview of `main`.

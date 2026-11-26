@@ -1,13 +1,4 @@
-import {
-  expect,
-  gotoApp,
-  layerRow,
-  layerSwitch,
-  openTab,
-  test,
-  toggleLayer,
-  unlockPreviewGate,
-} from "./fixtures/app.js";
+import { expect, gotoApp, layerRow, layerSwitch, openTab, test, toggleLayer } from "./fixtures/app.js";
 
 /**
  * While an information page is shown the map is not hidden: it stays laid out
@@ -52,8 +43,7 @@ test.describe("map warm-up behind an information page", () => {
 
     // Out of reach: invisible, out of the accessibility tree, and inert -- on
     // the map and on each of its children. A MutationObserver holds that for as
-    // long as the map is warming, whatever else touches the container (see
-    // "the preview gate" case below).
+    // long as the map is warming, including when it gets new children.
     await expect(map).toHaveAttribute("aria-hidden", "true");
     await expect(map).toHaveAttribute("inert", "");
     // Every child carries it too -- including the site-inspector panel, which
@@ -147,61 +137,5 @@ test.describe("map warm-up behind an information page", () => {
     expect(await page.evaluate(() => document.activeElement?.className)).toContain("mg-skip-link");
     await page.keyboard.press("Enter");
     expect(await page.evaluate(() => document.activeElement?.id)).toBe("app-map");
-  });
-});
-
-/**
- * The gate is the one thing on the page that reaches into the map's own
- * attributes: on a correct PIN, Mangrove's `preview-access.js` calls
- * `removeAttribute("inert")` on **every direct child of `<body>`**, and
- * `#app-map` is one of them. Before this was re-asserted, "Skip to map" put
- * focus inside an invisible, `aria-hidden` region, and the next Tab skipped the
- * whole page.
- */
-test.describe("map warm-up after a real PIN unlock", () => {
-  test.use({ previewUnlocked: false });
-
-  test("keeps the map out of reach, skip link included", async ({ page }) => {
-    await page.goto("/#home");
-    await unlockPreviewGate(page);
-    await page.waitForFunction(() => window.__mapxStub?.ready === true);
-
-    const map = page.locator("#app-map");
-    await expect(map).toHaveClass(/is-warming/);
-
-    // The container's own `inert` is back, and so is every child's -- the
-    // site-inspector panel is the one the gate used to leave uncovered.
-    await expect(map).toHaveAttribute("inert", "");
-    await expect(map).toHaveAttribute("aria-hidden", "true");
-    expect(
-      await map
-        .locator("> *")
-        .evaluateAll((els) => els.filter((el) => !el.hasAttribute("inert")).map((el) => el.id)),
-    ).toEqual([]);
-
-    // The skip link points at the content, and activating it leaves focus
-    // outside the map -- this is the session in which the gate stripped `inert`.
-    const skipLink = page.locator(".mg-skip-link");
-    await expect(skipLink).toHaveAttribute("href", "#info-page");
-    await skipLink.focus();
-    expect(await page.evaluate(() => document.activeElement?.className)).toContain("mg-skip-link");
-    await page.keyboard.press("Enter");
-    expect(await page.evaluate(() => document.activeElement?.id)).toBe("info-page");
-    expect(
-      await page.evaluate(() => document.getElementById("app-map").contains(document.activeElement)),
-    ).toBe(false);
-
-    // The next Tab still moves through the page rather than nowhere.
-    await page.keyboard.press("Tab");
-    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
-
-    // Tabbing from the top never lands inside the map either.
-    await page.locator("body").press("Tab");
-    for (let i = 0; i < 60; i++) {
-      expect(
-        await page.evaluate(() => document.getElementById("app-map").contains(document.activeElement)),
-      ).toBe(false);
-      await page.keyboard.press("Tab");
-    }
   });
 });
