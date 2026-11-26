@@ -39,6 +39,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 
 /** HTML entry URLs to check, relative to the base. Layer parameters are part of the cache key. */
 export const ENTRY_PATHS = [
@@ -102,11 +103,13 @@ export function revalidates(header) {
     .toLowerCase()
     .split(",")
     .map((part) => part.trim());
-  if (directives.includes("no-cache") || directives.includes("no-store")) return true;
   const age = (name) => {
     const directive = directives.find((part) => part.startsWith(`${name}=`));
     return directive ? Number(directive.slice(name.length + 1)) : null;
   };
+  // Serving stale HTML first and revalidating afterwards is the failure in #89.
+  if ((age("stale-while-revalidate") ?? 0) > 0 || (age("stale-if-error") ?? 0) > 0) return false;
+  if (directives.includes("no-cache") || directives.includes("no-store")) return true;
   // s-maxage governs shared caches (the CDN), max-age everyone else.
   const shared = age("s-maxage") ?? age("max-age");
   return age("max-age") === 0 && shared === 0;
@@ -167,24 +170,64 @@ async function crawl(start, failures, warnings) {
   return [...seen].sort();
 }
 
+const USAGE =
+  "Usage: node scripts/check-release-assets.mjs <base-url> [--record file] [--expect file] [--header 'Name: value']...";
+
+/**
+ * Read the command line. Unknown flags, a flag with no value and a missing or
+ * extra base URL are errors: a check that silently skipped `--expect` would
+ * report OK without having checked anything.
+ * @param {string[]} argv
+ * @returns {{ base: URL, record: string|null, expect: string|null, headers: Record<string, string> }}
+ */
+export function parseCommandLine(argv) {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    strict: true,
+    options: {
+      record: { type: "string" },
+      expect: { type: "string" },
+      header: { type: "string", multiple: true },
+    },
+  });
+  if (positionals.length !== 1) throw new Error("Give exactly one base URL.");
+  const [raw] = positionals;
+  const base = new URL(raw.endsWith("/") ? raw : `${raw}/`);
+  if (base.protocol !== "https:" && base.protocol !== "http:")
+    throw new Error("The base URL must be http(s).");
+  const headers = {};
+  for (const header of values.header ?? []) {
+    const colon = header.indexOf(":");
+    const name = colon > 0 ? header.slice(0, colon).trim() : "";
+    if (!name) throw new Error(`--header must be "Name: value", got ${JSON.stringify(header)}`);
+    headers[name] = header.slice(colon + 1).trim();
+  }
+  for (const name of ["record", "expect"]) {
+    if (values[name] === "") throw new Error(`--${name} needs a file path.`);
+  }
+  return { base, record: values.record ?? null, expect: values.expect ?? null, headers };
+}
+
 export async function main(argv = process.argv.slice(2)) {
-  const [baseArg] = argv.filter((arg, i) => !arg.startsWith("--") && !argv[i - 1]?.startsWith("--"));
-  const option = (name) => {
-    const i = argv.indexOf(name);
-    return i >= 0 ? argv[i + 1] : null;
-  };
-  if (!baseArg) {
-    console.error(
-      "Usage: node scripts/check-release-assets.mjs <base-url> [--record file] [--expect file] [--header 'Name: value']...",
-    );
+  let options;
+  try {
+    options = parseCommandLine(argv);
+  } catch (error) {
+    console.error(`${error.message}\n${USAGE}`);
     return 2;
   }
-  argv.forEach((arg, i) => {
-    if (arg !== "--header") return;
-    const [name, ...value] = (argv[i + 1] ?? "").split(":");
-    if (name.trim() && value.length > 0) extraHeaders[name.trim()] = value.join(":").trim();
-  });
-  const base = new URL(baseArg.endsWith("/") ? baseArg : `${baseArg}/`);
+  const { base } = options;
+  Object.assign(extraHeaders, options.headers);
+  // Read the recorded build first: a bad file should stop the run before any request.
+  let recorded = null;
+  if (options.expect) {
+    recorded = JSON.parse(readFileSync(options.expect, "utf8"));
+    if (!Array.isArray(recorded.assets) || recorded.assets.length === 0) {
+      console.error(`${options.expect} records no bundles, so there is nothing to require; re-record it.`);
+      return 2;
+    }
+  }
   const failures = [];
   const warnings = [];
 
@@ -202,7 +245,16 @@ export async function main(argv = process.argv.slice(2)) {
         `${url}: Cache-Control "${cacheControl ?? "(none)"}" lets a cache serve this HTML without revalidating`,
       );
     }
-    entryAssets.set(path, htmlAssetRefs(body, response.url));
+    // Cloudflare may cache HTML whatever the origin's headers say (an Edge TTL rule).
+    if (response.headers.get("cf-cache-status") === "HIT") {
+      warnings.push(
+        `${url}: served from Cloudflare's cache (cf-cache-status HIT); check the zone's Edge TTL rules`,
+      );
+    }
+    const assets = htmlAssetRefs(body, response.url);
+    // A 200 page naming no bundle is an error page, a challenge or the wrong base URL.
+    if (assets.length === 0) failures.push(`${url}: names no bundle (not the viewer's HTML?)`);
+    entryAssets.set(path, assets);
   }
 
   // The same entry with and without parameters must name the same build.
@@ -225,17 +277,21 @@ export async function main(argv = process.argv.slice(2)) {
     // maps-ref.txt is written by the UNDRR build only; the Pages preview has none.
   }
 
-  const expectFile = option("--expect");
-  if (expectFile) {
-    const recorded = JSON.parse(readFileSync(expectFile, "utf8"));
-    const retained = await crawl(recorded.assets ?? [], failures, warnings);
+  if (assets.length === 0) failures.push("No bundles found to check.");
+
+  if (recorded) {
+    const retained = await crawl(recorded.assets, failures, warnings);
     console.log(`Previous build (${recorded.ref ?? "unknown ref"}): ${retained.length} bundle(s) checked`);
   }
 
-  const recordFile = option("--record");
-  if (recordFile) {
-    writeFileSync(recordFile, `${JSON.stringify({ base: base.href, ref, assets }, null, 2)}\n`);
-    console.log(`Recorded ${assets.length} bundle URL(s) to ${recordFile}`);
+  if (options.record) {
+    // A failed run must not leave a file a later --expect would accept.
+    if (failures.length > 0) {
+      console.error(`Not recording ${options.record}: this run failed.`);
+    } else {
+      writeFileSync(options.record, `${JSON.stringify({ base: base.href, ref, assets }, null, 2)}\n`);
+      console.log(`Recorded ${assets.length} bundle URL(s) to ${options.record}`);
+    }
   }
 
   console.log(`Build: ${ref ?? "(no maps-ref.txt)"}`);

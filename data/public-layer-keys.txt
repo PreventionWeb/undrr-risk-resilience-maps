@@ -1,4 +1,5 @@
-# Public layer keys: every key a shared link or embed URL may already carry.
+# Public layer keys: every key a shared link or embed URL may already carry,
+# from every release (keys later unpublished included).
 # A key listed here must keep resolving: as a layer's key, as one of its
 # `aliases` after a rename, or by being retired in removed-layer-keys.txt.
 # src/config/public-keys.test.js enforces this and asks for each newly
@@ -48,3 +49,7 @@ drought-enrolled-students-share
 drought-enrolled-girls-parity
 drought-limited-health-protection
 food-import-vulnerability
+early-warning-coverage
+ecosystem-loss
+land-cover
+pml-public

@@ -23,6 +23,16 @@ jobs:
       - run: yarn test
       - run: yarn build
 
+      # Shared links and embeds name layers by key, so a published key is never
+      # dropped from the ledger (docs/inventory.md "Keeping layer links stable").
+      - name: Public layer keys are never removed
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          node scripts/check-public-keys-ledger.mjs FETCH_HEAD
+
   # Its own job, so downloading a browser never slows `validate` down, and the
   # two report independently.
   e2e:

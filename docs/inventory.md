@@ -96,10 +96,15 @@ releases.
   [data/removed-layer-keys.txt](../data/removed-layer-keys.txt). Links to it open the map
   without that layer.
 
-[data/public-layer-keys.txt](../data/public-layer-keys.txt) records every key the app has
-published. `src/config/public-keys.test.js` fails if a listed key no longer resolves through
-one of the three routes above. It also fails if a newly published key is missing from the
-list. Add new keys, and never delete a line.
+Unpublishing a layer (a `disabled-*` status) keeps its key in the config, so its links open
+the map without that layer until it is published again.
+
+[data/public-layer-keys.txt](../data/public-layer-keys.txt) records every key any release
+has published. `src/config/public-keys.test.js` fails if a listed key no longer names a
+layer in the config, published or not, an alias, or a retired key. It also fails if a newly
+published key is missing from the list. Add new keys and never delete a line: the
+"Public layer keys are never removed" CI step compares the list with the PR's base branch
+(`node scripts/check-public-keys-ledger.mjs origin/main` runs it locally).
 
 ## Special cases
 

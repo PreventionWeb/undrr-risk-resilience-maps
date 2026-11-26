@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { bundleAssetRefs, htmlAssetRefs, longLived, revalidates } from "./check-release-assets.mjs";
+import {
+  bundleAssetRefs,
+  htmlAssetRefs,
+  longLived,
+  parseCommandLine,
+  revalidates,
+} from "./check-release-assets.mjs";
 
 const base = "https://example.org/m/maps/";
 
@@ -44,7 +50,15 @@ describe("Cache-Control", () => {
     ]) {
       expect(revalidates(header), header).toBe(true);
     }
-    for (const header of [null, "", "max-age=600", "public, max-age=0, s-maxage=3600", "must-revalidate"]) {
+    for (const header of [
+      null,
+      "",
+      "max-age=600",
+      "public, max-age=0, s-maxage=3600",
+      "must-revalidate",
+      "max-age=0, stale-while-revalidate=60",
+      "no-cache, stale-if-error=86400",
+    ]) {
       expect(revalidates(header), String(header)).toBe(false);
     }
   });
@@ -53,5 +67,32 @@ describe("Cache-Control", () => {
     expect(longLived("public, max-age=31536000, immutable")).toBe(true);
     expect(longLived("max-age=600")).toBe(false);
     expect(longLived(null)).toBe(false);
+  });
+});
+
+describe("parseCommandLine", () => {
+  it("reads the base URL and options in any order and either flag form", () => {
+    expect(
+      parseCommandLine(["--header=X-Check: a:b c", "https://example.org/m/maps", "--expect", "before.json"]),
+    ).toEqual({
+      base: new URL("https://example.org/m/maps/"),
+      record: null,
+      expect: "before.json",
+      headers: { "X-Check": "a:b c" },
+    });
+  });
+
+  it("refuses what it would otherwise skip silently", () => {
+    for (const argv of [
+      [],
+      ["https://a.example/", "https://b.example/"],
+      ["https://a.example/", "--expect"],
+      ["https://a.example/", "--expect="],
+      ["https://a.example/", "--expects", "x.json"],
+      ["https://a.example/", "--header", "no colon"],
+      ["file:///tmp/"],
+    ]) {
+      expect(() => parseCommandLine(argv), JSON.stringify(argv)).toThrow();
+    }
   });
 });

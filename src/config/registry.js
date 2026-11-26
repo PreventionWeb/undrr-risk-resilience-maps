@@ -41,13 +41,13 @@ export function urlKeyOrder(tabs) {
  * point to are the config's own objects, returned as they are and not frozen. Callers must treat them
  * as read-only.
  *
- * @param {Array<{ id: string, collection?: string, layers: object[] }>} tabs
- * Retired public keys (`layer.aliases`, see docs/inventory.md "Renaming a
- * layer key") resolve to the layer's current key through `canonicalKey`. They
- * are an input-only spelling: the registry's other lookups and the URL key
+ * Retired public keys (`layer.aliases`, see docs/inventory.md "Keeping layer
+ * links stable") resolve to the layer's current key through `canonicalKey`.
+ * They are an input-only spelling: the registry's other lookups and the URL key
  * order know current keys only, so every caller canonicalises a key it was
  * handed before using it, and the app only ever writes current keys back.
  *
+ * @param {Array<{ id: string, collection?: string, layers: object[] }>} tabs
  * @returns {{
  *   byKey: (key: string) => object|undefined,
  *   canonicalKey: (key: unknown) => unknown,

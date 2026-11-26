@@ -70,8 +70,12 @@ yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --rec
 yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --expect before.json
 ```
 
-The first run passes with the new build; `--expect` fails while the previous build's bundles
-are missing. www.undrr.org answers scripted requests with a Cloudflare bot challenge (403),
+The first run checks the build that is live now; with `--expect`, the second run also fails
+if any bundle of the recorded build is missing. A run that fails records nothing, and an
+empty record is refused, so a blocked or broken first run cannot turn into a passing
+second one. HTML that allows `stale-while-revalidate` or `stale-if-error` fails the check,
+because a cache would serve the old copy first. The script sees only response headers. Edge
+TTL overrides in Cloudflare are outside its view and need checking in the zone settings. www.undrr.org answers scripted requests with a Cloudflare bot challenge (403),
 so pass a header the zone allowlists with `--header "Name: value"`, or check in a browser:
 open the embed before the release, then reload it and confirm it uses the new bundles. The
 GitHub Pages preview fails the HTML check by design. Pages sends `max-age=600` and replaces

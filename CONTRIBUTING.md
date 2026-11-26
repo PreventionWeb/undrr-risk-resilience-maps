@@ -104,7 +104,21 @@ The [CHANGELOG.md](CHANGELOG.md) follows the [Common Changelog](https://common-c
 A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr/drupal-microsites](https://gitlab.com/undrr/drupal-microsites) builds the highest `vX.Y.Z` tag into `/m/risk-and-resilience-maps/`. Merging to `main` only updates the GitHub Pages preview. See [deployment requirements](docs/deployment.md).
 
 1. Open a `chore: release vX.Y.Z` PR that turns `## [Unreleased]` in the CHANGELOG into `## [X.Y.Z] - YYYY-MM-DD` and sets `version` in `package.json`. Merge it.
-2. Tag the merge commit on `main` with an annotated tag and push it:
+2. Before pushing the tag, record the live bundles. Any push to drupal-microsites can deploy
+   the tag, so record first:
+
+   ```bash
+   yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ \
+     --header "<allowlisted header>: <value>" --record before.json
+   ```
+
+   www.undrr.org challenges scripted requests. Without a header its Cloudflare zone
+   allowlists, the command fails and records nothing; then check in a browser instead
+   ([caching across releases](docs/deployment.md#caching-across-releases)). After the
+   release is live, run the same command with `--expect before.json` in place of
+   `--record before.json`. An embed opened before the release must still load.
+
+3. Tag the merge commit on `main` with an annotated tag and push it:
 
    ```bash
    git switch main && git pull
@@ -113,12 +127,6 @@ A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr
    ```
 
    Creating a GitHub release for the tag is optional; the tag is what counts.
-
-3. Before the tag deploys, record the live bundles:
-   `yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --record before.json`.
-   After it deploys, run the same command with `--expect before.json` in place of `--record`.
-   An embed opened before the release must still load. See
-   [caching across releases](docs/deployment.md#caching-across-releases).
 
 4. The tag ships with the next drupal-microsites `main` pipeline, which runs on any push to that repo. To ship it straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Dev updates when the pipeline finishes; staging and production within the hour. Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
 
