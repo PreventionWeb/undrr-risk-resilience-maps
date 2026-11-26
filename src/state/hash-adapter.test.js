@@ -130,14 +130,14 @@ describe("shared-link round trip through the layers store", () => {
       "#hazard?layers=edra-crop-yield-reduction,river-flooding:2&variants=%7B%22edra-crop-yield-reduction%22%3A%7B%22crop%22%3A%22MAIZE%22%2C%22scenario%22%3A%2230%22%7D%7D",
     ],
     ["layers from several tabs", "#exposure?layers=recovery-speed:3,population,hdi"],
-    // Grouped tabs: the sidebar lists these by R2R category (Societies, Economy,
-    // Environment), but links keep config order.
     ["risk layers from different R2R groups", "#risk-resilience?layers=aal-public,aal-to-gdp-2025"],
     ["resilience and vulnerability layers", "#resilience?layers=change-fiscal-gap,water-stress"],
+    // These sidebar groups reorder the published rows. Links keep config order.
     [
       "vulnerability layers from different R2R groups",
       "#vulnerability?layers=intact-forests,water-stress,hdi",
     ],
+    ["GAR layers from different groups", "#gar?layers=water-scarcity-child-nutrition,gar26-aal-crops"],
   ])("keeps %s unchanged", (_name, link) => {
     history.replaceState(null, "", link);
     const adapter = createHashAdapter();
@@ -166,7 +166,7 @@ describe("shared-link round trip through the layers store", () => {
   it("covers grouped tabs whose rows are not in config order", () => {
     // Guards the fixtures above: if these orders ever agree, the grouped-tab
     // links no longer test anything.
-    for (const id of ["risk-resilience", "resilience", "vulnerability"]) {
+    for (const id of ["vulnerability", "gar"]) {
       const tab = TABS.find((candidate) => candidate.id === id);
       const rowOrder = urlKeyOrder([{ layers: tab.groups.flatMap((group) => group.layers) }]);
       expect(rowOrder).not.toEqual(urlKeyOrder([tab]));
