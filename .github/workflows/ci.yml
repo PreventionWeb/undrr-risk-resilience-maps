@@ -22,6 +22,12 @@ jobs:
       - run: yarn lint
       - run: yarn test
       - run: yarn build
+      # Every reference between the build's own files carries one ?v= build id
+      # (vite.config.js buildQuery()), in the Pages build above and in the
+      # relative-base build drupal-microsites makes.
+      - run: node scripts/check-build-references.mjs dist
+      - run: yarn build --base=./ --outDir dist-relative
+      - run: node scripts/check-build-references.mjs dist-relative
 
   # Its own job, so downloading a browser never slows `validate` down, and the
   # two report independently.
