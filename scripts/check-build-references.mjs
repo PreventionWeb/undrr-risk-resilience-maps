@@ -18,9 +18,17 @@
  *
  * Usage: node scripts/check-build-references.mjs [dist-dir]   (default: dist)
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+/**
+ * Files Vite copies verbatim from `public/assets/` into `assets/`: a previous
+ * release's hashed bundles kept as a bridge (docs/deployment.md "First
+ * fixed-name release"). They are not part of this build's graph, so they are
+ * not checked.
+ */
+const PUBLIC_ASSETS = resolve(dirname(fileURLToPath(import.meta.url)), "../public/assets");
 
 /**
  * Every quoted reference to one of `names` in `text`, with its query.
@@ -71,13 +79,16 @@ function walk(dir) {
 
 function main(distArg = "dist") {
   const dist = resolve(distArg);
-  const paths = walk(dist).filter((path) => /\.(?:html|js|css)$/.test(path));
+  const copied = new Set(existsSync(PUBLIC_ASSETS) ? readdirSync(PUBLIC_ASSETS) : []);
+  const built = (path) => !(relative(dist, path).startsWith("assets/") && copied.has(path.split("/").pop()));
+  const paths = walk(dist).filter((path) => /\.(?:html|js|css)$/.test(path) && built(path));
   const assetNames = paths
     .filter((path) => relative(dist, path).startsWith("assets/") && /\.(?:js|css)$/.test(path))
     .map((path) => path.split("/").pop());
   const files = paths.map((path) => ({ file: relative(dist, path), text: readFileSync(path, "utf8") }));
   const problems = checkReferences(files, assetNames);
   const others = walk(join(dist, "assets"))
+    .filter(built)
     .map((path) => path.split("/").pop())
     .filter((name) => !/\.(?:js|css)$/.test(name) && !/-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/.test(name));
   for (const name of others) problems.push(`assets/${name} has a fixed name but no ?v= query can reach it`);

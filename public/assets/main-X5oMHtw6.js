@@ -1,0 +1,1 @@
+import{c as e,s as t,t as n}from"./shared-BFTxsJGX.js";n(document.body,{inspectionEnabled:e(window.location.search),downloadsEnabled:t(window.location.search)});

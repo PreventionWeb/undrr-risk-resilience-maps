@@ -13,7 +13,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 ### Changed
 
 - Update the Home and About pages to present the map viewer and explain dataset coverage.
-
+- Ship v0.0.16's hashed bundles beside the new fixed-name files for one release, so an embed page cached before this release still loads after it.
 - Build files with fixed names instead of content-hashed ones, so a cached embed page from an earlier release still loads after a deploy. One build-wide `?v=` cache buster on every internal reference keeps caches from mixing files from two builds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
 
 ## [0.0.16] - 2026-11-26
