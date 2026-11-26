@@ -13,7 +13,14 @@ function gitValue(format, fallback) {
   }
 }
 
-const lastUpdated = gitValue("%cI", new Date().toISOString());
+// A reproducible build sets SOURCE_DATE_EPOCH; without it or git, the build
+// time is used, and then every build gets a new `?v=` build id (harmless: it
+// only refreshes caches).
+const sourceDate = Number(process.env.SOURCE_DATE_EPOCH);
+const lastUpdated = gitValue(
+  "%cI",
+  (Number.isFinite(sourceDate) && sourceDate > 0 ? new Date(sourceDate * 1000) : new Date()).toISOString(),
+);
 const commitHash = gitValue("%h", "local");
 
 /**
@@ -77,13 +84,21 @@ function devServerIdentity() {
  * cached from any release still finds files that exist. The query makes each
  * build's files a separate cache entry: a new `embed.js?v=B` only ever imports
  * `shared.js?v=B`, never a copy of `shared.js` that a browser or Cloudflare
- * kept from build A. The chunks' internal export names change between builds,
- * and pairing two builds fails module linking
- * (PreventionWeb/undrr-risk-resilience-maps#91).
+ * kept from build A. The chunks' internal export names are assigned per
+ * build, so a pair from two builds may fail to link or, worse, link to the
+ * wrong functions (PreventionWeb/undrr-risk-resilience-maps#91).
  *
  * The build id hashes the content of every emitted file before the queries are
- * added. It changes whenever any output changes and needs no git checkout
- * (the downstream build may have none).
+ * added, so it changes whenever any output does. The output embeds the commit
+ * date and hash (`define` below); see `lastUpdated` for builds without git.
+ *
+ * Scope: only JS and CSS outputs have fixed names and get the query. Other
+ * emitted assets (images, fonts) keep a content hash in their name
+ * (`assetFileNames`), because CSS `url()` and `new URL()` references to them
+ * are not rewritten here. Sourcemaps are refused: inserting the query shifts
+ * columns, and the maps would point at the wrong code. The rewrite matches
+ * quoted paths, so a string literal that is exactly such a path (`"./shared.js"`)
+ * in our own source would be rewritten too; nothing in src/ has one.
  */
 export function buildQuery() {
   return {
@@ -92,11 +107,20 @@ export function buildQuery() {
     enforce: "post",
     generateBundle: {
       order: "post",
-      handler(_options, bundle) {
+      handler(options, bundle) {
+        if (options.sourcemap) {
+          throw new Error("build-query: sourcemaps would be wrong after the ?v= rewrite; see vite.config.js");
+        }
         const files = Object.values(bundle);
         const hash = createHash("sha256");
-        for (const file of [...files].sort((a, b) => a.fileName.localeCompare(b.fileName))) {
-          hash.update(file.fileName).update(file.type === "chunk" ? file.code : file.source);
+        // A plain code-unit sort and length-prefixed fields: the id must not
+        // depend on the locale, or on where one file's name ends and its content starts.
+        const ordered = [...files].sort((a, b) =>
+          a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0,
+        );
+        for (const file of ordered) {
+          const content = file.type === "chunk" ? file.code : file.source;
+          hash.update(`${file.fileName.length}:${file.fileName}${content.length}:`).update(content);
         }
         const query = `?v=${hash.digest("hex").slice(0, 10)}`;
         const names = files
@@ -154,7 +178,14 @@ export default defineConfig(({ command }) => ({
       output: {
         entryFileNames: "assets/[name].js",
         chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name][extname]",
+        // CSS is referenced only from HTML and gets the query; anything else
+        // (images, fonts) is referenced from CSS `url()` or `new URL()`, which the
+        // query rewrite doesn't cover, so it keeps a content hash. Those are
+        // leaf files: a stale hashed one breaks nothing that imports it.
+        assetFileNames: (asset) =>
+          (asset.names ?? [asset.name ?? ""]).some((name) => name.endsWith(".css"))
+            ? "assets/[name][extname]"
+            : "assets/[name]-[hash][extname]",
       },
     },
   },

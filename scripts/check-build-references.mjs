@@ -4,11 +4,17 @@
  *
  * Output file names are fixed, so the `?v=<build id>` query that
  * `buildQuery()` in vite.config.js appends is what stops a cache pairing
- * chunks from two builds. Two builds' chunks do not link together: their
- * internal export names differ (PreventionWeb/undrr-risk-resilience-maps#91).
+ * chunks from two builds. Two builds' chunks don't fit together: their
+ * internal export names are assigned per build (PreventionWeb/undrr-risk-resilience-maps#91).
  * This fails if a reference between the build's own files lacks the query,
  * if two references carry different build ids, or if a file in `assets/` is
- * referenced by nothing (a sign the reference forms changed).
+ * referenced by nothing (a sign the reference forms changed), or if a file in
+ * `assets/` other than a script or style has a fixed name. The query covers
+ * only scripts and styles, so anything else must keep a content hash.
+ *
+ * It finds references with the same quoted-path forms the plugin rewrites, so
+ * a reference form neither knows about (an unquoted CSS `url()` to a script,
+ * say) is invisible to both.
  *
  * Usage: node scripts/check-build-references.mjs [dist-dir]   (default: dist)
  */
@@ -71,6 +77,10 @@ function main(distArg = "dist") {
     .map((path) => path.split("/").pop());
   const files = paths.map((path) => ({ file: relative(dist, path), text: readFileSync(path, "utf8") }));
   const problems = checkReferences(files, assetNames);
+  const others = walk(join(dist, "assets"))
+    .map((path) => path.split("/").pop())
+    .filter((name) => !/\.(?:js|css)$/.test(name) && !/-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/.test(name));
+  for (const name of others) problems.push(`assets/${name} has a fixed name but no ?v= query can reach it`);
   for (const name of assetNames) {
     const referenced = files.some(({ text }) => findReferences(text, [name]).length > 0);
     if (!referenced) problems.push(`assets/${name} is not referenced by any file in the build`);
