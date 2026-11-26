@@ -82,7 +82,7 @@ Clicking a country on the map (via site inspection) should link to the UNDRR Ris
 - Remove the temporary `eslint/**/minimatch` resolution when ESLint and `@eslint/config-array` adopt a patched minimatch release. The override uses 11.0.4 to address GHSA-g3hv-75wg-m249; ESLint's use of the retained `Minimatch.match()` API and the full project lint were checked. Yarn reports the intentional override of the upstream 10.x ranges.
 
 - Updated to `2.5.0` (previous: `2.3.0`, `2.2.0`, `2.0.1`, `2.0.0`). Both
-  entry points pin matching CDN CSS and preview-access modules; tabs, copy and
+  entry points pin the same CDN stylesheet. Tabs, copy and
   Sources navigation use the shared version in `src/config/mangrove.js`.
   See [the 2.5.0 compatibility review](LEARNINGS.md#mangrove-250-review-17-november-2026).
 - Continue checking future releases for changes to consumed tokens and classes.

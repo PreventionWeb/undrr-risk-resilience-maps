@@ -30,6 +30,15 @@ test.describe("shared link", () => {
     expect(await openViews(page)).toHaveLength(3);
   });
 
+  test("drops unpublished layers from an old share link", async ({ page }) => {
+    await gotoApp(page, "#risk-resilience?layers=recovery-speed,pml-public:1");
+
+    await expect(page).toHaveURL(/#risk-resilience\?layers=recovery-speed$/);
+    await expect(layerSwitch(layerRow(page, "Recovery Speed"))).toBeChecked();
+    await expect(layerSwitch(layerRow(page, "PML to Public Assets"))).toHaveCount(0);
+    expect(await openViews(page)).toHaveLength(1);
+  });
+
   test("restores nothing from a link with no layers", async ({ page }) => {
     await gotoApp(page, "#hazard");
 

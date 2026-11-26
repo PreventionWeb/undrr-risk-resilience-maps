@@ -132,11 +132,8 @@ describe("shared-link round trip through the layers store", () => {
     ["layers from several tabs", "#exposure?layers=recovery-speed:3,population,hdi"],
     // Grouped tabs: the sidebar lists these by R2R category (Societies, Economy,
     // Environment), but links keep config order.
-    ["risk layers from different R2R groups", "#risk-resilience?layers=ecosystem-loss,aal-to-gdp-2025"],
-    [
-      "resilience layers from different R2R groups",
-      "#resilience?layers=change-fiscal-gap,early-warning-coverage",
-    ],
+    ["risk layers from different R2R groups", "#risk-resilience?layers=aal-public,aal-to-gdp-2025"],
+    ["resilience and vulnerability layers", "#resilience?layers=change-fiscal-gap,water-stress"],
     [
       "vulnerability layers from different R2R groups",
       "#vulnerability?layers=intact-forests,water-stress,hdi",

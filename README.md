@@ -17,7 +17,7 @@ Open the [released viewer](https://www.undrr.org/m/risk-and-resilience-maps/) or
 The standalone and embedded viewers open directly in builds made for the soft launch.
 
 Choose a category and toggle a layer to explore the map. Share its URL to preserve
-the active tab and layers. **Show unpublished** reveals unpublished entries for review.
+the active tab and layers. **Show unpublished** reveals descriptions of unpublished entries.
 Click inspection is temporarily off by default while its design is reviewed; use
 `?inspect=1` before the hash to try it, for example `?inspect=1#hazard`.
 Map downloads default on; see the [download walkthrough and limits](docs/downloads.md#try-a-download).
