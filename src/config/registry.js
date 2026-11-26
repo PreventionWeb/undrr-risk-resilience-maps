@@ -41,16 +41,9 @@ export function urlKeyOrder(tabs) {
  * point to are the config's own objects, returned as they are and not frozen. Callers must treat them
  * as read-only.
  *
- * Retired public keys (`layer.aliases`, see docs/inventory.md "Keeping layer
- * links stable") resolve to the layer's current key through `canonicalKey`.
- * They are an input-only spelling: the registry's other lookups and the URL key
- * order know current keys only, so every caller canonicalises a key it was
- * handed before using it, and the app only ever writes current keys back.
- *
  * @param {Array<{ id: string, collection?: string, layers: object[] }>} tabs
  * @returns {{
  *   byKey: (key: string) => object|undefined,
- *   canonicalKey: (key: unknown) => unknown,
  *   byViewId: (viewId: string) => { tab: object, layer: object, source: object|null }|undefined,
  *   urlKeyOrder: () => readonly string[],
  *   collectionOf: (key: string) => string|undefined,
@@ -60,7 +53,6 @@ export function urlKeyOrder(tabs) {
  */
 export function createLayerRegistry(tabs) {
   const keys = new Map(); // key → layer
-  const aliases = new Map(); // retired key → current key
   const views = new Map(); // MapX view id → { tab, layer, source }
   const tabCollections = new Map(); // tabId → collection
   const keyCollections = new Map(); // key → collection
@@ -73,30 +65,17 @@ export function createLayerRegistry(tabs) {
         keys.set(layer.key, layer);
         keyCollections.set(layer.key, collection);
       }
-      if (layer.key) {
-        for (const alias of layer.aliases ?? []) {
-          if (typeof alias === "string" && alias && !aliases.has(alias)) aliases.set(alias, layer.key);
-        }
-      }
       if (layer.id && !views.has(layer.id)) views.set(layer.id, Object.freeze({ tab, layer, source: null }));
       for (const source of layer.sources ?? []) {
         if (source.id && !views.has(source.id)) views.set(source.id, Object.freeze({ tab, layer, source }));
       }
     }
   }
-  // A current key always wins over an alias of the same spelling
-  // (`validateLayers()` rejects that config, but the lookup must not depend on it).
-  for (const key of keys.keys()) aliases.delete(key);
   const keyOrder = Object.freeze(urlKeyOrder(tabs));
 
   return Object.freeze({
     /** Layer config by key, published or not. */
     byKey: (key) => keys.get(key),
-    /**
-     * The current key for a retired one (`layer.aliases`); any other value,
-     * a current key or an unknown one, is returned unchanged.
-     */
-    canonicalKey: (key) => (typeof key === "string" && aliases.has(key) ? aliases.get(key) : key),
     /** `{ tab, layer, source }` for a permanent MapX view id (a compound layer's sources too). */
     byViewId: (viewId) => views.get(viewId),
     /** Hash order (see urlKeyOrder). */
@@ -120,16 +99,4 @@ let appRegistry = null;
 export function getLayerRegistry() {
   appRegistry ??= createLayerRegistry(TABS);
   return appRegistry;
-}
-
-/**
- * The current key for a key from outside the app (a shared link, an embed URL,
- * a host message), resolving retired keys against the whole config. Used where
- * a key is parsed before any instance registry exists (the share-link hash and
- * the embed URL); an instance registry resolves the aliases of its own layers.
- * @param {unknown} key
- * @returns {unknown}
- */
-export function canonicalLayerKey(key) {
-  return getLayerRegistry().canonicalKey(key);
 }

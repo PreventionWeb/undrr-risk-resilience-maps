@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Added
 
-- Keep shared map links and embeds working when a layer key is renamed: old keys resolve to the renamed layer, and CI fails if a published key stops resolving.
+- Record every published layer key and fail CI when one stops naming a layer, so a rename or deletion can't silently break shared links and embeds.
 
 ### Changed
 

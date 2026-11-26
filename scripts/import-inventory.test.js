@@ -25,32 +25,6 @@ afterEach(() => {
 });
 
 describe("import-inventory --apply", () => {
-  it("syncs rows under a renamed layer's retired key, and refuses both spellings at once", () => {
-    const fixture = makeFixture();
-    const configPath = join(fixture, "src/config/layers/gar.js");
-    writeFileSync(
-      configPath,
-      readFileSync(configPath, "utf8").replace(
-        'key: "major-crop-area-exposed",',
-        'key: "major-crop-area-exposed-100y",\n    aliases: ["major-crop-area-exposed"],',
-      ),
-    );
-    const script = join(fixture, "scripts/import-inventory.mjs");
-    // The colleague export still says "major-crop-area-exposed".
-    const report = execFileSync(process.execPath, [script], { cwd: fixture, encoding: "utf8" });
-    expect(report).toContain("major-crop-area-exposed → major-crop-area-exposed-100y");
-    expect(report).not.toContain("In CSV but NOT in JS config");
-
-    const csvPath = join(fixture, "data/inventory.csv");
-    const lines = readFileSync(csvPath, "utf8").split(/\r?\n/);
-    const row = lines.find((line) => line.includes(",major-crop-area-exposed,"));
-    lines.push(row.replace(",major-crop-area-exposed,", ",major-crop-area-exposed-100y,"));
-    writeFileSync(csvPath, lines.join("\n"));
-    const both = spawnSync(process.execPath, [script], { cwd: fixture, encoding: "utf8" });
-    expect(both.status).not.toBe(0);
-    expect(both.stderr).toContain("Keep one spelling");
-  });
-
   it("preserves configured metadata when an older CSV omits optional columns", () => {
     const fixture = makeFixture();
     const csvPath = join(fixture, "data/inventory.csv");

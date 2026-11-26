@@ -90,13 +90,11 @@ function list(value) {
  * @param {URLSearchParams} params
  * @param {string} name - the parameter name, for the warning
  * @param {Set<string>} known - every id the config knows
- * @param {(id: string) => string} [canonical] - maps a retired id to its
- *   current one before it is looked up (layer key aliases)
  * @returns {{ supplied: boolean, ids: string[]|null }}
  */
-function allowlist(params, name, known, canonical = (id) => id) {
+function allowlist(params, name, known) {
   const raw = params.get(name);
-  const supplied = list(raw)?.map(canonical) ?? null;
+  const supplied = list(raw);
   if (!supplied) {
     if (raw !== null) console.warn(`Embed parameter "${name}" was supplied but names nothing.`);
     return { supplied: raw !== null, ids: [] };
@@ -142,11 +140,11 @@ export function parseOrigin(value) {
  * dropped, a source index the layer does not have falls back to its first source
  * (`clampSourceIdx`, the rule a share link already follows), duplicates keep
  * their first entry, provider settings survive only as a plain object, and
- * the list is cut to `MAX_LAYERS`. A retired key (`layer.aliases`) is read as
- * the layer's current key, and the entry returned carries the current key.
+ * the list is cut to `MAX_LAYERS`.
  *
  * @param {unknown} layers - candidate entries, from a URL or a message
- * @param {{ allowed: Set<string>|string[], registry: { byKey: Function, canonicalKey?: Function, collectionOf?: Function }, collection?: string|null }} context
+ * @param {unknown} layers - candidate entries, from a URL or a message
+ * @param {{ allowed: Set<string>|string[], registry: { byKey: Function, collectionOf?: Function }, collection?: string|null }} context
  * @returns {Array<{ key: string, sourceIdx: number, settings?: object }>}
  */
 export function clampLayers(layers, { allowed, registry, collection = null }) {
@@ -158,7 +156,7 @@ export function clampLayers(layers, { allowed, registry, collection = null }) {
 
   for (const entry of layers) {
     if (!entry || typeof entry !== "object") continue;
-    const key = registry.canonicalKey ? registry.canonicalKey(entry.key) : entry.key;
+    const { key } = entry;
     if (typeof key !== "string" || !allowedKeys.has(key) || seen.has(key)) continue;
     const layer = registry.byKey(key);
     if (!layer) continue;
@@ -221,8 +219,7 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   const knownTabIds = new Set(allTabs.map((tab) => tab.id));
   const knownLayerKeys = new Set(urlKeyOrder(allTabs));
   const wantedTabs = allowlist(params, "tabs", knownTabIds);
-  const allRegistry = createLayerRegistry(allTabs);
-  const wantedLayers = allowlist(params, "allow", knownLayerKeys, allRegistry.canonicalKey);
+  const wantedLayers = allowlist(params, "allow", knownLayerKeys);
 
   // Supplied and resolved to nothing: the host asked for nothing, so show
   // nothing. Widening to the whole config here is how `?allow=no-such-layer`
@@ -261,7 +258,7 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   const targetTab = requestedTab && tabIds.includes(requestedTab) ? requestedTab : null;
   const targetCollection = targetTab && registry.collectionOfTab ? registry.collectionOfTab(targetTab) : null;
 
-  const rawLayers = parseLayerParams(params, { canonicalKey: allRegistry.canonicalKey });
+  const rawLayers = parseLayerParams(params);
   const layers = clampLayers(rawLayers, {
     allowed: layerKeys,
     registry,

@@ -16,9 +16,7 @@
  * Review the report, then run with --apply to sync MapX view IDs, display copy,
  * and supported statuses.
  * Rows whose layer keys appear in data/removed-layer-keys.txt are ignored, so
- * retired entries in an upstream spreadsheet cannot be reintroduced. Rows under
- * a renamed layer's old key (its `aliases`) sync to that layer, and the report
- * lists them so the spreadsheet can be corrected.
+ * retired entries in an upstream spreadsheet cannot be reintroduced.
  *
  * What --apply changes:
  *   - mapxViewId   (id field on simple layers; id on each sub-source for compound)
@@ -65,7 +63,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, "..");
@@ -204,18 +202,6 @@ function parseDownloads(row, context) {
   });
 }
 
-// Retired layer keys (`aliases` in the layer config) → the key each was renamed
-// to. A colleague export may still carry the old spelling; its rows sync to the
-// renamed layer and the report says to update the spreadsheet.
-const { TABS } = await import(pathToFileURL(resolve(ROOT, "src/config/layers/index.js")).href);
-const keyAliases = new Map(
-  TABS.flatMap((tab) => tab.layers).flatMap((layer) =>
-    layer.key ? (layer.aliases ?? []).map((alias) => [alias, layer.key]) : [],
-  ),
-);
-const aliasedRows = new Map(); // retired key in the CSV → current key
-const csvKeys = new Set(); // every key spelling the CSV uses
-
 // Build inventory index: key → { subSource → [rows] }.
 // A sub-source label is not necessarily unique: recovery-speed, for example,
 // repeats each hazard for the poorest and richest household groups.
@@ -223,10 +209,7 @@ const inventory = new Map();
 const ignoredRemovedRows = [];
 
 for (const r of dataRows) {
-  const csvKey = (r[H["Layer key"]] || "").trim();
-  const key = keyAliases.get(csvKey) ?? csvKey;
-  if (key !== csvKey) aliasedRows.set(csvKey, key);
-  if (csvKey) csvKeys.add(csvKey);
+  const key = (r[H["Layer key"]] || "").trim();
   const subSource = (r[H["Sub-source"]] || "").trim();
   const mapxId = (r[H["MapX view ID"]] || "").trim();
   const status = (r[H["Inventory status"]] || "").trim();
@@ -236,7 +219,7 @@ for (const r of dataRows) {
   const rrStep = (r[H["R&R Step"]] || "").trim();
 
   if (!key) continue;
-  if (removedKeys.has(csvKey) || removedKeys.has(key)) {
+  if (removedKeys.has(key)) {
     ignoredRemovedRows.push({ key, layerName, subSource });
     continue;
   }
@@ -266,15 +249,6 @@ for (const r of dataRows) {
     csvDownload,
     downloads,
   });
-}
-
-// Both spellings of one layer would sync two sets of rows into it.
-for (const [alias, key] of aliasedRows) {
-  if (csvKeys.has(key)) {
-    throw new Error(
-      `Inventory has rows under both "${alias}" and "${key}"; "${alias}" is a retired alias of "${key}". Keep one spelling.`,
-    );
-  }
 }
 
 // ── Load JS layer config (static import via dynamic require-like read) ────────
@@ -569,12 +543,6 @@ if (ignoredRemovedRows.length) {
   console.log(
     `Ignored:     ${ignoredRemovedRows.length} retired row(s) across ${ignoredKeys.length} layer key(s): ${ignoredKeys.join(", ")}`,
   );
-}
-
-if (aliasedRows.size) {
-  console.log(`\n── Retired layer keys in the CSV (${aliasedRows.size}) ──`);
-  console.log("  Synced to the renamed layer. Update the Layer key in the master spreadsheet:");
-  for (const [alias, key] of aliasedRows) console.log(`  ${alias} → ${key}`);
 }
 
 if (idChanges.length) {

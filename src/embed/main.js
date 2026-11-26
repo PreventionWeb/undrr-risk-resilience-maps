@@ -213,15 +213,13 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
       case "fit-layer": {
         // Outside the allowlist and not in the config read the same, so a host
         // cannot probe for layers this embed was configured not to show.
-        // A retired key (`layer.aliases`) names the layer it was renamed to.
-        const key = registry.canonicalKey(payload.key);
-        if (typeof key !== "string" || !allowed.has(key)) {
+        if (typeof payload.key !== "string" || !allowed.has(payload.key)) {
           throw refuse(
             "unknown-layer",
             `"fit-layer": ${JSON.stringify(payload.key)} is not a layer this embed shows`,
           );
         }
-        await map.fitLayer(key, { animate: payload.animate === true });
+        await map.fitLayer(payload.key, { animate: payload.animate === true });
         return;
       }
       default:

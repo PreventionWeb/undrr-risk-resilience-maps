@@ -229,26 +229,6 @@ export function createRouter({
   // --- Reading -------------------------------------------------------------
 
   /**
-   * URL entries with retired keys (`layer.aliases`) read as current keys, and
-   * the first entry for a layer kept if a link names it under both spellings.
-   * The hash adapter already did this while parsing; a state adapter given
-   * layers directly (`createRiskMap({ layers })`, `setState`) has not.
-   */
-  function canonicalEntries(layers) {
-    const canonical = registry?.canonicalKey ?? ((key) => key);
-    const seen = new Set();
-    const entries = [];
-    for (const entry of layers ?? []) {
-      if (!entry || typeof entry !== "object") continue;
-      const key = canonical(entry.key);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      entries.push(key === entry.key ? entry : { ...entry, key });
-    }
-    return entries;
-  }
-
-  /**
    * Ask for a layer as a URL state entry describes it: on, with its (clamped)
    * source or its provider settings.
    */
@@ -297,9 +277,8 @@ export function createRouter({
   }
 
   /** An external change to URL state: back/forward, a link, a typed URL. */
-  function onUrlChange(change) {
+  function onUrlChange(parsed) {
     if (destroyed) return;
-    const parsed = { ...change, layers: canonicalEntries(change.layers) };
     let nextTab = parsed.tab;
     if (!nextTab && parsed.layers?.length > 0 && registry?.collectionOf) {
       const layerCol = registry.collectionOf(parsed.layers[0].key);
@@ -377,7 +356,7 @@ export function createRouter({
         console.warn("restoreFromUrl: the sidebar is destroyed; nothing restored.");
         return;
       }
-      const layers = canonicalEntries(adapter.read().layers);
+      const { layers } = adapter.read();
       if (layers.length === 0) return;
       const known = new Set(layerKeys());
       const activeCollection =

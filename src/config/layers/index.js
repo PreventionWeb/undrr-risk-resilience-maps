@@ -7,11 +7,6 @@
  *
  * Simple layer fields:
  *   id       - MapX view ID (null for "coming soon" / disabled layers)
- *   key      - public layer key used by share links and embeds; keep it stable
- *              when the MapX view changes (docs/inventory.md "Keeping layer
- *              links stable")
- *   aliases  - optional retired keys that still resolve to this layer after a
- *              rename (compound layers too)
  *   label    - Display name
  *   type     - "rt" (raster), "vt" (vector), or "cc" (custom coded / live)
  *   desc     - Short description shown when the layer accordion is expanded

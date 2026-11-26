@@ -3,7 +3,7 @@
  * Fail if data/public-layer-keys.txt lost a key relative to a base revision.
  *
  * src/config/public-keys.test.js checks that every key in the ledger still
- * resolves, but it reads the ledger as it is now: deleting a key (or editing it
+ * names a layer or is retired, but it reads the ledger as it is now: deleting a key (or editing it
  * into a new spelling) would pass it. This compares against the base branch.
  *
  * Usage: node scripts/check-public-keys-ledger.mjs [base-ref]   (default: origin/main)
@@ -45,8 +45,8 @@ function main(baseRef = "origin/main") {
   }
   console.error(
     `${LEDGER} no longer lists ${removed.map((key) => `"${key}"`).join(", ")}.\n` +
-      "Public keys are never removed: restore the line, and add the key to its layer's `aliases` (renamed) " +
-      "or to data/removed-layer-keys.txt (retired). See docs/inventory.md.",
+      "Public keys are never removed from the list: restore the line. To drop a key, retire it in " +
+      "data/removed-layer-keys.txt instead. See docs/inventory.md.",
   );
   return 1;
 }

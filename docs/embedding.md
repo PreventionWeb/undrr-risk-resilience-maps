@@ -71,9 +71,7 @@ design and programme preference are reviewed. Native suppression uses MapX's
 
 ### Parameters
 
-Everything is validated against the layer config and unknown parameters are ignored. Layer
-keys are stable across releases. A key that was renamed still works under its old spelling
-([keeping layer links stable](inventory.md#keeping-layer-links-stable)). A bad value
+Everything is validated against the layer config and unknown parameters are ignored. A bad value
 falls back to its default rather than failing the embed — with two deliberate exceptions, the
 allowlists and `parentOrigin`, both described under the table.
 

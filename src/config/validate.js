@@ -12,8 +12,6 @@ import { isValidCsvDownload } from "./downloads.js";
 
 const VALID_TYPES = ["rt", "vt", "cc"];
 const VALID_GEOMETRIES = ["point", "polygon", "line"];
-/** The spelling of a public layer key (and so of a retired one). */
-const LAYER_KEY_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /**
  * A view's hosted files (src/config/downloads.js): `[[url, bytes], ...]`, each
  * an https URL and a positive whole number of bytes.
@@ -76,10 +74,6 @@ export function validateLayers(tabs, primaryProject) {
   const warnings = [];
   const seenIds = new Set();
   const seenKeys = new Set();
-  // Retired keys (`layer.aliases`): alias → the key it resolves to. Checked
-  // against every current key once the walk is done, because an alias may
-  // collide with a key defined later in the config.
-  const seenAliases = new Map();
 
   for (const tab of tabs) {
     if (!tab.id || !tab.label || !Array.isArray(tab.layers)) {
@@ -134,32 +128,6 @@ export function validateLayers(tabs, primaryProject) {
           errors.push(`${ctx} -- duplicate key "${layer.key}" (breaks hash routing and the layer registry)`);
         }
         seenKeys.add(layer.key);
-      }
-
-      // Retired public keys this layer still answers to in shared links and
-      // embeds (docs/inventory.md "Renaming a layer key").
-      if (layer.aliases !== undefined) {
-        if (!layer.key) {
-          errors.push(`${ctx} -- aliases need a key to resolve to`);
-        } else if (!Array.isArray(layer.aliases)) {
-          errors.push(`${ctx} -- aliases must be an array of retired layer keys`);
-        } else {
-          for (const alias of layer.aliases) {
-            if (typeof alias !== "string" || !LAYER_KEY_RE.test(alias)) {
-              errors.push(
-                `${ctx} -- alias ${JSON.stringify(alias)} must be a lowercase layer key (a-z, 0-9, -)`,
-              );
-            } else if (alias === layer.key) {
-              errors.push(`${ctx} -- alias "${alias}" is the layer's own key`);
-            } else if (seenAliases.has(alias)) {
-              errors.push(
-                `${ctx} -- alias "${alias}" is already an alias of "${seenAliases.get(alias)}" (a shared link could open either)`,
-              );
-            } else {
-              seenAliases.set(alias, layer.key);
-            }
-          }
-        }
       }
 
       // Public MapX views can currently be added by ID across projects. Keep a
@@ -258,14 +226,6 @@ export function validateLayers(tabs, primaryProject) {
           }
         }
       }
-    }
-  }
-
-  for (const [alias, key] of seenAliases) {
-    if (seenKeys.has(alias)) {
-      errors.push(
-        `alias "${alias}" of "${key}" is also a current layer key (a shared link would open the other layer)`,
-      );
     }
   }
 

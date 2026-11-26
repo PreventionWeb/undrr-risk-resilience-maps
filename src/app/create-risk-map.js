@@ -22,7 +22,7 @@
  * interval and SDK subscription this creates is undone by `destroy()`.
  */
 import { TABS, PRIMARY_PROJECT } from "../config/layers.js";
-import { canonicalLayerKey, createLayerRegistry, getLayerRegistry } from "../config/registry.js";
+import { createLayerRegistry, getLayerRegistry } from "../config/registry.js";
 import { validateLayers } from "../config/validate.js";
 import { createHashAdapter } from "../state/hash-adapter.js";
 import { changesUrlState, toUrlLayers } from "../state/layers-store.js";
@@ -181,9 +181,7 @@ export function createRiskMap(root, options = {}) {
 
   if (validate) validateLayers(TABS, mapxProject);
 
-  // A retired key (`layer.aliases`) in the allowlist allows the layer it names.
-  const allowedKeys = layerAllowlist ? [...layerAllowlist].map(canonicalLayerKey) : null;
-  const tabs = selectTabs(TABS, { tabs: tabIds, layers: allowedKeys });
+  const tabs = selectTabs(TABS, { tabs: tabIds, layers: layerAllowlist });
   // The shared, immutable registry when the instance shows the whole config
   // (docs/embedding.md §3's "may stay module-level"); a private one otherwise,
   // so the URL key order and the controller's lookups cover exactly these tabs.
@@ -545,9 +543,8 @@ export function createRiskMap(root, options = {}) {
      * @param {string} key
      * @param {{ animate?: boolean }} [options]
      */
-    async fitLayer(requestedKey, { animate = false } = {}) {
+    async fitLayer(key, { animate = false } = {}) {
       cameraReady();
-      const key = registry.canonicalKey(requestedKey);
       const layer = registry.byKey(key);
       if (!layer) throw new CameraError("unknown-layer", `Layer "${key}" is not in this map`);
       const current = sidebar.store.get(key);
