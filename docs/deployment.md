@@ -39,24 +39,43 @@ The GitHub Pages workflow uses its own base path from `vite.config.js`.
 ## Caching
 
 Build output has fixed file names (`assets/embed.js`, `assets/shared.js`, …) with no content
-hashes; see `build.rollupOptions.output` in `vite.config.js`. A cached copy of `embed.html`
-from an earlier release therefore still finds its scripts after a deploy. With hashed names,
-each deploy deleted the files an older copy named, and a GAR landing-page embed stayed blank
-on 404s ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+hashes in them, so a cached `embed.html` from an earlier release still finds files that
+exist. With hashed names, each deploy deleted the files an older copy named, and a GAR
+landing-page embed stayed blank on 404s
+([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
 
-The trade-off: a file's URL no longer changes when its content does. The chunks import each
-other, and the names they use internally change between builds, so an old cached chunk next
-to a new one can break the app. The UNDRR host should therefore serve:
+Each build instead adds one cache buster to every reference between its own files:
+`./assets/embed.js?v=7b098c438a`, `./shared.js?v=7b098c438a`, lazy imports included
+(`buildQuery()` in `vite.config.js`). The id hashes the whole build's output, so it changes
+whenever anything does. This matters because two builds' chunks don't fit together: their
+internal export names differ, and pairing a new `embed.js` with an old `shared.js` fails
+module linking. Under one build id, a new file only ever imports files cached under the same
+id. CI checks that every reference carries the id, and only one id
+(`scripts/check-build-references.mjs`).
 
-| Path                            | Cache-Control | Why                                                                                          |
-| ------------------------------- | ------------- | -------------------------------------------------------------------------------------------- |
-| `/`, `index.html`, `embed.html` | `no-cache`    | Any query string included. Visitors get the new release straight away                        |
-| `assets/*`                      | `no-cache`    | A browser revalidates each file (a quick `304` when unchanged), so it never mixes two builds |
+The server keeps only the latest build, whatever the query says. A page using an old id
+(an open tab, or a stale `embed.html`) can still receive new files under that old id. Caching
+reduces this risk but can't remove it: a request can always straddle a deploy. Reloading
+fixes it. Serve:
 
-`no-cache` still lets browsers and Cloudflare keep the files; they only check with the server
-before using them. Purging Cloudflare on deploy is a useful extra. The GitHub Pages preview
-sends `max-age=600` for everything and can't be changed, so a preview visitor can see a broken
-mix of builds for up to ten minutes after a merge.
+| Path                            | Cache-Control                                 | Why                                                                                                   |
+| ------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `/`, `index.html`, `embed.html` | `no-cache`                                    | With any query string. New visits get the new build id at once, so stale HTML lasts only in open tabs |
+| `assets/*`                      | `public, max-age=31536000, immutable` is fine | New HTML always asks for the new id, so a stale copy under an old id is only reached by old pages     |
+
+Cloudflare must keep the query string in the cache key (its default). After every deploy, purge
+the cache for the map, HTML query variants included.
+
+### First fixed-name release
+
+Copies of `embed.html` from v0.0.16 and earlier still name hashed files such as
+`assets/embed-BiCrkA-t.js`. The first deploy of this change must keep the previous release's
+hashed files on the server until those copies have expired. Purge the map's HTML, query
+variants included, in the same deploy. Later deploys replace the fixed-name files in place,
+and nothing references hashed names any more.
+
+The GitHub Pages preview sends `max-age=600` for everything and replaces the whole site on
+each deploy, so a preview tab can break for up to ten minutes after a merge.
 
 ## Hosting and access
 

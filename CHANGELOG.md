@@ -8,7 +8,7 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ### Changed
 
-- Build files with fixed names instead of content-hashed ones, so a cached embed page from an earlier release still loads after a deploy. The host should serve `assets/*` with `Cache-Control: no-cache` ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+- Build files with fixed names instead of content-hashed ones, so a cached embed page from an earlier release still loads after a deploy. One build-wide `?v=` cache buster on every internal reference keeps caches from mixing files from two builds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
 
 ## [0.0.16] - 2026-11-26
 

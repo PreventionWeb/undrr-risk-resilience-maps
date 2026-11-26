@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { DEV_IDENTITY_PATH } from "./tests/e2e/dev-server.js";
 
 function gitValue(format, fallback) {
@@ -67,8 +68,66 @@ function devServerIdentity() {
   };
 }
 
+/**
+ * Append one build-wide cache buster (`?v=<build id>`) to every reference
+ * between the build's own files: HTML → scripts and styles, and chunk →
+ * chunk imports, lazy ones included.
+ *
+ * File names are fixed (see `build.rollupOptions.output`), so an `embed.html`
+ * cached from any release still finds files that exist. The query makes each
+ * build's files a separate cache entry: a new `embed.js?v=B` only ever imports
+ * `shared.js?v=B`, never a copy of `shared.js` that a browser or Cloudflare
+ * kept from build A. The chunks' internal export names change between builds,
+ * and pairing two builds fails module linking
+ * (PreventionWeb/undrr-risk-resilience-maps#91).
+ *
+ * The build id hashes the content of every emitted file before the queries are
+ * added. It changes whenever any output changes and needs no git checkout
+ * (the downstream build may have none).
+ */
+export function buildQuery() {
+  return {
+    name: "build-query",
+    apply: "build",
+    enforce: "post",
+    generateBundle: {
+      order: "post",
+      handler(_options, bundle) {
+        const files = Object.values(bundle);
+        const hash = createHash("sha256");
+        for (const file of [...files].sort((a, b) => a.fileName.localeCompare(b.fileName))) {
+          hash.update(file.fileName).update(file.type === "chunk" ? file.code : file.source);
+        }
+        const query = `?v=${hash.digest("hex").slice(0, 10)}`;
+        const names = files
+          .map((file) => file.fileName.split("/").pop())
+          .filter((name) => /\.(?:js|css)$/.test(name))
+          .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        if (names.length === 0) return;
+        // A quoted reference to one of our files, in the forms Vite writes: a
+        // chunk import beside it (`"./shared.js"`) or a path into `assets/`
+        // (`"./assets/embed.css"`, `"/base/assets/main.js"`, `"assets/x.js"`).
+        // Any other string that happens to end in one of the names, such as
+        // `"src/embed/main.js"`, is not a reference and is left alone.
+        const reference = new RegExp(
+          `(["'\`])((?:\\./|(?:[^"'\`\\s]*/)?assets/)(?:${names.join("|")}))\\1`,
+          "g",
+        );
+        const addQuery = (text) =>
+          text.replace(reference, (_m, quote, path) => `${quote}${path}${query}${quote}`);
+        for (const file of files) {
+          if (file.type === "chunk") file.code = addQuery(file.code);
+          else if (/\.(?:html|css)$/.test(file.fileName) && typeof file.source === "string") {
+            file.source = addQuery(file.source);
+          }
+        }
+      },
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [devServerIdentity()],
+  plugins: [devServerIdentity(), buildQuery()],
   root: ".",
   base: base(command),
   define: {
@@ -89,11 +148,9 @@ export default defineConfig(({ command }) => ({
       // Fixed file names, no content hashes (PreventionWeb/undrr-risk-resilience-maps#89).
       // A cached copy of `embed.html` from an earlier release must still find
       // its scripts: with hashed names, each deploy deleted the files an older
-      // copy named, and a GAR embed stayed blank on 404s. The trade-off is that
-      // a file's URL no longer changes when its content does, so the host must
-      // serve everything under `assets/` with `Cache-Control: no-cache` (see
-      // docs/deployment.md "Caching"). Otherwise a browser can mix a cached old
-      // chunk with a new one, and those do not fit together.
+      // copy named, and a GAR embed stayed blank on 404s. `buildQuery()` above
+      // adds `?v=<build id>` to every reference, so caches still keep each
+      // build's files apart (docs/deployment.md "Caching").
       output: {
         entryFileNames: "assets/[name].js",
         chunkFileNames: "assets/[name].js",
