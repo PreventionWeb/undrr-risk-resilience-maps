@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Open the standalone viewer and iframe embed without a PIN, and update the About page for the early public release.
+- Restrict map layers and downloads to published datasets, including when a shared link requests a layer still under development.
+
 ## [0.0.15] - 2026-11-17
 
 ### Added

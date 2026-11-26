@@ -100,6 +100,13 @@ describe("parseEmbedParams", () => {
     ]);
   });
 
+  it("excludes unpublished layers from selections and allowlists even when they have view IDs", () => {
+    const params = parse("?layers=pml-public:1,recovery-speed");
+    expect(params.layers).toEqual([{ key: "recovery-speed", sourceIdx: 0 }]);
+    expect(params.layerKeys).not.toContain("pml-public");
+    expect(parse("?allow=pml-public")).toMatchObject({ empty: true, layerKeys: [] });
+  });
+
   it("cuts an over-long layer list to MAX_LAYERS", () => {
     const keys = getLayerRegistry().urlKeyOrder();
     expect(keys.length).toBeGreaterThan(MAX_LAYERS);

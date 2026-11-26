@@ -70,6 +70,7 @@ describe("isCsvEligible", () => {
     for (const overrides of [
       { type: "rt" },
       { type: "cc" },
+      { status: "disabled-awaiting-data" },
       { status: "disabled-pending-removal" },
       { external: { provider: "x" } },
       { id: null },

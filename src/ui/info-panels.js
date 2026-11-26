@@ -119,7 +119,7 @@ export function buildSourcesPanel({ signal, downloads = null } = {}) {
         ? `
           <details class="sources-planned mg-details">
             <summary>Metrics under development (${planned.length})</summary>
-            <p class="sources-planned__intro">These entries are retained for transparent prototype planning. Their data, methodology or publication status is not yet confirmed.</p>
+            <p class="sources-planned__intro">These entries are retained for planning and reference. Their data, methodology or publication status is not yet confirmed.</p>
             ${buildSourcesTable(planned, tab.id, downloads)}
           </details>`
         : "";
@@ -293,9 +293,9 @@ export function buildAboutPanel() {
       <div class="mg-container">
         <div class="mg-highlight-box mg-highlight-box--secondary">
           <h3>Platform status</h3>
-          <p>This tool is currently a <strong>prototype in active development</strong>, shared for interaction review and early stakeholder feedback. It does not yet reflect final data, branding or functionality.</p>
+          <p>This tool is available in an <strong>early public release</strong>. The layer inventory and viewer are still being developed.</p>
           <ul>
-            <li>Layer inventory is being confirmed: many entries are placeholders awaiting data.</li>
+            <li>Some entries on the Sources page are awaiting data or confirmation.</li>
             <li>The name <em>GRAR Metrics Facility Map Viewer</em> is a working title and may change.</li>
             <li>Data, design and structure are subject to change without notice.</li>
             <li>For questions or feedback, contact the UNDRR digital team.</li>

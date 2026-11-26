@@ -10,10 +10,8 @@
  *   `src/embed/params.js`;
  * - **no information pages, no header, no footer** — the embed markup simply has
  *   none of those hooks, so the sidebar builds none of them;
- * - **the same preview PIN gate as `index.html`** (docs/embedding.md §8,
- *   "The preview gate in an embed");
- * - **a versioned `postMessage` bridge** to the host (`src/embed/messaging.js`),
- *   which stays shut while the gate is locked, and **one command queue**: host
+ * - **a versioned `postMessage` bridge** to the host (`src/embed/messaging.js`)
+ *   and **one command queue**: host
  *   commands (and the URL's camera) run one at a time, in the order they
  *   arrived, once the map is ready;
  * - **an `embed_loaded` analytics event** naming the host it is framed in.
@@ -30,13 +28,8 @@ import { applyVariants } from "../state/hash.js";
 import { parseAreaCode, parseBounds, parseCenter, parseZoom } from "../utils/camera.js";
 import { clampLayers, parseEmbedParams } from "./params.js";
 import { createMessageBridge, FEATURES, MESSAGE_VERSION } from "./messaging.js";
-import { watchPreviewGate } from "./preview-gate.js";
 import "../styles/shared.css";
 import "../styles/components/embed.css";
-
-/** What a host is told when it addresses an embed that is still behind the gate. */
-const LOCKED_MESSAGE =
-  "This embed is a preview and is locked until its PIN is entered inside the frame; it accepts no commands and reports no state until then";
 
 /**
  * How many commands may wait in the queue. A host script is a handful of steps;
@@ -78,16 +71,13 @@ const refuse = (code, message) => Object.assign(new Error(message), { code });
  * @param {string} [context.referrer] - `document.referrer`
  * @param {object} [context.analytics] - injected sink holder (tests)
  * @param {object} [context.riskMapOptions] - merged into the instance options (tests)
- * @returns {{ map: object|null, bridge: object, params: object, gate: object, destroy(): void }}
+ * @returns {{ map: object|null, bridge: object, params: object, destroy(): void }}
  */
 export function mountEmbed(root, { windowRef = window, search, referrer, analytics, riskMapOptions } = {}) {
   const doc = root.ownerDocument;
   const params = parseEmbedParams(search ?? windowRef.location.search, {
     referrer: referrer ?? doc.referrer,
   });
-  // The preview gate hides and inerts the whole embed until the PIN is entered
-  // *inside the frame*. Everything below asks it whether the bridge may act.
-  const gate = watchPreviewGate(doc);
 
   const track = () =>
     createAnalytics(analytics).track(
@@ -97,7 +87,6 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
         tab: params.tab,
         layers: params.layers.map((layer) => layer.key),
         framed: windowRef.parent !== windowRef,
-        locked: gate.locked,
       }),
     );
 
@@ -105,7 +94,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   // `?allow=no-such-layer` and friends: the host supplied an allowlist that
   // selects nothing (see params.js). There is no map to build, so say so in the
   // frame and answer the host rather than rendering a silently different embed.
-  if (params.empty) return mountEmptyEmbed(root, { windowRef, params, gate, track });
+  if (params.empty) return mountEmptyEmbed(root, { windowRef, params, track });
 
   // The panel's initial collapsed state is markup, because that is where the
   // sidebar reads it from and what it restores on destroy.
@@ -132,16 +121,12 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   // --- Inbound: one queue, in arrival order ----------------------------------
   //
   // Every command, and the camera the URL asks for, goes through one queue that
-  // runs while the map is ready and the gate is open, one command at a time:
+  // runs once the map is ready, one command at a time:
   // a camera command is awaited (each MapX call has a deadline, so the queue
   // cannot stall) before the next one starts. `set-tab` and `set-layers` are
   // dispatched, not awaited — their outcome is reported by `state` as before —
   // and `fit-layer` waits for a layer that is still turning on, which is what
   // lets a host send `set-layers` and `fit-layer` back to back.
-  //
-  // A locked embed queues nothing from the host: each command is answered with
-  // `error: locked` straight away, as before. A host keeps its script and sends
-  // it again on the `ready` that says `locked: false`.
 
   const queue = [];
   let mapReady = false;
@@ -266,7 +251,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     if (running) return;
     running = true;
     try {
-      while (!destroyed && mapReady && !gate.locked && queue.length > 0) {
+      while (!destroyed && mapReady && queue.length > 0) {
         const command = queue.shift();
         let timer;
         try {
@@ -307,13 +292,6 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     parentOrigin: params.parentOrigin,
     instance: params.instance,
     onCommand(command) {
-      // Locked: the embed is not drivable and does not report its state. A host
-      // that framed a gated prototype gets told why, once per command, and
-      // nothing it sends reaches the map.
-      if (gate.locked) {
-        bridge.post("error", { code: "locked", message: LOCKED_MESSAGE }, { id: command.id });
-        return;
-      }
       if (mapFailed && !mapReady) {
         bridge.post("error", NOT_READY, { id: command.id });
         return;
@@ -351,38 +329,16 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
   };
   updateFullViewerLink(map.getState());
 
-  // `locked` is read from the gate, never assumed: the field means "the gate is
-  // open", so it has to be the gate's answer at the moment the message is
-  // posted. In practice a locked embed never gets here (MapX cannot load behind
-  // the gate's `visibility: hidden` — see #24), but a stubbed or future map that
-  // does become ready must not tell the host the gate opened.
+  // Keep the locked field in v1 ready messages for existing hosts.
   map.on("ready", (payload) => {
     mapFailed = false;
-    bridge.post("ready", { version: MESSAGE_VERSION, ...payload, features: FEATURES, locked: gate.locked });
+    bridge.post("ready", { version: MESSAGE_VERSION, ...payload, features: FEATURES, locked: false });
     mapReady = true;
-    void pump();
-  });
-  // A map that became ready behind the gate (a stub; real MapX cannot, #24)
-  // gets its unlocked `ready` when the gate opens, so the rule a host relies on
-  // holds either way: the queue runs after a `ready` that says `locked: false`.
-  const stopUnlockWatch = gate.onUnlock(() => {
-    if (!mapReady || destroyed) return;
-    bridge.post("ready", {
-      version: MESSAGE_VERSION,
-      tabs: map.tabs,
-      layers: map.layerKeys,
-      features: FEATURES,
-      locked: false,
-    });
     void pump();
   });
   map.on("state", (state) => {
     updateFullViewerLink(state);
-    // While locked, reporting state would let a host read a gated prototype.
-    // Nothing should change behind the gate anyway (the map cannot even load
-    // there — `canMapLoad()` reads the gate's `visibility: hidden`), so this is
-    // the belt to that brace.
-    if (!gate.locked) bridge.post("state", state);
+    bridge.post("state", state);
   });
   map.on("error", (error) => {
     bridge.post("error", error);
@@ -398,32 +354,15 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
     }
   });
 
-  // A locked embed never reaches MapX's `ready`, so announce the gate instead:
-  // the host learns the frame exists, which version it speaks and why it is not
-  // answering, and can show its own message. The real `ready` (with
-  // `locked: false`) follows once the PIN is entered and the map finishes.
-  if (gate.locked) {
-    bridge.post("ready", {
-      version: MESSAGE_VERSION,
-      locked: true,
-      tabs: params.tabIds,
-      layers: params.layerKeys,
-      features: FEATURES,
-    });
-  }
-
   track();
 
   return {
     map,
     bridge,
     params,
-    gate,
     destroy() {
       destroyed = true;
       queue.length = 0;
-      stopUnlockWatch();
-      gate.destroy();
       bridge.destroy();
       map.destroy();
     },
@@ -437,7 +376,7 @@ export function mountEmbed(root, { windowRef = window, search, referrer, analyti
  * markup is shown, the map region is removed, and the bridge exists only to say
  * `ready` with empty lists and to refuse commands.
  */
-function mountEmptyEmbed(root, { windowRef, params, gate, track }) {
+function mountEmptyEmbed(root, { windowRef, params, track }) {
   root.querySelector('[data-ui="app-map"]')?.remove();
   root.querySelector(".embed-nav")?.remove();
   const notice = root.querySelector("[data-ui-embed-empty]");
@@ -461,7 +400,7 @@ function mountEmptyEmbed(root, { windowRef, params, gate, track }) {
 
   bridge.post("ready", {
     version: MESSAGE_VERSION,
-    locked: gate.locked,
+    locked: false,
     tabs: [],
     layers: [],
     features: FEATURES,
@@ -472,9 +411,7 @@ function mountEmptyEmbed(root, { windowRef, params, gate, track }) {
     map: null,
     bridge,
     params,
-    gate,
     destroy() {
-      gate.destroy();
       bridge.destroy();
     },
   };
@@ -483,13 +420,6 @@ function mountEmptyEmbed(root, { windowRef, params, gate, track }) {
 /**
  * The entry's own side effect, and the only one: mount the embed this document
  * is. Guarded so importing this module in a test does not mount anything.
- *
- * It waits for `DOMContentLoaded` for one reason: Mangrove's `preview-access.js`
- * decides there whether the gate is already unlocked (from `sessionStorage`) and
- * marks it. Its module script sits above this one, so its listener is registered
- * first and has run by the time this mounts — which is what lets the mount read
- * a settled gate state instead of assuming the worst and telling every host its
- * embed is locked.
  */
 function mountThisDocument() {
   const embedRoot = document.querySelector("[data-ui-embed]");

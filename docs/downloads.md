@@ -19,8 +19,7 @@ CSV export on Sources is separate and remains available.
 
 ### Try a download
 
-Start the viewer with the [README development setup](../README.md#developing) and enter the
-stakeholder preview PIN when prompted (access details are shared separately).
+Start the viewer with the [README development setup](../README.md#developing).
 
 1. Open `http://localhost:3001/#risk-resilience?layers=recovery-speed` and wait for the
    layer to load. Choose **Citation, methodology and downloads** to open the displayed metric's resources,

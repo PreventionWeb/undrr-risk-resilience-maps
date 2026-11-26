@@ -17,21 +17,9 @@
  *   then reports that the map cannot load, so the ready budget is not spent on
  *   a map that is not rendering.
  *
- * Three things make this harder than setting attributes once:
- *
- * 1. Mangrove's `preview-access.js` calls `removeAttribute("inert")` on **every
- *    direct child of `<body>`** when the PIN is accepted, and `#app-map` is one.
- *    Nothing upstream re-asserts it, so the container's `inert` disappears in
- *    the session in which the PIN is entered.
- * 2. Children appear after the warm-up starts (`buildSiteInspectorPanel()` runs
- *    after `createSidebar()`), and they are not covered by the container's
- *    `inert` once the gate has stripped it.
- * 3. `inert` is not everywhere: without it the layer switches, the collapse
- *    button, the inspect toggle and the MapX iframe would all be tab stops
- *    inside an invisible overlay.
- *
- * (1) and (2) are handled by a `MutationObserver` that re-asserts the state for
- * as long as the map is warming; (3) by the feature detection above.
+ * The site inspector can be appended after warm-up starts. A
+ * `MutationObserver` applies the same attributes to new children and restores
+ * the container attributes if they change.
  *
  * Three things this deliberately does not do:
  *
@@ -201,11 +189,8 @@ export function createMapWarming(
   const startObserving = () => {
     if (observer || !MutationObserverRef) return;
     observer = new MutationObserverRef(assertOutOfReach);
-    // `inert` and `aria-hidden` because the preview gate strips the first and
-    // nothing guarantees the second; `childList` because a panel built after
-    // the sidebar (the site inspector) would otherwise arrive reachable. No
-    // `subtree`: the container's own `inert` covers every descendant, so a
-    // deeper node cannot become reachable while the container's is in place.
+    // Watch the container attributes and direct children, including panels
+    // appended after the sidebar starts. Inert on the container covers deeper nodes.
     observer.observe(appMap, {
       attributes: true,
       attributeFilter: ["inert", "aria-hidden"],

@@ -10,21 +10,6 @@
     <link rel="stylesheet" href="https://assets.undrr.org/mangrove/2.5.0/css/style.css" />
   </head>
   <body>
-    <!-- Preview access gate (Mangrove), the same one index.html carries: same
-         `data-mg-preview-id`, so an unlock is shared wherever the browser gives
-         the two pages one sessionStorage, and the same public PIN. How it
-         behaves in a frame, and how to remove it: docs/embedding.md §8, "The
-         preview gate in an embed". -->
-    <div
-      data-mg-preview-access
-      data-mg-preview-id="grar-map-viewer"
-      data-mg-preview-pin="0403"
-      data-mg-preview-persist="local"
-      data-mg-preview-title="GRAR Metrics Facility Map Viewer"
-      data-mg-preview-message="This is a prototype for interaction and review only. It does not reflect actual data or final look and feel. It is shared for early feedback purposes only."
-      data-mg-preview-pin-label="Enter the PIN for access."
-    ></div>
-
     <!--
       The iframe embed (docs/embedding.md phase 1). Configured entirely by URL
       parameters — see `src/embed/params.js` for the table and the clamping.
@@ -197,7 +182,6 @@
       </footer>
     </div>
 
-    <script type="module" src="https://assets.undrr.org/mangrove/2.5.0/js/preview-access.js"></script>
     <script type="module" src="/src/embed/main.js"></script>
   </body>
 </html>

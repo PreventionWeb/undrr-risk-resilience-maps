@@ -54,7 +54,7 @@
  */
 import { TABS } from "../config/layers.js";
 import { downloadsEnabledFromSearch, inspectionEnabledFromSearch } from "../config/features.js";
-import { createLayerRegistry } from "../config/registry.js";
+import { createLayerRegistry, urlKeyOrder } from "../config/registry.js";
 import { clampSourceIdx } from "../services/layer-controller.js";
 import { parseLayerParams } from "../state/hash.js";
 import { selectTabs } from "../app/create-risk-map.js";
@@ -104,7 +104,7 @@ function allowlist(params, name, known) {
   if (unknown.length > 0) {
     console.warn(
       `Embed parameter "${name}": ${unknown.map((id) => `"${id}"`).join(", ")} ` +
-        `${unknown.length === 1 ? "is not" : "are not"} in the layer config and ${
+        `${unknown.length === 1 ? "is not" : "are not"} available and ${
           unknown.length === 1 ? "was" : "were"
         } ignored.`,
     );
@@ -217,12 +217,7 @@ export function parseEmbedParams(search, { allTabs = TABS, referrer = "" } = {})
   // The allowlists first: they decide what "a valid tab" and "a known layer"
   // even mean for this embed.
   const knownTabIds = new Set(allTabs.map((tab) => tab.id));
-  const knownLayerKeys = new Set(
-    allTabs
-      .flatMap((tab) => tab.layers)
-      .map((layer) => layer.key)
-      .filter(Boolean),
-  );
+  const knownLayerKeys = new Set(urlKeyOrder(allTabs));
   const wantedTabs = allowlist(params, "tabs", knownTabIds);
   const wantedLayers = allowlist(params, "allow", knownLayerKeys);
 

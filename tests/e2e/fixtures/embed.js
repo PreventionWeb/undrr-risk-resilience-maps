@@ -70,8 +70,7 @@ export { expect };
  * @param {import("@playwright/test").Page} page
  * @param {string} [search] - the embed's query string, e.g. `"?tab=hazard"`
  * @param {{ waitForMap?: boolean }} [options] - `false` for an embed that never
- *   builds a map: one still behind the PIN gate, or one whose parameters select
- *   nothing and which renders the empty state instead.
+ *   builds a map because its parameters select nothing.
  */
 export async function gotoEmbed(page, search = "", { waitForMap = true } = {}) {
   await page.goto(`/embed.html${search}`);

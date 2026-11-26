@@ -11,10 +11,10 @@ describe("Mangrove release alignment", () => {
     const { MANGROVE_CITE_THIS_VERSION } = await import("../vendor/mangrove/cite-this.js");
     expect(MANGROVE_CITE_THIS_VERSION).toBe(MANGROVE_VERSION);
   });
-  it.each(["index.html", "embed.html"])("keeps %s CSS and preview gate on the module release", (file) => {
+  it.each(["index.html", "embed.html"])("keeps %s CSS on the module release", (file) => {
     const html = readFileSync(resolve(import.meta.dirname, "../..", file), "utf8");
     const urls = [...html.matchAll(/https:\/\/assets\.undrr\.org\/mangrove\/[^"\s]+/g)].map(([url]) => url);
-    expect(urls).toEqual([`${MANGROVE_BASE_URL}/css/style.css`, `${MANGROVE_BASE_URL}/js/preview-access.js`]);
+    expect(urls).toEqual([`${MANGROVE_BASE_URL}/css/style.css`]);
   });
 
   it("uses that release for CDN enhancements", () => {

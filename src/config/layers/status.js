@@ -1,7 +1,7 @@
 /**
  * Layer publication/status helpers.
  *
- * The prototype keeps some layers in config for tracking and attribution even
+ * The viewer keeps some layers in config for tracking and attribution even
  * when they are not currently published in the map explorer. Those layers can
  * carry a richer unpublished status so review surfaces can distinguish between
  * content that is awaiting data and content that is pending removal.
@@ -50,11 +50,9 @@ export function isLayerPublished(layer) {
   return !UNPUBLISHED_STATUSES.has(getLayerPublicationState(layer));
 }
 
-/** Whether the prototype can offer this layer in the map explorer. */
+/** Whether the viewer can render or offer downloads for this layer. */
 export function isLayerAvailable(layer) {
-  const publicationState = getLayerPublicationState(layer);
-  if (publicationState === "disabled-awaiting-data") return hasCompleteMapxViews(layer);
-  if (UNPUBLISHED_STATUSES.has(publicationState)) return false;
+  if (!isLayerPublished(layer)) return false;
   if (layer.external) return true;
   return hasCompleteMapxViews(layer);
 }
