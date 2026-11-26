@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
-## [Unreleased]
+## [0.0.16] - 2026-11-26
 
 ### Changed
 
