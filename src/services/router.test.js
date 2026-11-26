@@ -30,7 +30,7 @@ const TABS = [
   {
     id: "exposure",
     label: "Exposure",
-    layers: [{ key: "pop", id: "MX-POP", label: "Population", type: "vt" }],
+    layers: [{ key: "pop", id: "MX-POP", label: "Population", type: "vt", aliases: ["population-old"] }],
   },
 ];
 
@@ -288,6 +288,25 @@ describe("one history entry per action", () => {
 // ---------------------------------------------------------------------------
 
 describe("restoreFromUrl()", () => {
+  it("restores a layer named by a retired key under its current key, once", async () => {
+    // A state adapter handed layers directly (createRiskMap({ layers })) has not
+    // been through the hash parser's alias resolution.
+    const adapter = memoryAdapter({
+      tab: "exposure",
+      layers: [
+        { key: "population-old", sourceIdx: 0 },
+        { key: "pop", sourceIdx: 0 },
+      ],
+    });
+    const { router, viewAdd } = setup({ adapter });
+    router.start();
+
+    await router.restoreFromUrl();
+
+    expect(viewAdd.mock.calls.map(([id]) => id)).toEqual(["MX-POP"]);
+    expect(adapter.writes).toEqual([{ tab: "exposure", keys: ["pop"], replace: true }]);
+  });
+
   it("asks for the layers in URL order and rewrites the entry in place, once", async () => {
     const adapter = memoryAdapter({
       tab: "hazard",

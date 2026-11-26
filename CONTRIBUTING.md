@@ -114,7 +114,13 @@ A release is a `vX.Y.Z` tag on `main`. Tags are what reach www.undrr.org: [undrr
 
    Creating a GitHub release for the tag is optional; the tag is what counts.
 
-3. The tag ships with the next drupal-microsites `main` pipeline, which runs on any push to that repo. To ship it straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Dev updates when the pipeline finishes; staging and production within the hour. Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
+3. Before the tag deploys, record the live bundles:
+   `yarn test:release-assets https://www.undrr.org/m/risk-and-resilience-maps/ --record before.json`.
+   After it deploys, run the same command with `--expect before.json` in place of `--record`.
+   An embed opened before the release must still load. See
+   [caching across releases](docs/deployment.md#caching-across-releases).
+
+4. The tag ships with the next drupal-microsites `main` pipeline, which runs on any push to that repo. To ship it straight away, run that pipeline by hand (CI/CD → Pipelines → Run pipeline, branch `main`). Dev updates when the pipeline finishes; staging and production within the hour. Check <https://www.undrr.org/m/risk-and-resilience-maps/maps-ref.txt> for the tag and commit that are live.
 
 Only the highest plain `vX.Y.Z` tag is deployed. A pre-release tag like `v1.0.0-rc.1` is ignored, and so is a hotfix tag on an older line (`v0.0.7` after `v0.1.0`). A tag on a commit that isn't on `main` fails the drupal-microsites build, and that blocks every microsite deploy until it's fixed.
 

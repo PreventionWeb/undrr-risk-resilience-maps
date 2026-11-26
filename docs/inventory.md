@@ -70,6 +70,37 @@ Download removal and changes to a CSV-enabled view ID have extra safeguards.
 Follow [download maintenance](downloads.md#maintenance) for vetting, contract checks,
 `--allow-removals` and `--csv-vetted`; do not bypass those checks just to make an import pass.
 
+## Keeping layer links stable
+
+Shared links, citations and embeds name layers by their public key
+(`#gar?layers=major-crop-area-exposed`), never by MapX view ID. Keys must stay stable across
+releases.
+
+- **A replaced or added MapX view keeps its key.** Put the new ID in the inventory's
+  `MapX view ID` column and import as usual. The importer matches rows by key, so the layer's
+  `id` (or a source's `id`) changes and its links keep working. A new scenario on a compound
+  layer is a new entry in its `sources`, under the same key.
+- **A key that has to change keeps its old spelling as an alias.** Rename `key` in the layer
+  config and list the old key in that layer's `aliases`:
+
+  ```js
+  { id: "MX-…", key: "major-crop-area-exposed-100y", aliases: ["major-crop-area-exposed"], … }
+  ```
+
+  Old links, embed `layers`/`allow`/`variants` parameters and host `set-layers`/`fit-layer`
+  messages open the renamed layer, and the app writes the new key back to the URL. Never
+  reuse an alias as another layer's key. The importer still accepts the old key in a
+  colleague export and lists it under "Retired layer keys", so the spreadsheet can be updated.
+
+- **A key that is gone for good is retired** in
+  [data/removed-layer-keys.txt](../data/removed-layer-keys.txt). Links to it open the map
+  without that layer.
+
+[data/public-layer-keys.txt](../data/public-layer-keys.txt) records every key the app has
+published. `src/config/public-keys.test.js` fails if a listed key no longer resolves through
+one of the three routes above. It also fails if a newly published key is missing from the
+list. Add new keys, and never delete a line.
+
 ## Special cases
 
 Runtime external layers have a blank MapX ID and `External runtime` inventory status.

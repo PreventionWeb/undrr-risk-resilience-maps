@@ -16,7 +16,7 @@
  * selected scientific variant without changing the existing layer syntax.
  */
 
-import { getLayerRegistry } from "../config/registry.js";
+import { canonicalLayerKey, getLayerRegistry } from "../config/registry.js";
 
 function isSourcesSection(tab) {
   const category = tab.startsWith("sources-") ? tab.slice("sources-".length) : null;
@@ -30,19 +30,23 @@ function isSourcesSection(tab) {
  * (`src/embed/params.js`), so an embed URL and a share link cannot drift into
  * two dialects of the same syntax. It decides nothing about which layers exist:
  * unknown keys and out-of-range indices are the caller's business (the router
- * clamps and drops them, see `docs/embedding.md`).
+ * clamps and drops them, see `docs/embedding.md`). A retired key
+ * (`layer.aliases`) is read as the layer's current key, here and in
+ * `variants`, so a link shared before a key was renamed still opens that layer.
  *
  * @param {URLSearchParams} params
+ * @param {{ canonicalKey?: (key: string) => string }} [options] - alias
+ *   resolution (default: the app's whole layer config)
  * @returns {Array<{key: string, sourceIdx: number, settings?: object}>}
  */
-export function parseLayerParams(params) {
+export function parseLayerParams(params, { canonicalKey = canonicalLayerKey } = {}) {
   const layers = [];
   const layerStr = params.get("layers");
   if (layerStr) {
     for (const segment of layerStr.split(",")) {
       const [key, idxStr] = segment.split(":");
       if (key) {
-        layers.push({ key, sourceIdx: idxStr ? Number(idxStr) : 0 });
+        layers.push({ key: canonicalKey(key), sourceIdx: idxStr ? Number(idxStr) : 0 });
       }
     }
   }
@@ -50,7 +54,7 @@ export function parseLayerParams(params) {
   const variantsStr = params.get("variants");
   if (variantsStr) {
     try {
-      applyVariants(layers, JSON.parse(variantsStr));
+      applyVariants(layers, JSON.parse(variantsStr), { canonicalKey });
     } catch {
       // Invalid optional variant state must not break ordinary layer restore.
     }
@@ -69,17 +73,29 @@ export function parseLayerParams(params) {
  * whose settings are not one; a key no entry has is ignored too. Where an
  * entry already carries `settings`, the variant replaces them: a host that
  * echoes a `state` message's layers back with new `variants` is asking for
- * the new ones.
+ * the new ones. A `variants` entry under a retired key applies to the layer's
+ * current key, whichever spelling the entry in `layers` uses; where both
+ * spellings are in `variants`, the current key's wins.
  *
  * @param {Array<{key: string, settings?: object}>} layers
  * @param {unknown} variants
+ * @param {{ canonicalKey?: (key: string) => string }} [options]
  * @returns {boolean} whether `variants` had a usable shape
  */
-export function applyVariants(layers, variants) {
+export function applyVariants(layers, variants, { canonicalKey = canonicalLayerKey } = {}) {
   if (!variants || typeof variants !== "object" || Array.isArray(variants)) return false;
+  const byKey = new Map();
+  for (const [key, settings] of Object.entries(variants)) {
+    const canonical = canonicalKey(key);
+    // The current spelling wins over a retired one, whichever comes first.
+    if (byKey.has(canonical) && canonical !== key) continue;
+    byKey.set(canonical, settings);
+  }
   for (const layer of layers) {
-    if (!layer || typeof layer !== "object" || !Object.hasOwn(variants, layer.key)) continue;
-    const settings = variants[layer.key];
+    if (!layer || typeof layer !== "object") continue;
+    const key = canonicalKey(layer.key);
+    if (!byKey.has(key)) continue;
+    const settings = byKey.get(key);
     if (settings && typeof settings === "object" && !Array.isArray(settings)) layer.settings = settings;
   }
   return true;

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Added
+
+- Keep shared map links and embeds working when a layer key is renamed: old keys resolve to the renamed layer, and CI fails if a published key stops resolving.
+- Add `yarn test:release-assets` to check that the deployed HTML revalidates and that an embed opened before a release can still load its bundles after it.
+
 ## [0.0.16] - 2026-11-26
 
 ### Changed

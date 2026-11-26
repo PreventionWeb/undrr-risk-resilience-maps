@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { applyVariants, parseHash, writeHash, getLayerByKey } from "./hash.js";
+import { applyVariants, parseHash, parseLayerParams, writeHash, getLayerByKey } from "./hash.js";
 
 beforeEach(() => {
   window.location.hash = "";
@@ -212,5 +212,36 @@ describe("applyVariants", () => {
     applyVariants(layers, JSON.parse('{"__proto__": {"crop": "X"}}'));
     expect(layers[0]).toEqual({ key: "toString" });
     expect(layers[1].settings).toEqual({ crop: "X" });
+  });
+});
+
+describe("retired layer keys", () => {
+  const canonicalKey = (key) => ({ "old-crops": "crops" })[key] ?? key;
+
+  it("reads a retired key in `layers` and `variants` as the current key", () => {
+    const params = new URLSearchParams(
+      `layers=old-crops:1,flood&variants=${encodeURIComponent(JSON.stringify({ "old-crops": { crop: "RICE" } }))}`,
+    );
+    expect(parseLayerParams(params, { canonicalKey })).toEqual([
+      { key: "crops", sourceIdx: 1, settings: { crop: "RICE" } },
+      { key: "flood", sourceIdx: 0 },
+    ]);
+  });
+
+  it("prefers the current key's variant when both spellings are given, in either order", () => {
+    for (const variants of [
+      { "old-crops": { crop: "OLD" }, crops: { crop: "NEW" } },
+      { crops: { crop: "NEW" }, "old-crops": { crop: "OLD" } },
+    ]) {
+      const layers = [{ key: "crops" }];
+      applyVariants(layers, variants, { canonicalKey });
+      expect(layers[0].settings).toEqual({ crop: "NEW" });
+    }
+  });
+
+  it("matches a variant to an entry still carrying the retired key", () => {
+    const layers = [{ key: "old-crops" }];
+    applyVariants(layers, { crops: { crop: "MAIZE" } }, { canonicalKey });
+    expect(layers[0].settings).toEqual({ crop: "MAIZE" });
   });
 });

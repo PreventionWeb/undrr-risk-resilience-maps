@@ -335,6 +335,16 @@ describe("parseCameraParams", () => {
 });
 
 describe("clampLayers", () => {
+  it("reads a retired key as its current key, deduplicated", () => {
+    const registry = {
+      byKey: (key) => (key === "crops" ? { key } : undefined),
+      canonicalKey: (key) => (key === "old-crops" ? "crops" : key),
+    };
+    expect(
+      clampLayers([{ key: "old-crops", sourceIdx: 0 }, { key: "crops" }], { allowed: ["crops"], registry }),
+    ).toEqual([{ key: "crops", sourceIdx: 0 }]);
+  });
+
   const registry = getLayerRegistry();
   const allowed = new Set(["river-flooding", "landslides"]);
 

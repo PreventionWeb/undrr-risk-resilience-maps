@@ -3,7 +3,13 @@ import { TABS } from "./layers.js";
 import { createLayerRegistry, getLayerRegistry, urlKeyOrder } from "./registry.js";
 
 const econ = { key: "econ", id: "MX-ECON", label: "Economy", r2rCategory: "Economy" };
-const soc = { key: "soc", id: "MX-SOC", label: "Societies", r2rCategory: "Societies" };
+const soc = {
+  key: "soc",
+  id: "MX-SOC",
+  label: "Societies",
+  r2rCategory: "Societies",
+  aliases: ["societies", "econ"],
+};
 const flood = {
   key: "flood",
   id: null,
@@ -29,6 +35,17 @@ describe("createLayerRegistry", () => {
     expect(registry.byKey("flood")).toBe(flood);
     expect(registry.byKey("draft")).toBe(draft);
     expect(registry.byKey("missing")).toBeUndefined();
+  });
+
+  it("resolves a retired key to its current key and leaves every other value alone", () => {
+    expect(registry.canonicalKey("societies")).toBe("soc");
+    expect(registry.canonicalKey("soc")).toBe("soc");
+    expect(registry.canonicalKey("missing")).toBe("missing");
+    expect(registry.canonicalKey(undefined)).toBeUndefined();
+    // An alias never shadows a current key, even in a config validateLayers() rejects.
+    expect(registry.canonicalKey("econ")).toBe("econ");
+    // Aliases are input-only: lookups and the URL order know current keys.
+    expect(registry.byKey("societies")).toBeUndefined();
   });
 
   it("looks up permanent view ids, including compound sources", () => {

@@ -37,6 +37,36 @@ function makeCompoundLayer(overrides = {}) {
 }
 
 describe("validateLayers", () => {
+  describe("aliases", () => {
+    const run =
+      (...layers) =>
+      () =>
+        validateLayers([makeTab("hazard", layers)], PRIMARY);
+    const quiet = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+    it("accepts retired keys that collide with nothing", () => {
+      expect(run(makeSimpleLayer({ aliases: ["old-layer-1"] }))).not.toThrow();
+    });
+
+    it("rejects a malformed alias list or alias", () => {
+      quiet();
+      for (const aliases of ["old", [""], ["Old Key"], [3], ["layer-1"]]) {
+        expect(run(makeSimpleLayer({ aliases })), JSON.stringify(aliases)).toThrow();
+      }
+    });
+
+    it("rejects an alias claimed by two layers or equal to another layer's key", () => {
+      quiet();
+      const a = makeSimpleLayer({ aliases: ["shared"] });
+      const b = makeSimpleLayer({ id: "MX-VIEW-2", key: "layer-2", aliases: ["shared"] });
+      expect(run(a, b)).toThrow();
+      // The key is defined after the alias, so the check cannot be a one-pass lookup.
+      const c = makeSimpleLayer({ aliases: ["layer-2"] });
+      const d = makeSimpleLayer({ id: "MX-VIEW-2", key: "layer-2" });
+      expect(run(c, d)).toThrow();
+    });
+  });
+
   // --- valid configs ---
 
   it("passes for a minimal valid simple layer", () => {
