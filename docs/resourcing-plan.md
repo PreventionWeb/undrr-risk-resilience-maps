@@ -113,15 +113,16 @@ _Was in original PRD scope; deferred from prototype. Clicking a country on the m
 
 ### WP-5 · Access control
 
-_The soft launch removes the prototype PIN from both entry points. The options below were scoped for the long-term V1 access decision._
+_The standalone viewer and iframe embed open without a PIN. The options below inform the long-term V1 access decision._
 
-**Effort:** XS–S (KH) for public URL (just remove the gate); M–L (KH + IT) for SSO integration  
+**Original effort estimate:** XS–S (KH) to remove the PIN for public access. SSO integration was estimated at M–L (KH + IT).
+
 **Resource:** KH (+ IT if SSO)  
 **Dependency:** Access control model decision (WP-1)
 
 **Options:**
 
-1. _Public URL_ — the soft launch uses this option.
+1. _Public URL_ (current access model).
 2. _IP allowlist_ — handled at the CDN/proxy layer; no app code change.
 3. _UNDRR SSO_ — requires backend token validation; significant new work and a backend component, which breaks the current static-site architecture.
 
