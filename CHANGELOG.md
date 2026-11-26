@@ -10,6 +10,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 - Keep shared map links and embeds working when a layer key is renamed: old keys resolve to the renamed layer, and CI fails if a published key stops resolving.
 
+### Changed
+
+- Build files with fixed names instead of content-hashed ones, so a cached embed page from an earlier release still loads after a deploy. One build-wide `?v=` cache buster on every internal reference keeps caches from mixing files from two builds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+
 ## [0.0.16] - 2026-11-26
 
 ### Changed

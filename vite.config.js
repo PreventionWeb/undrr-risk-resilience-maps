@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { DEV_IDENTITY_PATH } from "./tests/e2e/dev-server.js";
 
 function gitValue(format, fallback) {
@@ -12,7 +13,14 @@ function gitValue(format, fallback) {
   }
 }
 
-const lastUpdated = gitValue("%cI", new Date().toISOString());
+// A reproducible build sets SOURCE_DATE_EPOCH; without it or git, the build
+// time is used, and then every build gets a new `?v=` build id (harmless: it
+// only refreshes caches).
+const sourceDate = Number(process.env.SOURCE_DATE_EPOCH);
+const lastUpdated = gitValue(
+  "%cI",
+  (Number.isFinite(sourceDate) && sourceDate > 0 ? new Date(sourceDate * 1000) : new Date()).toISOString(),
+);
 const commitHash = gitValue("%h", "local");
 
 /**
@@ -67,8 +75,83 @@ function devServerIdentity() {
   };
 }
 
+/**
+ * Append one build-wide cache buster (`?v=<build id>`) to every reference
+ * between the build's own files: HTML → scripts and styles, and chunk →
+ * chunk imports, lazy ones included.
+ *
+ * File names are fixed (see `build.rollupOptions.output`), so an `embed.html`
+ * cached from any release still finds files that exist. The query makes each
+ * build's files a separate cache entry: a new `embed.js?v=B` only ever imports
+ * `shared.js?v=B`, never a copy of `shared.js` that a browser or Cloudflare
+ * kept from build A. The chunks' internal export names are assigned per
+ * build, so a pair from two builds may fail to link or, worse, link to the
+ * wrong functions (PreventionWeb/undrr-risk-resilience-maps#91).
+ *
+ * The build id hashes the content of every emitted file before the queries are
+ * added, so it changes whenever any output does. The output embeds the commit
+ * date and hash (`define` below); see `lastUpdated` for builds without git.
+ *
+ * Scope: only JS and CSS outputs have fixed names and get the query. Other
+ * emitted assets (images, fonts) keep a content hash in their name
+ * (`assetFileNames`), because CSS `url()` and `new URL()` references to them
+ * are not rewritten here. Sourcemaps are refused: inserting the query shifts
+ * columns, and the maps would point at the wrong code. The rewrite matches
+ * quoted paths, so a string literal that is exactly such a path (`"./shared.js"`)
+ * in our own source would be rewritten too; nothing in src/ has one.
+ */
+export function buildQuery() {
+  return {
+    name: "build-query",
+    apply: "build",
+    enforce: "post",
+    generateBundle: {
+      order: "post",
+      handler(options, bundle) {
+        if (options.sourcemap) {
+          throw new Error("build-query: sourcemaps would be wrong after the ?v= rewrite; see vite.config.js");
+        }
+        const files = Object.values(bundle);
+        const hash = createHash("sha256");
+        // A plain code-unit sort and length-prefixed fields: the id must not
+        // depend on the locale, or on where one file's name ends and its content starts.
+        const ordered = [...files].sort((a, b) =>
+          a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0,
+        );
+        for (const file of ordered) {
+          const content = file.type === "chunk" ? file.code : file.source;
+          hash.update(`${file.fileName.length}:${file.fileName}${content.length}:`).update(content);
+        }
+        const query = `?v=${hash.digest("hex").slice(0, 10)}`;
+        const names = files
+          .map((file) => file.fileName.split("/").pop())
+          .filter((name) => /\.(?:js|css)$/.test(name))
+          .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        if (names.length === 0) return;
+        // A quoted reference to one of our files, in the forms Vite writes: a
+        // chunk import beside it (`"./shared.js"`) or a path into `assets/`
+        // (`"./assets/embed.css"`, `"/base/assets/main.js"`, `"assets/x.js"`).
+        // Any other string that happens to end in one of the names, such as
+        // `"src/embed/main.js"`, is not a reference and is left alone.
+        const reference = new RegExp(
+          `(["'\`])((?:\\./|(?:[^"'\`\\s]*/)?assets/)(?:${names.join("|")}))\\1`,
+          "g",
+        );
+        const addQuery = (text) =>
+          text.replace(reference, (_m, quote, path) => `${quote}${path}${query}${quote}`);
+        for (const file of files) {
+          if (file.type === "chunk") file.code = addQuery(file.code);
+          else if (/\.(?:html|css)$/.test(file.fileName) && typeof file.source === "string") {
+            file.source = addQuery(file.source);
+          }
+        }
+      },
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
-  plugins: [devServerIdentity()],
+  plugins: [devServerIdentity(), buildQuery()],
   root: ".",
   base: base(command),
   define: {
@@ -85,6 +168,24 @@ export default defineConfig(({ command }) => ({
         // the same modules, so it shares this bundle and its cache headers and
         // needs no pipeline of its own.
         embed: "embed.html",
+      },
+      // Fixed file names, no content hashes (PreventionWeb/undrr-risk-resilience-maps#89).
+      // A cached copy of `embed.html` from an earlier release must still find
+      // its scripts: with hashed names, each deploy deleted the files an older
+      // copy named, and a GAR embed stayed blank on 404s. `buildQuery()` above
+      // adds `?v=<build id>` to every reference, so caches still keep each
+      // build's files apart (docs/deployment.md "Caching").
+      output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        // CSS is referenced only from HTML and gets the query; anything else
+        // (images, fonts) is referenced from CSS `url()` or `new URL()`, which the
+        // query rewrite doesn't cover, so it keeps a content hash. Those are
+        // leaf files: a stale hashed one breaks nothing that imports it.
+        assetFileNames: (asset) =>
+          (asset.names ?? [asset.name ?? ""]).some((name) => name.endsWith(".css"))
+            ? "assets/[name][extname]"
+            : "assets/[name]-[hash][extname]",
       },
     },
   },

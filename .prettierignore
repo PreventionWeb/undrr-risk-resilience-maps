@@ -1,4 +1,5 @@
 dist/
+dist-relative/
 node_modules/
 test-results/
 yarn.lock
