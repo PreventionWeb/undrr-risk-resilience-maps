@@ -29,14 +29,28 @@ export function removedKeys(before, after) {
   return ledgerKeys(before).filter((key) => !kept.has(key));
 }
 
+const git = (...args) => execFileSync("git", args, { encoding: "utf8", stdio: "pipe" });
+
 function main(baseRef = "origin/main") {
+  // A base that doesn't resolve is an error, never "nothing to compare":
+  // otherwise a mistyped ref or a missing remote passes silently.
+  try {
+    git("rev-parse", "--verify", "--quiet", `${baseRef}^{commit}`);
+  } catch {
+    console.error(`Cannot resolve base revision "${baseRef}".`);
+    return 2;
+  }
   let before;
   try {
-    before = execFileSync("git", ["show", `${baseRef}:${LEDGER}`], { encoding: "utf8", stdio: "pipe" });
-  } catch {
-    // The base has no ledger yet (the PR that adds it): nothing to compare.
-    console.log(`${baseRef} has no ${LEDGER}; nothing to compare.`);
-    return 0;
+    before = git("show", `${baseRef}:${LEDGER}`);
+  } catch (error) {
+    // Only a base without the file (the PR that adds it) has nothing to compare.
+    if (/does not exist|exists on disk, but not in/.test(String(error.stderr))) {
+      console.log(`${baseRef} has no ${LEDGER}; nothing to compare.`);
+      return 0;
+    }
+    console.error(`Cannot read ${LEDGER} at ${baseRef}: ${String(error.stderr).trim()}`);
+    return 2;
   }
   const removed = removedKeys(before, readFileSync(resolve(LEDGER), "utf8"));
   if (removed.length === 0) {

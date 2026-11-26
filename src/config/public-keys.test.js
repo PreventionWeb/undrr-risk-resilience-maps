@@ -42,6 +42,17 @@ describe("public layer keys", () => {
     ).toEqual([]);
   });
 
+  it("retires a key only once its layer has left the config", () => {
+    // The importer ignores every inventory row under a retired key, so a layer
+    // still configured under one would stop receiving its MapX id and copy updates.
+    const stillConfigured = [...removedKeys].filter((key) => registry.byKey(key));
+    expect(
+      stillConfigured,
+      "These keys are retired in data/removed-layer-keys.txt but still name a layer. " +
+        "Remove the layer from the config, or un-retire the key.",
+    ).toEqual([]);
+  });
+
   it("records every key the app currently publishes", () => {
     const listed = new Set(publicKeys);
     const missing = registry.urlKeyOrder().filter((key) => !listed.has(key));
