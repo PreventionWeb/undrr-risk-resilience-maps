@@ -407,10 +407,13 @@ describe("import-inventory --apply", () => {
       cwd: fixture,
       encoding: "utf8",
     });
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("--apply refused");
+    // On failure, show what the importer printed: the reason it refused is in there.
+    const output = `status ${result.status}\n--- stdout\n${result.stdout}\n--- stderr\n${result.stderr}`;
+    expect(result.status, output).not.toBe(0);
+    expect(result.stderr, output).toContain("--apply refused");
     const removals = /Removals \((\d+)\)/.exec(result.stdout);
-    expect(Number(removals[1])).toBeGreaterThan(50);
+    expect(removals, output).not.toBeNull();
+    expect(Number(removals[1]), output).toBeGreaterThan(50);
   });
 
   it("keeps downloads and CSV decisions when their columns are omitted", () => {
