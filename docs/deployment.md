@@ -89,10 +89,9 @@ each deploy, so a preview tab can break for up to ten minutes after a merge.
 
 ## Hosting and access
 
-Both entry points open directly for the soft launch. After merging, confirm the GitHub Pages
+Both entry points open without a PIN. After merging, confirm the GitHub Pages
 viewer and embed load in a fresh browser context and a shared layer link restores its state.
-Repeat those checks at the UNDRR URLs after the release tag is deployed. If the launch
-includes an iframe on a UNDRR page, check it on that page too.
+Repeat those checks at the UNDRR URLs after the release tag is deployed. If a UNDRR page embeds the viewer, check it on that page too.
 
 Embedding on other sites also depends on response headers and Cloudflare behavior;
 see [which sites can embed it](embedding.md#which-sites-can-embed-it) for the unresolved

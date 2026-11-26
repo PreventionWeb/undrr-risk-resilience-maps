@@ -188,7 +188,7 @@
       return true;
     },
     /**
-     * src/sdk/table.js (prototype downloads). Like MapX, it answers only for a
+     * src/sdk/table.js (map data downloads). Like MapX, it answers only for a
      * view loaded in this session (added, even if removed since); otherwise
      * the resolver throws. Rows come from `window.__mapxStubTables[idView]`,
      * or a small synthetic region table.

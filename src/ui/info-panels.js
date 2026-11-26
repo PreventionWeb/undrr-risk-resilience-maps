@@ -283,8 +283,8 @@ export function buildAboutPanel() {
     <div class="info-page-section mg-content">
       <div class="mg-container">
         <h2 class="info-page-section__title">What is this tool?</h2>
-        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> (working title) is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> – an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
-        <p>It provides a single visualization platform for global risk and resilience data layers: hazard exposure, economic impacts, vulnerability indicators and resilience benchmarks across the eight hazards that cause 90% of all economic damage: floods, storms, drought, extreme heat, earthquake, tsunami, landslide and wildfire.</p>
+        <p>The <strong>GRAR Metrics Facility Map Viewer</strong> is part of UNDRR's <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">Risk &amp; Resilience Metrics initiative</a> – an effort to close the resilience gap by translating disaster risk science into clear signals that decision-makers can act on.</p>
+        <p>It provides a single visualization platform for global risk and resilience data layers: hazard exposure, economic impacts, vulnerability indicators and resilience benchmarks. The viewer covers floods, storms, drought, extreme heat, earthquake, tsunami, landslide and wildfire.</p>
         <p>The map viewer is one component of a broader GRAR Metrics Facility that also includes country risk profiles and supporting analytical resources. Learn more at <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener">undrr.org/building-risk-knowledge/risk-and-resilience</a>.</p>
       </div>
     </div>
@@ -292,14 +292,9 @@ export function buildAboutPanel() {
     <div class="info-page-section info-page-section--grey mg-content">
       <div class="mg-container">
         <div class="mg-highlight-box mg-highlight-box--secondary">
-          <h3>Platform status</h3>
-          <p>This tool is available in an <strong>early public release</strong>. The layer inventory and viewer are still being developed.</p>
-          <ul>
-            <li>Some entries on the Sources page are awaiting data or confirmation.</li>
-            <li>The name <em>GRAR Metrics Facility Map Viewer</em> is a working title and may change.</li>
-            <li>Data, design and structure are subject to change without notice.</li>
-            <li>For questions or feedback, contact the UNDRR digital team.</li>
-          </ul>
+          <h3>Data coverage and feedback</h3>
+          <p>The <a href="#sources">Sources</a> page lists dataset credits and identifies entries awaiting data or confirmation.</p>
+          <p>For questions or feedback, contact the UNDRR digital team.</p>
         </div>
       </div>
     </div>
@@ -308,7 +303,7 @@ export function buildAboutPanel() {
       <div class="mg-container">
         <h2 class="info-page-section__title">How it was built</h2>
         <p>This tool is built on the open-source interaction model and layer inventory of the <a href="https://global.infrastructureresilience.org" target="_blank" rel="noopener">Global Infrastructure Resilience (GRI) Risk Viewer</a>, developed by the <a href="https://opsis.eci.ox.ac.uk/" target="_blank" rel="noopener">Oxford Programme for Sustainable Infrastructure Systems (OPSIS)</a> at the University of Oxford. The GRI platform itself is the result of collaboration across the infrastructure resilience research community.</p>
-        <p>All geospatial layers are hosted, served, and rendered through <a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a>, a global geospatial platform developed by <a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>. The user interface uses the <a href="https://github.com/unisdr/undrr-mangrove" target="_blank" rel="noopener">UNDRR Mangrove</a> design system.</p>
+        <p>The viewer displays geospatial layers using <a href="https://app.mapx.org/" target="_blank" rel="noopener">MapX</a>, a global geospatial platform developed by <a href="https://unepgrid.ch/" target="_blank" rel="noopener">UNEP/GRID-Geneva</a>. The user interface uses the <a href="https://github.com/unisdr/undrr-mangrove" target="_blank" rel="noopener">UNDRR Mangrove</a> design system.</p>
         <p>The source code for this map viewer is publicly available on <a href="https://github.com/PreventionWeb/undrr-risk-resilience-maps" target="_blank" rel="noopener">GitHub</a>.</p>
       </div>
     </div>

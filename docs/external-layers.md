@@ -144,9 +144,9 @@ for the current measurement method, scope and reproduction command.
 | Provider traffic          | At least one geometry and one values request per cold page session that activates EDRA.                                                         | Usage traffic is visible to and borne by CEMS; high-volume use should be agreed with the provider.                   |
 
 The integration adds a `proj4` production dependency and CPU-heavy coordinate transformation on
-the browser's main thread. One layer of this size is acceptable for the prototype; several
-simultaneous external layers of similar size would produce roughly additive network, memory, and
-CPU pressure and should not be approved without profiling.
+the browser's main thread. Several simultaneous external layers of similar size would produce
+roughly additive network, memory, and CPU pressure. Profile that combined load before approving
+additional layers.
 
 ## Reliability, privacy, and operational limitations
 
@@ -171,15 +171,15 @@ CPU pressure and should not be approved without profiling.
   MapX project by programme staff.
 - **Shared-link fidelity:** the URL records the active EDRA layer plus its crop and scenario.
   Browser back/forward reconciles those settings through the same transactional replacement path.
-- **No service telemetry:** the prototype has console diagnostics but no production uptime,
-  latency, schema-drift, or error-rate monitoring.
+- **No service telemetry:** the EDRA integration provides console diagnostics. It lacks uptime, latency,
+  schema-drift, and error-rate monitoring.
 - **Attribution year:** the citation year must be reviewed when the application or derived data is
   materially updated.
 
 ## Production decision and migration triggers
 
-The runtime approach is reasonable while the layer is experimental, exceptional, and used at
-prototype traffic levels. Before treating it as production-critical, programme and engineering
+The experimental EDRA layer uses direct runtime requests to CEMS. Low-traffic use limits load on the
+provider. Before treating this layer as production-critical, programme and engineering
 owners should explicitly accept the dependency and performance profile above.
 
 Prefer a pre-built MapX view or a UNDRR-controlled, preprocessed WGS84 artifact when any of these is
@@ -220,7 +220,7 @@ authority and are therefore merge-blocking acceptance criteria rather than code 
       profile on the agreed minimum device. The layer must become interactive within 10 seconds,
       recover cleanly after the 30-second timeout, and must not crash or freeze the viewer.
 - [ ] Product and engineering explicitly choose one operating model: accept the documented
-      prototype-level external dependency, host a versioned preprocessed WGS84 artifact, or publish
+      direct runtime dependency on the EDRA application API, host a versioned preprocessed WGS84 artifact, or publish
       stable MapX views. A launch-critical layer may not rely on an unmonitored application API.
 - [ ] The programme master tracker contains the EDRA row with blank MapX ID and `External runtime`
       status, plus a named business owner and last-reviewed date.

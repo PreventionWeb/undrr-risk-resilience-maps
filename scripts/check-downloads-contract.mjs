@@ -1,5 +1,5 @@
 /**
- * Live contract check for the prototype data downloads (#64).
+ * Live contract check for map data downloads.
  *
  *   yarn test:downloads-contract                 # everything configured
  *   yarn test:downloads-contract --skip-files    # MapX checks only (no HEAD requests)

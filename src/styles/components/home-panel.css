@@ -28,14 +28,6 @@
   max-width: 900px;
 }
 
-.info-page-hero__eyebrow {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
-  margin: 0 0 0.5rem;
-}
-
 /* Mangrove's h1 already sets size, weight and line height. */
 .info-page-hero__title {
   color: rgb(var(--mg-color-neutral-0));

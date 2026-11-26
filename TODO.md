@@ -12,9 +12,9 @@ Deferred technical items — implementation details, refactors, and infrastructu
 - Confirm licences for the 30 supplied GAR2026 maps (`TBD`) and reconcile subsequent map batches.
 - Coordinate the GAR landing-page embed replacement after viewer review/release.
 
-## Data downloads (prototype, #64)
+## Data downloads (#64)
 
-- Downloads are enabled by default in the prototype. Confirm the production policy with the programme; the repository kill switch and per-viewer opt-out are documented in [docs/downloads.md](docs/downloads.md#repository-kill-switch-and-per-viewer-opt-out).
+- Confirm the default download setting with the programme. See the repository switch and per-viewer opt-out in [docs/downloads.md](docs/downloads.md#repository-kill-switch-and-per-viewer-opt-out).
 - Follow up the open questions for UNEP/GRID-Geneva in [docs/downloads.md](docs/downloads.md#limitations-and-open-questions-for-grid): whether GRID are happy with special areas being exported, the view missing region columns, SDK table reads as a supported use, labels/units, and the four views that are not region-level.
 - Run `yarn test:downloads-contract` before each release, and whenever GRID replaces a hosted file or a CSV view changes (see the runbook in [docs/downloads.md](docs/downloads.md#maintenance)).
 

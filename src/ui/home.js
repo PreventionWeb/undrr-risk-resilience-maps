@@ -43,7 +43,6 @@ export function buildHomePanel({ tabs = TABS, onNavigate = () => {}, signal } = 
 
     <div class="info-page-hero">
       <div class="mg-container">
-        <p class="info-page-hero__eyebrow">Prototype · Interaction review only</p>
         <h1 class="info-page-hero__title"><a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">GRAR Metrics Facility</a></h1>
         <p class="info-page-hero__intro">The Risk and Resilience Metrics Facility helps close the resilience gap by providing cutting-edge analytics that empower decision-makers and communities to make more informed decisions to protect against a risky future. It translates disaster risk science into clear signals that decision-makers can use to not only understand current but also potential future risk. More information on the core Metrics Framework is available on the <a href="https://www.undrr.org/building-risk-knowledge/risk-and-resilience" target="_blank" rel="noopener" class="info-page-hero__link">Risk and Resilience Metrics website</a>.</p>
       </div>

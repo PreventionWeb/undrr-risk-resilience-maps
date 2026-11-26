@@ -127,8 +127,8 @@ to find the maintained guide for each task. Update that guide and link to it rat
 copying detailed instructions into the README, architecture, learnings and scope documents.
 The README should keep orientation, first use, adoption limits and routes to deeper guides.
 
-Update the index when adding a guide. Keep proposals, dated findings and archived research
-distinct from current instructions; prototype implementation does not approve V1 scope.
+Update the index when adding a guide. Identify proposals, dated findings and archived research
+by their status.
 Preserve required credits and the conditions attached to recorded measurements.
 
 When adding new work items, use [TODO.md](TODO.md). When discovering SDK quirks, design constraints, or non-obvious decisions, record them in [LEARNINGS.md](LEARNINGS.md).

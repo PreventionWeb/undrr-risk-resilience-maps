@@ -75,21 +75,21 @@ Everything is validated against the layer config and unknown parameters are igno
 falls back to its default rather than failing the embed — with two deliberate exceptions, the
 allowlists and `parentOrigin`, both described under the table.
 
-| Parameter      | Value                                                                                       | Default                       |
-| -------------- | ------------------------------------------------------------------------------------------- | ----------------------------- |
-| `tab`          | a data tab id (`risk-resilience`, `resilience`, `hazard`, `exposure`, `vulnerability`)      | the first tab the embed shows |
-| `layers`       | `key[:sourceIdx]`, comma separated — the share-link syntax                                  | none                          |
-| `variants`     | JSON of per-layer provider settings, as in a share link                                     | none                          |
-| `tabs`         | tab-id allowlist, comma separated                                                           | every tab                     |
-| `allow`        | layer-key allowlist, comma separated                                                        | every layer of the shown tabs |
-| `panel`        | `collapsed` or `expanded`                                                                   | `expanded`                    |
-| `downloads`    | `1`/`true`: prototype data downloads in the layer panel ([docs/downloads.md](downloads.md)) | off                           |
-| `parentOrigin` | the host origin the embed exchanges messages with                                           | `document.referrer`'s origin  |
-| `instance`     | opaque id (`[A-Za-z0-9_-]`, ≤ 64) echoed in every message                                   | none                          |
-| `bbox`         | `west,south,east,north` in degrees: fit the map to this box                                 | the default world view        |
-| `center`       | `lng,lat` in degrees: centre the map here                                                   | the default world view        |
-| `zoom`         | zoom level, clamped to 0–22                                                                 | the default world view        |
-| `area`         | ISO 3166-1 alpha-3 country code (`KEN`) or M49 region code (`m49_014`): fit to it           | the default world view        |
+| Parameter      | Value                                                                                  | Default                       |
+| -------------- | -------------------------------------------------------------------------------------- | ----------------------------- |
+| `tab`          | a data tab id (`risk-resilience`, `resilience`, `hazard`, `exposure`, `vulnerability`) | the first tab the embed shows |
+| `layers`       | `key[:sourceIdx]`, comma separated — the share-link syntax                             | none                          |
+| `variants`     | JSON of per-layer provider settings, as in a share link                                | none                          |
+| `tabs`         | tab-id allowlist, comma separated                                                      | every tab                     |
+| `allow`        | layer-key allowlist, comma separated                                                   | every layer of the shown tabs |
+| `panel`        | `collapsed` or `expanded`                                                              | `expanded`                    |
+| `downloads`    | `0`/`false` to hide [data downloads](downloads.md), `1`/`true` to show them            | on, subject to the switch     |
+| `parentOrigin` | the host origin the embed exchanges messages with                                      | `document.referrer`'s origin  |
+| `instance`     | opaque id (`[A-Za-z0-9_-]`, ≤ 64) echoed in every message                              | none                          |
+| `bbox`         | `west,south,east,north` in degrees: fit the map to this box                            | the default world view        |
+| `center`       | `lng,lat` in degrees: centre the map here                                              | the default world view        |
+| `zoom`         | zoom level, clamped to 0–22                                                            | the default world view        |
+| `area`         | ISO 3166-1 alpha-3 country code (`KEN`) or M49 region code (`m49_014`): fit to it      | the default world view        |
 
 A source index the layer does not have falls back to its first source, at most 12 layers are opened,
 and info tabs (`home`, `sources`, `about`) are not addressable: an embed has no information pages.
@@ -612,8 +612,8 @@ today (the standalone app is already a third-party context for MapX). **Unknown:
 feature we may adopt later (private projects, logged-in views) relies on unpartitioned cookies. If so,
 it will break in every embed mode and needs the Storage Access API or a MapX token.
 
-**Prototype access.** The original iframe embed reused the standalone viewer’s PIN prompt. The
-soft launch removes the prompt from both entry points.
+**Access history.** The original iframe embed reused the standalone viewer’s PIN prompt. Both
+entry points now open without a PIN.
 
 ## 5. Build and distribution
 
