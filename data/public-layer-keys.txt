@@ -1,0 +1,54 @@
+# Public layer keys: every key a shared link or embed URL may already carry,
+# from every release (keys later unpublished included).
+# A key listed here must keep naming a layer in the config, or be retired on
+# purpose in removed-layer-keys.txt. src/config/public-keys.test.js enforces
+# this and asks for each newly published key to be added. Never delete a line;
+# see docs/inventory.md "Keeping layer links stable".
+recovery-speed
+aal-public
+aal-pml-housing
+aal-to-gdp-2025
+pml-to-gdp-2025
+current-fiscal-gap
+change-fiscal-gap
+edra-crop-yield-reduction
+river-flooding
+earthquake-pga
+earthquakes-live
+cyclone-surge
+tropical-cyclones
+landslides
+tsunamis
+population
+forests
+mangroves
+intact-forests
+water-stress
+hdi
+water-scarcity-child-nutrition
+fatalities-gem
+ecolosses-gem
+disasters-idp
+sdg-drought
+gar26-aal-crops
+gar26-pml-crops
+gar26-top-25-production
+gar26-aal-global
+food-import-dependence
+major-crop-area-exposed
+crop-value-share-declining-land
+drought-food-price-correlation
+flood-recovery-time-gap
+food-insecurity-gender-gap
+recovery-half-loss-relative-index
+recovery-half-loss-ratio
+recovery-loss-share-one-year-gap
+drought-enrolled-students
+drought-enrolled-students-share
+drought-enrolled-girls-parity
+drought-limited-health-protection
+food-import-vulnerability
+early-warning-coverage
+ecosystem-loss
+land-cover
+pml-public

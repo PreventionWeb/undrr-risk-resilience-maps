@@ -29,6 +29,18 @@ jobs:
       - run: yarn build --base=./ --outDir dist-relative
       - run: node scripts/check-build-references.mjs dist-relative
 
+      # Shared links and embeds name layers by key, so a published key is never
+      # dropped from the ledger (docs/inventory.md "Keeping layer links stable").
+      - name: Public layer keys are never removed
+        if: ${{ github.event_name == 'pull_request' }}
+        # The PR's own base commit, not the branch tip: if main moves on, the tip
+        # can list keys this PR never saw and the check would blame the PR.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          node scripts/check-public-keys-ledger.mjs "$BASE_SHA"
+
   # Its own job, so downloading a browser never slows `validate` down, and the
   # two report independently.
   e2e:

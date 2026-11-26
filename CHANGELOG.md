@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Record every published layer key and fail CI when one stops naming a layer, so a rename or deletion can't silently break shared links and embeds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+
 ### Changed
 
 - Update the Home and About pages to present the map viewer and explain dataset coverage.
