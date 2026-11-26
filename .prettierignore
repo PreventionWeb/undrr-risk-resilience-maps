@@ -13,3 +13,4 @@ src/utils/__fixtures__/
 
 # Preserve upstream source formatting so local lifetime patches remain reviewable.
 src/vendor/mangrove/cite-this.js
+public/assets/
