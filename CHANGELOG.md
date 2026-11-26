@@ -6,6 +6,10 @@ The format is based on [Common Changelog](https://common-changelog.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Record every published layer key and fail CI when one stops naming a layer, so a rename or deletion can't silently break shared links and embeds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).
+
 ### Changed
 
 - Build files with fixed names instead of content-hashed ones, so a cached embed page from an earlier release still loads after a deploy. One build-wide `?v=` cache buster on every internal reference keeps caches from mixing files from two builds ([#89](https://github.com/PreventionWeb/undrr-risk-resilience-maps/issues/89)).

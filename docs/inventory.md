@@ -70,6 +70,37 @@ Download removal and changes to a CSV-enabled view ID have extra safeguards.
 Follow [download maintenance](downloads.md#maintenance) for vetting, contract checks,
 `--allow-removals` and `--csv-vetted`; do not bypass those checks just to make an import pass.
 
+## Keeping layer links stable
+
+Shared links, citations and embeds name layers by their public key
+(`#gar?layers=major-crop-area-exposed`), never by MapX view ID. Treat a published key as
+permanent.
+
+- **A replaced or added MapX view keeps its key.** Put the new ID in the inventory's
+  `MapX view ID` column and import as usual. The importer matches rows by key, so only the
+  layer's `id` (or a source's `id`) changes, and links keep working.
+- **Add compound-layer scenarios at the end of `sources`.** Links carry a source's position
+  (`river-flooding:2`), so inserting, reordering or removing a source changes what existing
+  links show.
+- **Keep a layer in its collection.** A link opens only layers from its own collection (GAR or
+  R&R), so moving a GAR layer into an R&R tab drops it from existing GAR links.
+- **Don't rename a published key, and never reuse one for different content.** If a layer
+  has to go, remove it from the config, retire its key in
+  [data/removed-layer-keys.txt](../data/removed-layer-keys.txt), and update the pages that link
+  to it, such as the GAR landing page. Links that still use the key open the map without that
+  layer. Once outside sites depend on our links, raise a rename before making it: it would
+  need old keys to keep resolving.
+- **Unpublishing a layer** (any `disabled` status) keeps its key in the config, so its links
+  open the map without that layer until it is published again.
+
+[data/public-layer-keys.txt](../data/public-layer-keys.txt) records every key any release
+has published. `src/config/public-keys.test.js` fails if a listed key no longer names a
+layer in the config, published or not, and isn't retired, or if a retired key still names a
+layer. It also fails if a newly published
+key is missing from the list. Add new keys and never delete a line: the
+"Public layer keys are never removed" CI step compares the list with the PR's base branch
+(`node scripts/check-public-keys-ledger.mjs origin/main` runs it locally).
+
 ## Special cases
 
 Runtime external layers have a blank MapX ID and `External runtime` inventory status.
