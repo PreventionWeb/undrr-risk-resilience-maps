@@ -1,8 +1,13 @@
-# Mangrove CiteThis 2.5.0
+# Mangrove CiteThis 2.6.0
 
 Source: [unisdr/undrr-mangrove v2.5.0](https://github.com/unisdr/undrr-mangrove/blob/v2.5.0/stories/assets/js/cite-this.js), commit `71e4867`.
 Downloaded from `https://assets.undrr.org/mangrove/2.5.0/js/cite-this.js`.
 Original SHA-256: `2af482eb59b463b70da9d146467cfeae53a1613ceacb8c3570651d1847e56e6c`.
+
+[v2.6.0](https://github.com/unisdr/undrr-mangrove/blob/v2.6.0/stories/assets/js/cite-this.js)
+(commit `a4e1098e`) ships the same file: `https://assets.undrr.org/mangrove/2.6.0/js/cite-this.js`
+has the identical SHA-256, so upstream has not yet fixed the clipboard continuations below.
+Only the version metadata moved to 2.6.0, to stay aligned with the stylesheet.
 Distributed under the [Apache 2.0 licence](LICENSE); original source comments are retained.
 
 Local modifications: add exported version metadata and an instance `alive` flag,

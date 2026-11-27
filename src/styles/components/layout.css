@@ -96,9 +96,17 @@ nav.mg-container {
   font-weight: 700 !important;
 }
 
+/* The current page's underline. Mangrove 2.6's desktop hover style sets
+   `text-decoration: none` at (0,2,1); the `:hover` selectors (0,3,0) keep the
+   current page marked while the pointer is over it. Mangrove's own
+   `mg-mega-topbar__item--active` means "panel open" in MegaMenu, not "current
+   page", so it isn't used here. */
 .nav-tab-link.is-active,
 .nav-home-link.is-active,
-.nav-info-link.is-active {
+.nav-info-link.is-active,
+.nav-tab-link.is-active:hover,
+.nav-home-link.is-active:hover,
+.nav-info-link.is-active:hover {
   text-decoration: underline;
   text-underline-offset: 4px;
   text-decoration-thickness: 2px;

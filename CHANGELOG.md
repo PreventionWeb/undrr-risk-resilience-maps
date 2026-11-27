@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Update Mangrove to 2.6.0, and keep the current category underlined under its new desktop hover style in the navigation bar.
+
 ## [0.0.18] - 2026-11-27
 
 ### Removed
