@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+## [Unreleased]
+
+### Removed
+
+- Remove the v0.0.16 bundles shipped in v0.0.17 as a bridge for embeds cached before the switch to fixed file names.
+
 ## [0.0.17] - 2026-11-26
 
 ### Added

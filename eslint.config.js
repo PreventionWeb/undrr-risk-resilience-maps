@@ -4,7 +4,7 @@ import globals from "globals";
 export default [
   // `.claude/` holds git worktrees of this repo, each with its own full `src/`.
   // Without it, `yarn lint` reports another branch's code as this one's.
-  { ignores: ["dist/", "dist-relative/", "public/assets/", "node_modules/", "test-results/", ".claude/"] },
+  { ignores: ["dist/", "dist-relative/", "node_modules/", "test-results/", ".claude/"] },
   js.configs.recommended,
   {
     languageOptions: {
