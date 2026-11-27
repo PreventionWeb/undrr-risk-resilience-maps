@@ -78,18 +78,12 @@ On each deploy:
 
 ### First fixed-name release
 
-Copies of `embed.html` from v0.0.16 still name its hashed bundles (`assets/embed-DEh11Ar6.js`,
-`assets/shared-BFTxsJGX.js`, …). drupal-microsites rebuilds the whole site on every pipeline,
-so it can't keep them itself. Instead, v0.0.17 ships them in `public/assets/`, which Vite
-copies into `assets/` beside the new files. They are rebuilt from the `v0.0.16` tag with
-`vite build --base=./`, and their names match that release's `build-maps` job log. A cached
-v0.0.16 page therefore loads its own complete build, lazy chunks included. These files are
-not part of the build graph, so `scripts/check-build-references.mjs`, ESLint and Prettier skip
-them.
-
-Purge the map's HTML, query variants included, when v0.0.17 deploys. **Delete
-`public/assets/` in the release after v0.0.17.** By then no cached page can still name a
-hashed bundle.
+v0.0.17 was the first release with fixed names. It also shipped v0.0.16's hashed bundles in
+`public/assets/` as a bridge, so pages cached before it could still load their own build.
+v0.0.18 removed them once no cache could still hold v0.0.16's HTML: the origin's 5-minute
+`max-age` ([web-backlog#3116](https://gitlab.com/undrr/web-backlog/-/work_items/3116)) plus the
+Cloudflare purge after the v0.0.17 deploy. A tab left open across both releases can still fail
+to load a lazy chunk; reloading it fixes that.
 
 The GitHub Pages preview sends `max-age=600` for everything and replaces the whole site on
 each deploy, so a preview tab can break for up to ten minutes after a merge.
