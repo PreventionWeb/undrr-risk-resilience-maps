@@ -1,8 +1,8 @@
 /**
- * Mangrove CiteThis 2.5.0, Apache-2.0. See README.md and LICENSE in this directory.
+ * Mangrove CiteThis 2.6.0, Apache-2.0. See README.md and LICENSE in this directory.
  * Locally modified: cancel clipboard continuations after instance destruction.
  */
-export const MANGROVE_CITE_THIS_VERSION = "2.5.0";
+export const MANGROVE_CITE_THIS_VERSION = "2.6.0";
 
 /**
  * Vanilla citation dialog for server-rendered pages.

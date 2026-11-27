@@ -116,6 +116,22 @@ for (const width of [375, 899, 900, 901, 1280]) {
   });
 }
 
+// Mangrove 2.6 tints a hovered desktop topbar item and sets
+// `text-decoration: none` on it. The current page keeps its underline anyway.
+test("the current category stays underlined under Mangrove's hover style", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 812 });
+  await gotoApp(page, "#hazard");
+  const active = page.locator('.nav-tab-link[data-tab="hazard"]');
+  await expect(active).toHaveAttribute("aria-current", "page");
+  await active.hover();
+  // The upstream tint applies (after its short transition), so this test also
+  // fails if the hover rule changes shape and the override stops being needed.
+  await expect
+    .poll(() => active.evaluate((link) => getComputedStyle(link).backgroundColor))
+    .not.toBe("rgba(0, 0, 0, 0)");
+  expect(await active.evaluate((link) => getComputedStyle(link).textDecorationLine)).toContain("underline");
+});
+
 // 2.5 restores the browser's own select arrow in forced colours. Our smaller
 // source-selector styles must leave that affordance and the control usable.
 test("source selects keep their native affordance and work in forced colours", async ({ page }) => {

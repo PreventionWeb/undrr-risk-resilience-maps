@@ -9,10 +9,10 @@
  * `mgTabs()` adds window listeners (`resize` and `orientationchange` for
  * `data-mg-js-tabs-stack-on-mobile` containers, `hashchange`) and a
  * `document.fonts` `loadingdone` listener, which only `mgTabsDestroy(scope)`
- * removes. Both are exports of the 2.5.0 module
+ * removes. Both are exports of the module (2.6.0 ships the 2.5.0 file unchanged)
  * (`mgTabs(scope, activateDeepLinkOnLoad = true, options = {})`,
  * `mgTabsDestroy(scope = document, preserveState = false)`); the destroy call
- * is still guarded in case a later release drops it. 2.5.0 also accepts an
+ * is still guarded in case a later release drops it. The module also accepts an
  * `{ signal }` option that destroys the sets it initialised; we keep calling
  * `mgTabsDestroy` ourselves so the wrapper works the same on any release.
  *

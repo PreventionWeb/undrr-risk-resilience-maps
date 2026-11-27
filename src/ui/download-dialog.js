@@ -140,7 +140,7 @@ export function createDownloadDialog({ doc = document } = {}) {
     `;
     fileBox.hidden = false;
     // Reserve this button from the CDN initializer and use the shared local
-    // utility throughout its lifetime. Mangrove 2.5.0's legacy copy fallback
+    // utility throughout its lifetime. Mangrove's legacy copy fallback (unchanged in 2.6.0)
     // focuses a textarea outside the native modal, where it is inert, and can
     // claim success without copying. The local utility reports failure honestly
     // when the Clipboard API is unavailable or blocked (e.g. by an embed host).

@@ -10,7 +10,7 @@
  * `data-mg-copy-button-initialized`, so calling it again over the same scope is
  * a no-op.
  *
- * The 2.5.0 module's only export is `mgCopyButton(scope)`: there is no
+ * The module's only export (2.5.0 and 2.6.0 ship the same file) is `mgCopyButton(scope)`: there is no
  * destroy, and nothing to undo globally -- the one listener it adds is a
  * `click` on the button element itself, so it is collected with the markup
  * whenever the caller replaces it. `signal` therefore covers the part that can

@@ -6,6 +6,33 @@ Design decisions, SDK quirks, and hard-won knowledge for this codebase.
 
 ---
 
+## Mangrove 2.6.0 review (27 November 2026)
+
+Reviewed the [2.6.0 release](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.6.0)
+(tag `a4e1098e`), the v2.5.0..v2.6.0 source diff, and the deployed 2.5.0 and 2.6.0 CDN
+assets. This is a small upgrade for the viewer.
+
+- **JavaScript:** all five consumed modules (`tabs.js`, `copy-button.js`,
+  `on-this-page-nav.js`, `cite-this.js`, `preview-access.js`) are byte-identical to 2.5.0,
+  and nothing under `stories/assets/js` changed. `cite-this.js` still has the clipboard
+  continuations our vendored copy guards, so the local patch stays. Only its version
+  metadata moves to 2.6.0.
+- **CSS:** 25 rules changed, all in MegaMenu (`mg-mega-content`, `mg-mega-topbar`) or the
+  article/reading grid. The viewer uses neither `mg-mega-content` nor `.mg-grid--article`
+  / `.mg-reading`, so the two breaking changes in the notes (click-to-open MegaMenu panels,
+  and the 900px article breakpoint) don't apply. All 35 `--mg-*` tokens read locally are
+  still declared, apart from our own `--mg-card-border`, and none of the 202 `mg-*` names we
+  reference was removed.
+- **One visible change:** 2.6.0 adds a desktop hover style to `.mg-mega-topbar__item >
+:is(a, button)`, an 8% interactive tint plus a 40% underline bar. The category
+  navigation adopts it, but its `text-decoration: none` (0,2,1) would hide the current
+  page's underline while hovered, so `layout.css` adds `:hover` variants of the `is-active`
+  rule. Mangrove's `mg-mega-topbar__item--active` means "panel open", not "current page",
+  so it isn't adopted. A browser test checks both the tint and the kept underline.
+- **Not adopted:** the `mg-button-reset` SCSS mixin (SCSS only), the Tab component's new
+  React props (`stackOnMobile`, `lang`, `dir`; the viewer uses the vanilla module), and the
+  Publication Record and Storybook changes.
+
 ## Mangrove 2.5.0 review (17 November 2026)
 
 Reviewed the official [2.4.0](https://github.com/unisdr/undrr-mangrove/releases/tag/v2.4.0)
